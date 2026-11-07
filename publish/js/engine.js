@@ -22,6 +22,7 @@
       x: 1,
       y: 1,
       hp: 1000,
+      maxHp: 1000,
       atk: 10,
       def: 10,
       gold: 0,
@@ -76,6 +77,8 @@
       s = parsed;
       if (!s.flags) s.flags = {};
       if (!s.ending) s.ending = null;
+      // 兼容旧档：补 maxHp
+      if (!s.maxHp) s.maxHp = Math.max(s.hp, 1000);
       return s;
     } catch (e) {
       return null;
@@ -152,6 +155,7 @@
       s.atk += 3;
       s.def += 3;
       s.hp += 150;
+      s.maxHp += 150;
       ups++;
     }
     return ups;
@@ -171,6 +175,10 @@
     }
     if (it.type === 'hp') {
       s.hp += it.value;
+      if (s.hp > s.maxHp) {
+        // 超上限部分转为护体：提升 maxHp 到当前值，保持体验宽松
+        s.maxHp = s.hp;
+      }
       return { type: 'pickup', msg: `拾取${it.name}，生命 +${it.value}`, good: true };
     }
     if (it.type === 'atk') {

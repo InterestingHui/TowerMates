@@ -86,7 +86,7 @@ html, body {
 .chip.hp b { color: #ff8f8f; }
 .chip small { color: var(--muted); font-size: 10px; margin-left: 1px; }
 
-.keys { display: flex; gap: 8px; font-size: 12px; }
+.keys { display: flex; gap: 8px; font-size: 12px; align-items: center; }
 .keytag { padding: 2px 8px; border-radius: 20px; border: 1px solid transparent; }
 .keytag b { font-weight: 700; }
 .ky { color: #f0c84a; background: rgba(240, 200, 74, 0.08); border-color: rgba(240, 200, 74, 0.25); }
@@ -317,16 +317,90 @@ html, body {
 }
 .end-stats b { color: var(--text); }
 
+.chip.hp {
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 4px;
+}
+.hpwrap {
+  position: relative;
+  width: 100%;
+  height: 14px;
+  background: rgba(0, 0, 0, 0.45);
+  border-radius: 7px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.hpbar {
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, #e85f5f, #ff8f8f);
+  border-radius: 7px;
+  transition: width 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.hptext {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  line-height: 1;
+}
+
+/* 数值变化弹跳 */
+@keyframes bump {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.35); color: #ffe08a; }
+  100% { transform: scale(1); }
+}
+.chip b.bump {
+  animation: bump 0.32s ease-out;
+  display: inline-block;
+}
+
+/* ---------- 成就吐司 ---------- */
+#toast {
+  position: fixed;
+  top: 14px;
+  left: 50%;
+  transform: translate(-50%, -90px);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: linear-gradient(180deg, rgba(26, 32, 46, 0.97), rgba(14, 18, 27, 0.97));
+  border: 1px solid rgba(232, 196, 106, 0.5);
+  border-radius: 14px;
+  padding: 10px 16px;
+  box-shadow: 0 14px 44px rgba(0, 0, 0, 0.6), 0 0 24px rgba(232, 196, 106, 0.15);
+  z-index: 40;
+  transition: transform 0.38s cubic-bezier(0.22, 1.4, 0.36, 1);
+  pointer-events: none;
+  max-width: 86vw;
+}
+#toast.show { transform: translate(-50%, 0); }
+.t-emoji { font-size: 26px; }
+.t-body { min-width: 0; }
+.t-title { font-size: 10px; color: var(--gold); letter-spacing: 1px; }
+.t-name { font-size: 14px; font-weight: 700; color: #fff; margin: 1px 0; }
+.t-desc { font-size: 11px; color: var(--muted); }
+
 /* ---------- 品牌行 ---------- */
 .brand-row { display: flex; justify-content: space-between; align-items: center; }
 .icon-btn {
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
-  font-size: 14px;
+  font-size: 12px;
   padding: 3px 8px;
   cursor: pointer;
+  color: #aeb8cc;
+  font-family: inherit;
 }
+.icon-btn:active { transform: scale(0.95); }
 .icon-btn:active { transform: scale(0.95); }
 
 /* ---------- 对白 ---------- */

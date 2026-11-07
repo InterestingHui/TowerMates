@@ -15,7 +15,7 @@
     </div>
     <div class="floor-name" id="floorName">第 1 层 · 塔之入口</div>
     <div class="chips">
-      <div class="chip hp"><span class="ico">❤️</span><b id="statHp">1000</b></div>
+      <div class="chip hp"><span class="ico">❤️</span><b id="statHp" hidden>1000</b><div class="hpwrap"><div class="hpbar" id="hpBar"></div><span class="hptext" id="hpText">1000</span></div></div>
       <div class="chip"><span class="ico">⚔️</span><b id="statAtk">10</b></div>
       <div class="chip"><span class="ico">🛡️</span><b id="statDef">10</b></div>
       <div class="chip"><span class="ico">💰</span><b id="statGold">0</b></div>
@@ -25,6 +25,7 @@
       <span class="keytag ky">黄 <b id="keyY">1</b></span>
       <span class="keytag kb">蓝 <b id="keyB">0</b></span>
       <span class="keytag kr">红 <b id="keyR">0</b></span>
+      <button class="icon-btn" id="btnCfg" title="设置"><span id="cfgLabel">特效:全 音效:开</span></button>
     </div>
   </header>
 
@@ -125,6 +126,16 @@
   </div>
 </div>
 
+<!-- 成就吐司 -->
+<div id="toast">
+  <div class="t-emoji" id="toastEmoji">⚔️</div>
+  <div class="t-body">
+    <div class="t-title">成就解锁 · <span id="toastCount">0/14</span></div>
+    <div class="t-name" id="toastName">初鸣</div>
+    <div class="t-desc" id="toastDesc">击败第一只怪物</div>
+  </div>
+</div>
+
 <!-- 结局 -->
 <div class="overlay" id="endOverlay">
   <div class="panel end-panel">
@@ -146,6 +157,7 @@
 
 <script src="js/data.js"></script>
 <script src="js/story.js"></script>
+<script src="js/achievements.js"></script>
 <script src="js/engine.js"></script>
 <script src="js/render.js"></script>
 <script src="js/main.js"></script>
