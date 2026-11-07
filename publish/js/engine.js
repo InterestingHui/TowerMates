@@ -1,10 +1,18 @@
 // TowerMates · 魔塔原型 —— 核心逻辑（不依赖 DOM，可在 Node 里跑平衡性模拟）
 (function () {
   const D = window.GAME_DATA;
-  const SAVE_KEY = 'towermates_save_v1';
+  const SAVE_KEY = 'towermates_save_v2';
   const SIZE = 11;
 
   let s = null;
+  let hooks = {}; // UI 钩子：onEvent(type, payload)
+
+  function setHooks(h) {
+    hooks = h || {};
+  }
+  function emit(type, payload) {
+    if (hooks.onEvent) hooks.onEvent(type, payload);
+  }
 
   const floorMaps = () => D.floors.map((f) => f.map.map((row) => row.split('')));
 
@@ -23,7 +31,10 @@
       maps: floorMaps(),
       over: false,
       won: false,
+      ending: null, // 'plain' | 'true'
+      flags: {},    // 剧情标记：candle1/candle2/candle3/journal/boss/…/shopCount/killCount
       steps: 0,
+      startedAt: Date.now(),
     };
     const map = s.maps[0];
     outer: for (let y = 0; y < SIZE; y++) {
@@ -37,6 +48,7 @@
       }
     }
     save();
+    emit('newgame');
     return s;
   }
 
@@ -52,9 +64,7 @@
     if (!s) return;
     try {
       localStorage.setItem(SAVE_KEY, JSON.stringify(s));
-    } catch (e) {
-      /* 隐私模式等场景忽略 */
-    }
+    } catch (e) {}
   }
 
   function load() {
@@ -64,6 +74,8 @@
       const parsed = JSON.parse(raw);
       if (!parsed || !parsed.maps || parsed.maps.length !== D.floors.length) return null;
       s = parsed;
+      if (!s.flags) s.flags = {};
+      if (!s.ending) s.ending = null;
       return s;
     } catch (e) {
       return null;
@@ -93,28 +105,28 @@
     s.steps++;
   }
 
+  // 换层；返回 { floor, x, y }
   function changeFloor(dir) {
     const target = s.floor + dir;
-    if (target < 0 || target >= D.floors.length) return false;
+    if (target < 0 || target >= D.floors.length) return null;
     s.floor = target;
     const map = s.maps[target];
     const mark = dir > 0 ? 'n' : 'u';
-    outer: for (let y = 0; y < SIZE; y++) {
+    for (let y = 0; y < SIZE; y++) {
       for (let x = 0; x < SIZE; x++) {
         if (map[y][x] === mark) {
           s.x = x;
           s.y = y;
-          return true;
+          return { floor: target, x, y };
         }
       }
     }
-    // 兜底：找不到对应楼梯就待在原点
-    return false;
+    return { floor: target, x: s.x, y: s.y };
   }
 
   function predict(ch) {
     const m = D.monsters[ch];
-    if (!m) return null;
+    if (!m || m.ghost) return null;
     const out = s.atk - m.def;
     if (out <= 0) {
       return { win: false, reason: '攻击力不足，无法破防', damage: null, rounds: null, m };
@@ -152,6 +164,11 @@
     }
     const it = D.items[ch];
     if (!it) return null;
+    if (it.type === 'story') {
+      // 剧情道具：工匠手记
+      if (!s.flags.journal) s.flags.journal = true;
+      return { type: 'story', story: 'journal', msg: '拾取了一本泛黄的手记', good: true };
+    }
     if (it.type === 'hp') {
       s.hp += it.value;
       return { type: 'pickup', msg: `拾取${it.name}，生命 +${it.value}`, good: true };
@@ -176,6 +193,14 @@
     return null;
   }
 
+  function finish(ending) {
+    s.won = true;
+    s.ending = ending;
+    s.finishedAt = Date.now();
+    save();
+    emit('finish', { ending });
+  }
+
   function tryMove(dx, dy) {
     if (!s || s.over || s.won) return { type: 'idle' };
     const nx = s.x + dx;
@@ -185,6 +210,14 @@
     if (ch === '#') return { type: 'blocked', msg: '石墙挡住了去路' };
 
     if (D.monsters[ch]) {
+      const m = D.monsters[ch];
+      if (m.ghost) {
+        // 剧情幽灵：站上去触发对白，不战斗
+        setTile(nx, ny, '.');
+        moveTo(nx, ny);
+        save();
+        return { type: 'story', story: m.storyKey || ghostStory(ch), good: true };
+      }
       return { type: 'battle', ch, dx, dy, prediction: predict(ch) };
     }
 
@@ -201,16 +234,16 @@
 
     if (ch === 'u' || ch === 'n') {
       moveTo(nx, ny);
-      changeFloor(ch === 'u' ? 1 : -1);
+      const r = changeFloor(ch === 'u' ? 1 : -1);
       save();
-      return { type: 'floor', msg: `来到第 ${s.floor + 1} 层 · ${D.floors[s.floor].name}` };
+      return { type: 'floor', msg: `来到第 ${s.floor + 1} 层 · ${D.floors[s.floor].name}`, dir: ch === 'u' ? 1 : -1, at: r };
     }
 
     if (ch === 'T') {
       moveTo(nx, ny);
-      s.won = true;
-      save();
-      return { type: 'win' };
+      const hasJournal = !!s.flags.journal;
+      finish(hasJournal ? 'true' : 'plain');
+      return { type: 'princess', hasJournal };
     }
 
     if (ch === 'M') {
@@ -231,10 +264,16 @@
     if (res) {
       setTile(nx, ny, '.');
       save();
+      if (res.type === 'story') emit('story', res.story);
       return res;
     }
     save();
     return { type: 'move' };
+  }
+
+  function ghostStory(ch) {
+    // 幽灵所在层决定对白段
+    return 'candle' + (ch === 'G' ? (s.floor === 0 ? 1 : s.floor === 3 ? 2 : 3) : 1);
   }
 
   function fight(dx, dy) {
@@ -243,17 +282,26 @@
     const ny = s.y + dy;
     const ch = tile(nx, ny);
     const m = D.monsters[ch];
-    if (!m) return { type: 'idle' };
+    if (!m || m.ghost) return { type: 'idle' };
     const p = predict(ch);
     if (!p.win) return { type: 'refuse', msg: p.reason || '无法战胜' };
+
+    // 首次挑战魔王：先触发战前对白，地图与玩家位置都不动
+    if (m.boss && !s.flags.boss) {
+      s.flags.boss = true;
+      save();
+      return { type: 'story', story: 'boss', dx, dy, prediction: p };
+    }
 
     s.hp -= p.damage;
     setTile(nx, ny, '.');
     moveTo(nx, ny);
     s.gold += m.gold;
     s.exp += m.exp;
+    s.flags.killCount = (s.flags.killCount || 0) + 1;
     const ups = levelUp();
     save();
+    emit('kill', { name: m.name, boss: !!m.boss });
     return {
       type: 'fight',
       damage: p.damage,
@@ -276,6 +324,7 @@
     if (item.hp) s.hp += item.hp;
     if (item.atk) s.atk += item.atk;
     if (item.def) s.def += item.def;
+    s.flags.shopCount = (s.flags.shopCount || 0) + 1;
     save();
     return { type: 'buy', item, msg: `购买了${item.name}` };
   }
@@ -286,7 +335,21 @@
     return D.levelExp[s.level - 1];
   }
 
+  // 用于排行榜的摘要
+  function summary() {
+    if (!s) return null;
+    const time = Math.round(((s.finishedAt || Date.now()) - s.startedAt) / 1000);
+    return {
+      ending: s.ending,
+      floor: s.floor + 1,
+      level: s.level,
+      steps: s.steps,
+      time,
+    };
+  }
+
   window.Engine = {
+    setHooks,
     newGame,
     load,
     reset,
@@ -305,5 +368,6 @@
     buy,
     nextLevelExp,
     keyName,
+    summary,
   };
 })();

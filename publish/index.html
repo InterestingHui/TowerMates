@@ -9,14 +9,17 @@
 <body>
 <div id="app">
   <header id="topbar">
-    <div class="brand">TOWER<span>MATES</span></div>
+    <div class="brand-row">
+      <div class="brand">TOWER<span>MATES</span></div>
+      <button class="icon-btn" id="btnBoard" title="塔友榜">🏆</button>
+    </div>
     <div class="floor-name" id="floorName">第 1 层 · 塔之入口</div>
     <div class="chips">
       <div class="chip hp"><span class="ico">❤️</span><b id="statHp">1000</b></div>
       <div class="chip"><span class="ico">⚔️</span><b id="statAtk">10</b></div>
       <div class="chip"><span class="ico">🛡️</span><b id="statDef">10</b></div>
       <div class="chip"><span class="ico">💰</span><b id="statGold">0</b></div>
-      <div class="chip"><span class="ico">⭐</span><b id="statLv">Lv.1</b><small id="statExp">0/15</small></div>
+      <div class="chip"><span class="ico">⭐</span><b id="statLv">Lv.1</b><small id="statExp">0/14</small></div>
     </div>
     <div class="keys">
       <span class="keytag ky">黄 <b id="keyY">1</b></span>
@@ -44,12 +47,24 @@
 <div class="overlay show" id="startOverlay">
   <div class="panel start-panel">
     <div class="logo">TOWER<span>MATES</span></div>
-    <p class="sub">魔塔原型 · v0.1</p>
-    <p class="desc">爬塔、打怪、算伤害。<br>每一场战斗都要算清楚再打。</p>
+    <p class="sub">魔塔原型 · v0.2</p>
+    <p class="desc">第九位勇者的故事，从今夜开始。<br>塔里的事，没有一件是它看起来的样子。</p>
     <button class="btn primary" id="btnNew">开始游戏</button>
     <button class="btn" id="btnContinue" style="display:none">继续游戏</button>
+    <button class="btn" id="btnBoard2">🏆 塔友榜</button>
     <button class="btn ghost" id="btnReset">清空存档</button>
-    <p class="hint">键盘 ↑↓←→ / WASD 移动 · 点击格子移动 · 遇到怪物会弹出战斗预览</p>
+    <p class="hint">键盘 ↑↓←→ / WASD 移动 · 点击格子移动 · 对白点击继续</p>
+  </div>
+</div>
+
+<!-- 对白 -->
+<div class="overlay dialog" id="dialogOverlay">
+  <div class="dlg-wrap">
+    <div class="dlg-box" id="dlgBox">
+      <div class="dlg-who" id="dlgWho"></div>
+      <div class="dlg-text" id="dlgText"></div>
+      <div class="dlg-cue" id="dlgCue">▼</div>
+    </div>
   </div>
 </div>
 
@@ -90,20 +105,47 @@
   </div>
 </div>
 
+<!-- 塔友榜 -->
+<div class="overlay" id="boardOverlay">
+  <div class="panel board-panel">
+    <div class="shop-head">
+      <div class="shop-title">🏆 塔友榜</div>
+      <div class="shop-gold">本机记录</div>
+    </div>
+    <div class="board-list" id="boardList"></div>
+    <div class="code-row">
+      <span class="code-label">我的挑战码</span>
+      <span class="code-val" id="myCode">——</span>
+      <button class="si-buy" id="btnCopyCode">复制</button>
+    </div>
+    <p class="code-hint">把挑战码发给朋友，他可以在他的榜单里贴上比一比（v0.2 先用本机榜，微信版接关系链）。</p>
+    <div class="actions">
+      <button class="btn primary" id="boardClose">关闭</button>
+    </div>
+  </div>
+</div>
+
 <!-- 结局 -->
 <div class="overlay" id="endOverlay">
   <div class="panel end-panel">
-    <div class="end-emoji" id="endEmoji">👸</div>
-    <h2 id="endTitle">公主获救了</h2>
+    <div class="end-emoji" id="endEmoji">🕯️</div>
+    <h2 id="endTitle">结局</h2>
     <p id="endDesc"></p>
+    <div class="end-body" id="endBody"></div>
     <div class="end-stats" id="endStats"></div>
+    <div class="code-row">
+      <span class="code-label">挑战码</span>
+      <span class="code-val" id="endCode">——</span>
+    </div>
     <div class="actions">
       <button class="btn primary" id="btnAgain">再来一局</button>
+      <button class="btn" id="btnBoard">🏆 榜单</button>
     </div>
   </div>
 </div>
 
 <script src="js/data.js"></script>
+<script src="js/story.js"></script>
 <script src="js/engine.js"></script>
 <script src="js/render.js"></script>
 <script src="js/main.js"></script>

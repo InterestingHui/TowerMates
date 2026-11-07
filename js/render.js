@@ -164,6 +164,15 @@
       ctx.fillStyle = g;
       ctx.fillRect(px, py, TILE, TILE);
     }
+    if (m.ghost) {
+      const pulse = 0.5 + Math.sin(t / 300) * 0.5;
+      glow('rgba(159,216,255,' + (0.2 + pulse * 0.25) + ')', TILE * 0.45);
+      ctx.globalAlpha = 0.9;
+      drawEmoji(m.emoji, px, py + bob * 1.6, 0.58);
+      ctx.globalAlpha = 1;
+      noGlow();
+      return;
+    }
     drawEmoji(m.emoji, px, py + bob, m.boss ? 0.72 : 0.6);
   }
 
@@ -209,6 +218,10 @@
         } else if (ch === 'T') {
           glow('rgba(255,240,150,0.5)', TILE * 0.5);
           drawEmoji('👸', px, py, 0.66);
+          noGlow();
+        } else if (ch === 'J') {
+          glow('rgba(200,160,255,0.4)', TILE * 0.4);
+          drawEmoji('📜', px, py + Math.sin(t / 500) * TILE * 0.03, 0.58);
           noGlow();
         } else if (D.items[ch] || ch === '$') drawItem(ch, px, py, t);
       }
