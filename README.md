@@ -56,6 +56,16 @@ node tools/sim.js        # 贪心模拟能否通关、承伤是否合理
 node tools/engine-test.js
 ```
 
+## 发布
+
+线上版只取 `index.html + css/ + js/`，不包含 tools 和 .workbuddy 笔记：
+
+```bash
+cp index.html publish/ && cp -r css js publish/
+```
+
+然后用应用发布能力部署 `publish/` 目录。
+
 ## 下一步可加的东西
 
 - 商店扩展（钥匙/属性/技能）
