@@ -419,6 +419,27 @@
     noGlow();
   }
 
+  // 自动寻路目标标记
+  let targetMarker = null;
+  function setTarget(tx, ty) {
+    targetMarker = tx == null ? null : { tx, ty, start: performance.now() };
+  }
+
+  function drawTargetMarker() {
+    if (!targetMarker) return;
+    const p = ((performance.now() - targetMarker.start) % 900) / 900;
+    const a = 0.35 + 0.35 * (1 - p);
+    ctx.save();
+    ctx.strokeStyle = `rgba(232,196,106,${a.toFixed(2)})`;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 4]);
+    ctx.lineDashOffset = -p * 18;
+    const inset = 3 + p * 2;
+    roundRect(targetMarker.tx * TILE + inset, targetMarker.ty * TILE + inset, TILE - inset * 2, TILE - inset * 2, 5);
+    ctx.stroke();
+    ctx.restore();
+  }
+
   // ---------- 主绘制 ----------
   let lastDt = 16;
   let lastNow = 0;
@@ -436,7 +457,7 @@
 
     // 楼层切换 → 重置氛围与显示坐标
     if (state.floor !== lastFloor) {
-      if (lastFloor !== -1) setAmbient(state.floor);
+      setAmbient(state.floor);
       disp.x = state.x;
       disp.y = state.y;
     }
@@ -495,6 +516,7 @@
     // 氛围粒子在角色层下
     updateAmbient(lastDt, now);
     drawAmbientOverlay();
+    drawTargetMarker();
 
     // 玩家（平滑跟随 + 挤压拉伸）
     const k = 1 - Math.pow(0.0008, lastDt / 1000);
@@ -528,6 +550,6 @@
   window.Renderer = {
     init, layout, draw,
     addFloat, shake, fade, getTile: () => TILE,
-    freeze, pulse, flashTile, ring, burst, setAmbient,
+    freeze, pulse, flashTile, ring, burst, setAmbient, setTarget,
   };
 })();

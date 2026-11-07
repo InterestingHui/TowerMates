@@ -44,7 +44,6 @@ window.GAME_DATA = (function () {
     {
       name: '塔之入口',
       tip: '塔内的空气不流动，像被谁屏住了呼吸。',
-      story: 'candle1',
       map: [
         '###########',
         '#....#....#',
@@ -96,7 +95,6 @@ window.GAME_DATA = (function () {
     {
       name: '密道',
       tip: '这一层不在图纸上。造它的人，想藏起一个答案。',
-      story: 'candle2',
       map: [
         '###########',
         '#n.......$#',
@@ -131,7 +129,6 @@ window.GAME_DATA = (function () {
     {
       name: '密道深处',
       tip: '烛火在这里格外亮，像是有人特意留着。',
-      story: 'candle3',
       map: [
         '###########',
         '#n......W.#',

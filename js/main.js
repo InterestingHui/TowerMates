@@ -552,6 +552,7 @@
   function showEnd() {
     if (endShown) return;
     endShown = true;
+    stopWalk();
     const s = Engine.state();
     const E = s.ending === 'true' ? S.endingTrue : S.endingPlain;
     const sum = Engine.summary();
@@ -580,6 +581,102 @@
     $('endCode').textContent = encodeChallenge(sum);
     Achievements.evaluate('finish', s, notifyAchievement);
     el.endOverlay.classList.add('show');
+  }
+
+  // ---------- 点击寻路 ----------
+  let walkTimer = null;
+
+  function stopWalk() {
+    if (walkTimer) {
+      clearTimeout(walkTimer);
+      walkTimer = null;
+    }
+    Renderer.setTarget(null);
+  }
+
+  function walkAlong(path, tx, ty) {
+    if (!path || !path.length) return;
+    Renderer.setTarget(tx, ty);
+    let i = 0;
+    const step = () => {
+      walkTimer = null;
+      if (i >= path.length) {
+        stopWalk();
+        return;
+      }
+      const [dx, dy] = path[i++];
+      const s0 = Engine.state();
+      const floor0 = s0 ? s0.floor : -1;
+      const px0 = s0 ? s0.x : -1;
+      const py0 = s0 ? s0.y : -1;
+      act(dx, dy);
+      const s1 = Engine.state();
+      // 遇到战斗 / 对话 / 商店 / 换层 / 结局 / 原地没动（被门或墙挡住），立即中断
+      if (!s1 || s1.over || s1.won || battleBusy || typing ||
+          el.dialogOverlay.classList.contains('show') || shopOpen ||
+          el.codexOverlay.classList.contains('show') || s1.floor !== floor0 ||
+          (s1.x === px0 && s1.y === py0)) {
+        stopWalk();
+        return;
+      }
+      walkTimer = setTimeout(step, 110);
+    };
+    step();
+  }
+
+  // 点击地面格子：能走就一路走过去
+  function clickMove(cx, cy) {
+    const s = Engine.state();
+    if (!s) return;
+    if (cx === s.x && cy === s.y) {
+      stopWalk();
+      return;
+    }
+    const dx = cx - s.x;
+    const dy = cy - s.y;
+    // 相邻一格：保留原手感，直接走/打
+    if (Math.abs(dx) + Math.abs(dy) === 1) {
+      stopWalk();
+      act(dx, dy);
+      return;
+    }
+    const ch = Engine.tile(cx, cy);
+    // 远处怪物：走到它旁边最近的空格
+    if (D.monsters[ch]) {
+      let best = null;
+      [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([ox, oy]) => {
+        const p = Engine.pathTo(cx + ox, cy + oy);
+        if (p && p.length && (!best || p.length < best.length)) best = p;
+      });
+      if (best) {
+        stopWalk();
+        walkAlong(best, cx, cy);
+        return;
+      }
+      const near = Engine.pathToNear(cx, cy);
+      if (near) {
+        stopWalk();
+        walkAlong(near.path, near.x, near.y);
+        warn('就近靠过去，前面有怪挡路');
+        return;
+      }
+      warn('没有能靠近它的路');
+      return;
+    }
+    const path = Engine.pathTo(cx, cy);
+    if (path) {
+      stopWalk();
+      walkAlong(path, cx, cy);
+      return;
+    }
+    // 不可直达（多半是怪挡走廊）：走到最近的可达点
+    const near = Engine.pathToNear(cx, cy);
+    if (near) {
+      stopWalk();
+      walkAlong(near.path, near.x, near.y);
+      return;
+    }
+    warn('走不过去');
   }
 
   // ---------- 行动 ----------
@@ -696,27 +793,26 @@
       else if (k === 'arrowdown' || k === 's') d = dirs.down;
       else if (k === 'arrowleft' || k === 'a') d = dirs.left;
       else if (k === 'arrowright' || k === 'd') d = dirs.right;
-      if (d) { e.preventDefault(); act(d[0], d[1]); }
+      if (d) { e.preventDefault(); stopWalk(); act(d[0], d[1]); }
     });
 
     document.querySelectorAll('#dpad button').forEach((b) => {
       b.addEventListener('click', () => {
         const d = dirs[b.dataset.dir];
-        if (d) act(d[0], d[1]);
+        if (d) { stopWalk(); act(d[0], d[1]); }
       });
     });
 
     el.canvas.addEventListener('click', (e) => {
       const s = Engine.state();
-      if (!s || shopOpen || endShown) return;
+      if (!s || shopOpen || endShown || battleBusy) return;
+      if (el.dialogOverlay.classList.contains('show') || el.codexOverlay.classList.contains('show')) return;
       const rect = el.canvas.getBoundingClientRect();
       const size = rect.width / 11;
       const x = Math.floor((e.clientX - rect.left) / size);
       const y = Math.floor((e.clientY - rect.top) / size);
-      const dx = x - s.x;
-      const dy = y - s.y;
-      if (Math.abs(dx) + Math.abs(dy) !== 1) return;
-      act(dx, dy);
+      if (x < 0 || y < 0 || x > 10 || y > 10) return;
+      clickMove(x, y);
     });
 
     $('shopClose').addEventListener('click', closeShop);
@@ -745,6 +841,7 @@
   // ---------- 启动 ----------
   function startGame() {
     Engine.newGame();
+    stopWalk();
     endShown = false;
     el.log.innerHTML = '';
     el.startOverlay.classList.remove('show');

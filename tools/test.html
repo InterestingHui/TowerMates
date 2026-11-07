@@ -27,6 +27,34 @@
         s.y = p[2];
         if (p[3] !== undefined) s.flags.journal = !!p[3];
       }
+      if (q.get('click')) {
+        var cp = q.get('click').split(',').map(Number);
+        setTimeout(function () {
+          var cv = d.getElementById('game');
+          var r = cv.getBoundingClientRect();
+          var size = r.width / 11;
+          cv.dispatchEvent(new MouseEvent('click', {
+            bubbles: true,
+            clientX: r.left + (cp[0] + 0.5) * size,
+            clientY: r.top + (cp[1] + 0.5) * size,
+          }));
+        }, 1500);
+        setTimeout(function () {
+          var st = w.Engine.state();
+          var cv = d.getElementById('game');
+          var r = cv.getBoundingClientRect();
+          var size = r.width / 11;
+          var el2 = d.elementFromPoint(r.left + (cp[0] + 0.5) * size, r.top + (cp[1] + 0.5) * size);
+          var pth = w.Engine.pathTo(cp[0], cp[1]);
+          var pre = document.createElement('pre');
+          pre.id = 'dbgpos';
+          pre.style.cssText = 'position:fixed;left:0;bottom:0;color:#0f0;font-size:10px;z-index:99';
+          pre.textContent = 'POS ' + st.x + ',' + st.y + ' floor=' + st.floor + ' steps=' + st.steps +
+            ' path=' + (pth ? pth.length : 'null') + ' rectW=' + r.width.toFixed(1) +
+            ' hit=' + (el2 ? (el2.id || el2.tagName) : 'none') + ' dlg=' + d.getElementById('dialogOverlay').classList.contains('show');
+          document.body.appendChild(pre);
+        }, 3200);
+      }
       var gold = q.get('gold');
       if (gold) w.Engine.state().gold = Number(gold);
       if (q.get('atk')) w.Engine.state().atk = Number(q.get('atk'));

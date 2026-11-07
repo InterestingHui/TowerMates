@@ -345,6 +345,95 @@
     return D.levelExp[s.level - 1];
   }
 
+  // ---------- 寻路：返回从当前位置到目标的逐步方向数组 ----------
+  function passableForPath(x, y) {
+    const ch = tile(x, y);
+    if (ch === '#') return false;
+    if (D.monsters[ch]) return false; // 怪物不穿越（撞上即战由单步处理）
+    if (ch === 'y' || ch === 'b' || ch === 'r') return s.keys[ch] > 0;
+    if (ch === 'u' || ch === 'n') return false; // 不穿过楼梯，避免半路换层
+    return true;
+  }
+
+  function pathTo(tx, ty) {
+    if (!s || s.over || s.won) return null;
+    if (tx < 0 || ty < 0 || tx >= SIZE || ty >= SIZE) return null;
+    if (tx === s.x && ty === s.y) return [];
+    const targetCh = tile(tx, ty);
+    if (targetCh === '#' || D.monsters[targetCh]) return null;
+    if ((targetCh === 'y' || targetCh === 'b' || targetCh === 'r') && s.keys[targetCh] <= 0) return null;
+
+    const startKey = s.x + ',' + s.y;
+    const prev = new Map();
+    prev.set(startKey, null);
+    const q = [[s.x, s.y]];
+    while (q.length) {
+      const [x, y] = q.shift();
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = x + dx;
+        const ny = y + dy;
+        const key = nx + ',' + ny;
+        if (prev.has(key)) continue;
+        if (nx < 0 || ny < 0 || nx >= SIZE || ny >= SIZE) continue;
+        const isTarget = nx === tx && ny === ty;
+        if (!isTarget && !passableForPath(nx, ny)) continue;
+        if (isTarget && tile(nx, ny) === '#') continue;
+        prev.set(key, [x, y]);
+        q.push([nx, ny]);
+        if (isTarget) {
+          const path = [];
+          let cur = [nx, ny];
+          while (!(cur[0] === s.x && cur[1] === s.y)) {
+            const p = prev.get(cur.join(','));
+            if (!p) return null;
+            path.push([cur[0] - p[0], cur[1] - p[1]]);
+            cur = p;
+          }
+          return path.reverse();
+        }
+      }
+    }
+    return null;
+  }
+
+  // 目标不可直达时：走到「离目标最近的、能走到的格子」
+  function pathToNear(tx, ty) {
+    if (!s || s.over || s.won) return null;
+    const visited = new Map();
+    visited.set(s.x + ',' + s.y, { prev: null, depth: 0 });
+    const q = [[s.x, s.y]];
+    let best = { x: s.x, y: s.y, d: Math.abs(s.x - tx) + Math.abs(s.y - ty), depth: 0 };
+    while (q.length) {
+      const [x, y] = q.shift();
+      const info = visited.get(x + ',' + y);
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = x + dx;
+        const ny = y + dy;
+        const key = nx + ',' + ny;
+        if (visited.has(key)) continue;
+        if (nx < 0 || ny < 0 || nx >= SIZE || ny >= SIZE) continue;
+        if (!passableForPath(nx, ny)) continue;
+        visited.set(key, { prev: [x, y], depth: info.depth + 1 });
+        q.push([nx, ny]);
+        const d = Math.abs(nx - tx) + Math.abs(ny - ty);
+        if (d < best.d || (d === best.d && info.depth + 1 < best.depth)) {
+          best = { x: nx, y: ny, d, depth: info.depth + 1 };
+        }
+      }
+    }
+    if (best.x === s.x && best.y === s.y) return null;
+    // 回溯路径
+    const path = [];
+    let cur = [best.x, best.y];
+    while (!(cur[0] === s.x && cur[1] === s.y)) {
+      const rec = visited.get(cur.join(','));
+      if (!rec || !rec.prev) return null;
+      path.push([cur[0] - rec.prev[0], cur[1] - rec.prev[1]]);
+      cur = rec.prev;
+    }
+    return { path: path.reverse(), x: best.x, y: best.y };
+  }
+
   // 用于排行榜的摘要
   function summary() {
     if (!s) return null;
@@ -376,6 +465,8 @@
     tryMove,
     fight,
     buy,
+    pathTo,
+    pathToNear,
     nextLevelExp,
     keyName,
     summary,
