@@ -1,5 +1,12 @@
 # TowerMates 长期记忆
 
+## 当前进度（2026-11-07）
+- 原型 v0.1 已完成并上线：https://towermates.app.workbuddy.host/?sharecode=U7XMLC2NKJ
+- 技术形态：纯前端 HTML5（原生 JS + Canvas，零依赖），6 层塔可通关；data.js 数据驱动（11x11 字符串地图）。
+- 线上发布目录 publish/（只含 index.html + css + js）；源码根目录另有 tools/ 校验与模拟脚本。
+- 开发命令：`node tools/check.js` / `node tools/sim.js` / `node tools/engine-test.js`。
+- 注意：本地 git 无远端（无 gh CLI），推 GitHub 需用户提供仓库或凭据。
+
 ## 项目定位
 - 魔塔类小程序游戏（微信小游戏），2026-11-06 时仓库为空，处于立项前调研阶段。
 - 项目名 TowerMates 暗示"魔塔 + 社交/伙伴"方向。
