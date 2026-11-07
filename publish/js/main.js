@@ -249,37 +249,19 @@
     const cue = $('dlgCue');
     who.textContent = line.who;
     who.className = 'dlg-who ' + (line.who === '烛' ? 'ghost' : line.who === '薇拉' ? 'vera' : line.who === '魔王' ? 'boss' : '');
-    cue.style.visibility = 'hidden';
-    typing.timer = setInterval(() => {
-      typing.charIdx++;
-      const doneTyping = typing.charIdx >= line.text.length;
-      box.textContent = line.text.slice(0, typing.charIdx);
-      if (typing.charIdx % 3 === 0) Sound.play('talk');
-      if (doneTyping) {
-        clearInterval(typing.timer);
-        typing.done = true;
-        cue.style.visibility = 'visible';
-        cue.textContent = typing.idx >= typing.lines.length - 1 ? '— 点击结束 —' : '▼';
-      }
-    }, 26);
+    // 整句直接显示，不做逐字打字机
+    box.textContent = line.text;
+    typing.charIdx = line.text.length;
+    typing.done = true;
+    Sound.play('talk');
+    cue.style.visibility = 'visible';
+    cue.textContent = typing.idx >= typing.lines.length - 1 ? '— 点击结束 —' : '▼';
   }
 
   function advanceDialog() {
     if (!typing) return;
-    const line = typing.lines[typing.idx];
-    if (!typing.done) {
-      clearInterval(typing.timer);
-      $('dlgText').textContent = line.text;
-      typing.charIdx = line.text.length;
-      typing.done = true;
-      $('dlgCue').style.visibility = 'visible';
-      $('dlgCue').textContent = typing.idx >= typing.lines.length - 1 ? '— 点击结束 —' : '▼';
-      return;
-    }
     if (typing.idx < typing.lines.length - 1) {
       typing.idx++;
-      typing.charIdx = 0;
-      typing.done = false;
       renderLine();
       return;
     }
