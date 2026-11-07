@@ -28,7 +28,7 @@
       gold: 0,
       exp: 0,
       level: 1,
-      keys: { y: 1, b: 0, r: 0 },
+      keys: { y: 1, r: 0 },
       maps: floorMaps(),
       over: false,
       won: false,
@@ -77,6 +77,9 @@
       s = parsed;
       if (!s.flags) s.flags = {};
       if (!s.ending) s.ending = null;
+      // 旧档兼容：蓝钥匙并入红钥匙
+      if (s.keys && s.keys.b !== undefined) { s.keys.r = (s.keys.r || 0) + (s.keys.b || 0); delete s.keys.b; }
+      if (!s.keys) s.keys = { y: 0, r: 0 };
       // 兼容旧档：补 maxHp
       if (!s.maxHp) s.maxHp = Math.max(s.hp, 1000);
       return s;
@@ -99,7 +102,7 @@
   };
 
   function keyName(k) {
-    return k === 'y' ? '黄钥匙' : k === 'b' ? '蓝钥匙' : '红钥匙';
+    return k === 'y' ? '黄钥匙' : '红钥匙';
   }
 
   function moveTo(x, y) {
@@ -229,7 +232,7 @@
       return { type: 'battle', ch, dx, dy, prediction: predict(ch) };
     }
 
-    if (ch === 'y' || ch === 'b' || ch === 'r') {
+    if (ch === 'y' || ch === 'r') {
       if (s.keys[ch] > 0) {
         s.keys[ch]--;
         setTile(nx, ny, '.');
@@ -350,7 +353,7 @@
     const ch = tile(x, y);
     if (ch === '#') return false;
     if (D.monsters[ch]) return false; // 怪物不穿越（撞上即战由单步处理）
-    if (ch === 'y' || ch === 'b' || ch === 'r') return s.keys[ch] > 0;
+    if (ch === 'y' || ch === 'r') return s.keys[ch] > 0;
     if (ch === 'u' || ch === 'n') return false; // 不穿过楼梯，避免半路换层
     return true;
   }
@@ -361,7 +364,7 @@
     if (tx === s.x && ty === s.y) return [];
     const targetCh = tile(tx, ty);
     if (targetCh === '#' || D.monsters[targetCh]) return null;
-    if ((targetCh === 'y' || targetCh === 'b' || targetCh === 'r') && s.keys[targetCh] <= 0) return null;
+    if ((targetCh === 'y' || targetCh === 'r') && s.keys[targetCh] <= 0) return null;
 
     const startKey = s.x + ',' + s.y;
     const prev = new Map();

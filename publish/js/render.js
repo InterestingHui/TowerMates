@@ -164,7 +164,7 @@
   }
 
   function drawDoor(ch, px, py) {
-    const color = ch === 'y' ? ['#8a6a18', '#c9a23a'] : ch === 'b' ? ['#1d4a7a', '#3f87c9'] : ['#7a1f24', '#c94a52'];
+    const color = ch === 'y' ? ['#8a6a18', '#c9a23a'] : ['#7a1f24', '#c94a52'];
     const g = ctx.createLinearGradient(px, py, px, py + TILE);
     g.addColorStop(0, color[1]);
     g.addColorStop(1, color[0]);
@@ -483,7 +483,7 @@
         const py = y * TILE;
         drawFloor(px, py, x, y);
         if (ch === '#') drawWall(px, py);
-        else if (ch === 'y' || ch === 'b' || ch === 'r') drawDoor(ch, px, py);
+        else if (ch === 'y' || ch === 'r') drawDoor(ch, px, py);
         else if (ch === 'u' || ch === 'n') drawStairs(ch, px, py);
         else if (D.monsters[ch]) {
           drawMonster(ch, px, py, tt);

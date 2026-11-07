@@ -60,6 +60,7 @@
       if (q.get('atk')) w.Engine.state().atk = Number(q.get('atk'));
       if (q.get('def')) w.Engine.state().def = Number(q.get('def'));
       if (q.get('hp')) { w.Engine.state().hp = Number(q.get('hp')); w.Engine.state().maxHp = Number(q.get('hp')); }
+      if (q.get('merchant') === '1') w.Engine.state().flags.merchant = true;
       if (q.get('codex') === '1') {
         w.Engine.state().flags.codex = true;
         var cb = d.getElementById('btnCodex');

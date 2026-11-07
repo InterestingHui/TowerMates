@@ -36,7 +36,6 @@
     statLv: $('statLv'),
     statExp: $('statExp'),
     keyY: $('keyY'),
-    keyB: $('keyB'),
     keyR: $('keyR'),
     log: $('log'),
     startOverlay: $('startOverlay'),
@@ -213,7 +212,6 @@
     el.statLv.textContent = 'Lv.' + s.level;
     el.statExp.textContent = next ? `${s.exp}/${next}` : `${s.exp} · MAX`;
     el.keyY.textContent = s.keys.y;
-    el.keyB.textContent = s.keys.b;
     el.keyR.textContent = s.keys.r;
     $('btnCodex').style.display = unlocked ? '' : 'none';
     ['statAtk', 'statDef', 'statGold'].forEach((id) => {
@@ -752,7 +750,17 @@
         log(ev.msg, 'good');
         break;
       case 'shop':
-        openShop();
+        // 首次遇到商人：先说明背景与货品，讲完才开购买界面
+        if (!Engine.state().flags.merchant) {
+          Engine.state().flags.merchant = true;
+          Engine.save();
+          playStory('merchant', () => {
+            Sound.play('buy');
+            openShop();
+          });
+        } else {
+          openShop();
+        }
         break;
       case 'princess':
         playStory(ev.hasJournal ? 'princessTrue' : 'princessPlain', () => { refreshHud(); showEnd(); });

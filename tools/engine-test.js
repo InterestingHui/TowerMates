@@ -15,6 +15,7 @@ function ok(cond, msg) {
   else { fail++; console.log('✗ ' + msg); }
 }
 
+const D = global.GAME_DATA;
 const E = window.Engine;
 E.newGame();
 let s = E.state();
@@ -32,8 +33,8 @@ let ev = E.tryMove(1, 0);
 ok(ev.type === 'open' && s.keys.y === 0, '黄门打开并消耗钥匙');
 ok(E.tile(9, 7) === '.', '门变成地面');
 
-// 3. 无钥匙时被锁（第 3 层蓝门 (9,6)? 不存在；用第 4 层蓝门 (9,2)）
-s.floor = 3; s.x = 8; s.y = 2; s.keys.b = 0;
+// 3. 无钥匙时被锁（第 4 层红门 (9,2)）
+s.floor = 3; s.x = 8; s.y = 2; s.keys.r = 0;
 const locked = E.tryMove(1, 0);
 ok(locked.type === 'locked', '无钥匙不能开门');
 
@@ -103,6 +104,34 @@ ok(s.floor === before, '普通格子不换层');
 store['towermates_save_v2'] = JSON.stringify(s);
 E.load();
 ok(E.state().floor === before, '存档可读取');
+
+// 11. 爬塔链路：每层踩上楼都要能进下一层（防断层）
+E.newGame();
+s = E.state();
+let chainOk = true;
+for (let fi = 0; fi < D.floors.length - 1; fi++) {
+  s.floor = fi;
+  const map = s.maps[fi];
+  let ux = -1, uy = -1;
+  for (let y = 0; y < 11; y++) for (let x = 0; x < 11; x++) if (map[y][x] === 'u') { ux = x; uy = y; }
+  if (ux < 0) { console.log(`✗ 第 ${fi + 1} 层没有上楼`); chainOk = false; break; }
+  // 找楼梯旁一个可站立格
+  let px = -1, py = -1;
+  for (const [dx, dy] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
+    const nx = ux + dx, ny = uy + dy;
+    const ch = map[ny] && map[ny][nx];
+    if (ch && ch !== '#' && !D.monsters[ch]) { px = nx; py = ny; break; }
+  }
+  if (px < 0) { console.log(`✗ 第 ${fi + 1} 层楼梯不可达`); chainOk = false; break; }
+  s.x = px; s.y = py;
+  const ev = E.tryMove(ux - px, uy - py);
+  if (ev.type !== 'floor' || s.floor !== fi + 1) {
+    console.log(`✗ 第 ${fi + 1} 层上楼失败（到 ${s.floor + 1} 层）`);
+    chainOk = false;
+    break;
+  }
+}
+ok(chainOk, '九层塔每一层都能正常上楼（无断层）');
 
 console.log(fail === 0 ? '\n✓ 全部通过' : `\n✗ ${fail} 项失败`);
 process.exit(fail ? 1 : 0);

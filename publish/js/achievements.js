@@ -62,7 +62,7 @@
     if (s.level >= 8) unlock('lv8', notify);
     if (s.gold >= 500) unlock('rich', notify);
     if ((s.flags.shopCount || 0) >= 5) unlock('shopper', notify);
-    if (s.keys.y + s.keys.b + s.keys.r >= 3) unlock('keys3', notify);
+    if (s.keys.y + s.keys.r >= 3) unlock('keys3', notify);
     if (s.flags.secret1) unlock('secret1', notify);
     if (s.flags.secret2) unlock('secret2', notify);
     if (s.flags.journal) unlock('journal', notify);

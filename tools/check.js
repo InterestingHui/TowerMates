@@ -22,10 +22,8 @@ D.floors.forEach((f, fi) => {
   console.log('  元素:', Object.keys(counts).sort().map((k) => `${k}:${counts[k]}`).join(' '));
   if (fi === 0 && counts['@'] !== 1) err('第一层应有且仅有 1 个 @');
   if (fi > 0 && counts['@']) err('只有第一层能有 @');
-  // 密道层（3、5，0 起）是支线：只有 n 没有 u，进入后回头下楼返回第 4 层
-  const isSide = fi === 3 || fi === 5;
-  if (!isSide && fi < D.floors.length - 1 && counts['u'] !== 1) err(`应有且仅有 1 个上楼 u（实际 ${counts['u'] || 0}）`);
-  if (isSide && counts['u']) err('密道层不应有上楼');
+  // 每一层（除顶层）都必须有且仅有 1 个上楼，否则会卡层
+  if (fi < D.floors.length - 1 && counts['u'] !== 1) err(`应有且仅有 1 个上楼 u（实际 ${counts['u'] || 0}）`);
   if (fi > 0 && counts['n'] !== 1) err(`应有且仅有 1 个下楼 n（实际 ${counts['n'] || 0}）`);
   if (fi === D.floors.length - 1 && counts['u']) err('顶层不应有上楼');
   if (fi === 0 && counts['n']) err('第一层不应有下楼');
