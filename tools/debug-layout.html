@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>layout debug</title></head>
+<body style="margin:0;background:#000">
+<iframe id="f" src="/index.html" style="width:430px;height:900px;border:0"></iframe>
+<pre id="out" style="color:#0f0;font-size:12px"></pre>
+<script>
+  var f = document.getElementById('f');
+  f.onload = function () {
+    setTimeout(function () {
+      var d = f.contentDocument, w = f.contentWindow;
+      d.getElementById('btnNew').click();
+      setTimeout(function () {
+        var box = d.querySelector('.dlg-box');
+        var wrap = d.querySelector('.dlg-wrap');
+        var txt = d.getElementById('dlgText');
+        function m(el, name) {
+          var r = el.getBoundingClientRect();
+          var cs = w.getComputedStyle(el);
+          return name + ': ' + r.width.toFixed(1) + 'x' + r.height.toFixed(1) +
+            ' cssW=' + cs.width + ' display=' + cs.display + ' flexDir=' + cs.flexDirection +
+            ' align=' + cs.alignItems + ' ws=' + cs.whiteSpace + ' font=' + cs.fontSize;
+        }
+        document.getElementById('out').textContent = [
+          m(wrap, 'WRAP'),
+          m(box, 'BOX'),
+          m(txt, 'TEXT'),
+          'TEXT_CONTENT=' + JSON.stringify(txt.textContent),
+          'OVERLAY_DISPLAY=' + w.getComputedStyle(d.getElementById('dialogOverlay')).display,
+        ].join('\n');
+      }, 400);
+    }, 300);
+  };
+</script>
+</body>
+</html>

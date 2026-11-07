@@ -231,7 +231,12 @@
       if (cb) cb();
       return;
     }
-    const lines = script.map(([who, text]) => ({ who, text }));
+    // 兼容两种写法：["旁白文本", ...] 或 [["角色", "台词"], ...]
+    // （此前序章是纯字符串数组，被按 [who, text] 解构，导致每页只显示一个字）
+    const lines = script.map((row) => {
+      if (Array.isArray(row)) return { who: row[0] || '', text: row[1] || '' };
+      return { who: '', text: String(row) };
+    });
     el.dialogOverlay.classList.add('show');
     startTyping(lines, cb);
   }
@@ -249,6 +254,7 @@
     const cue = $('dlgCue');
     who.textContent = line.who;
     who.className = 'dlg-who ' + (line.who === '烛' ? 'ghost' : line.who === '薇拉' ? 'vera' : line.who === '魔王' ? 'boss' : '');
+    who.style.display = line.who ? '' : 'none';
     // 整句直接显示，不做逐字打字机
     box.textContent = line.text;
     typing.charIdx = line.text.length;
