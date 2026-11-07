@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>auto test</title></head>
+<body style="margin:0;background:#05070c">
+<iframe id="f" src="/index.html" style="width:430px;height:900px;border:0"></iframe>
+<script>
+  // 开发用：自动开局，可选直接跳到某层某坐标，并按 keys 参数派发按键
+  // keys: U/D/L/R 方向，E 确认（Enter），X 取消（Esc）
+  var q = new URLSearchParams(location.search);
+  var f = document.getElementById('f');
+  f.onload = function () {
+    var w = f.contentWindow, d = f.contentDocument;
+    setTimeout(function () {
+      var st = d.createElement('style');
+      st.textContent = '*{animation:none!important;transition:none!important}';
+      d.head.appendChild(st);
+      var btn = d.getElementById('btnNew');
+      if (btn) btn.click();
+
+      var spec = q.get('state');
+      if (spec) {
+        var p = spec.split(',').map(Number);
+        var s = w.Engine.state();
+        s.floor = p[0];
+        s.x = p[1];
+        s.y = p[2];
+      }
+
+      var keys = (q.get('keys') || '').split('').filter(Boolean);
+      var map = { U: 'ArrowUp', D: 'ArrowDown', L: 'ArrowLeft', R: 'ArrowRight', E: 'Enter', X: 'Escape' };
+      var i = 0;
+      var iv = setInterval(function () {
+        if (i >= keys.length) { clearInterval(iv); return; }
+        w.dispatchEvent(new KeyboardEvent('keydown', { key: map[keys[i]] }));
+        i++;
+      }, 180);
+    }, 250);
+  };
+</script>
+</body>
+</html>
