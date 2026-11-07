@@ -47,6 +47,7 @@
     toast: $('toast'),
     warnPill: $('warnPill'),
     battleScene: $('battleScene'),
+    choiceOverlay: $('choiceOverlay'),
     bsHero: $('bsHero'),
     bsFoe: $('bsFoe'),
     bsHeroBar: $('bsHeroBar'),
@@ -288,7 +289,7 @@
     try { localStorage.setItem('towermates_board', JSON.stringify(list.slice(0, 30))); } catch (e) {}
   }
   const fmtTime = (t) => (t >= 60 ? `${Math.floor(t / 60)}分${t % 60}秒` : `${t}秒`);
-  const endName = (e) => (e === 'true' ? '第九个名字' : e === 'plain' ? '铁与霜' : '未竟');
+  const endName = (e) => (e === 'true' ? '第六个名字' : e === 'plain' ? '铁与霜' : '未竟');
 
   function openBoard() {
     const list = loadBoard();
@@ -546,6 +547,27 @@
     el.shopOverlay.classList.remove('show');
   }
 
+  // ---------- 结局抉择 ----------
+  function showEndingChoice() {
+    el.choiceOverlay.classList.add('show');
+  }
+
+  function chooseEnding(id) {
+    el.choiceOverlay.classList.remove('show');
+    if (id === 'true') {
+      playStory('afterChoiceTrue', () => completeEnding('true', true));
+    } else {
+      playStory('afterChoicePlain', () => completeEnding('plain', false));
+    }
+  }
+
+  function completeEnding(id, announce) {
+    Engine.finish(id);
+    refreshHud();
+    showEnd();
+    if (announce) Sound.play('win');
+  }
+
   // ---------- 结局 ----------
   function showEnd() {
     if (endShown) return;
@@ -763,7 +785,11 @@
         }
         break;
       case 'princess':
-        playStory(ev.hasJournal ? 'princessTrue' : 'princessPlain', () => { refreshHud(); showEnd(); });
+        if (ev.hasJournal) {
+          playStory('princessTrue', () => showEndingChoice());
+        } else {
+          playStory('princessPlain', () => completeEnding('plain', false));
+        }
         return;
       case 'move':
         Sound.play('step');
@@ -782,6 +808,7 @@
         if (e.key === 'Enter' || e.key === ' ' || e.key === 'Escape') advanceDialog();
         return;
       }
+      if (el.choiceOverlay.classList.contains('show')) return;
       if (endShown) return;
       if (shopOpen) {
         if (e.key === 'Escape') closeShop();
@@ -824,6 +851,8 @@
     });
 
     $('shopClose').addEventListener('click', closeShop);
+    $('choicePlain').addEventListener('click', () => chooseEnding('plain'));
+    $('choiceTrue').addEventListener('click', () => chooseEnding('true'));
     $('btnBoard').addEventListener('click', openBoard);
     $('boardClose').addEventListener('click', closeBoard);
     $('btnCodex').addEventListener('click', openCodex);
@@ -894,6 +923,19 @@
       Engine.reset();
       startGame();
     });
+
+    // 开发用：index.html#demo=楼层,x,y 直接进游戏（不播序章），便于截图与调试
+    var demo = /demo=(\d+),(\d+),(\d+)/.exec(location.hash || '');
+    if (demo) {
+      Engine.newGame();
+      var st = Engine.state();
+      st.floor = +demo[1];
+      st.x = +demo[2];
+      st.y = +demo[3];
+      el.startOverlay.classList.remove('show');
+      enterFloor(true);
+      refreshHud();
+    }
 
     function loop(t) {
       const s = Engine.state();

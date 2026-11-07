@@ -603,6 +603,17 @@ html, body {
 }
 .code-hint { font-size: 11px; color: #5f687a; line-height: 1.6; margin: 8px 0 0; }
 
+/* ---------- 结局抉择 ---------- */
+.choice-panel { text-align: center; }
+.choice-title {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 20px;
+  color: var(--gold);
+  letter-spacing: 3px;
+  margin-bottom: 10px;
+}
+.choice-desc { font-size: 12.5px; line-height: 1.8; color: #b9c1d1; margin: 0 0 16px; }
+
 /* ---------- 结局正文 ---------- */
 .end-body {
   font-size: 12.5px;

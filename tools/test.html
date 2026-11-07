@@ -2,7 +2,7 @@
 <html>
 <head><meta charset="UTF-8"><title>auto test</title></head>
 <body style="margin:0;background:#05070c">
-<iframe id="f" src="/index.html" style="width:430px;height:900px;border:0"></iframe>
+<iframe id="f" src="/index.html?t=1" style="width:430px;height:900px;border:0"></iframe>
 <script>
   // 开发用：自动开局，可选直接跳状态；按键 U/D/L/R、E 确认、X 取消、T 点对白
   var q = new URLSearchParams(location.search);
@@ -51,7 +51,7 @@
           pre.style.cssText = 'position:fixed;left:0;bottom:0;color:#0f0;font-size:10px;z-index:99';
           pre.textContent = 'POS ' + st.x + ',' + st.y + ' floor=' + st.floor + ' steps=' + st.steps +
             ' path=' + (pth ? pth.length : 'null') + ' rectW=' + r.width.toFixed(1) +
-            ' hit=' + (el2 ? (el2.id || el2.tagName) : 'none') + ' dlg=' + d.getElementById('dialogOverlay').classList.contains('show');
+            ' hit=' + (el2 ? (el2.id || el2.tagName) : 'none') + ' dlg=' + d.getElementById('dialogOverlay').classList.contains('show') + ' torches=' + w.__torchCount;
           document.body.appendChild(pre);
         }, 3200);
       }
@@ -89,6 +89,23 @@
       for (var i = 0; i < nIntro; i++) seq.push('T');
       keys.forEach(function (k) { seq.push(k); });
 
+      // 自动走完结局：对话 → 抉择 → 结局面板
+      if (q.get('autoend') === '1') {
+        var iv3 = setInterval(function () {
+          var dlg = d.getElementById('dialogOverlay');
+          var choice = d.getElementById('choiceOverlay');
+          var pick = q.get('pick') || 'true';
+          if (dlg.classList.contains('show')) {
+            dlg.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+          } else if (choice.classList.contains('show')) {
+            var btn = d.getElementById(pick === 'true' ? 'choiceTrue' : 'choicePlain');
+            if (btn) btn.click();
+          } else if (d.getElementById('endOverlay').classList.contains('show')) {
+            clearInterval(iv3);
+          }
+        }, 350);
+      }
+
       var j = 0;
       var iv = setInterval(function () {
         if (j >= seq.length + clicks) {
@@ -116,6 +133,7 @@
       }, 200);
     }, 250);
   };
+  f.src = '/index.html?_=' + Date.now();
 </script>
 </body>
 </html>

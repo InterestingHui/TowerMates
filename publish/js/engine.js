@@ -252,9 +252,9 @@
 
     if (ch === 'T') {
       moveTo(nx, ny);
-      const hasJournal = !!s.flags.journal;
-      finish(hasJournal ? 'true' : 'plain');
-      return { type: 'princess', hasJournal };
+      save();
+      // 结局由 UI 抉择（有手记时可选择），此处只返回信息
+      return { type: 'princess', hasJournal: !!s.flags.journal };
     }
 
     if (ch === 'M') {
@@ -468,6 +468,7 @@
     tryMove,
     fight,
     buy,
+    finish,
     pathTo,
     pathToNear,
     nextLevelExp,

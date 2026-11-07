@@ -101,10 +101,35 @@
     }
   }
 
-  function setAmbient(floorIndex) {
-    const mode = floorIndex === 8 ? 'boss' : (floorIndex === 3 || floorIndex === 5) ? 'mist' : 'torch';
+  // 各层暗度：越往上越黑，塔顶几乎无光
+  const FLOOR_MOOD = [0.14, 0.17, 0.2, 0.26, 0.3, 0.38];
+  let torchList = [];
+
+  function setAmbient(floorIndex, map) {
+    const mode = floorIndex === 5 ? 'boss' : floorIndex === 3 ? 'mist' : 'torch';
     ambient = { mode, embers: [], spawnAcc: 0 };
     lastFloor = floorIndex;
+    torchList = [];
+    if (!map) return;
+    for (let y = 0; y < SIZE; y++) {
+      for (let x = 0; x < SIZE; x++) {
+        if (map[y][x] !== '#') continue;
+        const nearFloor = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => {
+          const ch = map[y + dy] && map[y + dy][x + dx];
+          return ch && ch !== '#';
+        });
+        if (!nearFloor) continue;
+        if ((x * 5 + y * 7) % 8 === 0) {
+          // 找靠地面的方向，火焰朝那一侧
+          let sx = 0, sy = 0;
+          for (const [dx, dy] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
+            const ch = map[y + dy] && map[y + dy][x + dx];
+            if (ch && ch !== '#') { sx = dx; sy = dy; break; }
+          }
+          torchList.push({ x, y, sx, sy, seed: (x * 31 + y * 17) % 100 });
+        }
+      }
+    }
   }
 
   // ---------- 绘制基元 ----------
@@ -133,6 +158,19 @@
     ctx.stroke();
     ctx.fillStyle = 'rgba(0,0,0,0.25)';
     ctx.fillRect(px + 2, py + TILE - 4, TILE - 4, 2);
+    // 部分墙面加裂纹，避免整片墙过于整齐
+    const seed = (px * 13 + py * 7) % 97;
+    if (seed % 7 === 0) {
+      ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      const sx = px + TILE * (0.25 + (seed % 5) * 0.08);
+      ctx.moveTo(sx, py + 4);
+      ctx.lineTo(sx + TILE * 0.12, py + TILE * 0.42);
+      ctx.lineTo(sx - TILE * 0.05, py + TILE * 0.62);
+      ctx.lineTo(sx + TILE * 0.08, py + TILE - 5);
+      ctx.stroke();
+    }
   }
 
   function drawFloor(px, py, x, y) {
@@ -254,6 +292,13 @@
     }
     if (m.ghost) {
       const pulse = 0.5 + Math.sin(t / 300) * 0.5;
+      ctx.save();
+      ctx.strokeStyle = 'rgba(159,216,255,' + (0.18 + pulse * 0.22).toFixed(2) + ')';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.arc(px + TILE / 2, py + TILE / 2, TILE * (0.3 + pulse * 0.06), 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
       glow('rgba(159,216,255,' + (0.2 + pulse * 0.25) + ')', TILE * 0.45);
       ctx.globalAlpha = 0.9;
       drawEmoji(m.emoji, px, py + bob * 1.6, 0.58);
@@ -425,6 +470,110 @@
     targetMarker = tx == null ? null : { tx, ty, start: performance.now() };
   }
 
+  // ---------- 场景光影 ----------
+  function drawCarpet(map) {
+    if (lastFloor !== 5) return;
+    ctx.save();
+    for (let y = 1; y < SIZE; y++) {
+      for (let x = 4; x <= 6; x++) {
+        if (map[y][x] === '#') continue;
+        const edge = x === 4 || x === 6;
+        const g = ctx.createLinearGradient(x * TILE, 0, (x + 1) * TILE, 0);
+        g.addColorStop(0, edge ? 'rgba(110,24,30,0.55)' : 'rgba(86,18,24,0.40)');
+        g.addColorStop(0.5, edge ? 'rgba(150,34,40,0.5)' : 'rgba(112,24,30,0.36)');
+        g.addColorStop(1, edge ? 'rgba(110,24,30,0.55)' : 'rgba(86,18,24,0.40)');
+        ctx.fillStyle = g;
+        ctx.fillRect(x * TILE, y * TILE, TILE, TILE);
+        if (edge) {
+          ctx.fillStyle = 'rgba(200,160,80,0.22)';
+          ctx.fillRect(x * TILE + (x === 4 ? 0 : TILE - 1), y * TILE, 1, TILE);
+        }
+      }
+    }
+    ctx.restore();
+  }
+
+  function drawBadges(state) {
+    if (!state.flags || !state.flags.codex || !window.Engine) return;
+    const maxHp = state.maxHp || Math.max(state.hp, 1000);
+    for (let y = 0; y < SIZE; y++) {
+      for (let x = 0; x < SIZE; x++) {
+        const ch = state.maps[state.floor][y][x];
+        if (!D.monsters[ch] || D.monsters[ch].ghost) continue;
+        const pred = window.Engine.predict(ch);
+        if (!pred || pred.damage == null) continue;
+        const color = pred.damage === 0 ? '#6fe3a0' : pred.damage >= maxHp * 0.25 ? '#ff6b6b' : '#ffd27d';
+        drawBadge(x * TILE, y * TILE, pred.damage === 0 ? '无伤' : '-' + pred.damage, color);
+      }
+    }
+  }
+
+  function drawLighting() {
+    const mood = FLOOR_MOOD[lastFloor] || 0.24;
+    const cx = disp.x * TILE + TILE / 2;
+    const cy = disp.y * TILE + TILE / 2;
+    const r0 = TILE * 0.7;
+    const r1 = Math.max(r0 + TILE, TILE * (3.9 - mood * 3.2));
+    const g = ctx.createRadialGradient(cx, cy, r0, cx, cy, r1);
+    g.addColorStop(0, 'rgba(4,6,10,0)');
+    g.addColorStop(0.55, `rgba(4,6,10,${(mood * 0.5).toFixed(3)})`);
+    g.addColorStop(1, `rgba(3,5,9,${mood})`);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, TILE * SIZE, TILE * SIZE);
+  }
+
+  function drawTorches() {
+    if (!torchList.length) return;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (const tr of torchList) {
+      const fl = 0.8 + Math.sin(simT / 150 + tr.seed) * 0.14 + Math.sin(simT / 47 + tr.seed) * 0.06;
+      // 火焰落在靠近地面的那一侧
+      const fx = tr.x * TILE + TILE / 2 + (tr.sx || 0) * TILE * 0.34;
+      const fy = tr.y * TILE + TILE / 2 + (tr.sy || 0) * TILE * 0.34;
+      const R = TILE * 1.7 * fl;
+      const g = ctx.createRadialGradient(fx, fy, 1, fx, fy, R);
+      g.addColorStop(0, 'rgba(255,196,120,0.34)');
+      g.addColorStop(0.4, 'rgba(255,150,70,0.12)');
+      g.addColorStop(1, 'rgba(255,140,60,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(fx, fy, R, 0, Math.PI * 2);
+      ctx.fill();
+      // 灯托
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = 'rgba(38,30,24,0.9)';
+      ctx.fillRect(fx - TILE * 0.035, fy + TILE * 0.02, TILE * 0.07, TILE * 0.16);
+      ctx.globalCompositeOperation = 'lighter';
+      // 火焰
+      const fg = ctx.createRadialGradient(fx, fy, 1, fx, fy, TILE * 0.16);
+      fg.addColorStop(0, 'rgba(255,240,190,0.95)');
+      fg.addColorStop(0.5, 'rgba(255,170,80,' + (0.55 + fl * 0.2).toFixed(2) + ')');
+      fg.addColorStop(1, 'rgba(255,120,40,0)');
+      ctx.fillStyle = fg;
+      ctx.beginPath();
+      ctx.arc(fx, fy - TILE * 0.02, TILE * 0.16, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawBeam() {
+    if (lastFloor !== 5) return;
+    const x0 = 5 * TILE;
+    const g = ctx.createLinearGradient(0, 0, 0, TILE * 4.2);
+    g.addColorStop(0, 'rgba(255,240,200,0.15)');
+    g.addColorStop(1, 'rgba(255,240,200,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.moveTo(x0 + TILE * 0.18, 0);
+    ctx.lineTo(x0 + TILE * 0.82, 0);
+    ctx.lineTo(x0 + TILE * 1.5, TILE * 4.2);
+    ctx.lineTo(x0 - TILE * 0.5, TILE * 4.2);
+    ctx.closePath();
+    ctx.fill();
+  }
+
   function drawTargetMarker() {
     if (!targetMarker) return;
     const p = ((performance.now() - targetMarker.start) % 900) / 900;
@@ -457,7 +606,7 @@
 
     // 楼层切换 → 重置氛围与显示坐标
     if (state.floor !== lastFloor) {
-      setAmbient(state.floor);
+      setAmbient(state.floor, state.maps[state.floor]);
       disp.x = state.x;
       disp.y = state.y;
     }
@@ -485,18 +634,7 @@
         if (ch === '#') drawWall(px, py);
         else if (ch === 'y' || ch === 'r') drawDoor(ch, px, py);
         else if (ch === 'u' || ch === 'n') drawStairs(ch, px, py);
-        else if (D.monsters[ch]) {
-          drawMonster(ch, px, py, tt);
-          // 窥探之镜：标出预计损失
-          if (state.flags && state.flags.codex && window.Engine) {
-            const pred = window.Engine.predict(ch);
-            if (pred && pred.damage != null && !D.monsters[ch].ghost) {
-              const maxHp = state.maxHp || Math.max(state.hp, 1000);
-              const color = pred.damage === 0 ? '#6fe3a0' : pred.damage >= maxHp * 0.25 ? '#ff6b6b' : '#ffd27d';
-              drawBadge(px, py, pred.damage === 0 ? '无伤' : '-' + pred.damage, color);
-            }
-          }
-        }
+        else if (D.monsters[ch]) drawMonster(ch, px, py, tt);
         else if (ch === 'M') {
           ctx.fillStyle = 'rgba(120,255,170,0.08)';
           ctx.fillRect(px + 2, py + 2, TILE - 4, TILE - 4);
@@ -513,6 +651,9 @@
       }
     }
 
+    // 王座层红毯（在实体之下）
+    drawCarpet(state.maps[state.floor]);
+
     // 氛围粒子在角色层下
     updateAmbient(lastDt, now);
     drawAmbientOverlay();
@@ -527,6 +668,12 @@
     if (Math.abs(state.x - disp.x) < 0.02) disp.x = state.x;
     if (Math.abs(state.y - disp.y) < 0.02) disp.y = state.y;
     drawPlayer(disp.x * TILE, disp.y * TILE, tt);
+
+    // 光照：越往上越暗，火把透出暖光
+    drawLighting();
+    drawTorches();
+    drawBeam();
+    drawBadges(state);
 
     drawFx();
 
