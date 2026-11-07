@@ -61,8 +61,8 @@ ok(s.gold === gold0 + 3 && s.exp === 2, '战利品金币/经验到账');
 ok(E.tile(2, 2) === '.', '怪物被移除');
 
 // 6. 首见魔王触发对白（怪物保留、玩家退回），再战正常结算
-// 第 9 层魔王 Z 在 (5,4)，从 (5,5) 发起战斗（给足攻击破防）
-s.floor = 8; s.x = 5; s.y = 5; s.hp = 4000; s.atk = 42; s.flags.boss = false;
+// 第 6 层魔王 Z 在 (5,4)，从 (5,5) 发起战斗（给足攻击破防）
+s.floor = 5; s.x = 5; s.y = 5; s.hp = 4000; s.atk = 42; s.flags.boss = false;
 ev = E.fight(0, -1);
 ok(ev.type === 'story' && ev.story === 'boss', '首见魔王先触发对白');
 ok(E.tile(5, 4) === 'Z', '对白阶段魔王保留');
@@ -80,7 +80,7 @@ ok(E.tile(8, 3) === '.', '幽灵不阻路');
 // 8. 手记决定结局分支（公主 T 在 (5,1)，从 (5,2) 走入）
 s.flags.journal = false;
 s.won = false;
-s.floor = 8; s.x = 5; s.y = 2;
+s.floor = 5; s.x = 5; s.y = 2;
 ev = E.tryMove(0, -1);
 ok(ev.type === 'princess' && ev.hasJournal === false, '无手记 → 普通结局');
 s.won = false; s.flags.journal = true;
@@ -131,7 +131,7 @@ for (let fi = 0; fi < D.floors.length - 1; fi++) {
     break;
   }
 }
-ok(chainOk, '九层塔每一层都能正常上楼（无断层）');
+ok(chainOk, '六层塔每一层都能正常上楼（无断层）');
 
 console.log(fail === 0 ? '\n✓ 全部通过' : `\n✗ ${fail} 项失败`);
 process.exit(fail ? 1 : 0);

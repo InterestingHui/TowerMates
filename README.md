@@ -1,4 +1,4 @@
-# TowerMates · 魔塔原型 v0.3.2
+# TowerMates · 魔塔原型 v0.3.7
 
 一个可直接在浏览器里玩的魔塔（固定数值 RPG）原型，带完整剧情与双结局。纯前端、零依赖、数据驱动。
 
@@ -34,7 +34,7 @@ python -m http.server 8777
 ```
 index.html        页面与弹层（对白/战斗/商店/榜单/结局）
 css/style.css     样式
-js/data.js        ★ 全部数值与地图（9 层 11x11）
+js/data.js        ★ 全部数值与地图（6 层 11x11）
 js/story.js       ★ 全部剧情文本（对白/手记/结局）
 js/engine.js      核心规则（无 DOM 依赖）
 js/render.js      Canvas 渲染
