@@ -87,7 +87,15 @@ ev = E.tryMove(0, 1); // 走回原位
 ev = E.tryMove(0, -1);
 ok(ev.type === 'princess' && ev.hasJournal === true, '有手记 → 真结局');
 
-// 9. 换层与存档
+// 9. 窥探之镜：一次性购买
+s.gold = 200;
+const codex1 = E.buy('codex');
+ok(codex1.type === 'buy' && s.flags.codex === true, '购买窥探之镜解锁怪物情报');
+const codex2 = E.buy('codex');
+ok(codex2.type === 'refuse', '窥探之镜不可重复购买');
+ok(s.gold === 100, '窥探之镜扣 100 金币');
+
+// 10. 换层与存档
 s.floor = 3; s.x = 1; s.y = 1;
 const before = s.floor;
 E.tryMove(0, 1); // 走一步，非楼梯

@@ -204,6 +204,7 @@ window.GAME_DATA = (function () {
     { id: 'potion', name: '红药水', emoji: '🧪', price: 30, hp: 150 },
     { id: 'atk', name: '力量训练', emoji: '⚔️', price: 60, atk: 2 },
     { id: 'def', name: '护甲强化', emoji: '🛡️', price: 60, def: 2 },
+    { id: 'codex', name: '窥探之镜', emoji: '🔮', price: 100, codex: true, once: true },
   ];
 
   return { LEGEND, monsters, items, levelExp, floors, shop };

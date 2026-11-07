@@ -4,14 +4,17 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>TowerMates · 魔塔原型</title>
-<link rel="stylesheet" href="css/style.css?v=0.3.2">
+<link rel="stylesheet" href="css/style.css?v=0.3.3">
 </head>
 <body>
 <div id="app">
   <header id="topbar">
     <div class="brand-row">
       <div class="brand">TOWER<span>MATES</span></div>
-      <button class="icon-btn" id="btnBoard" title="塔友榜">🏆</button>
+      <div class="brand-actions">
+        <button class="icon-btn" id="btnCodex" style="display:none" title="怪物图鉴">🔮</button>
+        <button class="icon-btn" id="btnBoard" title="塔友榜">🏆</button>
+      </div>
     </div>
     <div class="floor-name" id="floorName">第 1 层 · 塔之入口</div>
     <div class="chips">
@@ -69,28 +72,7 @@
   </div>
 </div>
 
-<!-- 战斗预览 -->
-<div class="overlay" id="battleOverlay">
-  <div class="panel battle-panel">
-    <div class="enemy">
-      <div class="enemy-emoji" id="btEmoji">🦇</div>
-      <div class="enemy-name" id="btName">蝙蝠</div>
-      <div class="enemy-stats" id="btStats">HP 30 · ATK 8 · DEF 1</div>
-    </div>
-    <div class="calc" id="btCalc">
-      <div class="row"><span>你的攻击</span><b id="btOut">—</b></div>
-      <div class="row"><span>战斗回合</span><b id="btRounds">—</b></div>
-      <div class="row danger"><span>预计损失生命</span><b id="btLoss">—</b></div>
-      <div class="row"><span>战后剩余</span><b id="btAfter">—</b></div>
-      <div class="row reward"><span>战利品</span><b id="btReward">—</b></div>
-    </div>
-    <p class="warn" id="btWarn"></p>
-    <div class="actions">
-      <button class="btn" id="btCancel">离开</button>
-      <button class="btn primary" id="btFight">战斗</button>
-    </div>
-  </div>
-</div>
+<!-- 战斗预览已移除：撞上怪物直接开战 -->
 
 <!-- 商店 -->
 <div class="overlay" id="shopOverlay">
@@ -126,6 +108,24 @@
   </div>
 </div>
 
+<!-- 怪物图鉴（购买窥探之镜后解锁） -->
+<div class="overlay" id="codexOverlay">
+  <div class="panel codex-panel">
+    <div class="shop-head">
+      <div class="shop-title">🔮 窥探之镜</div>
+      <div class="shop-gold">按当前属性测算</div>
+    </div>
+    <div class="codex-list" id="codexList"></div>
+    <p class="code-hint">「预计损失」随你的攻防实时变化；无伤显示为绿色，重伤为红色。</p>
+    <div class="actions">
+      <button class="btn primary" id="codexClose">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- 顶部警告 -->
+<div id="warnPill"></div>
+
 <!-- 成就吐司 -->
 <div id="toast">
   <div class="t-emoji" id="toastEmoji">⚔️</div>
@@ -155,11 +155,11 @@
   </div>
 </div>
 
-<script src="js/data.js?v=0.3.2"></script>
-<script src="js/story.js?v=0.3.2"></script>
-<script src="js/achievements.js?v=0.3.2"></script>
-<script src="js/engine.js?v=0.3.2"></script>
-<script src="js/render.js?v=0.3.2"></script>
-<script src="js/main.js?v=0.3.2"></script>
+<script src="js/data.js?v=0.3.3"></script>
+<script src="js/story.js?v=0.3.3"></script>
+<script src="js/achievements.js?v=0.3.3"></script>
+<script src="js/engine.js?v=0.3.3"></script>
+<script src="js/render.js?v=0.3.3"></script>
+<script src="js/main.js?v=0.3.3"></script>
 </body>
 </html>

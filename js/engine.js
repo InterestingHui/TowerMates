@@ -326,15 +326,17 @@
     if (!s) return { type: 'refuse', msg: '没有进行游戏' };
     const item = D.shop.find((x) => x.id === id);
     if (!item) return { type: 'refuse', msg: '商品不存在' };
+    if (item.codex && s.flags.codex) return { type: 'refuse', msg: '已经拥有窥探之镜' };
     if (s.gold < item.price) return { type: 'refuse', msg: '金币不够' };
     s.gold -= item.price;
     if (item.id === 'key') s.keys.y++;
     if (item.hp) s.hp += item.hp;
     if (item.atk) s.atk += item.atk;
     if (item.def) s.def += item.def;
+    if (item.codex) s.flags.codex = true;
     s.flags.shopCount = (s.flags.shopCount || 0) + 1;
     save();
-    return { type: 'buy', item, msg: `购买了${item.name}` };
+    return { type: 'buy', item, msg: item.codex ? '获得「窥探之镜」：怪物情报已解锁' : `购买了${item.name}` };
   }
 
   function nextLevelExp() {

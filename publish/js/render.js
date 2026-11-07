@@ -223,6 +223,25 @@
     drawEmoji(it ? it.emoji : '❓', px, py + bob, 0.58);
   }
 
+  function drawBadge(px, py, text, color) {
+    const fs = Math.max(9, Math.floor(TILE * 0.2));
+    ctx.font = `700 ${fs}px "Microsoft YaHei",sans-serif`;
+    const w = ctx.measureText(text).width + 6;
+    const h = fs + 5;
+    ctx.fillStyle = 'rgba(6,8,13,0.82)';
+    roundRect(px + TILE - w - 2, py + 2, w, h, 4);
+    ctx.fill();
+    ctx.strokeStyle = color;
+    ctx.globalAlpha = 0.5;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = color;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, px + TILE - w / 2 - 2, py + 2 + h / 2 + 0.5);
+  }
+
   function drawMonster(ch, px, py, t) {
     const m = D.monsters[ch];
     const bob = Math.sin(t / 420 + px * 0.11) * TILE * 0.035;
@@ -445,7 +464,18 @@
         if (ch === '#') drawWall(px, py);
         else if (ch === 'y' || ch === 'b' || ch === 'r') drawDoor(ch, px, py);
         else if (ch === 'u' || ch === 'n') drawStairs(ch, px, py);
-        else if (D.monsters[ch]) drawMonster(ch, px, py, tt);
+        else if (D.monsters[ch]) {
+          drawMonster(ch, px, py, tt);
+          // 窥探之镜：标出预计损失
+          if (state.flags && state.flags.codex && window.Engine) {
+            const pred = window.Engine.predict(ch);
+            if (pred && pred.damage != null && !D.monsters[ch].ghost) {
+              const maxHp = state.maxHp || Math.max(state.hp, 1000);
+              const color = pred.damage === 0 ? '#6fe3a0' : pred.damage >= maxHp * 0.25 ? '#ff6b6b' : '#ffd27d';
+              drawBadge(px, py, pred.damage === 0 ? '无伤' : '-' + pred.damage, color);
+            }
+          }
+        }
         else if (ch === 'M') {
           ctx.fillStyle = 'rgba(120,255,170,0.08)';
           ctx.fillRect(px + 2, py + 2, TILE - 4, TILE - 4);
