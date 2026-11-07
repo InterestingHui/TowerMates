@@ -17,6 +17,7 @@
       var btn = d.getElementById('btnNew');
       if (btn) btn.click();
 
+      if (q.get('slow')) w.__battleSpeed = Number(q.get('slow'));
       var spec = q.get('state');
       if (spec) {
         var p = spec.split(',').map(Number);
@@ -28,6 +29,9 @@
       }
       var gold = q.get('gold');
       if (gold) w.Engine.state().gold = Number(gold);
+      if (q.get('atk')) w.Engine.state().atk = Number(q.get('atk'));
+      if (q.get('def')) w.Engine.state().def = Number(q.get('def'));
+      if (q.get('hp')) { w.Engine.state().hp = Number(q.get('hp')); w.Engine.state().maxHp = Number(q.get('hp')); }
       if (q.get('codex') === '1') {
         w.Engine.state().flags.codex = true;
         var cb = d.getElementById('btnCodex');

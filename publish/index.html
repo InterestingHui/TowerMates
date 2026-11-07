@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>TowerMates · 魔塔原型</title>
-<link rel="stylesheet" href="css/style.css?v=0.3.3">
+<link rel="stylesheet" href="css/style.css?v=0.3.4">
 </head>
 <body>
 <div id="app">
@@ -108,6 +108,32 @@
   </div>
 </div>
 
+<!-- 自动战斗演出 -->
+<div class="overlay battle-scene" id="battleScene">
+  <div class="bs-panel">
+    <div class="bs-head">
+      <span class="bs-title">战斗</span>
+      <span class="bs-rounds" id="bsRounds">3 回合</span>
+    </div>
+    <div class="bs-stage">
+      <div class="bs-side">
+        <div class="bs-avatar" id="bsHero">🧙</div>
+        <div class="bs-bar"><i id="bsHeroBar"></i></div>
+        <div class="bs-num" id="bsHeroHp">1000</div>
+      </div>
+      <div class="bs-vs">⚔️</div>
+      <div class="bs-side">
+        <div class="bs-avatar" id="bsFoe">🦇</div>
+        <div class="bs-bar foe"><i id="bsFoeBar"></i></div>
+        <div class="bs-num" id="bsFoeHp">30</div>
+      </div>
+    </div>
+    <div class="bs-name" id="bsName">蝙蝠</div>
+    <div class="bs-hint">自动战斗中 · 点击跳过</div>
+  </div>
+  <div class="bs-numbers" id="bsNumbers"></div>
+</div>
+
 <!-- 怪物图鉴（购买窥探之镜后解锁） -->
 <div class="overlay" id="codexOverlay">
   <div class="panel codex-panel">
@@ -155,11 +181,11 @@
   </div>
 </div>
 
-<script src="js/data.js?v=0.3.3"></script>
-<script src="js/story.js?v=0.3.3"></script>
-<script src="js/achievements.js?v=0.3.3"></script>
-<script src="js/engine.js?v=0.3.3"></script>
-<script src="js/render.js?v=0.3.3"></script>
-<script src="js/main.js?v=0.3.3"></script>
+<script src="js/data.js?v=0.3.4"></script>
+<script src="js/story.js?v=0.3.4"></script>
+<script src="js/achievements.js?v=0.3.4"></script>
+<script src="js/engine.js?v=0.3.4"></script>
+<script src="js/render.js?v=0.3.4"></script>
+<script src="js/main.js?v=0.3.4"></script>
 </body>
 </html>

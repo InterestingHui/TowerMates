@@ -392,6 +392,61 @@ html, body {
 .brand-row { display: flex; justify-content: space-between; align-items: center; }
 .brand-actions { display: flex; gap: 6px; }
 
+/* ---------- 自动战斗演出 ---------- */
+.overlay.battle-scene {
+  background: rgba(3, 5, 9, 0.82);
+  padding: 0;
+}
+.bs-panel {
+  width: 100%;
+  max-width: 340px;
+  background: linear-gradient(180deg, #171d2a, #0d121b);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 18px;
+  padding: 14px 18px 12px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65);
+}
+.bs-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+.bs-title { font-size: 12px; letter-spacing: 3px; color: var(--gold); }
+.bs-rounds { font-size: 11px; color: var(--muted); }
+.bs-stage { display: flex; align-items: center; justify-content: center; gap: 16px; padding: 4px 0 8px; }
+.bs-side { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+.bs-avatar {
+  font-size: 54px;
+  line-height: 1.1;
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.6));
+  will-change: transform;
+}
+.bs-avatar.hit { filter: brightness(2.4) saturate(0.3) drop-shadow(0 0 10px #ff8f8f); }
+.bs-avatar.ko { animation: koAnim 0.42s forwards; }
+@keyframes koAnim { to { transform: scale(0.35) rotate(16deg); opacity: 0; filter: grayscale(1); } }
+.bs-avatar.lunge-r { animation: lungeR 0.24s ease-out; }
+.bs-avatar.lunge-l { animation: lungeL 0.24s ease-out; }
+@keyframes lungeR { 40% { transform: translateX(16px) scale(1.12); } }
+@keyframes lungeL { 40% { transform: translateX(-16px) scale(1.12); } }
+.bs-hp, .bs-bar { width: 104px; height: 8px; background: rgba(0, 0, 0, 0.55); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 5px; overflow: hidden; }
+.bs-bar i { display: block; height: 100%; width: 100%; border-radius: 5px; transition: width 0.16s linear; background: linear-gradient(90deg, #e85f5f, #ff9f9f); }
+.bs-bar.foe i { background: linear-gradient(90deg, #c9a23a, #e8d27d); }
+.bs-num { font-size: 11px; color: #aab3c5; font-variant-numeric: tabular-nums; }
+.bs-vs { font-size: 20px; opacity: 0.75; }
+.bs-name { text-align: center; font-size: 13px; color: #e6eaf3; margin-top: 2px; letter-spacing: 1px; }
+.bs-hint { text-align: center; font-size: 10.5px; color: #5f687a; margin-top: 8px; }
+.bs-numbers { position: fixed; inset: 0; pointer-events: none; }
+.bs-dmg {
+  position: absolute;
+  font-size: 20px;
+  font-weight: 800;
+  transform: translate(-50%, -50%);
+  animation: dmgFloat 0.75s ease-out forwards;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
+}
+@keyframes dmgFloat {
+  0% { opacity: 1; transform: translate(-50%, -50%) scale(1.4); }
+  100% { opacity: 0; transform: translate(-50%, -140%) scale(1); }
+}
+.battle-scene.hero-win .bs-panel { animation: winPulse 0.4s ease-out; }
+@keyframes winPulse { 50% { box-shadow: 0 0 0 3px rgba(232, 196, 106, 0.5), 0 24px 60px rgba(0, 0, 0, 0.65); } }
+
 /* ---------- 怪物图鉴 ---------- */
 .codex-panel { max-width: 380px; }
 .codex-list { display: flex; flex-direction: column; gap: 4px; max-height: 330px; overflow-y: auto; }

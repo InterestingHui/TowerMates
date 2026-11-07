@@ -8,6 +8,7 @@
   let endShown = false;
   let typing = null;
   let warnTimer = null;
+  let battleBusy = false;
 
   const Settings = (() => {
     let data = { reduceFx: false, mute: false };
@@ -46,6 +47,16 @@
     codexOverlay: $('codexOverlay'),
     toast: $('toast'),
     warnPill: $('warnPill'),
+    battleScene: $('battleScene'),
+    bsHero: $('bsHero'),
+    bsFoe: $('bsFoe'),
+    bsHeroBar: $('bsHeroBar'),
+    bsFoeBar: $('bsFoeBar'),
+    bsHeroHp: $('bsHeroHp'),
+    bsFoeHp: $('bsFoeHp'),
+    bsName: $('bsName'),
+    bsRounds: $('bsRounds'),
+    bsNumbers: $('bsNumbers'),
   };
 
   // ---------- 音效 ----------
@@ -328,44 +339,102 @@
     el.codexOverlay.classList.remove('show');
   }
 
-  // ---------- 战斗（撞上即打，无确认框） ----------
-  function resolveBattle(dx, dy) {
+  // ---------- 自动战斗演出 ----------
+  // 真实伤害仍由 engine 结算；这里只演「你来我往」的过程
+  function playBattleScene(info, done) {
     const s = Engine.state();
-    if (!s) return;
-    const tx = s.x + dx;
-    const ty = s.y + dy;
-    const ch = Engine.tile(tx, ty);
-    const pred = Engine.predict(ch);
-    if (!pred) return;
+    const m = info.monster;
+    const pred = info.pred;
+    const heroMax = s.maxHp || Math.max(s.hp, 1000);
+    const foeMax = m.hp;
+    let heroHp = s.hp;
+    let foeHp = foeMax;
+    let skipped = false;
+    const speed = window.__battleSpeed || 1; // 测试用减速
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms * speed));
 
-    // 打不过：原地不动，给警告（不弹确认框，但也不让玩家白送死）
-    if (!pred.win) {
-      Sound.play('lock');
-      Renderer.flashTile(tx, ty, 'rgba(255,80,80,0.35)', 260);
-      Renderer.shake(120, 2.5);
-      warn(pred.reason === '攻击力不足，无法破防' ? '攻击力不足，无法破防' : '这一战会要你的命，先变强吧');
-      log(`无法战胜${pred.m.name}：${pred.reason}`, 'warn');
-      return;
+    el.bsHero.textContent = '🧙';
+    el.bsFoe.textContent = m.emoji;
+    el.bsName.textContent = m.name + (m.boss ? ' · 塔的主人' : '');
+    el.bsRounds.textContent = `${pred.rounds} 回合`;
+    el.bsHeroHp.textContent = heroHp;
+    el.bsFoeHp.textContent = foeHp;
+    el.bsHeroBar.style.width = '100%';
+    el.bsFoeBar.style.width = '100%';
+    el.bsNumbers.innerHTML = '';
+    el.battleScene.classList.add('show');
+    el.battleScene.classList.toggle('hero-win', false);
+
+    function bars() {
+      el.bsHeroBar.style.width = Math.max(0, Math.min(100, (heroHp / heroMax) * 100)) + '%';
+      el.bsFoeBar.style.width = Math.max(0, Math.min(100, (foeHp / foeMax) * 100)) + '%';
+      el.bsHeroHp.textContent = Math.max(0, Math.round(heroHp));
+      el.bsFoeHp.textContent = Math.max(0, Math.round(foeHp));
     }
 
-    const res = Engine.fight(dx, dy);
-
-    // 首见魔王：先对白，结束后自动开打
-    if (res.type === 'story') {
-      Sound.play('lock');
-      Renderer.shake(200, 3);
-      playStory(res.story, () => resolveBattle(dx, dy));
-      return;
-    }
-    if (res.type !== 'fight') {
-      warn(res.msg || '无法战斗');
-      return;
+    function dmgNum(anchor, text, color) {
+      const r = anchor.getBoundingClientRect();
+      const d = document.createElement('div');
+      d.className = 'bs-dmg';
+      d.textContent = text;
+      d.style.color = color;
+      d.style.left = r.left + r.width / 2 + (Math.random() * 26 - 13) + 'px';
+      d.style.top = r.top + r.height * 0.35 + 'px';
+      el.bsNumbers.appendChild(d);
+      setTimeout(() => d.remove(), 800 * speed);
     }
 
+    el.battleScene.onclick = () => { skipped = true; };
+
+    (async () => {
+      const K = Math.min(pred.rounds, m.boss ? 8 : 5);
+      for (let i = 0; i < K && !skipped; i++) {
+        // 我方出手
+        el.bsHero.classList.add('lunge-r');
+        await wait(120);
+        el.bsHero.classList.remove('lunge-r');
+        const cut = pred.out;
+        foeHp = Math.max(0, foeHp - cut);
+        bars();
+        dmgNum(el.bsFoe, '-' + cut, '#ffd27d');
+        el.bsFoe.classList.add('hit');
+        await wait(90);
+        el.bsFoe.classList.remove('hit');
+        if (foeHp <= 0) break;
+        // 敌方反击（最后一回合不反击）
+        if (i < K - 1 && !skipped) {
+          el.bsFoe.classList.add('lunge-l');
+          await wait(120);
+          el.bsFoe.classList.remove('lunge-l');
+          heroHp = Math.max(1, heroHp - pred.per);
+          bars();
+          if (pred.per > 0) dmgNum(el.bsHero, '-' + pred.per, '#ff8f8f');
+          el.bsHero.classList.add('hit');
+          await wait(90);
+          el.bsHero.classList.remove('hit');
+        }
+      }
+      // 收尾：对齐真实结果
+      foeHp = 0;
+      heroHp = Math.max(1, s.hp - pred.damage);
+      bars();
+      el.bsFoe.classList.add('ko');
+      el.battleScene.classList.add('hero-win');
+      await wait(360);
+      el.battleScene.classList.remove('show');
+      el.battleScene.classList.remove('hero-win');
+      el.bsFoe.classList.remove('ko', 'hit');
+      el.bsHero.classList.remove('hit', 'lunge-r', 'lunge-l');
+      el.battleScene.onclick = null;
+      done();
+    })();
+  }
+
+  function applyFightResult(res, tx, ty) {
     const s2 = Engine.state();
     const isBoss = !!res.boss;
     const heavy = res.damage >= (s2.maxHp || Math.max(s2.hp, 1000)) * 0.15;
-    impactFX(isBoss && res.bossKilled !== false ? (D.monsters[ch] && D.monsters[ch].boss ? 3 : 2) : isBoss ? 2 : heavy ? 1 : 0, tx, ty);
+    impactFX(isBoss ? 3 : heavy ? 1 : 0, tx, ty);
     Sound.play(isBoss || heavy ? 'hitBig' : 'hit');
 
     Renderer.addFloat(`-${res.damage}`, tx * TILE_N() + TILE_N() / 2, ty * TILE_N() + 6, '#ff8f8f', heavy || isBoss);
@@ -387,6 +456,45 @@
     }
     Achievements.evaluate('kill', s2, notifyAchievement);
     refreshHud();
+  }
+
+  // ---------- 战斗入口（撞上即演，自动打完） ----------
+  function resolveBattle(dx, dy) {
+    if (battleBusy) return;
+    const s = Engine.state();
+    if (!s) return;
+    const tx = s.x + dx;
+    const ty = s.y + dy;
+    const ch = Engine.tile(tx, ty);
+    const m = D.monsters[ch];
+    const pred = Engine.predict(ch);
+    if (!m || !pred) return;
+
+    // 打不过：原地不动，给警告
+    if (!pred.win) {
+      Sound.play('lock');
+      Renderer.flashTile(tx, ty, 'rgba(255,80,80,0.35)', 260);
+      Renderer.shake(120, 2.5);
+      warn(pred.reason === '攻击力不足，无法破防' ? '攻击力不足，无法破防' : '这一战会要你的命，先变强吧');
+      log(`无法战胜${m.name}：${pred.reason}`, 'warn');
+      return;
+    }
+
+    // 首见魔王：先对白，再自动开打
+    if (m.boss && !s.flags.boss) {
+      s.flags.boss = true;
+      Engine.save();
+      playStory('boss', () => resolveBattle(dx, dy));
+      return;
+    }
+
+    battleBusy = true;
+    playBattleScene({ monster: m, pred }, () => {
+      const res = Engine.fight(dx, dy);
+      battleBusy = false;
+      if (res.type === 'fight') applyFightResult(res, tx, ty);
+      else { warn(res.msg || '战斗中断'); refreshHud(); }
+    });
   }
 
   // ---------- 商店 ----------
@@ -497,6 +605,7 @@
   }
 
   function act(dx, dy) {
+    if (battleBusy) return;
     if (shopOpen || endShown) return;
     if (typing || el.dialogOverlay.classList.contains('show')) { advanceDialog(); return; }
     const s = Engine.state();
