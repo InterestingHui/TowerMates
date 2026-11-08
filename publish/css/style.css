@@ -1292,3 +1292,23 @@ html, body {
 .ev-opt b { font-weight: 600; color: #ffe6a8; }
 .ev-opt small { font-size: 10.5px; color: var(--muted); white-space: nowrap; }
 .ev-opt:disabled { opacity: 0.35; cursor: not-allowed; transform: none; box-shadow: none; }
+
+/* ---------- 塔的记忆：余烬 ---------- */
+.start-ember {
+  margin: 2px 0 8px;
+  font-size: 10.5px;
+  letter-spacing: 1px;
+  color: #d8bf85;
+  opacity: 0.9;
+}
+.start-ember:empty { display: none; }
+.vow-card.locked { opacity: 0.72; border-style: dashed; }
+.vow-card.locked .vc-emoji { filter: grayscale(0.6) brightness(0.8); }
+.vow-card .vc-lock {
+  font-size: 9.5px;
+  color: #ffb08a;
+  border: 1px solid rgba(255, 150, 110, 0.35);
+  background: rgba(255, 120, 80, 0.1);
+  border-radius: 20px;
+  padding: 1px 7px;
+}

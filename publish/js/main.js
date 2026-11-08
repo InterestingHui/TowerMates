@@ -60,6 +60,27 @@
   })();
 
   // ---------- 音效 ----------
+  // 塔的记忆：跨局保存的「余烬」，只用来解锁誓约，不卖战力
+  const Meta = (() => {
+    const KEY = 'towermates_meta';
+    let data = { ember: 0, unlocked: [] };
+    try { data = Object.assign(data, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) {}
+    const save = () => { try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) {} };
+    return {
+      get ember() { return data.ember || 0; },
+      has(id) { return (data.unlocked || []).indexOf(id) >= 0; },
+      add(n) { data.ember = Math.max(0, (data.ember || 0) + n); save(); },
+      buy(id, cost) {
+        if (this.has(id)) return 'owned';
+        if ((data.ember || 0) < cost) return 'poor';
+        data.ember -= cost;
+        data.unlocked = (data.unlocked || []).concat(id);
+        save();
+        return 'ok';
+      },
+    };
+  })();
+
   const Sound = (() => {
     let actx = null;
     let music = null;
@@ -1078,6 +1099,7 @@
     const relics = relicIds.map((id) => D.relics[id].short).join(' ') || '无';
     const gs = Engine.goalStatus();
     sum.vow = s.flags.vow || 'none';
+    const emberGain = Math.max(1, Math.floor(sc / 100));
     const sc = scoreOf(s, sum, relicIds.length, gs.done);
     const grade = gradeOf(sc);
     sum.score = sc;
@@ -1108,6 +1130,8 @@
     brief.push(s.flags.retries ? `重来本层 ${s.flags.retries} 次` : '一次没回头');
     const NEXT = { C: ['B', 850], B: ['A', 1200], A: ['S', 1550] }[grade];
     if (NEXT) brief.push(`再 ${Math.max(1, NEXT[1] - sc)} 分进 ${NEXT[0]}`);
+    Meta.add(emberGain);
+    brief.push(`✦ 余烬 +${emberGain}`);
     $('endBrief').innerHTML = brief.map((t) => `<span>${t}</span>`).join('');
     $('endStats').innerHTML = `
       <div>结局 <b>${endName(s.ending)}</b></div>
@@ -1140,6 +1164,13 @@
     const art = $('startArt');
     art.classList.toggle('lit', plain || tru);
     art.classList.toggle('true', tru);
+    const em = $('startEmber');
+    if (em) {
+      const lockedCount = Object.keys(D.vows).filter((id) => D.vows[id].ember && !Meta.has(id)).length;
+      em.textContent = Meta.ember > 0
+        ? `✦ 余烬 ${Meta.ember}${lockedCount ? ` · 还有 ${lockedCount} 条誓约未解锁` : ' · 誓约已全解锁'}`
+        : '';
+    }
   }
 
   // ---------- 楼层卡片 ----------
@@ -1509,7 +1540,7 @@
       Engine.reset();
       $('btnContinue').style.display = 'none';
       log('存档已清空');
-      warn('存档已清空（成就与结局记录保留）');
+      warn('存档已清空（成就、结局与余烬保留）');
     });
     $('cfgWipe').addEventListener('click', () => {
       Engine.reset();
@@ -1592,11 +1623,14 @@
   function openVow() {
     el.vowCards.innerHTML = Object.keys(D.vows).map((id) => {
       const v = D.vows[id];
-      return `<button class="vow-card ${id === 'none' ? 'hero' : ''}" data-vow="${id}">
+      const locked = !!v.ember && !Meta.has(id);
+      return `<button class="vow-card ${id === 'none' ? 'hero' : ''} ${locked ? 'locked' : ''}" data-vow="${id}">
         <span class="vc-emoji">${v.emoji}</span>
         <span class="vc-name">${v.name}</span>
         <span class="vc-desc">${v.desc}</span>
-        <span class="vc-mul">结算 ×${v.mul.toFixed(2)}</span>
+        ${locked
+          ? `<span class="vc-lock">🔒 ${v.ember} 余烬</span>`
+          : `<span class="vc-mul">结算 ×${v.mul.toFixed(2)}</span>`}
       </button>`;
     }).join('');
     el.vowCards.querySelectorAll('.vow-card').forEach((b) => {
@@ -1606,6 +1640,18 @@
   }
 
   function chooseVow(id) {
+    const v = D.vows[id];
+    if (v && v.ember && !Meta.has(id)) {
+      const r = Meta.buy(id, v.ember);
+      if (r === 'poor') { warn(`余烬不够：还差 ${v.ember - Meta.ember} 点`); return; }
+      if (r === 'ok') {
+        Sound.play('relic');
+        vibrate([10, 24, 10]);
+        warn(`塔记住了你：解锁「${v.name}」`);
+      }
+      openVow();
+      return;
+    }
     el.vowOverlay.classList.remove('show');
     startGame(id);
   }
@@ -1693,7 +1739,7 @@
   // 开发/自动化用：暴露少量内部入口，便于截图与回归（不影响正常玩法）
   window.__tm = {
     playStory, showEnd, openShop, openCodex, openBoard, openCfg, closeCfg,
-    showFloorCard, showEndingChoice, completeEnding, setChoiceFocus, openHeart, chooseHeart, setHeartFocus, openVow, chooseVow, openEvent, chooseEvent,
+    showFloorCard, showEndingChoice, completeEnding, setChoiceFocus, openHeart, chooseHeart, setHeartFocus, openVow, chooseVow, openEvent, chooseEvent, Meta,
     resolveBattle, act, refreshHud, refreshStartBadges,
   };
 

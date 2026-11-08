@@ -32,6 +32,7 @@
       floorEnter: null,
     };
     if (v === 'mercy') s.atk = Math.max(1, s.atk - 3);
+    
     const map = s.maps[0];
     outer: for (let y = 0; y < SIZE; y++) {
       for (let x = 0; x < SIZE; x++) {
@@ -161,6 +162,11 @@
     let heal = 0;
     if (dir > 0 && vow() === 'mercy') {
       heal = Math.min(Math.round((s.maxHp || s.hp) * 0.12), Math.max(0, s.maxHp - s.hp));
+      s.hp += heal;
+    }
+    // 苦行 / 无名：没有格挡，但每上一层塔会补给你 25% 生命
+    if (dir > 0 && (vow() === 'ascetic' || vow() === 'nameless')) {
+      heal = Math.min(Math.round((s.maxHp || s.hp) * 0.10), Math.max(0, s.maxHp - s.hp));
       s.hp += heal;
     }
     return { floor: target, x: nx, y: ny, heal };
@@ -297,7 +303,10 @@
 
     if (ch === '?') {
       moveTo(nx, ny);
-      if (s.flags['ev_f' + s.floor]) { saveSoon(); return { type: 'move' }; }
+      if (s.flags['ev_f' + s.floor]) {
+        saveSoon();
+        return { type: 'move' };
+      }
       save();
       return { type: 'event', eventId: pickEvent() };
     }
@@ -469,7 +478,7 @@
   // 每层一次「格挡」：这一战的承伤降到 60%（铁壁之誓放弃它）
   function canBlock() {
     if (!s || s.over || s.won) return false;
-    if (vow() === 'guard') return false;
+    if (vow() === 'guard' || vow() === 'ascetic' || vow() === 'nameless') return false;
     return !s.flags['block_f' + s.floor];
   }
 
@@ -526,6 +535,7 @@
     let price = item.price + (s.flags['buy_' + item.id] || 0) * step;
     if (hasRelic('thrift')) price = Math.max(1, Math.round(price * 0.75));
     if (vow() === 'greed') price = Math.max(1, Math.round(price * 1.3));
+    if (vow() === 'nameless') price = Math.max(1, Math.round(price * 1.4));
     return price;
   }
 

@@ -20,6 +20,7 @@ let s = {
 };
 
 if (VOW === 'mercy') s.atk = Math.max(1, s.atk - 3);
+const NO_EVENT = false;
 
 (function place() {
   const m = s.maps[0];
@@ -100,6 +101,7 @@ function priceOf(item) {
   let price = item.price + (s.flags['buy_' + item.id] || 0) * step;
   if (USE_RELIC && s.flags.relic_thrift) price = Math.max(1, Math.round(price * 0.75));
   if (VOW === 'greed') price = Math.max(1, Math.round(price * 1.3));
+  if (VOW === 'nameless') price = Math.max(1, Math.round(price * 1.4));
   return price;
 }
 function shop() {
@@ -150,6 +152,7 @@ function floorLoop(fi) {
       const ch = s.maps[s.floor][y][x];
       if (ch === 'X') { altar(fi); s.maps[s.floor][y][x] = '.'; picked++; continue; }
       if (ch === '?') {
+        if (NO_EVENT) { s.maps[s.floor][y][x] = '.'; picked++; continue; }
         // 模拟固定走"选项 0"（按层分池后轮换，保证可复现）
         const pool = D.events.filter((e) => (e.tier || 'a') === (fi >= 3 ? 'b' : 'a'));
         const e = pool[fi % pool.length];
@@ -192,7 +195,7 @@ function floorLoop(fi) {
     // 格挡：每层一次，贪婪地用在本层第一场"够疼"的战斗上
     let take = t.damage;
     if (VOW === 'guard') take = Math.round(take * 0.82);
-    if (USE_BLOCK && VOW !== 'guard' && !s.flags['block_f' + s.floor] && take >= s.maxHp * 0.08) {
+    if (USE_BLOCK && VOW !== 'guard' && VOW !== 'ascetic' && VOW !== 'nameless' && !s.flags['block_f' + s.floor] && take >= s.maxHp * 0.08) {
       s.flags['block_f' + s.floor] = true;
       take = Math.round(take * 0.6);
       console.log(`  ▣ 格挡：${m.name} 承伤 ${t.damage} → ${take}`);
@@ -229,6 +232,7 @@ function climb() {
     if (r === false) { console.log('\n✗ 卡住'); return; }
     if (r === 'win') { console.log('\n✓ 通关成功'); report(); return; }
     if (VOW === 'mercy') s.hp = Math.min(s.maxHp, s.hp + Math.round(s.maxHp * 0.12));
+    if (VOW === 'ascetic' || VOW === 'nameless') s.hp = Math.min(s.maxHp, s.hp + Math.round(s.maxHp * 0.10));
     const next = s.maps[fi + 1];
     outer: for (let y = 0; y < SIZE; y++) {
       for (let x = 0; x < SIZE; x++) {

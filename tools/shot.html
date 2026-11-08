@@ -175,6 +175,20 @@
         T.refreshHud();
         T.resolveBattle(0, -1);
         await wait(500);
+      } else if (scene === 'vowbuy') {
+        T.Meta.add(200);
+        d.getElementById('btnNew').click();
+        await wait(400);
+        const cardA = d.querySelector('#vowCards .vow-card[data-vow="ascetic"]');
+        if (cardA) cardA.click();
+        await wait(400);
+        const meta = JSON.parse(localStorage.getItem('towermates_meta') || '{}');
+        const cardB = d.querySelector('#vowCards .vow-card[data-vow="ascetic"]');
+        errBox.textContent = 'emberLeft=' + meta.ember + ' unlocked=' + (meta.unlocked || []).join('|')
+          + ' stillLocked=' + (cardB ? cardB.classList.contains('locked') : 'gone')
+          + ' vowOverlay=' + d.getElementById('vowOverlay').classList.contains('show')
+          + ' err=' + (errs.length ? errs.join('|') : 'none');
+        return;
       } else if (scene === 'eventdeep') {
         d.getElementById('btnNew').click();
         await wait(200);

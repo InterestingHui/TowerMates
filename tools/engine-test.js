@@ -201,6 +201,19 @@ ok(E.revealCore() === true && E.tile(9, 2) === 'u', '塔规 5 条后王座后露
 ok(E.state().maps[5][2][9] === 'u', '窄梯写进地图');
 ok(D.floors.length === 7 && D.floors[6].name === '锁芯', '第七层存在');
 
+// ---------- 9k. 余烬誓约（苦行 / 无名） ----------
+E.newGame('ascetic');
+s = E.state();
+ok(E.vow() === 'ascetic' && !E.canBlock(), '苦行之誓：没有格挡');
+s.hp = 400; s.x = 8; s.y = 8;
+ev = E.tryMove(0, 1);
+ok(ev.type === 'floor' && ev.at.heal === Math.round(s.maxHp * 0.10), '苦行之誓：每上一层回 10% 生命');
+
+E.newGame('nameless');
+s = E.state();
+ok(!E.canBlock(), '无名之誓：没有格挡');
+ok(E.priceOf(D.shop.find((x) => x.id === 'atk')) === 84, '无名之誓：物价 +40%（60 → 84）');
+
 // ---------- 9j. 路遇：按层分池 / 深层事件 / 钥匙门槛 ----------
 ok(E.eventPool(0).every((e) => (e.tier || 'a') === 'a'), '浅层只出温和事件');
 ok(E.eventPool(5).every((e) => e.tier === 'b'), '第 6 层只出深层事件');
