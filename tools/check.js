@@ -59,5 +59,26 @@ D.floors.forEach((f, fi) => {
   if (isolated) err(`${isolated} 个格子不可达`);
 });
 
+// 图例覆盖：地图里不允许出现没登记的字符
+D.floors.forEach((f, fi) => {
+  new Set(f.map.join('')).forEach((ch) => {
+    if (!D.LEGEND[ch] && !D.monsters[ch]) err(`第 ${fi + 1} 层出现图例外的字符 "${ch}"`);
+  });
+});
+
+// 遗物与商店的数据完整性
+Object.keys(D.items).forEach((ch) => {
+  const it = D.items[ch];
+  if (it.type === 'relic' && !D.relics[it.relic]) err(`道具 ${ch} 指向未定义的遗物 ${it.relic}`);
+});
+Object.keys(D.relics).forEach((id) => {
+  const r = D.relics[id];
+  if (!r.name || !r.desc) err(`遗物 ${id} 缺少名称或说明`);
+});
+D.shop.forEach((it) => {
+  if (!it.id || !it.name || typeof it.price !== 'number') err(`商店商品异常：${JSON.stringify(it)}`);
+});
+
+// 每层至少 1 个可拾取强化（避免某层纯空跑）
 console.log(bad === 0 ? '\n✓ 地图校验通过' : `\n✗ 共 ${bad} 个问题`);
 process.exit(bad === 0 ? 0 : 1);

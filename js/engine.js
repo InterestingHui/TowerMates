@@ -1,51 +1,38 @@
-// TowerMates · 魔塔原型 —— 核心逻辑（不依赖 DOM，可在 Node 里跑平衡性模拟）
+// TowerMates · 魔塔 —— 核心逻辑（不依赖 DOM，可在 Node 里跑平衡性模拟）
+// v0.4：遗物 / 动态价格 / 本层快照 / 存档节流 / 剧情道具通用化
 (function () {
   const D = window.GAME_DATA;
-  const SAVE_KEY = 'towermates_save_v2';
+  const SAVE_KEY = 'towermates_save_v3';
+  const LEGACY_KEY = 'towermates_save_v2';
   const SIZE = 11;
 
   let s = null;
-  let hooks = {}; // UI 钩子：onEvent(type, payload)
+  let hooks = {};
+  let saveTimer = null;
 
-  function setHooks(h) {
-    hooks = h || {};
-  }
-  function emit(type, payload) {
-    if (hooks.onEvent) hooks.onEvent(type, payload);
-  }
+  function setHooks(h) { hooks = h || {}; }
+  function emit(type, payload) { if (hooks.onEvent) hooks.onEvent(type, payload); }
 
   const floorMaps = () => D.floors.map((f) => f.map.map((row) => row.split('')));
 
   function newGame() {
     s = {
-      floor: 0,
-      x: 1,
-      y: 1,
-      hp: 1000,
-      maxHp: 1000,
-      atk: 10,
-      def: 10,
-      gold: 0,
-      exp: 0,
-      level: 1,
+      floor: 0, x: 1, y: 1,
+      hp: 1000, maxHp: 1000, atk: 10, def: 10,
+      gold: 0, exp: 0, level: 1,
       keys: { y: 1, r: 0 },
       maps: floorMaps(),
-      over: false,
-      won: false,
-      ending: null, // 'plain' | 'true'
-      flags: {},    // 剧情标记：candle1/candle2/candle3/journal/boss/…/shopCount/killCount
+      over: false, won: false, ending: null,
+      flags: {},
+      ver: 4,
       steps: 0,
       startedAt: Date.now(),
+      snap: null,
     };
     const map = s.maps[0];
     outer: for (let y = 0; y < SIZE; y++) {
       for (let x = 0; x < SIZE; x++) {
-        if (map[y][x] === '@') {
-          s.x = x;
-          s.y = y;
-          map[y][x] = '.';
-          break outer;
-        }
+        if (map[y][x] === '@') { s.x = x; s.y = y; map[y][x] = '.'; break outer; }
       }
     }
     save();
@@ -55,63 +42,95 @@
 
   function hasSave() {
     try {
-      return !!localStorage.getItem(SAVE_KEY);
-    } catch (e) {
-      return false;
-    }
-  }
-
-  function save() {
-    if (!s) return;
-    try {
-      localStorage.setItem(SAVE_KEY, JSON.stringify(s));
-    } catch (e) {}
-  }
-
-  function load() {
-    try {
       const raw = localStorage.getItem(SAVE_KEY);
+      if (!raw) return false;
+      const parsed = JSON.parse(raw);
+      return !!parsed && parsed.ver === 4 && parsed.maps && parsed.maps.length === D.floors.length;
+    } catch (e) { return false; }
+  }
+
+  // ---------- 存档：save() 立即落盘；移动用 saveSoon() 节流 ----------
+  function persist() {
+    if (!s) return;
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(s)); } catch (e) {}
+  }
+  function save() {
+    if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+    persist();
+  }
+  function saveSoon() {
+    if (saveTimer) return;
+    saveTimer = setTimeout(() => { saveTimer = null; persist(); }, 350);
+  }
+
+  function load(key) {
+    try {
+      const raw = localStorage.getItem(key || SAVE_KEY);
       if (!raw) return null;
       const parsed = JSON.parse(raw);
-      if (!parsed || !parsed.maps || parsed.maps.length !== D.floors.length) return null;
+      // 旧版本的存档（地图里没有遗物格）一律作废，避免读到半新半旧的世界
+      if (!parsed || parsed.ver !== 4 || !parsed.maps || parsed.maps.length !== D.floors.length) return null;
       s = parsed;
       if (!s.flags) s.flags = {};
       if (!s.ending) s.ending = null;
-      // 旧档兼容：蓝钥匙并入红钥匙
       if (s.keys && s.keys.b !== undefined) { s.keys.r = (s.keys.r || 0) + (s.keys.b || 0); delete s.keys.b; }
       if (!s.keys) s.keys = { y: 0, r: 0 };
-      // 兼容旧档：补 maxHp
       if (!s.maxHp) s.maxHp = Math.max(s.hp, 1000);
+      if (!s.snap) s.snap = null;
+      if (!s.steps) s.steps = 0;
+      if (!s.startedAt) s.startedAt = Date.now();
       return s;
-    } catch (e) {
-      return null;
-    }
+    } catch (e) { return null; }
   }
 
   function reset() {
     try {
       localStorage.removeItem(SAVE_KEY);
+      localStorage.removeItem(LEGACY_KEY);
     } catch (e) {}
     s = null;
   }
 
   const state = () => s;
   const tile = (x, y) => (s && s.maps[s.floor][y] ? s.maps[s.floor][y][x] : '#');
-  const setTile = (x, y, ch) => {
-    s.maps[s.floor][y][x] = ch;
-  };
+  const setTile = (x, y, ch) => { s.maps[s.floor][y][x] = ch; };
+  const hasRelic = (id) => !!(s && s.flags && s.flags['relic_' + id]);
+  const ownedRelics = () => (s ? Object.keys(D.relics).filter(hasRelic) : []);
 
-  function keyName(k) {
-    return k === 'y' ? '黄钥匙' : '红钥匙';
+  const keyName = (k) => (k === 'y' ? '黄钥匙' : '红钥匙');
+
+  function moveTo(x, y) { s.x = x; s.y = y; s.steps++; }
+
+  // ---------- 本层快照：软锁兜底 ----------
+  function beginFloor() {
+    if (!s) return;
+    s.snap = {
+      floor: s.floor, x: s.x, y: s.y,
+      hp: s.hp, maxHp: s.maxHp, atk: s.atk, def: s.def,
+      gold: s.gold, exp: s.exp, level: s.level,
+      keys: { y: s.keys.y, r: s.keys.r },
+      flags: JSON.parse(JSON.stringify(s.flags)),
+      maps: JSON.parse(JSON.stringify(s.maps)),
+      steps: s.steps,
+    };
+    save();
   }
 
-  function moveTo(x, y) {
-    s.x = x;
-    s.y = y;
-    s.steps++;
+  function restoreFloor() {
+    if (!s || !s.snap) return false;
+    const k = s.snap;
+    s.floor = k.floor; s.x = k.x; s.y = k.y;
+    s.hp = k.hp; s.maxHp = k.maxHp; s.atk = k.atk; s.def = k.def;
+    s.gold = k.gold; s.exp = k.exp; s.level = k.level;
+    s.keys = { y: k.keys.y, r: k.keys.r };
+    s.flags = JSON.parse(JSON.stringify(k.flags));
+    s.maps = JSON.parse(JSON.stringify(k.maps));
+    s.steps = k.steps;
+    s.won = false;
+    save();
+    return true;
   }
 
-  // 换层；返回 { floor, x, y }
   function changeFloor(dir) {
     const target = s.floor + dir;
     if (target < 0 || target >= D.floors.length) return null;
@@ -120,11 +139,7 @@
     const mark = dir > 0 ? 'n' : 'u';
     for (let y = 0; y < SIZE; y++) {
       for (let x = 0; x < SIZE; x++) {
-        if (map[y][x] === mark) {
-          s.x = x;
-          s.y = y;
-          return { floor: target, x, y };
-        }
+        if (map[y][x] === mark) { s.x = x; s.y = y; return { floor: target, x, y }; }
       }
     }
     return { floor: target, x: s.x, y: s.y };
@@ -134,21 +149,15 @@
     const m = D.monsters[ch];
     if (!m || m.ghost) return null;
     const out = s.atk - m.def;
-    if (out <= 0) {
-      return { win: false, reason: '攻击力不足，无法破防', damage: null, rounds: null, m };
-    }
+    if (out <= 0) return { win: false, reason: '攻击力不足，无法破防', damage: null, rounds: null, m };
     const rounds = Math.ceil(m.hp / out);
-    let per = Math.max(0, m.atk - s.def);
-    if (s.flags.relic_ward && per > 0) per = Math.max(1, Math.round(per * 0.88)); // 守誓之盾
-    const damage = (rounds - 1) * per; // 先手：最后一击不会挨打
+    const per = Math.max(0, m.atk - s.def);
+    let damage = (rounds - 1) * per; // 先手：最后一击不会挨打
+    if (damage > 0 && hasRelic('ward')) damage = Math.max(1, Math.floor(damage * 0.88));
     return {
       win: s.hp > damage,
       reason: s.hp > damage ? '' : '生命不足，这场战斗会要你的命',
-      damage,
-      rounds,
-      per,
-      out,
-      m,
+      damage, rounds, per, out, m,
     };
   }
 
@@ -157,63 +166,43 @@
     while (s.level < D.levelExp.length + 1 && s.exp >= D.levelExp[s.level - 1]) {
       s.level++;
       s.atk += 3;
-      s.def += 3;
-      s.hp += 150;
-      s.maxHp += 150;
+      s.def += 2;
+      s.hp += 130;
+      s.maxHp += 130;
       ups++;
     }
     return ups;
   }
 
-  // 遗物：一次性、永久生效
-  function applyRelic(id) {
-    if (!id) return;
-    s.flags['relic_' + id] = true;
-    if (id === 'edge') s.atk += 6;   // 断刃之锋：立即加攻
-  }
-
   function pickup(ch) {
     if (ch === '$') {
       s.gold += 50;
-      return { type: 'pickup', msg: '拾取金币 ×50', good: true };
+      return { type: 'pickup', msg: '拾取金币 ×50', short: '+50💰', good: true };
     }
     const it = D.items[ch];
     if (!it) return null;
     if (it.type === 'story') {
-      // 剧情道具：工匠手记
-      if (!s.flags.journal) s.flags.journal = true;
-      return { type: 'story', story: 'journal', msg: '拾取了一本泛黄的手记', good: true };
+      if (it.flag && !s.flags[it.flag]) s.flags[it.flag] = true;
+      return { type: 'story', story: it.story, msg: '拾取了一本泛黄的手记', good: true };
     }
     if (it.type === 'relic') {
-      applyRelic(it.relic);
-      if (it.story) s.flags[it.story] = true;
-      return { type: 'relic', story: it.story || null, relic: it.relic || null, msg: `拾起${it.name}`, good: true };
+      s.flags['relic_' + it.relic] = true;
+      if (it.relic === 'edge') s.atk += 6;
+      const r = D.relics[it.relic];
+      return {
+        type: 'relic', relic: it.relic, story: it.story || null, name: it.name,
+        msg: `获得遗物「${it.name}」· ${r ? r.desc : ''}`, good: true,
+      };
     }
     if (it.type === 'hp') {
       s.hp += it.value;
-      if (s.hp > s.maxHp) {
-        // 超上限部分转为护体：提升 maxHp 到当前值，保持体验宽松
-        s.maxHp = s.hp;
-      }
-      return { type: 'pickup', msg: `拾取${it.name}，生命 +${it.value}`, good: true };
+      if (s.hp > s.maxHp) s.maxHp = s.hp;
+      return { type: 'pickup', msg: `拾取${it.name}，生命 +${it.value}`, short: `+${it.value}❤`, good: true };
     }
-    if (it.type === 'atk') {
-      s.atk += it.value;
-      return { type: 'pickup', msg: `拾取${it.name}，攻击 +${it.value}`, good: true };
-    }
-    if (it.type === 'def') {
-      s.def += it.value;
-      return { type: 'pickup', msg: `拾取${it.name}，防御 +${it.value}`, good: true };
-    }
-    if (it.type === 'both') {
-      s.atk += it.value;
-      s.def += it.value;
-      return { type: 'pickup', msg: `拾取${it.name}，攻击/防御 +${it.value}`, good: true };
-    }
-    if (it.type === 'key') {
-      s.keys[it.key]++;
-      return { type: 'pickup', msg: `拾取${it.name}`, good: true };
-    }
+    if (it.type === 'atk') { s.atk += it.value; return { type: 'pickup', msg: `拾取${it.name}，攻击 +${it.value}`, short: `+${it.value}⚔`, good: true }; }
+    if (it.type === 'def') { s.def += it.value; return { type: 'pickup', msg: `拾取${it.name}，防御 +${it.value}`, short: `+${it.value}🛡`, good: true }; }
+    if (it.type === 'both') { s.atk += it.value; s.def += it.value; return { type: 'pickup', msg: `拾取${it.name}，攻击/防御 +${it.value}`, short: `+${it.value}/+${it.value}`, good: true }; }
+    if (it.type === 'key') { s.keys[it.key]++; return { type: 'pickup', msg: `拾取${it.name}`, short: '+钥匙', good: true }; }
     return null;
   }
 
@@ -236,11 +225,10 @@
     if (D.monsters[ch]) {
       const m = D.monsters[ch];
       if (m.ghost) {
-        // 剧情幽灵：站上去触发对白，不战斗
         setTile(nx, ny, '.');
         moveTo(nx, ny);
-        save();
-        return { type: 'story', story: m.storyKey || ghostStory(ch), good: true };
+        saveSoon();
+        return { type: 'story', story: ghostStory(), good: true };
       }
       return { type: 'battle', ch, dx, dy, prediction: predict(ch) };
     }
@@ -250,7 +238,7 @@
         s.keys[ch]--;
         setTile(nx, ny, '.');
         moveTo(nx, ny);
-        save();
+        saveSoon();
         return { type: 'open', msg: `用${keyName(ch)}打开了门`, good: true };
       }
       return { type: 'locked', msg: `需要${keyName(ch)}才能打开` };
@@ -266,7 +254,6 @@
     if (ch === 'T') {
       moveTo(nx, ny);
       save();
-      // 结局由 UI 抉择（有手记时可选择），此处只返回信息
       return { type: 'princess', hasJournal: !!s.flags.journal };
     }
 
@@ -278,11 +265,10 @@
 
     if (ch === '.') {
       moveTo(nx, ny);
-      save();
+      saveSoon();
       return { type: 'move' };
     }
 
-    // 道具
     moveTo(nx, ny);
     const res = pickup(ch);
     if (res) {
@@ -291,13 +277,13 @@
       if (res.type === 'story') emit('story', res.story);
       return res;
     }
-    save();
+    saveSoon();
     return { type: 'move' };
   }
 
-  function ghostStory(ch) {
-    // 幽灵所在层决定对白段
-    return 'candle' + (ch === 'G' ? (s.floor === 0 ? 1 : s.floor === 3 ? 2 : 3) : 1);
+  // 幽灵按层给对白：第 1 层、第 5 层各一段
+  function ghostStory() {
+    return ({ 0: 'candle1', 4: 'candle3' })[s.floor] || 'candle1';
   }
 
   function fight(dx, dy) {
@@ -310,7 +296,6 @@
     const p = predict(ch);
     if (!p.win) return { type: 'refuse', msg: p.reason || '无法战胜' };
 
-    // 首次挑战魔王：先触发战前对白，地图与玩家位置都不动
     if (m.boss && !s.flags.boss) {
       s.flags.boss = true;
       save();
@@ -323,23 +308,27 @@
     s.gold += m.gold;
     s.exp += m.exp;
     s.flags.killCount = (s.flags.killCount || 0) + 1;
-    if (s.flags.relic_ember) {
-      // 余烬灯芯：每次击杀回复 2% 生命（至少 4）
-      s.hp = Math.min(s.maxHp, s.hp + Math.max(4, Math.round(s.maxHp * 0.02)));
+
+    let heal = 0;
+    if (hasRelic('ember') && !m.boss) {
+      heal = Math.min(Math.max(4, Math.floor((s.maxHp || s.hp) * 0.02)), Math.max(0, s.maxHp - s.hp));
+      s.hp += heal;
     }
     const ups = levelUp();
     save();
     emit('kill', { name: m.name, boss: !!m.boss });
     return {
-      type: 'fight',
-      damage: p.damage,
-      rounds: p.rounds,
-      gold: m.gold,
-      exp: m.exp,
-      levelUps: ups,
-      monster: m,
-      boss: !!m.boss,
+      type: 'fight', damage: p.damage, rounds: p.rounds,
+      gold: m.gold, exp: m.exp, heal, levelUps: ups,
+      monster: m, boss: !!m.boss,
     };
+  }
+
+  // 价格：成长类每次购买 +20，避免后期金币变无限攻防
+  function priceOf(item) {
+    if (!s) return item.price;
+    const step = item.id === 'atk' || item.id === 'def' ? 20 : 0;
+    return item.price + (s.flags['buy_' + item.id] || 0) * step;
   }
 
   function buy(id) {
@@ -347,25 +336,28 @@
     const item = D.shop.find((x) => x.id === id);
     if (!item) return { type: 'refuse', msg: '商品不存在' };
     if (item.codex && s.flags.codex) return { type: 'refuse', msg: '已经拥有窥探之镜' };
-    if (item.once && s.flags['bought_' + item.id]) return { type: 'refuse', msg: '已经拥有这件遗物' };
-    if (s.gold < item.price) return { type: 'refuse', msg: '金币不够' };
-    s.gold -= item.price;
-    if (item.key) s.keys[item.key] = (s.keys[item.key] || 0) + 1;
+    if (item.relic && hasRelic(item.relic)) return { type: 'refuse', msg: '这条灯芯已经在你胸口了' };
+    const price = priceOf(item);
+    if (s.gold < price) return { type: 'refuse', msg: '金币不够' };
+    s.gold -= price;
+    s.flags['buy_' + item.id] = (s.flags['buy_' + item.id] || 0) + 1;
+    if (item.key) s.keys[item.key]++;
     if (item.hp) {
       s.hp += item.hp;
       if (s.hp > s.maxHp) s.maxHp = s.hp;
     }
     if (item.atk) s.atk += item.atk;
     if (item.def) s.def += item.def;
+    if (item.relic) s.flags['relic_' + item.relic] = true;
     if (item.codex) s.flags.codex = true;
-    if (item.relic) applyRelic(item.relic);
-    if (item.once) s.flags['bought_' + item.id] = true;
     s.flags.shopCount = (s.flags.shopCount || 0) + 1;
     save();
-    const msg = item.codex ? '获得「窥探之镜」：怪物情报已解锁'
-      : item.relic ? `获得遗物「${item.name}」`
-      : `购买了${item.name}`;
-    return { type: 'buy', item, msg };
+    const msg = item.codex
+      ? '获得「窥探之镜」：怪物情报已解锁'
+      : item.relic
+        ? `获得遗物「${item.name}」· ${D.relics[item.relic].desc}`
+        : `购买了${item.name}`;
+    return { type: 'buy', item, price, msg };
   }
 
   function nextLevelExp() {
@@ -374,13 +366,13 @@
     return D.levelExp[s.level - 1];
   }
 
-  // ---------- 寻路：返回从当前位置到目标的逐步方向数组 ----------
+  // ---------- 寻路 ----------
   function passableForPath(x, y) {
     const ch = tile(x, y);
     if (ch === '#') return false;
-    if (D.monsters[ch]) return false; // 怪物不穿越（撞上即战由单步处理）
+    if (D.monsters[ch]) return false;
     if (ch === 'y' || ch === 'r') return s.keys[ch] > 0;
-    if (ch === 'u' || ch === 'n') return false; // 不穿过楼梯，避免半路换层
+    if (ch === 'u' || ch === 'n') return false;
     return true;
   }
 
@@ -392,9 +384,8 @@
     if (targetCh === '#' || D.monsters[targetCh]) return null;
     if ((targetCh === 'y' || targetCh === 'r') && s.keys[targetCh] <= 0) return null;
 
-    const startKey = s.x + ',' + s.y;
     const prev = new Map();
-    prev.set(startKey, null);
+    prev.set(s.x + ',' + s.y, null);
     const q = [[s.x, s.y]];
     while (q.length) {
       const [x, y] = q.shift();
@@ -425,7 +416,45 @@
     return null;
   }
 
-  // 目标不可直达时：走到「离目标最近的、能走到的格子」
+  // 把怪物当成可通行，用来判断"路被哪只怪挡住"
+  function pathThrough(tx, ty) {
+    if (!s || s.over || s.won) return null;
+    if (tx < 0 || ty < 0 || tx >= SIZE || ty >= SIZE) return null;
+    if (tx === s.x && ty === s.y) return [];
+    if (tile(tx, ty) === '#') return null;
+    const prev = new Map();
+    prev.set(s.x + ',' + s.y, null);
+    const q = [[s.x, s.y]];
+    while (q.length) {
+      const [x, y] = q.shift();
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = x + dx;
+        const ny = y + dy;
+        const key = nx + ',' + ny;
+        if (prev.has(key)) continue;
+        if (nx < 0 || ny < 0 || nx >= SIZE || ny >= SIZE) continue;
+        const ch = tile(nx, ny);
+        if (ch === '#') continue;
+        if (ch === 'y' || ch === 'r') { if (s.keys[ch] <= 0) continue; }
+        if ((ch === 'u' || ch === 'n') && !(nx === tx && ny === ty)) continue;
+        prev.set(key, [x, y]);
+        q.push([nx, ny]);
+        if (nx === tx && ny === ty) {
+          const path = [];
+          let cur = [nx, ny];
+          while (!(cur[0] === s.x && cur[1] === s.y)) {
+            const p = prev.get(cur.join(','));
+            if (!p) return null;
+            path.push([cur[0] - p[0], cur[1] - p[1]]);
+            cur = p;
+          }
+          return path.reverse();
+        }
+      }
+    }
+    return null;
+  }
+
   function pathToNear(tx, ty) {
     if (!s || s.over || s.won) return null;
     const visited = new Map();
@@ -451,7 +480,6 @@
       }
     }
     if (best.x === s.x && best.y === s.y) return null;
-    // 回溯路径
     const path = [];
     let cur = [best.x, best.y];
     while (!(cur[0] === s.x && cur[1] === s.y)) {
@@ -463,42 +491,20 @@
     return { path: path.reverse(), x: best.x, y: best.y };
   }
 
-  // 用于排行榜的摘要
   function summary() {
     if (!s) return null;
     const time = Math.round(((s.finishedAt || Date.now()) - s.startedAt) / 1000);
-    return {
-      ending: s.ending,
-      floor: s.floor + 1,
-      level: s.level,
-      steps: s.steps,
-      time,
-    };
+    return { ending: s.ending, floor: s.floor + 1, level: s.level, steps: s.steps, time };
   }
 
   window.Engine = {
-    setHooks,
-    newGame,
-    load,
-    reset,
-    hasSave,
-    save,
-    state,
-    tile,
-    predict,
+    setHooks, newGame, load, reset, hasSave, save, state, tile, predict,
     predictAt(dx, dy) {
       if (!s) return null;
       const ch = tile(s.x + dx, s.y + dy);
       return D.monsters[ch] ? predict(ch) : null;
     },
-    tryMove,
-    fight,
-    buy,
-    finish,
-    pathTo,
-    pathToNear,
-    nextLevelExp,
-    keyName,
-    summary,
+    tryMove, fight, buy, priceOf, finish, pathTo, pathThrough, pathToNear,
+    nextLevelExp, keyName, summary, hasRelic, ownedRelics, beginFloor, restoreFloor,
   };
 })();

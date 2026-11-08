@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>shot</title>
+<style>body{margin:0;background:#05070c;overflow:hidden}#err{position:fixed;left:0;top:0;width:430px;color:#00ff88;font:16px/1.35 monospace;background:#000;padding:8px;z-index:99;white-space:pre-wrap}#err:empty{display:none}</style>
+</head>
+<body>
+<iframe id="f" style="width:430px;height:900px;border:0;display:block"></iframe>
+<pre id="err"></pre>
+<script>
+  const q = new URLSearchParams(location.search);
+  const scene = q.get('scene') || 'start';
+  const f = document.getElementById('f');
+  const errBox = document.getElementById('err');
+  const errs = [];
+  const src = {
+    floor5: '/index.html?dev=1#demo=4,2,8',
+    battle: '/index.html?dev=1#demo=0,2,3',
+    shop: '/index.html?dev=1#demo=2,4,3',
+    tower: '/index.html?dev=1#demo=5,5,7',
+  }[scene] || '/index.html?dev=1';
+  f.src = src;
+
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  f.onload = async () => {
+    const w = f.contentWindow, d = f.contentDocument;
+    w.addEventListener('error', (e) => errs.push('JS: ' + e.message));
+    w.addEventListener('unhandledrejection', (e) => errs.push('Promise: ' + (e.reason && e.reason.message)));
+    try {
+      await wait(500);
+      try {
+        const st = d.createElement('style');
+        st.textContent = '*{animation:none!important;transition:none!important}';
+        d.head.appendChild(st);
+      } catch (e) {}
+      await wait(120);
+      const T = w.__tm;
+      const E = w.Engine;
+      if (scene === 'start' || scene === 'floor5' || scene === 'battle' || scene === 'shop' || scene === 'tower') {
+        if (scene === 'battle') {
+          await wait(200);
+          w.__battleSpeed = 30;
+          w.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'ArrowUp' }));
+          await wait(300);
+        }
+        if (scene === 'shop') {
+          await wait(200);
+          E.state().gold = 260;
+          T.openShop();
+          await wait(400);
+        }
+        if (scene === 'tower') {
+          T.showFloorCard(5);
+          await wait(400);
+        }
+      } else if (scene === 'dialog') {
+        d.getElementById('btnNew').click();
+        await wait(300);
+        d.getElementById('dialogOverlay').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        await wait(200);
+        for (let i = 0; i < 5; i++) {
+          d.getElementById('dialogOverlay').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+          await wait(80);
+        }
+        T.playStory('candle2');
+        await wait(500);
+      } else if (scene === 'boss') {
+        d.getElementById('btnNew').click();
+        await wait(300);
+        T.playStory('boss');
+        await wait(500);
+        for (let i = 0; i < 4; i++) {
+          d.getElementById('dialogOverlay').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+          await wait(60);
+        }
+        await wait(200);
+      } else if (scene === 'vera') {
+        d.getElementById('btnNew').click();
+        await wait(200);
+        T.playStory('princessTrue');
+        await wait(400);
+        for (let i = 0; i < 2; i++) {
+          d.getElementById('dialogOverlay').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+          await wait(60);
+        }
+        await wait(300);
+      } else if (scene === 'choice') {
+        d.getElementById('btnNew').click();
+        await wait(200);
+        T.showEndingChoice();
+        T.setChoiceFocus('true');
+        await wait(700);
+      } else if (scene === 'end') {
+        d.getElementById('btnNew').click();
+        await wait(250);
+        const s = E.state();
+        s.ending = 'true'; s.won = true; s.finishedAt = Date.now() - 360000;
+        s.flags.journal = true; s.flags.relic_ward = true; s.flags.relic_edge = true;
+        T.showEnd();
+        await wait(600);
+      } else if (scene === 'board') {
+        d.getElementById('btnNew').click();
+        await wait(200);
+        const s = E.state();
+        try { localStorage.setItem('towermates_board', JSON.stringify([{ ending: 'true', floor: 6, level: 9, steps: 520, time: 905 }])); } catch (e) {}
+        T.openBoard();
+        await wait(400);
+      } else if (scene === 'codex') {
+        d.getElementById('btnNew').click();
+        await wait(200);
+        const s = E.state();
+        s.flags.codex = true; s.floor = 4; s.atk = 30; s.def = 22;
+        T.openCodex();
+        await wait(400);
+      } else if (scene === 'cfg') {
+        d.getElementById('btnNew').click();
+        await wait(200);
+        T.openCfg();
+        await wait(400);
+      } else if (scene === 'hud') {
+        d.getElementById('btnNew').click();
+        await wait(250);
+        const dl2 = d.getElementById('dialogOverlay');
+        for (let i = 0; i < 8; i++) { dl2.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
+        const s5 = E.state();
+        s5.flags.relic_ward = true; s5.flags.relic_edge = true; s5.flags.relic_ember = true;
+        s5.atk = 34; s5.def = 26; s5.gold = 320; s5.level = 5; s5.exp = 70;
+        s5.hp = 180; s5.maxHp = 1200;
+        s5.flags.codex = true;
+        T.refreshHud();
+        try { d.getElementById('guide').classList.add('show'); d.getElementById('guideText').textContent = '点你想去的格子，会自动寻路过去；方向键走一格。'; } catch (e) {}
+        await wait(300);
+      } else if (scene === 'flow') {
+        const out = [];
+        d.getElementById('btnNew').click();
+        await wait(200);
+        const dl = d.getElementById('dialogOverlay');
+        for (let i = 0; i < 8; i++) { dl.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
+        await wait(200);
+        // 1) 进入密道 → 自动播放 candle2
+        const s3 = E.state();
+        s3.floor = 2; s3.x = 2; s3.y = 1; T.refreshHud();
+        T.act(-1, 0);
+        await wait(400);
+        out.push('floor=' + (E.state().floor + 1) + ' candle2Dialog=' + dl.classList.contains('show')
+          + ' portrait=' + (d.getElementById('dlgPortrait').childElementCount ? 'yes' : 'no')
+          + ' who=' + d.getElementById('dlgWho').textContent);
+        // 跳过对白
+        d.getElementById('dlgSkip').click();
+        await wait(300);
+        out.push('skipDialog=' + !dl.classList.contains('show'));
+        // 2) 塔顶 → 公主 → 抉择
+        const s4 = E.state();
+        s4.floor = 5; s4.x = 5; s4.y = 2; s4.flags.journal = true;
+        T.act(0, -1);
+        await wait(400);
+        out.push('princessDialog=' + dl.classList.contains('show') + ' who=' + d.getElementById('dlgWho').textContent);
+        for (let i = 0; i < 10; i++) { dl.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
+        await wait(300);
+        const choice = d.getElementById('choiceOverlay');
+        out.push('choiceShown=' + choice.classList.contains('show'));
+        d.getElementById('choiceTrue').click();
+        await wait(300);
+        for (let i = 0; i < 10; i++) { dl.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
+        await wait(500);
+        out.push('endShown=' + d.getElementById('endOverlay').classList.contains('show')
+          + ' ending=' + E.state().ending
+          + ' title=' + d.getElementById('endTitle').textContent);
+        errBox.textContent = out.join('\n') + '\nerr=' + (errs.length ? errs.join('|') : 'none');
+        return;
+      } else if (scene === 'auto') {
+        const cv = d.getElementById('game');
+        const clickTile = (tx, ty) => {
+          const r = cv.getBoundingClientRect();
+          const size = r.width / 11;
+          cv.dispatchEvent(new w.MouseEvent('click', { bubbles: true, clientX: r.left + (tx + 0.5) * size, clientY: r.top + (ty + 0.5) * size }));
+        };
+        d.getElementById('btnNew').click();
+        await wait(200);
+        const dl = d.getElementById('dialogOverlay');
+        for (let i = 0; i < 8; i++) { dl.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(60); }
+        await wait(300);
+        clickTile(8, 9);
+        await wait(4000);
+        clickTile(8, 9);
+        await wait(4000);
+        const s2 = E.state();
+        errBox.textContent = 'AUTO floor=' + (s2.floor + 1) + ' pos=' + s2.x + ',' + s2.y + ' hp=' + s2.hp + ' gold=' + s2.gold + ' keys=' + s2.keys.y + '/' + s2.keys.r
+          + ' dialog=' + d.getElementById('dialogOverlay').classList.contains('show')
+          + ' err=' + (errs.length ? errs.join('|') : 'none');
+        return;
+      } else if (scene === 'play') {
+        d.getElementById('btnNew').click();
+        await wait(300);
+        for (let i = 0; i < 6; i++) { d.getElementById('dialogOverlay').dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(70); }
+        await wait(500);
+      }
+      await wait(600);
+      const q2 = [];
+      if (q.get('measure') === '1') ['bsHeroBar','bsFoeBar','bsHero','bsFoe','bsName','battleScene'].forEach((id) => {
+        const n = d.getElementById(id);
+        if (!n) return;
+        const r = n.getBoundingClientRect();
+        q2.push(id + ':' + Math.round(r.width) + 'x' + Math.round(r.height) + '@' + Math.round(r.left) + ',' + Math.round(r.top) + ' bg=' + getComputedStyle(n).width);
+      });
+      errBox.textContent = (errs.length ? 'JS 错误：\n' + errs.join('\n') : '') + (q2.length ? '\n' + q2.join('\n') : '');
+    } catch (e) {
+      errBox.textContent = 'HARNESS: ' + e.message;
+    }
+  };
+</script>
+</body>
+</html>

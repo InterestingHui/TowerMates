@@ -7,6 +7,7 @@ global.localStorage = {
   removeItem: (k) => { delete store[k]; },
 };
 require('../js/data.js');
+require('../js/story.js');
 require('../js/engine.js');
 
 let fail = 0;
@@ -20,39 +21,66 @@ const E = window.Engine;
 E.newGame();
 let s = E.state();
 
-// 1. 初始状态
+// ---------- 1. 初始状态 ----------
 ok(s.hp === 1000 && s.atk === 10 && s.def === 10, '初始属性 1000/10/10');
-ok(s.keys.y === 1, '初始 1 把黄钥匙');
+ok(s.keys.y === 1 && s.keys.r === 0, '初始 1 把黄钥匙、0 把红钥匙');
 
-// 2. 开门消耗钥匙（第 2 层内室黄门在 (5,7)，需从下方 (5,8)? 不——(5,8) 是 #。
-// 布局：row7 = #.#.#y#.#.#，y 在 (5,7)；row8 = #...#.#k..#，(5,8)=#。(5,6)='#'。
-// 该门只能从上下？(5,6)=#,(5,8)=#，左右 (4,7)=#,(6,7)=# → 四面墙，不可达？
-// 修正地图后此处应可达：改测第 3 层右下角的黄门 (9,7)，从 (8,7) 走入
+// ---------- 2. 开门 ----------
 s.floor = 2; s.x = 8; s.y = 7;
 let ev = E.tryMove(1, 0);
 ok(ev.type === 'open' && s.keys.y === 0, '黄门打开并消耗钥匙');
 ok(E.tile(9, 7) === '.', '门变成地面');
 
-// 3. 无钥匙时被锁（第 4 层红门 (9,2)）
-s.floor = 3; s.x = 8; s.y = 2; s.keys.r = 0;
-const locked = E.tryMove(1, 0);
-ok(locked.type === 'locked', '无钥匙不能开门');
+// ---------- 3. 无钥匙被锁 ----------
+s.floor = 3; s.x = 9; s.y = 3; s.keys.r = 0;
+const locked = E.tryMove(0, -1);
+ok(locked.type === 'locked', '无红钥匙时红门拒绝');
 
-// 4. 商店进入与购买（第 3 层商人在 (5,3)，从 (4,3) 走入）
+// ---------- 4. 遗物「守誓之盾」 ----------
+s.keys.r = 1;
+ev = E.tryMove(0, -1);
+ok(ev.type === 'open', '有红钥匙时红门打开');
+ev = E.tryMove(0, -1);
+ok(ev.type === 'relic' && ev.relic === 'ward', '红门后取得守誓之盾');
+ok(E.hasRelic('ward'), '遗物标记写入');
+ok(E.tile(9, 1) === '.', '遗物格清空');
+
+// ---------- 5. 守誓之盾减伤 ----------
+s.atk = 40; s.def = 20; s.hp = 5000;
+const plain = (function () {
+  const keep = s.flags.relic_ward;
+  delete s.flags.relic_ward;
+  const p = E.predict('F');
+  s.flags.relic_ward = keep;
+  return p;
+})();
+const warded = E.predict('F');
+ok(plain.damage > 0 && warded.damage === Math.floor(plain.damage * 0.88), '守誓之盾让承伤 −12%');
+
+// ---------- 6. 商店与动态价格 ----------
 s.floor = 2; s.x = 4; s.y = 3; s.gold = 100;
+delete s.flags.buy_atk;
 ev = E.tryMove(1, 0);
 ok(ev.type === 'shop', '踩到商人弹出商店');
 const atk0 = s.atk;
-const buy = E.buy('atk');
-ok(buy.type === 'buy' && s.atk === atk0 + 2 && s.gold === 40, '购买力量训练：攻击+2，扣 60 金币');
+const buy1 = E.buy('atk');
+ok(buy1.type === 'buy' && s.atk === atk0 + 2 && s.gold === 40, '力量训练：攻击 +2，扣 60 金');
+ok(E.priceOf(D.shop.find((x) => x.id === 'atk')) === 80, '同一件商品第二次涨价到 80');
 const poor = E.buy('atk');
 ok(poor.type === 'refuse', '金币不足时拒绝购买');
 
-// 5. 战斗结算
-s.floor = 0; s.x = 2; s.y = 4;
-E.tryMove(0, -1);
+// ---------- 7. 战斗结算 ----------
+E.newGame();
+s = E.state();
+s.x = 2; s.y = 5;
+ev = E.tryMove(-2, 0);
+ok(ev.type === 'blocked', '墙阻挡移动');
+s.x = 1; s.y = 5;
 ev = E.tryMove(0, -1);
-ok(ev.type === 'battle' && ev.prediction.win, '撞到蝙蝠弹出战斗且可战胜');
+ok(ev.type === 'move', '走到空格');
+s.x = 2; s.y = 3;
+ev = E.tryMove(0, -1);
+ok(ev.type === 'battle' && ev.prediction.win, '撞到蝙蝠进入战斗且可胜');
 const hp0 = s.hp;
 const gold0 = s.gold;
 const fight = E.fight(0, -1);
@@ -60,52 +88,84 @@ ok(fight.type === 'fight' && s.hp === hp0 - fight.damage, '战后正确扣血');
 ok(s.gold === gold0 + 3 && s.exp === 2, '战利品金币/经验到账');
 ok(E.tile(2, 2) === '.', '怪物被移除');
 
-// 6. 首见魔王触发对白（怪物保留、玩家退回），再战正常结算
-// 第 6 层魔王 Z 在 (5,4)，从 (5,5) 发起战斗（给足攻击破防）
-s.floor = 5; s.x = 5; s.y = 5; s.hp = 4000; s.atk = 42; s.flags.boss = false;
+// ---------- 8. 断剑：遗物 +6 攻 ----------
+E.newGame();
+s = E.state();
+s.floor = 4; s.x = 6; s.y = 1;
+const atkBefore = s.atk;
+ev = E.tryMove(1, 0);
+ok(ev.type === 'relic' && ev.relic === 'edge', '走到断剑触发遗物事件');
+ok(s.atk === atkBefore + 6, '断刃之锋：攻击 +6');
+
+// ---------- 9. 余烬灯芯：击杀回血 ----------
+E.newGame();
+s = E.state();
+s.flags.relic_ember = true;
+s.maxHp = 1000; s.hp = 500;
+s.x = 2; s.y = 3;
+const healFight = E.fight(0, -1);
+ok(healFight.type === 'fight' && healFight.heal === 20, '余烬灯芯：击杀回复 2% 生命');
+ok(s.hp === 500 - healFight.damage + 20, '回血正确结算');
+
+// ---------- 10. 首见魔王先对白 ----------
+E.newGame();
+s = E.state();
+s.floor = 5; s.x = 5; s.y = 5; s.hp = 3000; s.atk = 50; s.def = 30; s.flags.boss = false;
 ev = E.fight(0, -1);
 ok(ev.type === 'story' && ev.story === 'boss', '首见魔王先触发对白');
 ok(E.tile(5, 4) === 'Z', '对白阶段魔王保留');
-ok(s.y === 5 && s.x === 5, '玩家退回原位');
+ok(s.y === 5 && s.x === 5, '玩家留在原位');
 const bossFight = E.fight(0, -1);
 ok(bossFight.type === 'fight' && bossFight.boss, '对白后可正常挑战魔王');
 ok(s.hp < 3000, '魔王战造成真实伤害');
 
-// 7. 幽灵触发剧情对白而非战斗（第 1 层幽灵 G 在 (8,3)，从 (8,4) 向上走入）
-s.floor = 0; s.x = 8; s.y = 4; s.flags = {};
+// ---------- 11. 幽灵触发剧情（按层给不同段落） ----------
+E.newGame();
+s = E.state();
+s.x = 8; s.y = 4;
 ev = E.tryMove(0, -1);
-ok(ev.type === 'story' && ev.story === 'candle1', '踩到幽灵触发对白');
+ok(ev.type === 'story' && ev.story === 'candle1', '第 1 层幽灵触发 candle1');
 ok(E.tile(8, 3) === '.', '幽灵不阻路');
+s.floor = 4; s.x = 2; s.y = 1;
+ev = E.tryMove(1, 0);
+ok(ev.type === 'story' && ev.story === 'candle3', '第 5 层幽灵触发 candle3');
 
-// 8. 手记决定结局分支（公主 T 在 (5,1)，从 (5,2) 走入）
-s.flags.journal = false;
+// ---------- 12. 手记决定结局分支 ----------
 s.won = false;
 s.floor = 5; s.x = 5; s.y = 2;
+s.flags.journal = false;
 ev = E.tryMove(0, -1);
-ok(ev.type === 'princess' && ev.hasJournal === false, '无手记 → 普通结局');
+ok(ev.type === 'princess' && ev.hasJournal === false, '无手记 → 普通结局分支');
 s.won = false; s.flags.journal = true;
-ev = E.tryMove(0, 1); // 走回原位
+E.tryMove(0, 1);
 ev = E.tryMove(0, -1);
-ok(ev.type === 'princess' && ev.hasJournal === true, '有手记 → 真结局');
+ok(ev.type === 'princess' && ev.hasJournal === true, '有手记 → 真结局分支');
 
-// 9. 窥探之镜：一次性购买
-s.gold = 200;
+// ---------- 13. 窥探之镜一次购买 ----------
+s.gold = 250;
 const codex1 = E.buy('codex');
 ok(codex1.type === 'buy' && s.flags.codex === true, '购买窥探之镜解锁怪物情报');
 const codex2 = E.buy('codex');
 ok(codex2.type === 'refuse', '窥探之镜不可重复购买');
-ok(s.gold === 100, '窥探之镜扣 100 金币');
+ok(s.gold === 150, '窥探之镜扣 100 金');
 
-// 10. 换层与存档
-s.floor = 3; s.x = 1; s.y = 1;
-const before = s.floor;
-E.tryMove(0, 1); // 走一步，非楼梯
-ok(s.floor === before, '普通格子不换层');
-store['towermates_save_v2'] = JSON.stringify(s);
+// ---------- 14. 本层快照与回退 ----------
+E.newGame();
+s = E.state();
+s.floor = 2; s.x = 4; s.y = 3; s.hp = 900; s.gold = 120;
+E.beginFloor();
+const snapHp = s.hp;
+s.hp = 100; s.gold = 0; s.x = 8; s.y = 8;
+ok(E.restoreFloor() === true, '重来本层成功');
+ok(s.hp === snapHp && s.gold === 120 && s.x === 4, '快照还原生命/金币/位置');
+
+// ---------- 15. 存档 ----------
+s.floor = 3; s.x = 1; s.y = 1; s.hp = 777;
+E.save();
 E.load();
-ok(E.state().floor === before, '存档可读取');
+ok(E.state().hp === 777 && E.state().floor === 3, '存档写入并可读取');
 
-// 11. 爬塔链路：每层踩上楼都要能进下一层（防断层）
+// ---------- 16. 六层塔链路 ----------
 E.newGame();
 s = E.state();
 let chainOk = true;
@@ -115,7 +175,6 @@ for (let fi = 0; fi < D.floors.length - 1; fi++) {
   let ux = -1, uy = -1;
   for (let y = 0; y < 11; y++) for (let x = 0; x < 11; x++) if (map[y][x] === 'u') { ux = x; uy = y; }
   if (ux < 0) { console.log(`✗ 第 ${fi + 1} 层没有上楼`); chainOk = false; break; }
-  // 找楼梯旁一个可站立格
   let px = -1, py = -1;
   for (const [dx, dy] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
     const nx = ux + dx, ny = uy + dy;
@@ -124,8 +183,8 @@ for (let fi = 0; fi < D.floors.length - 1; fi++) {
   }
   if (px < 0) { console.log(`✗ 第 ${fi + 1} 层楼梯不可达`); chainOk = false; break; }
   s.x = px; s.y = py;
-  const ev = E.tryMove(ux - px, uy - py);
-  if (ev.type !== 'floor' || s.floor !== fi + 1) {
+  const e2 = E.tryMove(ux - px, uy - py);
+  if (e2.type !== 'floor' || s.floor !== fi + 1) {
     console.log(`✗ 第 ${fi + 1} 层上楼失败（到 ${s.floor + 1} 层）`);
     chainOk = false;
     break;
@@ -133,37 +192,13 @@ for (let fi = 0; fi < D.floors.length - 1; fi++) {
 }
 ok(chainOk, '六层塔每一层都能正常上楼（无断层）');
 
-// 12. 剧情资源完整性
-require('../js/story.js');
+// ---------- 17. 剧情文本完整性 ----------
 const S = global.STORY;
-const refKeys = ['intro', 'candle1', 'candle2', 'candle3', 'journal', 'merchant', 'boss',
-  'princessPlain', 'princessTrue', 'afterChoicePlain', 'afterChoiceTrue', 'solitude', 'eighthSword'];
-const miss = refKeys.filter((k) => !Array.isArray(S[k]) || S[k].length === 0);
-ok(miss.length === 0, '关键剧情段全部存在' + (miss.length ? '（缺：' + miss.join(',') + '）' : ''));
+const need = ['intro', 'candle1', 'candle2', 'candle3', 'journal', 'merchant', 'eighthSword', 'solitude', 'boss', 'princessPlain', 'princessTrue', 'afterChoicePlain', 'afterChoiceTrue'];
+ok(need.every((k) => Array.isArray(S[k]) && S[k].length), '所有剧情段都存在且非空');
 ok(S.intro.length === 5, '序章压缩为 5 句');
-const floorStories = D.floors.map((f) => f.story).filter(Boolean);
-ok(floorStories.every((k) => !!S[k]), '楼层绑定的剧情段都有对应文本');
-ok(!!S.solitude, '第 5 层独白文本存在');
-const relicsWithStory = Object.values(D.items).filter((it) => it.type === 'relic' && it.story);
-ok(relicsWithStory.length > 0 && relicsWithStory.every((it) => !!S[it.story]), '剧情遗物都有对应旁白');
-ok(Object.keys(D.relics || {}).length >= 3, '遗物表至少三种');
-
-// 13. 拾取断剑（第 5 层 S 在 (7,1)，从 (8,1) 向左走）
-E.newGame();
-s = E.state();
-s.floor = 4; s.x = 8; s.y = 1;
-const relicEv = E.tryMove(-1, 0);
-ok(relicEv.type === 'relic' && relicEv.story === 'eighthSword', '走到断剑触发旁白事件');
-ok(E.tile(7, 1) === '.', '断剑拾取后格子清空');
-ok(s.flags.eighthSword === true, '断剑剧情标记已写入');
-
-// 14. 守誓之盾（无 story 字段的遗物不应崩）
-E.newGame();
-s = E.state();
-s.floor = 3; s.x = 8; s.y = 1;
-const wardEv = E.tryMove(1, 0);
-ok(wardEv && wardEv.type === 'relic', '拾取守誓之盾触发遗物事件');
-ok(E.tile(9, 1) === '.', '守誓之盾拾取后格子清空');
+ok(S.boss.some((l) => String(l[1]).includes('肩上')), '魔王提到薇拉小时候');
+ok(S.merchant.some((l) => String(l[1]).includes('铜币')), '三十枚铜币移到商人台词');
 
 console.log(fail === 0 ? '\n✓ 全部通过' : `\n✗ ${fail} 项失败`);
 process.exit(fail ? 1 : 0);

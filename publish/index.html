@@ -2,8 +2,9 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>TowerMates · 魔塔原型</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#07090f">
+<title>TowerMates · 魔塔</title>
 <link rel="stylesheet" href="css/style.css?v=0.4.0">
 </head>
 <body>
@@ -14,9 +15,13 @@
       <div class="brand-actions">
         <button class="icon-btn" id="btnCodex" style="display:none" title="怪物图鉴">🔮</button>
         <button class="icon-btn" id="btnBoard" title="塔友榜">🏆</button>
+        <button class="icon-btn" id="btnCfg" title="设置">⚙</button>
       </div>
     </div>
-    <div class="floor-name" id="floorName">第 1 层 · 塔之入口</div>
+    <div class="floor-row">
+      <div class="floor-name" id="floorName">第 1 层 · 塔之入口</div>
+      <div class="floor-dots" id="floorDots"></div>
+    </div>
     <div class="chips">
       <div class="chip hp"><span class="ico">❤️</span><b id="statHp" hidden>1000</b><div class="hpwrap"><div class="hpbar" id="hpBar"></div><span class="hptext" id="hpText">1000</span></div></div>
       <div class="chip"><span class="ico">⚔️</span><b id="statAtk">10</b></div>
@@ -27,12 +32,18 @@
     <div class="keys">
       <span class="keytag ky">黄 <b id="keyY">1</b></span>
       <span class="keytag kr">红 <b id="keyR">0</b></span>
-      <button class="icon-btn" id="btnCfg" title="设置"><span id="cfgLabel">特效:全 音效:开</span></button>
+      <div class="relics" id="relicRow"></div>
     </div>
   </header>
 
   <main id="stage">
     <canvas id="game"></canvas>
+    <div class="floor-card" id="floorCard">
+      <div class="fc-num" id="fcNum"></div>
+      <div class="fc-name" id="fcName"></div>
+      <div class="fc-tip" id="fcTip"></div>
+    </div>
+    <div class="guide" id="guide"><span class="g-ico">✦</span><span id="guideText"></span></div>
   </main>
 
   <footer id="bottom">
@@ -49,15 +60,44 @@
 <!-- 开始 -->
 <div class="overlay show" id="startOverlay">
   <div class="panel start-panel">
+    <div class="start-art" id="startArt" aria-hidden="true">
+      <svg viewBox="0 0 140 104">
+        <defs>
+          <linearGradient id="towerG" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#1b2231"/><stop offset="1" stop-color="#080b12"/>
+          </linearGradient>
+        </defs>
+        <path d="M62 6h16l4 10h-24z" fill="url(#towerG)"/>
+        <path d="M50 18h40l3 12H47z" fill="url(#towerG)"/>
+        <path d="M46 32h48l3 16H43z" fill="url(#towerG)"/>
+        <path d="M42 50h56l3 16H39z" fill="url(#towerG)"/>
+        <path d="M38 68h64l4 18H34z" fill="url(#towerG)"/>
+        <path d="M30 88h80l6 14H24z" fill="url(#towerG)"/>
+        <g class="tw-lamps" fill="#3a4152">
+          <rect x="66" y="12" width="8" height="6" rx="3"/>
+          <rect x="66" y="26" width="8" height="6" rx="3"/>
+          <rect x="66" y="42" width="8" height="6" rx="3"/>
+          <rect x="66" y="60" width="8" height="6" rx="3"/>
+          <rect x="66" y="78" width="8" height="6" rx="3"/>
+          <rect x="66" y="96" width="8" height="6" rx="3"/>
+        </g>
+        <path d="M20 104h100" stroke="#1b2231" stroke-width="2"/>
+        <path d="M8 104l12-14 6 14z" fill="#10151f"/>
+        <path d="M132 104l-12-14-6 14z" fill="#10151f"/>
+      </svg>
+    </div>
     <div class="logo">TOWER<span>MATES</span></div>
-    <p class="sub">魔塔原型 · v0.3.7</p>
+    <p class="sub">魔塔 · v0.4</p>
     <p class="desc">第九位勇者的故事，从今夜开始。<br>塔里的事，没有一件是它看起来的样子。</p>
     <div class="ending-badges" id="endingBadges"></div>
     <button class="btn primary" id="btnNew">开始游戏</button>
     <button class="btn" id="btnContinue" style="display:none">继续游戏</button>
-    <button class="btn" id="btnBoard2">🏆 塔友榜</button>
+    <div class="btn-row">
+      <button class="btn" id="btnBoard2">🏆 塔友榜</button>
+      <button class="btn" id="btnHelp">❔ 玩法</button>
+    </div>
     <button class="btn ghost" id="btnReset">清空存档</button>
-    <p class="hint">键盘 ↑↓←→ / WASD 移动 · 点击格子移动 · 对白点击继续</p>
+    <p class="hint">↑↓←→ / WASD 移动 · 点击格子移动 · 对白点击继续</p>
   </div>
 </div>
 
@@ -69,20 +109,21 @@
       <div class="dlg-main">
         <div class="dlg-who" id="dlgWho"></div>
         <div class="dlg-text" id="dlgText"></div>
-        <div class="dlg-cue" id="dlgCue">▼</div>
+        <div class="dlg-foot">
+          <button class="dlg-tool" id="dlgPrev">‹ 上一句</button>
+          <div class="dlg-cue" id="dlgCue">▼</div>
+          <button class="dlg-tool" id="dlgSkip">跳过 ››</button>
+        </div>
       </div>
-      <button class="dlg-skip" id="dlgSkip">跳过本段</button>
     </div>
   </div>
 </div>
-
-<!-- 战斗预览已移除：撞上怪物直接开战 -->
 
 <!-- 商店 -->
 <div class="overlay" id="shopOverlay">
   <div class="panel shop-panel">
     <div class="shop-head">
-      <div class="shop-title">🏪 流浪商人</div>
+      <div class="shop-title">🏪 流浪商人 · 秤</div>
       <div class="shop-gold">金币 <b id="shopGold">0</b></div>
     </div>
     <div class="shop-list" id="shopList"></div>
@@ -97,7 +138,7 @@
   <div class="panel board-panel">
     <div class="shop-head">
       <div class="shop-title">🏆 塔友榜</div>
-      <div class="shop-gold">本机记录</div>
+      <div class="shop-gold" id="achCount">成就 0/15</div>
     </div>
     <div class="board-list" id="boardList"></div>
     <div class="code-row">
@@ -105,7 +146,7 @@
       <span class="code-val" id="myCode">——</span>
       <button class="si-buy" id="btnCopyCode">复制</button>
     </div>
-    <p class="code-hint">把挑战码发给朋友，他可以在他的榜单里贴上比一比（v0.2 先用本机榜，微信版接关系链）。</p>
+    <p class="code-hint">把挑战码发给朋友，他可以在他的榜单里贴上比一比（微信版接关系链）。</p>
     <div class="actions">
       <button class="btn primary" id="boardClose">关闭</button>
     </div>
@@ -125,7 +166,7 @@
         <div class="bs-bar"><i id="bsHeroBar"></i></div>
         <div class="bs-num" id="bsHeroHp">1000</div>
       </div>
-      <div class="bs-vs">⚔️</div>
+      <div class="bs-vs"><span>⚔</span></div>
       <div class="bs-side">
         <div class="bs-avatar" id="bsFoe">🦇</div>
         <div class="bs-bar foe"><i id="bsFoeBar"></i></div>
@@ -153,6 +194,34 @@
   </div>
 </div>
 
+<!-- 设置 -->
+<div class="overlay" id="cfgOverlay">
+  <div class="panel cfg-panel">
+    <div class="shop-head">
+      <div class="shop-title">⚙ 设置</div>
+      <div class="shop-gold">随时可改</div>
+    </div>
+    <div class="cfg-list">
+      <button class="cfg-row" id="cfgFx"><span>画面特效</span><b id="cfgFxVal">全开</b></button>
+      <button class="cfg-row" id="cfgSfx"><span>音效</span><b id="cfgSfxVal">开</b></button>
+      <button class="cfg-row" id="cfgVib"><span>震动反馈</span><b id="cfgVibVal">开</b></button>
+    </div>
+    <div class="cfg-help">
+      <div class="cfg-help-title">遗物</div>
+      <div class="cfg-relics" id="cfgRelics"></div>
+    </div>
+    <div class="cfg-help">
+      <div class="cfg-help-title">玩法</div>
+      <p>方向键 / WASD 走一格，点远处自动寻路。撞上怪物即战斗，打不过会被拦住。钥匙开对应的门，商人在第 3 层。塔共 6 层，第 6 层是塔顶。</p>
+    </div>
+    <div class="actions">
+      <button class="btn" id="cfgRetry">↺ 重来本层</button>
+      <button class="btn primary" id="cfgClose">关闭</button>
+    </div>
+    <button class="btn ghost" id="cfgWipe">清空存档与成就</button>
+  </div>
+</div>
+
 <!-- 顶部警告 -->
 <div id="warnPill"></div>
 
@@ -160,7 +229,7 @@
 <div id="toast">
   <div class="t-emoji" id="toastEmoji">⚔️</div>
   <div class="t-body">
-    <div class="t-title">成就解锁 · <span id="toastCount">0/14</span></div>
+    <div class="t-title">成就解锁 · <span id="toastCount">0/15</span></div>
     <div class="t-name" id="toastName">初鸣</div>
     <div class="t-desc" id="toastDesc">击败第一只怪物</div>
   </div>
@@ -169,20 +238,25 @@
 <!-- 最后的抉择 -->
 <div class="overlay" id="choiceOverlay">
   <div class="choice-stage">
-    <div class="choice-kicker">最后的抉择</div>
+    <div class="choice-kicker">最 后 的 抉 择</div>
     <p class="choice-desc">锁环需要名字，也需要血。<br>手记的角落里，还留着一个没敢签名的人。</p>
     <div class="choice-duo">
       <button class="choice-card red" id="choicePlain">
-        <span class="cc-emoji">🩸</span>
+        <span class="cc-ring"></span>
+        <span class="cc-emoji">🔒</span>
         <span class="cc-title">让她续锁</span>
         <span class="cc-sub">塔继续封着<br>她留在锁里</span>
+        <span class="cc-hint">← 左</span>
       </button>
       <button class="choice-card cyan" id="choiceTrue">
+        <span class="cc-ring"></span>
         <span class="cc-emoji">🕯️</span>
         <span class="cc-title">念出第六个名字</span>
         <span class="cc-sub">六盏灯亮起<br>她走下海崖</span>
+        <span class="cc-hint">右 →</span>
       </button>
     </div>
+    <div class="choice-hint">← → 切换 · Enter 确认</div>
   </div>
 </div>
 
@@ -207,9 +281,9 @@
 
 <script src="js/data.js?v=0.4.0"></script>
 <script src="js/story.js?v=0.4.0"></script>
+<script src="js/portraits.js?v=0.4.0"></script>
 <script src="js/achievements.js?v=0.4.0"></script>
 <script src="js/engine.js?v=0.4.0"></script>
-<script src="js/portraits.js?v=0.4.0"></script>
 <script src="js/render.js?v=0.4.0"></script>
 <script src="js/main.js?v=0.4.0"></script>
 </body>

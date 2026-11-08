@@ -1,4 +1,6 @@
-// TowerMates · 魔塔原型 —— 交互与 UI（v0.3.3：撞怪即战 / 窥探之镜 / 成就 / 特效开关）
+// TowerMates · 交互与 UI（v0.4）
+// 职责：输入 / 对白（立绘·跳过·回看）/ 战斗演出 / 商店 / 图鉴 / 榜单 / 设置 / 引导 / HUD
+// 规则一律走 Engine，表现一律走 Renderer；本文件只做编排。
 (function () {
   const D = window.GAME_DATA;
   const S = window.STORY;
@@ -9,95 +11,92 @@
   let typing = null;
   let warnTimer = null;
   let battleBusy = false;
+  let guideTimer = null;
+  let choiceFocus = null;
 
+  // ---------- 设置 ----------
   const Settings = (() => {
-    let data = { reduceFx: false, mute: false };
+    let data = { fx: 'full', sfx: true, vib: true };
     try {
-      data = Object.assign(data, JSON.parse(localStorage.getItem('towermates_cfg') || '{}'));
+      const old = JSON.parse(localStorage.getItem('towermates_cfg') || 'null');
+      const cur = JSON.parse(localStorage.getItem('towermates_cfg_v2') || 'null');
+      if (cur) data = Object.assign(data, cur);
+      else if (old) data = { fx: old.reduceFx ? 'low' : 'full', sfx: !old.mute, vib: true };
     } catch (e) {}
-    function save() {
-      try { localStorage.setItem('towermates_cfg', JSON.stringify(data)); } catch (e) {}
-    }
+    const save = () => {
+      try { localStorage.setItem('towermates_cfg_v2', JSON.stringify(data)); } catch (e) {}
+    };
     return {
-      get reduceFx() { return data.reduceFx; },
-      get mute() { return data.mute; },
-      toggleReduce() { data.reduceFx = !data.reduceFx; save(); return data.reduceFx; },
-      toggleMute() { data.mute = !data.mute; save(); return data.mute; },
+      get fx() { return data.fx; },
+      get sfx() { return data.sfx; },
+      get vib() { return data.vib; },
+      cycleFx() { data.fx = data.fx === 'full' ? 'low' : 'full'; save(); return data.fx; },
+      toggleSfx() { data.sfx = !data.sfx; save(); return data.sfx; },
+      toggleVib() { data.vib = !data.vib; save(); return data.vib; },
+    };
+  })();
+  const REDUCED = () => Settings.fx === 'low';
+
+  // ---------- 引导 ----------
+  const Tips = (() => {
+    let seen = {};
+    try { seen = JSON.parse(localStorage.getItem('towermates_tips_v1') || '{}'); } catch (e) {}
+    return {
+      show(key) {
+        if (seen[key]) return;
+        seen[key] = 1;
+        try { localStorage.setItem('towermates_tips_v1', JSON.stringify(seen)); } catch (e) {}
+        const g = $('guide');
+        $('guideText').textContent = S.tips[key] || key;
+        g.classList.add('show');
+        clearTimeout(guideTimer);
+        guideTimer = setTimeout(() => g.classList.remove('show'), 5200);
+      },
+      reset() { seen = {}; try { localStorage.removeItem('towermates_tips_v1'); } catch (e) {} },
     };
   })();
 
-  const el = {
-    stage: $('stage'),
-    canvas: $('game'),
-    floorName: $('floorName'),
-    statAtk: $('statAtk'),
-    statDef: $('statDef'),
-    statGold: $('statGold'),
-    statLv: $('statLv'),
-    statExp: $('statExp'),
-    keyY: $('keyY'),
-    keyR: $('keyR'),
-    log: $('log'),
-    startOverlay: $('startOverlay'),
-    shopOverlay: $('shopOverlay'),
-    endOverlay: $('endOverlay'),
-    dialogOverlay: $('dialogOverlay'),
-    boardOverlay: $('boardOverlay'),
-    codexOverlay: $('codexOverlay'),
-    toast: $('toast'),
-    warnPill: $('warnPill'),
-    battleScene: $('battleScene'),
-    choiceOverlay: $('choiceOverlay'),
-    bsHero: $('bsHero'),
-    bsFoe: $('bsFoe'),
-    bsHeroBar: $('bsHeroBar'),
-    bsFoeBar: $('bsFoeBar'),
-    bsHeroHp: $('bsHeroHp'),
-    bsFoeHp: $('bsFoeHp'),
-    bsName: $('bsName'),
-    bsRounds: $('bsRounds'),
-    bsNumbers: $('bsNumbers'),
-  };
-
   // ---------- 音效 ----------
   const Sound = (() => {
-    let ctx = null;
+    let actx = null;
     let music = null;
     function ensure() {
-      if (Settings.mute) return null;
-      if (!ctx) {
+      if (!Settings.sfx) return null;
+      if (!actx) {
         const AC = window.AudioContext || window.webkitAudioContext;
         if (!AC) return null;
-        ctx = new AC();
+        actx = new AC();
       }
-      if (ctx.state === 'suspended') ctx.resume();
-      return ctx;
+      if (actx.state === 'suspended') actx.resume();
+      return actx;
     }
-    function beep(freq, dur, type, gain, slide) {
+    function beep(freq, dur, type, gain, slide, delay) {
       const c = ensure();
       if (!c) return;
+      const t0 = c.currentTime + (delay || 0);
       const o = c.createOscillator();
       const g = c.createGain();
       o.type = type || 'square';
-      o.frequency.setValueAtTime(freq, c.currentTime);
-      if (slide) o.frequency.exponentialRampToValueAtTime(slide, c.currentTime + dur);
-      g.gain.setValueAtTime(gain || 0.035, c.currentTime);
-      g.gain.exponentialRampToValueAtTime(0.0001, c.currentTime + dur);
+      o.frequency.setValueAtTime(freq, t0);
+      if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(20, slide), t0 + dur);
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(gain || 0.035, t0 + 0.008);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
       o.connect(g).connect(c.destination);
-      o.start();
-      o.stop(c.currentTime + dur + 0.02);
+      o.start(t0);
+      o.stop(t0 + dur + 0.03);
     }
     function startMusic() {
       stopMusic();
       const c = ensure();
       if (!c) return;
       music = { oscs: [] };
-      [55, 55.7].forEach((f) => {
+      [55, 55.7, 82.5].forEach((f, i) => {
         const o = c.createOscillator();
         const g = c.createGain();
-        o.type = 'sine';
+        o.type = i === 2 ? 'triangle' : 'sine';
         o.frequency.value = f;
-        g.gain.value = 0.012;
+        g.gain.value = i === 2 ? 0.006 : 0.011;
         o.connect(g).connect(c.destination);
         o.start();
         music.oscs.push(o);
@@ -110,20 +109,48 @@
       }
     }
     const map = {
-      step: () => beep(220, 0.045, 'sine', 0.018),
-      hit: () => { beep(180, 0.09, 'sawtooth', 0.05, 80); beep(90, 0.12, 'square', 0.04, 60); },
-      hitBig: () => { beep(140, 0.16, 'sawtooth', 0.06, 50); beep(70, 0.2, 'square', 0.05, 40); beep(460, 0.08, 'triangle', 0.04, 180); },
-      pick: () => { beep(660, 0.07, 'triangle', 0.05); beep(990, 0.1, 'triangle', 0.04); },
-      door: () => beep(340, 0.16, 'sine', 0.05, 520),
-      level: () => { beep(523, 0.1, 'triangle', 0.05); beep(659, 0.1, 'triangle', 0.05); beep(784, 0.18, 'triangle', 0.05); },
-      buy: () => beep(880, 0.07, 'triangle', 0.04),
-      talk: () => beep(420, 0.05, 'sine', 0.03),
-      ach: () => { beep(784, 0.09, 'triangle', 0.05); beep(1047, 0.14, 'triangle', 0.05); },
-      win: () => { beep(523, 0.12, 'triangle', 0.05); beep(659, 0.12, 'triangle', 0.05); beep(784, 0.12, 'triangle', 0.05); beep(1047, 0.3, 'triangle', 0.05); },
-      lock: () => beep(140, 0.12, 'square', 0.04),
+      step: () => beep(200 + Math.random() * 30, 0.04, 'sine', 0.014),
+      hit: () => { beep(180, 0.09, 'sawtooth', 0.045, 80); beep(90, 0.12, 'square', 0.035, 60); },
+      hitBig: () => { beep(140, 0.17, 'sawtooth', 0.055, 50); beep(70, 0.22, 'square', 0.045, 40); beep(460, 0.09, 'triangle', 0.035, 180); },
+      pick: () => { beep(660, 0.06, 'triangle', 0.04); beep(990, 0.1, 'triangle', 0.032, null, 0.05); },
+      relic: () => { beep(523, 0.12, 'sine', 0.045); beep(784, 0.14, 'sine', 0.04, null, 0.09); beep(1047, 0.22, 'triangle', 0.035, null, 0.19); },
+      door: () => beep(320, 0.16, 'sine', 0.045, 520),
+      level: () => { beep(523, 0.1, 'triangle', 0.045); beep(659, 0.1, 'triangle', 0.045, null, 0.1); beep(784, 0.2, 'triangle', 0.045, null, 0.2); },
+      buy: () => beep(880, 0.06, 'triangle', 0.035),
+      talk: () => beep(400, 0.04, 'sine', 0.022),
+      ach: () => { beep(784, 0.09, 'triangle', 0.045); beep(1047, 0.15, 'triangle', 0.045, null, 0.09); },
+      win: () => { [523, 659, 784, 1047].forEach((f, i) => beep(f, i === 3 ? 0.34 : 0.12, 'triangle', 0.045, null, i * 0.13)); },
+      lock: () => beep(130, 0.12, 'square', 0.035),
+      skip: () => beep(500, 0.08, 'sine', 0.03, 240),
+      heal: () => { beep(440, 0.1, 'sine', 0.035); beep(660, 0.16, 'sine', 0.03, null, 0.08); },
     };
     return { play(n) { if (map[n]) map[n](); }, startMusic, stopMusic };
   })();
+
+  function vibrate(ms) {
+    if (!Settings.vib) return;
+    if (navigator.vibrate) { try { navigator.vibrate(ms); } catch (e) {} }
+  }
+
+  const el = {
+    stage: $('stage'), canvas: $('game'),
+    floorName: $('floorName'), floorDots: $('floorDots'),
+    statAtk: $('statAtk'), statDef: $('statDef'), statGold: $('statGold'),
+    statLv: $('statLv'), statExp: $('statExp'),
+    keyY: $('keyY'), keyR: $('keyR'), relicRow: $('relicRow'),
+    log: $('log'),
+    startOverlay: $('startOverlay'), shopOverlay: $('shopOverlay'),
+    endOverlay: $('endOverlay'), dialogOverlay: $('dialogOverlay'),
+    boardOverlay: $('boardOverlay'), codexOverlay: $('codexOverlay'),
+    cfgOverlay: $('cfgOverlay'), choiceOverlay: $('choiceOverlay'),
+    toast: $('toast'), warnPill: $('warnPill'),
+    battleScene: $('battleScene'),
+    bsHero: $('bsHero'), bsFoe: $('bsFoe'),
+    bsHeroBar: $('bsHeroBar'), bsFoeBar: $('bsFoeBar'),
+    bsHeroHp: $('bsHeroHp'), bsFoeHp: $('bsFoeHp'),
+    bsName: $('bsName'), bsRounds: $('bsRounds'), bsNumbers: $('bsNumbers'),
+    guide: $('guide'),
+  };
 
   // ---------- 顶部提示 ----------
   function warn(msg) {
@@ -132,11 +159,11 @@
     p.textContent = msg;
     p.classList.add('show');
     clearTimeout(warnTimer);
-    warnTimer = setTimeout(() => p.classList.remove('show'), 1700);
+    warnTimer = setTimeout(() => p.classList.remove('show'), 1800);
   }
 
   // ---------- 成就吐司 ----------
-  let toastQueue = [];
+  const toastQueue = [];
   let toastBusy = false;
   function notifyAchievement(def) {
     toastQueue.push(def);
@@ -154,39 +181,43 @@
     Sound.play('ach');
     setTimeout(() => {
       el.toast.classList.remove('show');
-      setTimeout(() => { toastBusy = false; pumpToast(); }, 350);
-    }, 2300);
+      setTimeout(() => { toastBusy = false; pumpToast(); }, 340);
+    }, 2400);
   }
 
   // ---------- 打击感分级 ----------
-  const TILE_N = () => Renderer.getTile();
+  const TN = () => Renderer.getTile();
   function impactFX(level, tx, ty) {
-    const R = Settings.reduceFx ? 0.4 : 1;
-    const cx = tx * TILE_N() + TILE_N() / 2;
-    const cy = ty * TILE_N() + TILE_N() / 2;
+    const R = REDUCED() ? 0.45 : 1;
+    const T = TN();
+    const cx = tx * T + T / 2;
+    const cy = ty * T + T / 2;
     if (level >= 3) {
-      Renderer.freeze(280);
+      Renderer.freeze(REDUCED() ? 120 : 280);
       Renderer.shake(480, 11 * R);
       Renderer.pulse();
-      Renderer.ring(tx, ty, 'rgba(255,190,90,0.9)', TILE_N() * 3.4, 620);
-      Renderer.burst(cx, cy, { count: 26, colors: ['#ffd27d', '#ff9f6b', '#ffe9b0', '#ff7d5c'], speed: 150, life: [500, 1000], size: [2.5, 5] });
+      Renderer.ring(tx, ty, 'rgba(255,190,90,0.9)', T * 3.4, 620);
+      Renderer.burst(cx, cy, { count: REDUCED() ? 10 : 26, colors: ['#ffd27d', '#ff9f6b', '#ffe9b0', '#ff7d5c'], speed: 150, life: [500, 1000], size: [2.5, 5] });
+      vibrate([30, 40, 60]);
     } else if (level === 2) {
-      Renderer.freeze(150);
+      Renderer.freeze(REDUCED() ? 70 : 150);
       Renderer.shake(320, 8 * R);
-      Renderer.ring(tx, ty, 'rgba(255,120,90,0.8)', TILE_N() * 2.4, 500);
-      Renderer.burst(cx, cy, { count: 16, colors: ['#ff8f6b', '#ffc98f'], speed: 120, life: [420, 850] });
+      Renderer.ring(tx, ty, 'rgba(255,120,90,0.8)', T * 2.4, 500);
+      Renderer.burst(cx, cy, { count: REDUCED() ? 6 : 16, colors: ['#ff8f6b', '#ffc98f'], speed: 120, life: [420, 850] });
+      vibrate(24);
     } else if (level === 1) {
-      Renderer.freeze(90);
+      Renderer.freeze(REDUCED() ? 40 : 90);
       Renderer.shake(220, 6 * R);
-      Renderer.burst(cx, cy, { count: 10, colors: ['#ffd27d', '#ffb07d'], speed: 100, life: [380, 700] });
+      Renderer.burst(cx, cy, { count: REDUCED() ? 4 : 10, colors: ['#ffd27d', '#ffb07d'], speed: 100, life: [380, 700] });
+      vibrate(16);
     } else {
-      Renderer.freeze(55);
+      Renderer.freeze(REDUCED() ? 20 : 55);
       Renderer.shake(160, 4 * R);
-      Renderer.burst(cx, cy, { count: 6, colors: ['#e8e8e8', '#ffd27d'], speed: 80, life: [300, 560], size: [1.5, 3] });
+      Renderer.burst(cx, cy, { count: REDUCED() ? 3 : 6, colors: ['#e8e8e8', '#ffd27d'], speed: 80, life: [300, 560], size: [1.5, 3] });
     }
   }
 
-  // ---------- 消息 ----------
+  // ---------- 日志 ----------
   function log(msg, cls) {
     if (!msg) return;
     const div = document.createElement('div');
@@ -197,16 +228,28 @@
   }
 
   // ---------- HUD ----------
+  const RELIC_ORDER = ['ward', 'edge', 'ember'];
+  function buildRelicRow() {
+    el.relicRow.innerHTML = RELIC_ORDER.map((id) => {
+      const r = D.relics[id];
+      return `<span class="relic" data-relic="${id}" title="${r.name}：${r.desc}">${r.emoji}</span>`;
+    }).join('');
+  }
+  function buildFloorDots() {
+    el.floorDots.innerHTML = D.floors.map(() => '<i></i>').join('');
+  }
+
   function refreshHud() {
     const s = Engine.state();
     if (!s) return;
     const next = Engine.nextLevelExp();
-    const unlocked = !!s.flags.codex;
-    el.floorName.textContent = `第 ${s.floor + 1} 层 · ${D.floors[s.floor].name}`;
     const maxHp = s.maxHp || Math.max(s.hp, 1000);
     const pct = Math.max(0, Math.min(100, (s.hp / maxHp) * 100));
+    const wrap = $('hpBar').parentElement;
     $('hpBar').style.width = pct + '%';
-    $('hpText').textContent = s.hp;
+    $('hpText').textContent = `${Math.max(0, Math.round(s.hp))} / ${Math.round(maxHp)}`;
+    wrap.classList.toggle('low', pct <= 25);
+    el.floorName.textContent = `第 ${s.floor + 1} 层 · ${D.floors[s.floor].name}`;
     el.statAtk.textContent = s.atk;
     el.statDef.textContent = s.def;
     el.statGold.textContent = s.gold;
@@ -214,7 +257,15 @@
     el.statExp.textContent = next ? `${s.exp}/${next}` : `${s.exp} · MAX`;
     el.keyY.textContent = s.keys.y;
     el.keyR.textContent = s.keys.r;
-    $('btnCodex').style.display = unlocked ? '' : 'none';
+    $('btnCodex').style.display = s.flags.codex ? '' : 'none';
+
+    Array.from(el.floorDots.children).forEach((d, i) => {
+      d.className = i === s.floor ? 'now' : i < s.floor ? 'done' : '';
+    });
+    el.relicRow.querySelectorAll('.relic').forEach((n) => {
+      n.classList.toggle('on', !!s.flags['relic_' + n.dataset.relic]);
+    });
+
     ['statAtk', 'statDef', 'statGold'].forEach((id) => {
       const node = $(id);
       const v = node.textContent;
@@ -225,66 +276,50 @@
       }
       node._last = v;
     });
+
+    if (pct <= 25 && s.hp > 0) Tips.show('low');
   }
 
-  // ---------- 角色立绘（复用 js/portraits.js：构图固定，情绪只改光色） ----------
-  function portraitMarkup(who, mood) {
-    if (window.Portraits && window.Portraits.render) {
-      return window.Portraits.render(who, mood || 'calm');
-    }
-    return '';
-  }
-  function hasPortrait(who) {
-    return !!(window.Portraits && window.Portraits.has && window.Portraits.has(who));
+  function shakeHp() {
+    const wrap = $('hpBar').parentElement;
+    wrap.classList.remove('shake');
+    void wrap.offsetWidth;
+    wrap.classList.add('shake');
   }
 
-  // ---------- 剧情 ----------
+  // ---------- 对白 ----------
   function playStory(key, cb) {
     const script = S[key];
     if (!script) { if (cb) cb(); return; }
-    // 兼容两种格式：["旁白", ...] 或 [["角色", "台词"], ...]
-    const lines = script.map((row) => (Array.isArray(row)
-      ? { who: row[0] || '', text: row[1] || '', mood: row[2] || '' }
-      : { who: '', text: String(row), mood: '' }));
-    el.dialogOverlay.classList.add('show');
-    startTyping(lines, cb);
-  }
-
-  function startTyping(lines, cb) {
+    const lines = script.map((row) => {
+      if (Array.isArray(row)) return { who: row[0] || '', text: row[1] || '', mood: row[2] || '' };
+      return { who: '', text: String(row), mood: '' };
+    });
     typing = { lines, idx: 0, cb: cb || null };
-    const skip = $('dlgSkip');
-    if (skip) skip.style.display = lines.length >= 3 ? '' : 'none';
+    el.dialogOverlay.classList.add('show');
     renderLine();
   }
 
   function renderLine() {
     if (!typing) return;
     const line = typing.lines[typing.idx];
-    const box = $('dlgText');
-    const who = $('dlgWho');
-    const cue = $('dlgCue');
-    const ptr = $('dlgPortrait');
-    who.textContent = line.who;
-    who.className = 'dlg-who ' + (line.who === '烛' ? 'ghost' : line.who === '薇拉' ? 'vera' : line.who === '魔王' ? 'boss' : '');
-    who.style.display = line.who ? '' : 'none';
-    // 立绘：只给有剪影的角色显示；旁白/手记不显示
-    if (ptr) {
-      const has = hasPortrait(line.who);
-      ptr.innerHTML = has ? portraitMarkup(line.who, line.mood) : '';
-      ptr.style.display = has ? '' : 'none';
-    }
-    box.textContent = line.text;
+    const isThink = line.mood === 'think';
+    $('dlgWho').textContent = line.who;
+    $('dlgWho').className = 'dlg-who ' + (line.who === '烛' ? 'ghost'
+      : line.who === '薇拉' ? 'vera'
+        : line.who === '魔王' || line.who === '炬' ? 'boss'
+          : line.who === '秤' ? 'merchant' : '');
+    $('dlgWho').style.display = line.who ? '' : 'none';
+    const text = $('dlgText');
+    text.textContent = line.text;
+    text.className = 'dlg-text' + (isThink ? ' think' : '');
+    $('dlgBox').classList.toggle('narration', !line.who);
+    $('dlgPortrait').innerHTML = window.Portraits ? window.Portraits.render(line.who, line.mood || 'calm') : '';
+    $('dlgCue').textContent = typing.idx >= typing.lines.length - 1 ? '点击结束' : '▼';
+    const prev = $('dlgPrev');
+    prev.disabled = typing.idx === 0;
+    prev.style.visibility = typing.idx === 0 ? 'hidden' : 'visible';
     Sound.play('talk');
-    cue.style.visibility = 'visible';
-    cue.textContent = typing.idx >= typing.lines.length - 1 ? '— 点击结束 —' : '▼';
-  }
-
-  function skipStory() {
-    if (!typing) return;
-    el.dialogOverlay.classList.remove('show');
-    const cb = typing.cb;
-    typing = null;
-    if (cb) cb();
   }
 
   function advanceDialog() {
@@ -294,9 +329,26 @@
       renderLine();
       return;
     }
+    closeDialog();
+  }
+
+  function prevDialog() {
+    if (!typing || typing.idx === 0) return;
+    typing.idx--;
+    renderLine();
+  }
+
+  function skipDialog() {
+    if (!typing) return;
+    Sound.play('skip');
+    closeDialog();
+  }
+
+  function closeDialog() {
     el.dialogOverlay.classList.remove('show');
-    const cb = typing.cb;
+    const cb = typing && typing.cb;
     typing = null;
+    $('dlgPortrait').innerHTML = '';
     if (cb) cb();
   }
 
@@ -321,37 +373,9 @@
   const fmtTime = (t) => (t >= 60 ? `${Math.floor(t / 60)}分${t % 60}秒` : `${t}秒`);
   const endName = (e) => (e === 'true' ? '第六个名字' : e === 'plain' ? '铁与霜' : '未竟');
 
-  // ---------- 结局解锁记录 ----------
-  const ENDING_KEY = 'towermates_endings';
-  function loadEndings() {
-    try { return JSON.parse(localStorage.getItem(ENDING_KEY) || '{}'); } catch (e) { return {}; }
-  }
-  function markEnding(id) {
-    if (!id) return;
-    const got = loadEndings();
-    if (got[id]) return;
-    got[id] = true;
-    try { localStorage.setItem(ENDING_KEY, JSON.stringify(got)); } catch (err) {}
-    renderEndingBadges();
-  }
-  function renderEndingBadges() {
-    const box = $('endingBadges');
-    if (!box) return;
-    const got = loadEndings();
-    const defs = [
-      { id: 'plain', icon: '⚔️', name: '铁与霜' },
-      { id: 'true', icon: '🕯️', name: '第六个名字' },
-    ];
-    box.innerHTML = defs.map((d) => {
-      const on = !!got[d.id];
-      return `<span class="ebadge${on ? ' on' : ''}" title="${on ? '已达成' : '未解锁'}">` +
-        `<b>${on ? d.icon : '🔒'}</b><i>${on ? d.name : '未解锁'}</i></span>`;
-    }).join('');
-  }
-
   function openBoard() {
-    const list = loadBoard();
-    const all = S.shadowRivals.concat(list.map((x) => Object.assign({ mine: true }, x)));
+    const mine = loadBoard().map((x) => Object.assign({ mine: true }, x));
+    const all = S.shadowRivals.concat(mine);
     all.sort((a, b) => (b.ending === 'true') - (a.ending === 'true') || b.floor - a.floor || a.steps - b.steps);
     $('boardList').innerHTML = all.slice(0, 10).map((r, i) => `<div class="bd-row ${r.mine ? 'mine' : ''}">
         <span class="bd-rank">${i + 1}</span>
@@ -361,12 +385,14 @@
         <span class="bd-steps">${r.steps}步</span>
         <span class="bd-time">${fmtTime(r.time)}</span>
       </div>`).join('');
-    $('myCode').textContent = loadBoard().length ? encodeChallenge(loadBoard()[0]) : '—— 通关后生成 ——';
-    $('achCount').textContent = `${Achievements.count()}/${Achievements.DEFS.length}`;
+    const codeEl = $('myCode');
+    codeEl.textContent = mine.length ? encodeChallenge(mine[0]) : '—— 通关后生成 ——';
+    $('achCount').textContent = `成就 ${Achievements.count()}/${Achievements.DEFS.length}`;
     el.boardOverlay.classList.add('show');
   }
+  function closeBoard() { el.boardOverlay.classList.remove('show'); }
 
-  // ---------- 怪物图鉴（窥探之镜） ----------
+  // ---------- 图鉴 ----------
   function openCodex() {
     const s = Engine.state();
     if (!s || !s.flags.codex) return;
@@ -392,12 +418,7 @@
     el.codexOverlay.classList.add('show');
   }
 
-  function closeCodex() {
-    el.codexOverlay.classList.remove('show');
-  }
-
-  // ---------- 自动战斗演出 ----------
-  // 真实伤害仍由 engine 结算；这里只演「你来我往」的过程
+  // ---------- 战斗演出 ----------
   function playBattleScene(info, done) {
     const s = Engine.state();
     const m = info.monster;
@@ -407,21 +428,23 @@
     let heroHp = s.hp;
     let foeHp = foeMax;
     let skipped = false;
-    const speed = window.__battleSpeed || 1; // 测试用减速
+    const speed = window.__battleSpeed || 1;
     const wait = (ms) => new Promise((r) => setTimeout(r, ms * speed));
+
+    const bg = Renderer.snapshot();
+    if (bg) el.battleScene.style.setProperty('--bg', `url(${bg})`);
 
     el.bsHero.textContent = '🧙';
     el.bsFoe.textContent = m.emoji;
     el.bsName.textContent = m.name + (m.boss ? ' · 塔的主人' : '');
     el.bsRounds.textContent = `${pred.rounds} 回合`;
-    el.bsHeroHp.textContent = heroHp;
-    el.bsFoeHp.textContent = foeHp;
+    el.bsHeroHp.textContent = Math.round(heroHp);
+    el.bsFoeHp.textContent = Math.round(foeHp);
     el.bsHeroBar.style.width = '100%';
     el.bsFoeBar.style.width = '100%';
     el.bsNumbers.innerHTML = '';
     el.battleScene.classList.add('show');
-    el.battleScene.classList.toggle('hero-win', false);
-    el.battleScene.dataset.floor = String(s.floor);
+    el.battleScene.classList.remove('hero-win');
 
     function bars() {
       el.bsHeroBar.style.width = Math.max(0, Math.min(100, (heroHp / heroMax) * 100)) + '%';
@@ -429,7 +452,6 @@
       el.bsHeroHp.textContent = Math.max(0, Math.round(heroHp));
       el.bsFoeHp.textContent = Math.max(0, Math.round(foeHp));
     }
-
     function dmgNum(anchor, text, color) {
       const r = anchor.getBoundingClientRect();
       const d = document.createElement('div');
@@ -439,7 +461,7 @@
       d.style.left = r.left + r.width / 2 + (Math.random() * 26 - 13) + 'px';
       d.style.top = r.top + r.height * 0.35 + 'px';
       el.bsNumbers.appendChild(d);
-      setTimeout(() => d.remove(), 800 * speed);
+      setTimeout(() => d.remove(), 820 * speed);
     }
 
     el.battleScene.onclick = () => { skipped = true; };
@@ -447,38 +469,38 @@
     (async () => {
       const K = Math.min(pred.rounds, m.boss ? 8 : 5);
       for (let i = 0; i < K && !skipped; i++) {
-        // 我方出手
         el.bsHero.classList.add('lunge-r');
-        await wait(120);
+        await wait(130);
         el.bsHero.classList.remove('lunge-r');
         const cut = pred.out;
         foeHp = Math.max(0, foeHp - cut);
         bars();
         dmgNum(el.bsFoe, '-' + cut, '#ffd27d');
         el.bsFoe.classList.add('hit');
-        await wait(90);
+        Sound.play(cut > heroMax * 0.06 ? 'hitBig' : 'hit');
+        await wait(95);
         el.bsFoe.classList.remove('hit');
         if (foeHp <= 0) break;
-        // 敌方反击（最后一回合不反击）
         if (i < K - 1 && !skipped) {
           el.bsFoe.classList.add('lunge-l');
-          await wait(120);
+          await wait(130);
           el.bsFoe.classList.remove('lunge-l');
           heroHp = Math.max(1, heroHp - pred.per);
           bars();
           if (pred.per > 0) dmgNum(el.bsHero, '-' + pred.per, '#ff8f8f');
           el.bsHero.classList.add('hit');
-          await wait(90);
+          vibrate(12);
+          await wait(95);
           el.bsHero.classList.remove('hit');
         }
       }
-      // 收尾：对齐真实结果
       foeHp = 0;
       heroHp = Math.max(1, s.hp - pred.damage);
       bars();
       el.bsFoe.classList.add('ko');
       el.battleScene.classList.add('hero-win');
-      await wait(360);
+      Sound.play(m.boss ? 'hitBig' : 'hit');
+      await wait(370);
       el.battleScene.classList.remove('show');
       el.battleScene.classList.remove('hero-win');
       el.bsFoe.classList.remove('ko', 'hit');
@@ -492,22 +514,26 @@
     const s2 = Engine.state();
     const isBoss = !!res.boss;
     const heavy = res.damage >= (s2.maxHp || Math.max(s2.hp, 1000)) * 0.15;
-    impactFX(isBoss ? 3 : heavy ? 1 : 0, tx, ty);
+    impactFX(isBoss ? 3 : heavy ? 2 : res.damage > 0 ? 1 : 0, tx, ty);
     Sound.play(isBoss || heavy ? 'hitBig' : 'hit');
+    shakeHp();
 
-    Renderer.addFloat(`-${res.damage}`, tx * TILE_N() + TILE_N() / 2, ty * TILE_N() + 6, '#ff8f8f', heavy || isBoss);
-    Renderer.addFloat(`+${res.gold}💰`, tx * TILE_N() + TILE_N() / 2 - 14, ty * TILE_N() + 16, '#e8c46a');
-    if (res.exp > 0) Renderer.addFloat(`+${res.exp}✨`, tx * TILE_N() + TILE_N() / 2 + 14, ty * TILE_N() + 16, '#9fd8ff');
+    const T = TN();
+    Renderer.addFloat(`-${res.damage}`, tx * T + T / 2, ty * T + 6, '#ff8f8f', heavy || isBoss);
+    Renderer.addFloat(`+${res.gold}💰`, tx * T + T / 2 - 14, ty * T + 16, '#e8c46a');
+    if (res.exp > 0) Renderer.addFloat(`+${res.exp}✨`, tx * T + T / 2 + 14, ty * T + 16, '#9fd8ff');
+    if (res.heal > 0) Renderer.addFloat(`+${res.heal}❤`, tx * T + T / 2, ty * T + 26, '#6fe3a0');
     log(`击败${res.monster.name}，损失 ${res.damage} 生命，获得 ${res.gold} 金币 / ${res.exp} 经验`, 'good');
+    if (res.heal > 0) log(`余烬灯芯亮了一下，回复 ${res.heal} 生命`, 'good');
 
     if (res.levelUps > 0) {
       Sound.play('level');
-      Renderer.ring(s2.x, s2.y, 'rgba(255,224,138,0.9)', TILE_N() * 2.6, 560);
-      Renderer.addFloat('LEVEL UP', s2.x * TILE_N() + TILE_N() / 2, s2.y * TILE_N() - 8, '#ffe08a', true);
+      Renderer.ring(s2.x, s2.y, 'rgba(255,224,138,0.9)', TN() * 2.6, 560);
+      Renderer.addFloat('LEVEL UP', s2.x * TN() + TN() / 2, s2.y * TN() - 8, '#ffe08a', true);
       log(`升级！Lv.${s2.level}　攻击+${3 * res.levelUps}　防御+${3 * res.levelUps}　生命+${150 * res.levelUps}`, 'gold');
     }
     if (res.boss) {
-      log('魔王散成九盏灯，一层一层落了下去。', 'gold');
+      log('魔王散成六盏灯，一层一层落了下去。', 'gold');
       s2.flags.bossKilled = true;
       Engine.save();
       Sound.stopMusic();
@@ -516,7 +542,7 @@
     refreshHud();
   }
 
-  // ---------- 战斗入口（撞上即演，自动打完） ----------
+  // ---------- 战斗入口 ----------
   function resolveBattle(dx, dy) {
     if (battleBusy) return;
     const s = Engine.state();
@@ -528,17 +554,23 @@
     const pred = Engine.predict(ch);
     if (!m || !pred) return;
 
-    // 打不过：原地不动，给警告
     if (!pred.win) {
       Sound.play('lock');
+      vibrate(20);
       Renderer.flashTile(tx, ty, 'rgba(255,80,80,0.35)', 260);
-      Renderer.shake(120, 2.5);
-      warn(pred.reason === '攻击力不足，无法破防' ? '攻击力不足，无法破防' : '这一战会要你的命，先变强吧');
-      log(`无法战胜${m.name}：${pred.reason}`, 'warn');
+      Renderer.shake(130, 2.5);
+      if (m.boss) {
+        warn('打不过。回第 3 层找秤，把金币换成力量。');
+        log('魔王太强了。塔里还有没清完的怪，或者回第 3 层找秤。', 'warn');
+      } else {
+        warn(pred.reason === '攻击力不足，无法破防' ? '攻击力不足，无法破防' : '这一战会要你的命，先变强吧');
+        log(`无法战胜${m.name}：${pred.reason}`, 'warn');
+      }
       return;
     }
 
-    // 首见魔王：先对白，再自动开打
+    Tips.show('fight');
+
     if (m.boss && !s.flags.boss) {
       s.flags.boss = true;
       Engine.save();
@@ -561,34 +593,47 @@
     renderShop();
     el.shopOverlay.classList.add('show');
   }
-
+  function closeShop() {
+    shopOpen = false;
+    el.shopOverlay.classList.remove('show');
+  }
   function renderShop() {
     const s = Engine.state();
     $('shopGold').textContent = s.gold;
     const list = $('shopList');
     list.innerHTML = '';
     D.shop.forEach((item) => {
-      const owned = item.codex && s.flags.codex;
-      const afford = s.gold >= item.price;
+      const owned = (item.codex && s.flags.codex) || (item.relic && Engine.hasRelic(item.relic));
+      const price = Engine.priceOf(item);
+      const afford = s.gold >= price;
+      const tip = item.relic ? D.relics[item.relic].desc : item.key ? (item.key === 'y' ? '开黄门' : '开红门') : item.hp ? `回复 ${item.hp} 生命` : item.atk ? '攻击 +2' : item.def ? '防御 +2' : '怪物情报';
       const row = document.createElement('div');
       row.className = 'shop-item' + (owned ? ' owned' : '');
       row.innerHTML = `
         <span class="si-emoji">${item.emoji}</span>
-        <span class="si-name">${item.name}${item.codex ? '<small class="si-tag">神器</small>' : ''}</span>
-        <span class="si-price">${item.price} 金币</span>
+        <span class="si-name"><b>${item.name}${item.once ? '<small class="si-tag">唯一</small>' : ''}</b><small>${tip}</small></span>
+        <span class="si-price">${price}</span>
         <button class="si-buy" data-id="${item.id}" ${owned || !afford ? 'disabled' : ''}>${owned ? '已拥有' : '购买'}</button>
       `;
       list.appendChild(row);
     });
     list.querySelectorAll('.si-buy').forEach((b) => {
       b.addEventListener('click', () => {
+        const before = Engine.state();
         const res = Engine.buy(b.dataset.id);
         if (res.type === 'buy') {
-          Sound.play('buy');
+          Sound.play(res.item.relic ? 'relic' : 'buy');
+          if (res.item.hp) Sound.play('heal');
           log(res.msg, 'good');
           if (res.item.codex) {
-            Renderer.ring(Engine.state().x, Engine.state().y, 'rgba(180,160,255,0.9)', TILE_N() * 2.4, 600);
-            warn('窥探之镜已解锁：地图上会标出每个怪物的预计伤害');
+            Renderer.ring(before.x, before.y, 'rgba(180,160,255,0.9)', TN() * 2.4, 600);
+            warn('窥探之镜已解锁：地图上会标出每只怪的预计伤害');
+          }
+          if (res.item.relic) {
+            Renderer.ring(before.x, before.y, 'rgba(255,225,150,0.9)', TN() * 2.6, 620);
+            Renderer.burst(before.x * TN() + TN() / 2, before.y * TN() + TN() / 2, { count: 14, colors: ['#ffe6a8', '#ffd27d'], speed: 110, life: [400, 800] });
+            warn(res.msg);
+            Tips.show('relic');
           }
           refreshHud();
           renderShop();
@@ -601,25 +646,22 @@
     });
   }
 
-  function closeShop() {
-    shopOpen = false;
-    el.shopOverlay.classList.remove('show');
-  }
-
   // ---------- 结局抉择 ----------
   function showEndingChoice() {
+    choiceFocus = null;
+    document.querySelectorAll('.choice-card').forEach((c) => c.classList.remove('focus'));
     el.choiceOverlay.classList.add('show');
   }
-
+  function setChoiceFocus(which) {
+    choiceFocus = which;
+    document.querySelectorAll('.choice-card').forEach((c) => c.classList.remove('focus'));
+    $(which === 'true' ? 'choiceTrue' : 'choicePlain').classList.add('focus');
+  }
   function chooseEnding(id) {
     el.choiceOverlay.classList.remove('show');
-    if (id === 'true') {
-      playStory('afterChoiceTrue', () => completeEnding('true', true));
-    } else {
-      playStory('afterChoicePlain', () => completeEnding('plain', false));
-    }
+    if (id === 'true') playStory('afterChoiceTrue', () => completeEnding('true', true));
+    else playStory('afterChoicePlain', () => completeEnding('plain', false));
   }
-
   function completeEnding(id, announce) {
     Engine.finish(id);
     refreshHud();
@@ -637,10 +679,10 @@
     const sum = Engine.summary();
 
     Sound.play('win');
-    if (!Settings.reduceFx) {
+    if (!REDUCED()) {
       Renderer.pulse();
       Renderer.shake(600, 10);
-      Renderer.burst(s.x * TILE_N() + TILE_N() / 2, s.y * TILE_N() + TILE_N() / 2, {
+      Renderer.burst(s.x * TN() + TN() / 2, s.y * TN() + TN() / 2, {
         count: 40, colors: ['#ffe08a', '#9fd8ff', '#ffc4e0', '#fff4d6'], speed: 170, life: [600, 1400], grav: 90, size: [2, 4.5],
       });
     }
@@ -648,50 +690,86 @@
     $('endTitle').textContent = E.title;
     $('endDesc').textContent = E.desc;
     $('endBody').textContent = E.body;
+    const relics = Engine.ownedRelics().map((id) => D.relics[id].short).join(' ') || '无';
     $('endStats').innerHTML = `
       <div>结局 <b>${endName(s.ending)}</b></div>
       <div>最终等级 <b>Lv.${sum.level}</b></div>
       <div>攻击 / 防御 <b>${s.atk} / ${s.def}</b></div>
-      <div>剩余生命 <b>${s.hp}</b></div>
+      <div>剩余生命 <b>${Math.round(s.hp)}</b></div>
       <div>击杀 <b>${s.flags.killCount || 0}</b></div>
-      <div>用时/步数 <b>${fmtTime(sum.time)} / ${sum.steps}步</b></div>
+      <div>遗物 <b>${relics}</b></div>
+      <div>步数 <b>${sum.steps} 步</b></div>
+      <div>用时 <b>${fmtTime(sum.time)}</b></div>
     `;
     saveBoard(sum);
-    markEnding(s.ending);
     $('endCode').textContent = encodeChallenge(sum);
     Achievements.evaluate('finish', s, notifyAchievement);
     el.endOverlay.classList.add('show');
+    refreshStartBadges();
+  }
+
+  // ---------- 标题页 ----------
+  function refreshStartBadges() {
+    const plain = Achievements.isUnlocked('end_plain');
+    const tru = Achievements.isUnlocked('end_true');
+    $('endingBadges').innerHTML = `
+      <span class="eb ${plain ? 'on' : ''}"><i>${plain ? '🕯' : '○'}</i>铁与霜</span>
+      <span class="eb ${tru ? 'on true' : ''}"><i>${tru ? '🕯' : '○'}</i>第六个名字</span>
+      <span class="eb ${Achievements.count() ? 'on' : ''}"><i>✦</i>成就 ${Achievements.count()}/${Achievements.DEFS.length}</span>
+    `;
+    const art = $('startArt');
+    art.classList.toggle('lit', plain || tru);
+    art.classList.toggle('true', tru);
+  }
+
+  // ---------- 楼层卡片 ----------
+  let floorCardTimer = null;
+  function showFloorCard(floor) {
+    const f = D.floors[floor];
+    $('fcNum').textContent = `第 ${floor + 1} 层 / 共 ${D.floors.length} 层`;
+    $('fcName').textContent = f.name;
+    $('fcTip').textContent = f.tip;
+    const card = $('floorCard');
+    card.classList.remove('show');
+    void card.offsetWidth;
+    card.classList.add('show');
+    clearTimeout(floorCardTimer);
+    floorCardTimer = setTimeout(() => card.classList.remove('show'), 2100);
   }
 
   // ---------- 点击寻路 ----------
   let walkTimer = null;
-
   function stopWalk() {
-    if (walkTimer) {
-      clearTimeout(walkTimer);
-      walkTimer = null;
-    }
+    if (walkTimer) { clearTimeout(walkTimer); walkTimer = null; }
     Renderer.setTarget(null);
   }
-
-  function walkAlong(path, tx, ty) {
+  function walkAlong(path, tx, ty, through) {
     if (!path || !path.length) return;
     Renderer.setTarget(tx, ty);
     let i = 0;
     const step = () => {
       walkTimer = null;
-      if (i >= path.length) {
-        stopWalk();
-        return;
-      }
+      if (i >= path.length) { stopWalk(); return; }
       const [dx, dy] = path[i++];
+      if (through) {
+        // 路被怪挡着：走到跟前直接开打（打不过就停下）
+        const s0 = Engine.state();
+        const ch = Engine.tile(s0.x + dx, s0.y + dy);
+        const m = D.monsters[ch];
+        if (m && !m.ghost) {
+          stopWalk();
+          const pred = Engine.predict(ch);
+          if (pred && pred.win) resolveBattle(dx, dy);
+          else warn(`前面是${m.name}，打不过，先变强`);
+          return;
+        }
+      }
       const s0 = Engine.state();
       const floor0 = s0 ? s0.floor : -1;
       const px0 = s0 ? s0.x : -1;
       const py0 = s0 ? s0.y : -1;
       act(dx, dy);
       const s1 = Engine.state();
-      // 遇到战斗 / 对话 / 商店 / 换层 / 结局 / 原地没动（被门或墙挡住），立即中断
       if (!s1 || s1.over || s1.won || battleBusy || typing ||
           el.dialogOverlay.classList.contains('show') || shopOpen ||
           el.codexOverlay.classList.contains('show') || s1.floor !== floor0 ||
@@ -699,63 +777,58 @@
         stopWalk();
         return;
       }
-      walkTimer = setTimeout(step, 110);
+      walkTimer = setTimeout(step, 105);
     };
     step();
   }
 
-  // 点击地面格子：能走就一路走过去
   function clickMove(cx, cy) {
     const s = Engine.state();
     if (!s) return;
-    if (cx === s.x && cy === s.y) {
-      stopWalk();
-      return;
-    }
+    Tips.show('walk');
+    if (cx === s.x && cy === s.y) { stopWalk(); return; }
     const dx = cx - s.x;
     const dy = cy - s.y;
-    // 相邻一格：保留原手感，直接走/打
     if (Math.abs(dx) + Math.abs(dy) === 1) {
       stopWalk();
       act(dx, dy);
       return;
     }
     const ch = Engine.tile(cx, cy);
-    // 远处怪物：走到它旁边最近的空格
     if (D.monsters[ch]) {
       let best = null;
       [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([ox, oy]) => {
         const p = Engine.pathTo(cx + ox, cy + oy);
         if (p && p.length && (!best || p.length < best.length)) best = p;
       });
-      if (best) {
-        stopWalk();
-        walkAlong(best, cx, cy);
-        return;
-      }
+      if (best) { stopWalk(); walkAlong(best, cx, cy); return; }
       const near = Engine.pathToNear(cx, cy);
-      if (near) {
-        stopWalk();
-        walkAlong(near.path, near.x, near.y);
-        warn('就近靠过去，前面有怪挡路');
-        return;
-      }
+      if (near) { stopWalk(); walkAlong(near.path, near.x, near.y); warn('就近靠过去，前面有怪挡路'); return; }
       warn('没有能靠近它的路');
       return;
     }
     const path = Engine.pathTo(cx, cy);
-    if (path) {
-      stopWalk();
-      walkAlong(path, cx, cy);
-      return;
+    if (path) { stopWalk(); walkAlong(path, cx, cy); return; }
+    // 被怪物截断的路线：沿"怪物可通行"的路径走到它跟前，撞上去开打
+    const through = Engine.pathThrough(cx, cy);
+    if (through && through.length) {
+      let sx = s.x, sy = s.y;
+      let cut = through.length;
+      for (let i = 0; i < through.length; i++) {
+        const nx = sx + through[i][0];
+        const ny = sy + through[i][1];
+        const ch2 = Engine.tile(nx, ny);
+        if (D.monsters[ch2] && !D.monsters[ch2].ghost) { cut = i + 1; break; }
+        sx = nx; sy = ny;
+      }
+      if (cut > 1) {
+        stopWalk();
+        walkAlong(through.slice(0, cut), cx, cy, true);
+        return;
+      }
     }
-    // 不可直达（多半是怪挡走廊）：走到最近的可达点
     const near = Engine.pathToNear(cx, cy);
-    if (near) {
-      stopWalk();
-      walkAlong(near.path, near.x, near.y);
-      return;
-    }
+    if (near) { stopWalk(); walkAlong(near.path, near.x, near.y); return; }
     warn('走不过去');
   }
 
@@ -765,20 +838,30 @@
   function enterFloor(first) {
     const s = Engine.state();
     const f = D.floors[s.floor];
-    Renderer.fade(first ? 400 : 300);
-    Renderer.setAmbient(s.floor, s.maps[s.floor]);
-    if (s.floor === 8) Sound.startMusic();
+    Renderer.fade(first ? 420 : 320);
+    Renderer.setAmbient(s.floor);
+    if (s.floor === 5 && !s.flags.bossKilled) Sound.startMusic();
     else Sound.stopMusic();
+
     if (!first) log(`来到第 ${s.floor + 1} 层 · ${f.name}`, 'gold');
     log(f.tip);
-    if (s.flags['story_f' + s.floor] !== true) {
-      s.flags['story_f' + s.floor] = true;
-      if (s.floor === 3) s.flags.secret1 = true;
-      if (s.floor === 5) s.flags.secret2 = true;
+    if (!first) showFloorCard(s.floor);
+
+    Engine.beginFloor();
+
+    // 剧情触发：密道的烛、狼厅的独白
+    if (s.floor === 3 && !s.flags.candle2) {
+      s.flags.candle2 = true;
+      s.flags.secret1 = true;
       Engine.save();
       Achievements.evaluate('floor', s, notifyAchievement);
-      if (f.story) playStory(f.story);
-      else if (s.floor === 4 && S.solitude) playStory('solitude');
+      playStory('candle2');
+      return;
+    }
+    if (s.floor === 4 && !s.flags.solo5) {
+      s.flags.solo5 = true;
+      Engine.save();
+      playStory('solitude');
     }
   }
 
@@ -789,6 +872,7 @@
     const s = Engine.state();
     if (!s || s.over || s.won) return;
     const ev = Engine.tryMove(dx, dy);
+    const T = TN();
     switch (ev.type) {
       case 'idle':
         return;
@@ -796,7 +880,6 @@
         Sound.play('lock');
         return;
       case 'battle':
-        // 撞上怪物 → 直接开打
         resolveBattle(dx, dy);
         return;
       case 'locked':
@@ -806,12 +889,9 @@
         return;
       case 'open':
         Sound.play('door');
-        {
-          const tx = s.x + dx, ty = s.y + dy;
-          Renderer.burst(tx * TILE_N() + TILE_N() / 2, ty * TILE_N() + TILE_N() / 2, {
-            count: 8, colors: ['#c9a23a', '#e8d27d'], speed: 90, life: [300, 600], size: [1.5, 3],
-          });
-        }
+        Renderer.burst((s.x + dx) * T + T / 2, (s.y + dy) * T + T / 2, {
+          count: 9, colors: ['#c9a23a', '#e8d27d', '#8a6a18'], speed: 90, life: [300, 620], size: [1.5, 3],
+        });
         log(ev.msg, 'good');
         break;
       case 'floor':
@@ -821,100 +901,129 @@
       case 'story':
         Sound.play('pick');
         if (ev.msg) log(ev.msg, 'good');
-        Renderer.ring(Engine.state().x, Engine.state().y, 'rgba(159,216,255,0.8)', TILE_N() * 2, 480);
+        Renderer.ring(Engine.state().x, Engine.state().y, 'rgba(159,216,255,0.8)', T * 2, 480);
         playStory(ev.story);
         break;
       case 'relic':
-        Sound.play('pick');
+        Sound.play('relic');
+        vibrate(18);
+        Renderer.ring(Engine.state().x, Engine.state().y, 'rgba(255,225,150,0.9)', T * 2.6, 600);
+        Renderer.burst(Engine.state().x * T + T / 2, Engine.state().y * T + T / 2, {
+          count: 16, colors: ['#ffe6a8', '#ffd27d', '#fff4d6'], speed: 120, life: [450, 900],
+        });
         log(ev.msg, 'gold');
-        if (ev.relic && D.relics && D.relics[ev.relic]) log(`遗物效果：${D.relics[ev.relic].desc}`, 'gold');
-        Renderer.ring(Engine.state().x, Engine.state().y, 'rgba(232,196,106,0.7)', TILE_N() * 2.2, 520);
+        warn(ev.msg);
+        Tips.show('relic');
+        Achievements.evaluate('relic', Engine.state(), notifyAchievement);
         if (ev.story) playStory(ev.story);
         break;
       case 'pickup':
         Sound.play('pick');
-        {
-          const s2 = Engine.state();
-          Renderer.addFloat(ev.msg.replace('拾取', '+').replace('，', ' '), s2.x * TILE_N() + TILE_N() / 2, s2.y * TILE_N(), '#9fe8b0');
-        }
+        Renderer.addFloat(ev.short || ev.msg, Engine.state().x * T + T / 2, Engine.state().y * T, '#9fe8b0');
         log(ev.msg, 'good');
         break;
       case 'shop':
-        // 首次遇到商人：先说明背景与货品，讲完才开购买界面
         if (!Engine.state().flags.merchant) {
           Engine.state().flags.merchant = true;
           Engine.save();
-          playStory('merchant', () => {
-            Sound.play('buy');
-            openShop();
-          });
+          playStory('merchant', () => { Sound.play('buy'); openShop(); });
         } else {
           openShop();
         }
         break;
       case 'princess':
-        if (ev.hasJournal) {
-          playStory('princessTrue', () => showEndingChoice());
-        } else {
-          playStory('princessPlain', () => completeEnding('plain', false));
-        }
+        if (ev.hasJournal) playStory('princessTrue', () => showEndingChoice());
+        else playStory('princessPlain', () => completeEnding('plain', false));
         return;
       case 'move':
         Sound.play('step');
+        if (Math.random() < 0.5) {
+          Renderer.burst(Engine.state().x * T + T / 2, Engine.state().y * T + T * 0.8, {
+            count: 2, colors: ['#5a6478', '#464f61'], speed: 30, life: [240, 420], grav: 60, size: [1, 2], spread: Math.PI,
+          });
+        }
         break;
     }
     refreshHud();
   }
 
   // ---------- 输入 ----------
+  let lastKeyAt = 0;
   function bindInput() {
     el.dialogOverlay.addEventListener('click', advanceDialog);
-    const skipBtn = $('dlgSkip');
-    if (skipBtn) skipBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      skipStory();
-    });
+    $('dlgSkip').addEventListener('click', (e) => { e.stopPropagation(); skipDialog(); });
+    $('dlgPrev').addEventListener('click', (e) => { e.stopPropagation(); prevDialog(); });
 
     window.addEventListener('keydown', (e) => {
       if (el.startOverlay.classList.contains('show')) return;
       if (el.dialogOverlay.classList.contains('show') || typing) {
-        if (e.key === 'Enter' || e.key === ' ' || e.key === 'Escape') advanceDialog();
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); advanceDialog(); }
+        else if (e.key === 'Escape') skipDialog();
+        else if (e.key === 'Backspace' || e.key === 'ArrowLeft') { e.preventDefault(); prevDialog(); }
         return;
       }
-      if (el.choiceOverlay.classList.contains('show')) return;
+      if (el.choiceOverlay.classList.contains('show')) {
+        if (e.key === 'ArrowLeft') { e.preventDefault(); setChoiceFocus('plain'); }
+        else if (e.key === 'ArrowRight') { e.preventDefault(); setChoiceFocus('true'); }
+        else if (e.key === 'Enter' && choiceFocus) { e.preventDefault(); chooseEnding(choiceFocus); }
+        return;
+      }
       if (endShown) return;
-      if (shopOpen) {
-        if (e.key === 'Escape') closeShop();
-        return;
-      }
-      if (el.boardOverlay.classList.contains('show')) {
-        if (e.key === 'Escape') closeBoard();
-        return;
-      }
-      if (el.codexOverlay.classList.contains('show')) {
-        if (e.key === 'Escape') closeCodex();
-        return;
-      }
+      if (shopOpen) { if (e.key === 'Escape') closeShop(); return; }
+      if (el.cfgOverlay.classList.contains('show')) { if (e.key === 'Escape') closeCfg(); return; }
+      if (el.boardOverlay.classList.contains('show')) { if (e.key === 'Escape') closeBoard(); return; }
+      if (el.codexOverlay.classList.contains('show')) { if (e.key === 'Escape') el.codexOverlay.classList.remove('show'); return; }
+
       const k = e.key.toLowerCase();
       let d = null;
       if (k === 'arrowup' || k === 'w') d = dirs.up;
       else if (k === 'arrowdown' || k === 's') d = dirs.down;
       else if (k === 'arrowleft' || k === 'a') d = dirs.left;
       else if (k === 'arrowright' || k === 'd') d = dirs.right;
-      if (d) { e.preventDefault(); stopWalk(); act(d[0], d[1]); }
+      if (d) {
+        e.preventDefault();
+        const now = performance.now();
+        if (e.repeat && now - lastKeyAt < 95) return; // 键盘重复降速，避免一步三格
+        lastKeyAt = now;
+        stopWalk();
+        act(d[0], d[1]);
+      }
     });
 
+    // 方向键：长按连走（320ms 后每 135ms 一格）
     document.querySelectorAll('#dpad button').forEach((b) => {
-      b.addEventListener('click', () => {
+      let holdDelay = null, holdTimer = null;
+      const start = (e) => {
+        e.preventDefault();
+        if (holdDelay || holdTimer) return;
         const d = dirs[b.dataset.dir];
-        if (d) { stopWalk(); act(d[0], d[1]); }
-      });
+        if (!d) return;
+        stopWalk();
+        act(d[0], d[1]);
+        holdDelay = setTimeout(() => {
+          holdDelay = null;
+          holdTimer = setInterval(() => {
+            const d2 = dirs[b.dataset.dir];
+            if (d2) act(d2[0], d2[1]);
+          }, 135);
+        }, 320);
+      };
+      const end = () => {
+        clearTimeout(holdDelay); holdDelay = null;
+        clearInterval(holdTimer); holdTimer = null;
+      };
+      b.addEventListener('pointerdown', start);
+      b.addEventListener('pointerup', end);
+      b.addEventListener('pointerleave', end);
+      b.addEventListener('pointercancel', end);
+      b.addEventListener('contextmenu', (e) => e.preventDefault());
     });
 
     el.canvas.addEventListener('click', (e) => {
       const s = Engine.state();
       if (!s || shopOpen || endShown || battleBusy) return;
-      if (el.dialogOverlay.classList.contains('show') || el.codexOverlay.classList.contains('show')) return;
+      if (el.dialogOverlay.classList.contains('show') || el.codexOverlay.classList.contains('show') ||
+          el.cfgOverlay.classList.contains('show') || el.choiceOverlay.classList.contains('show')) return;
       const rect = el.canvas.getBoundingClientRect();
       const size = rect.width / 11;
       const x = Math.floor((e.clientX - rect.left) / size);
@@ -927,25 +1036,79 @@
     $('choicePlain').addEventListener('click', () => chooseEnding('plain'));
     $('choiceTrue').addEventListener('click', () => chooseEnding('true'));
     $('btnBoard').addEventListener('click', openBoard);
+    $('btnBoard2').addEventListener('click', openBoard);
     $('boardClose').addEventListener('click', closeBoard);
     $('btnCodex').addEventListener('click', openCodex);
-    $('codexClose').addEventListener('click', closeCodex);
+    $('codexClose').addEventListener('click', () => el.codexOverlay.classList.remove('show'));
     $('btnCopyCode').addEventListener('click', () => {
       const code = $('myCode').textContent;
       if (!code || code.startsWith('——')) return;
       if (navigator.clipboard) navigator.clipboard.writeText(code).then(() => log('挑战码已复制', 'good'));
     });
-    $('btnCfg').addEventListener('click', () => {
-      const r = Settings.toggleReduce();
-      const m = Settings.toggleMute();
-      $('cfgLabel').textContent = `特效:${r ? '减' : '全'} 音效:${m ? '关' : '开'}`;
-      log(`设置：画面特效${r ? '减弱' : '全开'}，音效${m ? '关闭' : '开启'}`);
+    $('btnCfg').addEventListener('click', openCfg);
+    $('cfgClose').addEventListener('click', closeCfg);
+    $('btnHelp').addEventListener('click', () => { openCfg(); });
+    $('btnReset').addEventListener('click', () => {
+      Engine.reset();
+      $('btnContinue').style.display = 'none';
+      log('存档已清空');
+      warn('存档已清空（成就与结局记录保留）');
     });
-    $('cfgLabel').textContent = `特效:${Settings.reduceFx ? '减' : '全'} 音效:${Settings.mute ? '关' : '开'}`;
+    $('cfgWipe').addEventListener('click', () => {
+      Engine.reset();
+      Achievements.reset();
+      Tips.reset();
+      try { localStorage.removeItem('towermates_board'); } catch (e) {}
+      $('btnContinue').style.display = 'none';
+      refreshStartBadges();
+      refreshCfg();
+      warn('已清空存档、成就与榜单');
+    });
+    $('btnAgain').addEventListener('click', () => {
+      el.endOverlay.classList.remove('show');
+      Engine.reset();
+      startGame();
+    });
+    $('cfgRetry').addEventListener('click', () => {
+      const ok = Engine.restoreFloor();
+      closeCfg();
+      if (!ok) { warn('没有可回到的本层起点'); return; }
+      const s = Engine.state();
+      Renderer.setAmbient(s.floor);
+      Renderer.fade(420);
+      refreshHud();
+      log(`退回第 ${s.floor + 1} 层入口`, 'gold');
+      warn('已退回本层入口');
+    });
+
+    // 设置行
+    $('cfgFx').addEventListener('click', () => { Settings.cycleFx(); refreshCfg(); });
+    $('cfgSfx').addEventListener('click', () => {
+      Settings.toggleSfx();
+      if (!Settings.sfx) Sound.stopMusic();
+      refreshCfg();
+    });
+    $('cfgVib').addEventListener('click', () => { Settings.toggleVib(); refreshCfg(); vibrate(12); });
   }
 
-  function closeBoard() {
-    el.boardOverlay.classList.remove('show');
+  function openCfg() {
+    refreshCfg();
+    el.cfgOverlay.classList.add('show');
+  }
+  function closeCfg() { el.cfgOverlay.classList.remove('show'); }
+  function refreshCfg() {
+    $('cfgFxVal').textContent = Settings.fx === 'low' ? '减弱' : '全开';
+    $('cfgFxVal').className = Settings.fx === 'low' ? 'off' : '';
+    $('cfgSfxVal').textContent = Settings.sfx ? '开' : '关';
+    $('cfgSfxVal').className = Settings.sfx ? '' : 'off';
+    $('cfgVibVal').textContent = Settings.vib ? '开' : '关';
+    $('cfgVibVal').className = Settings.vib ? '' : 'off';
+    const s = Engine.state();
+    $('cfgRelics').innerHTML = RELIC_ORDER.map((id) => {
+      const r = D.relics[id];
+      const on = s && s.flags['relic_' + id];
+      return `<div class="cfg-relic ${on ? 'on' : ''}"><i>${on ? r.emoji : '○'}</i>${r.name}<span>${on ? r.desc : '未获得'}</span></div>`;
+    }).join('');
   }
 
   // ---------- 启动 ----------
@@ -957,10 +1120,12 @@
     el.startOverlay.classList.remove('show');
     el.shopOverlay.classList.remove('show');
     el.endOverlay.classList.remove('show');
+    el.choiceOverlay.classList.remove('show');
     refreshHud();
     playStory('intro', () => {
       enterFloor(true);
       log('你踏入了魔塔。塔顶传来极轻的、像铃声一样的声音。', 'gold');
+      Tips.show('walk');
     });
   }
 
@@ -971,9 +1136,11 @@
     endShown = false;
     el.log.innerHTML = '';
     log(`继续冒险 · 第 ${s.floor + 1} 层`, 'gold');
-    Renderer.setAmbient(s.floor, s.maps[s.floor]);
+    Renderer.setAmbient(s.floor);
+    Renderer.fade(400);
     refreshHud();
     if (s.won) showEnd();
+    if (s.floor === 5 && !s.flags.bossKilled) Sound.startMusic();
   }
 
   function boot() {
@@ -981,47 +1148,52 @@
     Renderer.layout(el.stage);
     window.addEventListener('resize', () => Renderer.layout(el.stage));
     if (window.ResizeObserver) new ResizeObserver(() => Renderer.layout(el.stage)).observe(el.stage);
+    buildRelicRow();
+    buildFloorDots();
     bindInput();
+    refreshStartBadges();
 
     if (Engine.hasSave()) $('btnContinue').style.display = 'block';
-    renderEndingBadges();
     $('btnNew').addEventListener('click', startGame);
     $('btnContinue').addEventListener('click', continueGame);
-    $('btnReset').addEventListener('click', () => {
-      Engine.reset();
-      $('btnContinue').style.display = 'none';
-      log('存档已清空');
-    });
-    $('btnAgain').addEventListener('click', () => {
-      el.endOverlay.classList.remove('show');
-      Engine.reset();
-      startGame();
-    });
 
-    // 开发用：index.html#demo=楼层,x,y 直接进游戏（不播序章），便于截图与调试
-    var demo = /demo=(\d+),(\d+),(\d+)/.exec(location.hash || '');
+    // 开发用：index.html#demo=楼层,x,y 直接进游戏（不播序章）
+    const demo = /demo=(\d+),(\d+),(\d+)/.exec(location.hash || '');
     if (demo) {
       Engine.newGame();
-      var st = Engine.state();
+      const st = Engine.state();
       st.floor = +demo[1];
       st.x = +demo[2];
       st.y = +demo[3];
       el.startOverlay.classList.remove('show');
-      enterFloor(true);
-      refreshHud();
+      RefreshFloorDirect();
     }
 
-    function loop(t) {
+    function RefreshFloorDirect() {
       const s = Engine.state();
-      if (s) Renderer.draw(s, t);
+      Renderer.setAmbient(s.floor);
+      Engine.beginFloor();
+      refreshHud();
+      log(`第 ${s.floor + 1} 层 · ${D.floors[s.floor].name}`, 'gold');
+    }
+
+    window.addEventListener('beforeunload', () => Engine.save());
+
+    function loop() {
+      const s = Engine.state();
+      if (s) Renderer.draw(s);
       requestAnimationFrame(loop);
     }
     requestAnimationFrame(loop);
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', boot);
-  } else {
-    boot();
-  }
+  // 开发/自动化用：暴露少量内部入口，便于截图与回归（不影响正常玩法）
+  window.__tm = {
+    playStory, showEnd, openShop, openCodex, openBoard, openCfg, closeCfg,
+    showFloorCard, showEndingChoice, completeEnding, setChoiceFocus,
+    resolveBattle, act, refreshHud, refreshStartBadges,
+  };
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
 })();

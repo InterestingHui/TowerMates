@@ -28,16 +28,16 @@ window.GAME_DATA = (function () {
   };
 
   const monsters = {
-    A: { name: '蝙蝠', emoji: '🦇', hp: 42, atk: 17, def: 1, gold: 3, exp: 2, kind: '兽' },
-    B: { name: '史莱姆', emoji: '🦠', hp: 74, atk: 23, def: 4, gold: 5, exp: 4, kind: '异' },
-    C: { name: '骷髅兵', emoji: '💀', hp: 98, atk: 25, def: 6, gold: 8, exp: 6, kind: '亡' },
-    D: { name: '僵尸', emoji: '🧟', hp: 124, atk: 31, def: 9, gold: 12, exp: 10, kind: '亡' },
-    E: { name: '石像鬼', emoji: '🗿', hp: 185, atk: 41, def: 15, gold: 20, exp: 16, kind: '构' },
-    W: { name: '怨灵', emoji: '👻', hp: 112, atk: 42, def: 6, gold: 16, exp: 16, kind: '亡' },
-    F: { name: '狼人', emoji: '🐺', hp: 225, atk: 47, def: 19, gold: 30, exp: 24, kind: '兽' },
-    H: { name: '骷髅队长', emoji: '🪖', hp: 290, atk: 54, def: 25, gold: 40, exp: 30, kind: '亡' },
-    V: { name: '吸血鬼', emoji: '🧛', hp: 310, atk: 56, def: 21, gold: 45, exp: 34, kind: '亡' },
-    Z: { name: '魔王', emoji: '🐉', hp: 520, atk: 68, def: 24, gold: 0, exp: 0, boss: true, kind: '锁' },
+    A: { name: '蝙蝠', emoji: '🦇', hp: 42, atk: 20, def: 1, gold: 3, exp: 2, kind: '兽' },
+    B: { name: '史莱姆', emoji: '🦠', hp: 78, atk: 25, def: 4, gold: 5, exp: 4, kind: '异' },
+    C: { name: '骷髅兵', emoji: '💀', hp: 105, atk: 29, def: 6, gold: 8, exp: 6, kind: '亡' },
+    D: { name: '僵尸', emoji: '🧟', hp: 140, atk: 36, def: 9, gold: 12, exp: 10, kind: '亡' },
+    E: { name: '石像鬼', emoji: '🗿', hp: 200, atk: 46, def: 15, gold: 20, exp: 16, kind: '构' },
+    W: { name: '怨灵', emoji: '👻', hp: 120, atk: 44, def: 6, gold: 16, exp: 16, kind: '亡' },
+    F: { name: '狼人', emoji: '🐺', hp: 250, atk: 54, def: 19, gold: 30, exp: 24, kind: '兽' },
+    H: { name: '骷髅队长', emoji: '🪖', hp: 320, atk: 60, def: 25, gold: 40, exp: 30, kind: '亡' },
+    V: { name: '吸血鬼', emoji: '🧛', hp: 340, atk: 60, def: 21, gold: 45, exp: 34, kind: '亡' },
+    Z: { name: '魔王', emoji: '🐉', hp: 460, atk: 78, def: 22, gold: 0, exp: 0, boss: true, kind: '锁' },
     G: { name: '烛', emoji: '🕯️', hp: 50, atk: 0, def: 5, gold: 0, exp: 0, ghost: true, kind: '魂' },
   };
 
@@ -139,7 +139,7 @@ window.GAME_DATA = (function () {
       tip: '狼群不饿，它们在守着什么。角落里有半截剑，刃口全是往上砍的崩口。',
       map: [
         '###########',
-        '#u.....S.$#',
+        '#u.G...S.$#',
         '#.#######.#',
         '#.#.....#.#',
         '#.#.H.V.#.#',
