@@ -19,7 +19,7 @@ window.STORY = {
   floorTips: [
     '第一层的墙上有九道刻痕，最后一道是新划的。',
     '蜡油还是温的。有人提灯走在你前面，走得很慢。',
-    '空荡的大厅里只有一副货摊。秤在等你开口。',
+    '空荡的大厅里只有一副货摊，和墙角一堆没人认领的行李。',
     '这一层不在图纸上。造它的人把答案折进了一页纸。',
     '狼群不饿，它们在守着什么。角落里躺着半截剑。',
     '塔顶没有想象中的黑暗。王座空着，烛台灭着。',
@@ -144,9 +144,9 @@ window.STORY = {
 
   // ---------- 影子塔友（榜单内置的旧勇者） ----------
   shadowRivals: [
-    { name: '第二位勇者·鸦', ending: 'plain', floor: 2, level: 3, steps: 210, time: 540 },
-    { name: '第五位勇者·磐', ending: 'plain', floor: 3, level: 4, steps: 340, time: 880 },
-    { name: '第八位勇者·岚', ending: 'plain', floor: 5, level: 6, steps: 460, time: 1220 },
+    { name: '第二位勇者·鸦', ending: 'plain', floor: 2, level: 3, steps: 210, time: 540, score: 520 },
+    { name: '第五位勇者·磐', ending: 'plain', floor: 3, level: 4, steps: 340, time: 880, score: 760 },
+    { name: '第八位勇者·岚', ending: 'plain', floor: 5, level: 6, steps: 460, time: 1220, score: 980 },
   ],
 
   // ---------- 新手引导（只出现一次，按行为自动消失） ----------

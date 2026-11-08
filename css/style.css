@@ -122,6 +122,13 @@ html, body {
   filter: grayscale(1) brightness(0.45);
   opacity: 0.5;
 }
+.relic.empty {
+  filter: none;
+  opacity: 1;
+  color: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.2);
+  font-size: 11px;
+}
 .relic.on {
   border-style: solid;
   border-color: rgba(232, 196, 106, 0.5);
@@ -845,4 +852,95 @@ html, body {
   .dlg-text { font-size: 13px; }
   .choice-card { min-height: 168px; }
   .cc-title { font-size: 13px; }
+}
+
+/* ---------- HP 残影（受伤后延迟收缩） ---------- */
+.hpghost {
+  position: absolute;
+  top: 0; left: 0; bottom: 0;
+  width: 100%;
+  background: linear-gradient(90deg, #ff8a7a, #ffd0c6);
+  opacity: 0.5;
+  border-radius: 6px;
+  transition: width 0.55s cubic-bezier(0.3, 0.9, 0.4, 1) 0.2s;
+}
+.hpbar { position: relative; }
+
+/* ---------- 重击边缘闪 ---------- */
+#hitFlash {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 30;
+  opacity: 0;
+  background: radial-gradient(120% 85% at 50% 50%, rgba(255,40,40,0) 42%, rgba(196,18,24,0.6) 100%);
+  transition: opacity 0.18s ease-out;
+}
+#hitFlash.on { opacity: 1; }
+
+/* ---------- 祭坛：三选一 ---------- */
+#altarOverlay { background: radial-gradient(110% 80% at 50% 40%, rgba(12,10,8,0.9), rgba(2,3,6,0.97)); }
+.altar-panel { width: 100%; max-width: 470px; text-align: center; animation: popIn 0.28s ease-out; }
+.altar-kicker { font-size: 11px; letter-spacing: 7px; color: var(--gold); opacity: 0.85; }
+.altar-desc { font-size: 12px; line-height: 1.85; color: #b7c0d0; margin: 9px 0 16px; }
+.altar-cards { display: flex; gap: 10px; align-items: stretch; }
+.altar-card {
+  flex: 1;
+  min-height: 172px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 16px 8px;
+  border-radius: 14px;
+  border: 1px solid rgba(232, 196, 106, 0.3);
+  background: linear-gradient(180deg, rgba(34, 31, 28, 0.96), rgba(14, 14, 19, 0.97));
+  color: var(--text);
+  font-family: inherit;
+  cursor: pointer;
+  transition: transform 0.16s cubic-bezier(0.2, 0.9, 0.25, 1), border-color 0.2s, box-shadow 0.22s;
+}
+.altar-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(232, 196, 106, 0.6);
+  box-shadow: 0 16px 40px rgba(232, 196, 106, 0.16);
+}
+.altar-card .ac-emoji { font-size: 28px; filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.6)); }
+.altar-card .ac-name { font-size: 12.5px; font-weight: 700; color: var(--gold); letter-spacing: 0.5px; }
+.altar-card .ac-desc { font-size: 10.5px; line-height: 1.6; color: var(--muted); }
+.altar-hint { margin-top: 14px; font-size: 10.5px; color: #4e5666; letter-spacing: 1px; }
+
+/* ---------- 结算评分 ---------- */
+.end-score {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  border-radius: 11px;
+  border: 1px solid rgba(232, 196, 106, 0.28);
+  background: linear-gradient(90deg, rgba(232, 196, 106, 0.12), rgba(232, 196, 106, 0.02));
+  text-align: left;
+}
+.es-grade {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--gold);
+  min-width: 30px;
+  text-align: center;
+}
+.es-grade.S { color: #ffd27d; text-shadow: 0 0 16px rgba(255, 210, 125, 0.7); }
+.es-grade.A { color: #ffe6a8; }
+.es-grade.C { color: var(--muted); }
+.es-meta { flex: 1; font-size: 10.5px; color: var(--muted); line-height: 1.5; }
+.es-num { font-size: 18px; font-weight: 700; color: #fff; font-variant-numeric: tabular-nums; }
+.es-num small { font-size: 10px; color: var(--dim); margin-left: 2px; font-weight: 400; }
+
+@media (max-width: 380px) {
+  .altar-cards { gap: 6px; }
+  .altar-card { min-height: 158px; padding: 12px 5px; }
+  .altar-card .ac-name { font-size: 11.5px; }
 }

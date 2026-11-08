@@ -107,6 +107,42 @@ const healFight = E.fight(0, -1);
 ok(healFight.type === 'fight' && healFight.heal === 20, '余烬灯芯：击杀回复 2% 生命');
 ok(s.hp === 500 - healFight.damage + 20, '回血正确结算');
 
+// ---------- 9b. 祭坛三选一 ----------
+E.newGame();
+s = E.state();
+s.floor = 2; s.x = 7; s.y = 8;
+ev = E.tryMove(1, 0);
+ok(ev.type === 'altar', '踩到行李堆弹出三选一');
+const choices = E.altarChoices();
+ok(choices.length === 3 && choices.every((id) => !!D.relics[id]), '祭坛给出 3 件可拿的遗物');
+const atkA = s.atk, defA = s.def;
+const pick = E.pickRelic('steel');
+ok(pick.type === 'relic' && s.atk === atkA + 3 && s.def === defA + 3, '鸦的铁腕：攻击/防御 +3');
+ok(s.flags.altar === true && E.tile(8, 8) === '.', '祭坛拿走一次后清空');
+ok(E.pickRelic('steel').type === 'refuse', '同一件不能拿两次');
+
+// ---------- 9c. 岚的账本 / 磐的灯油 / 无名之镜 ----------
+E.newGame();
+s = E.state();
+s.flags.relic_thrift = true;
+delete s.flags.buy_atk;
+ok(E.priceOf(D.shop.find((x) => x.id === 'atk')) === 45, '岚的账本：商店价格 −25%');
+delete s.flags.relic_thrift;
+ok(E.priceOf(D.shop.find((x) => x.id === 'atk')) === 60, '没有账本时价格恢复');
+
+E.newGame();
+s = E.state();
+s.flags.relic_vigor = true;
+s.exp = 9; s.hp = 1000; s.maxHp = 1000;
+s.x = 2; s.y = 3;
+const vf = E.fight(0, -1);
+ok(vf.levelUps === 1 && s.maxHp === 1210, '磐的灯油：升级额外 +80 生命');
+
+E.newGame();
+s = E.state();
+E.pickRelic('scout');
+ok(s.flags.codex === true, '无名之镜：直接解锁窥探之镜');
+
 // ---------- 10. 首见魔王先对白 ----------
 E.newGame();
 s = E.state();

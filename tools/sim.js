@@ -39,7 +39,10 @@ function predict(ch) {
 
 function levelUp() {
   while (s.level <= D.levelExp.length && s.exp >= D.levelExp[s.level - 1]) {
-    s.level++; s.atk += 3; s.def += 2; s.hp += 130; s.maxHp += 130;
+    s.level++;
+    s.atk += 3; s.def += 2;
+    const gain = 130 + (USE_RELIC && s.flags.relic_vigor ? 80 : 0);
+    s.hp += gain; s.maxHp += gain;
   }
 }
 
@@ -59,10 +62,22 @@ function applyItem(ch) {
   }
 }
 
+// 祭坛：模拟"最稳的一手"——拿鸦的铁腕（+3 攻 +3 防）
+function altar() {
+  if (!USE_RELIC || s.flags.altar) return;
+  s.flags.altar = true;
+  s.flags.relic_steel = true;
+  s.atk += 3;
+  s.def += 3;
+  console.log('  ◈ 祭坛：鸦的铁腕（攻 +3 / 防 +3）');
+}
+
 // 商店：只在有商人的层（第 3 层）把金币换成成长
 function priceOf(item) {
   const step = item.id === 'atk' || item.id === 'def' ? 20 : 0;
-  return item.price + (s.flags['buy_' + item.id] || 0) * step;
+  let price = item.price + (s.flags['buy_' + item.id] || 0) * step;
+  if (USE_RELIC && s.flags.relic_thrift) price = Math.max(1, Math.round(price * 0.75));
+  return price;
 }
 function shop() {
   let bought = 0;
@@ -110,6 +125,7 @@ function floorLoop(fi) {
     let picked = 0;
     for (const [x, y] of cells) {
       const ch = s.maps[s.floor][y][x];
+      if (ch === 'X') { altar(); s.maps[s.floor][y][x] = '.'; picked++; continue; }
       if (ch === '$' || D.items[ch]) {
         applyItem(ch);
         s.maps[s.floor][y][x] = '.';

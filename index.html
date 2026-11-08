@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#07090f">
 <title>TowerMates · 魔塔</title>
-<link rel="stylesheet" href="css/style.css?v=0.4.0">
+<link rel="stylesheet" href="css/style.css?v=0.5.0">
 </head>
 <body>
 <div id="app">
@@ -23,7 +23,7 @@
       <div class="floor-dots" id="floorDots"></div>
     </div>
     <div class="chips">
-      <div class="chip hp"><span class="ico">❤️</span><b id="statHp" hidden>1000</b><div class="hpwrap"><div class="hpbar" id="hpBar"></div><span class="hptext" id="hpText">1000</span></div></div>
+      <div class="chip hp"><span class="ico">❤️</span><b id="statHp" hidden>1000</b><div class="hpwrap"><div class="hpghost" id="hpGhost"></div><div class="hpbar" id="hpBar"></div><span class="hptext" id="hpText">1000</span></div></div>
       <div class="chip"><span class="ico">⚔️</span><b id="statAtk">10</b></div>
       <div class="chip"><span class="ico">🛡️</span><b id="statDef">10</b></div>
       <div class="chip"><span class="ico">💰</span><b id="statGold">0</b></div>
@@ -87,7 +87,7 @@
       </svg>
     </div>
     <div class="logo">TOWER<span>MATES</span></div>
-    <p class="sub">魔塔 · v0.4</p>
+    <p class="sub">魔塔 · v0.5</p>
     <p class="desc">第九位勇者的故事，从今夜开始。<br>塔里的事，没有一件是它看起来的样子。</p>
     <div class="ending-badges" id="endingBadges"></div>
     <button class="btn primary" id="btnNew">开始游戏</button>
@@ -222,6 +222,9 @@
   </div>
 </div>
 
+<!-- 重击边缘闪 -->
+<div id="hitFlash"></div>
+
 <!-- 顶部警告 -->
 <div id="warnPill"></div>
 
@@ -232,6 +235,16 @@
     <div class="t-title">成就解锁 · <span id="toastCount">0/15</span></div>
     <div class="t-name" id="toastName">初鸣</div>
     <div class="t-desc" id="toastDesc">击败第一只怪物</div>
+  </div>
+</div>
+
+<!-- 祭坛：前八位勇者的行李 -->
+<div class="overlay" id="altarOverlay">
+  <div class="altar-panel">
+    <div class="altar-kicker">墙 角 的 行 李</div>
+    <p class="altar-desc">八个人留下的东西堆在墙角：卷刃的剑、干粮、泡烂的账册。<br>你只能带走一件。</p>
+    <div class="altar-cards" id="altarCards"></div>
+    <p class="altar-hint">点一件带走 · 其余留在这儿</p>
   </div>
 </div>
 
@@ -267,6 +280,7 @@
     <h2 id="endTitle">结局</h2>
     <p id="endDesc"></p>
     <div class="end-body" id="endBody"></div>
+    <div class="end-score" id="endScore"></div>
     <div class="end-stats" id="endStats"></div>
     <div class="code-row">
       <span class="code-label">挑战码</span>
@@ -279,12 +293,12 @@
   </div>
 </div>
 
-<script src="js/data.js?v=0.4.0"></script>
-<script src="js/story.js?v=0.4.0"></script>
-<script src="js/portraits.js?v=0.4.0"></script>
-<script src="js/achievements.js?v=0.4.0"></script>
-<script src="js/engine.js?v=0.4.0"></script>
-<script src="js/render.js?v=0.4.0"></script>
-<script src="js/main.js?v=0.4.0"></script>
+<script src="js/data.js?v=0.5.0"></script>
+<script src="js/story.js?v=0.5.0"></script>
+<script src="js/portraits.js?v=0.5.0"></script>
+<script src="js/achievements.js?v=0.5.0"></script>
+<script src="js/engine.js?v=0.5.0"></script>
+<script src="js/render.js?v=0.5.0"></script>
+<script src="js/main.js?v=0.5.0"></script>
 </body>
 </html>

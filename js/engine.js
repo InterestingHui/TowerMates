@@ -167,8 +167,9 @@
       s.level++;
       s.atk += 3;
       s.def += 2;
-      s.hp += 130;
-      s.maxHp += 130;
+      const gain = 130 + (hasRelic('vigor') ? 80 : 0);
+      s.hp += gain;
+      s.maxHp += gain;
       ups++;
     }
     return ups;
@@ -263,6 +264,13 @@
       return { type: 'shop' };
     }
 
+    if (ch === 'X') {
+      moveTo(nx, ny);
+      if (s.flags.altar) { saveSoon(); return { type: 'move' }; }
+      save();
+      return { type: 'altar' };
+    }
+
     if (ch === '.') {
       moveTo(nx, ny);
       saveSoon();
@@ -328,7 +336,9 @@
   function priceOf(item) {
     if (!s) return item.price;
     const step = item.id === 'atk' || item.id === 'def' ? 20 : 0;
-    return item.price + (s.flags['buy_' + item.id] || 0) * step;
+    let price = item.price + (s.flags['buy_' + item.id] || 0) * step;
+    if (hasRelic('thrift')) price = Math.max(1, Math.round(price * 0.75));
+    return price;
   }
 
   function buy(id) {
@@ -358,6 +368,31 @@
         ? `获得遗物「${item.name}」· ${D.relics[item.relic].desc}`
         : `购买了${item.name}`;
     return { type: 'buy', item, price, msg };
+  }
+
+  // ---------- 祭坛：前八位勇者的行李，三选一 ----------
+  function altarChoices() {
+    if (!s) return [];
+    const pool = D.altarPool.filter((id) => !hasRelic(id));
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = (Math.random() * (i + 1)) | 0;
+      const t = pool[i]; pool[i] = pool[j]; pool[j] = t;
+    }
+    return pool.slice(0, 3);
+  }
+
+  function pickRelic(id) {
+    if (!s) return { type: 'refuse', msg: '没有进行游戏' };
+    if (!D.relics[id]) return { type: 'refuse', msg: '没有这件东西' };
+    if (hasRelic(id)) return { type: 'refuse', msg: '已经拿了' };
+    s.flags['relic_' + id] = true;
+    if (id === 'steel') { s.atk += 3; s.def += 3; }
+    if (id === 'scout') s.flags.codex = true;
+    s.flags.altar = true;
+    if (tile(s.x, s.y) === 'X') setTile(s.x, s.y, '.');
+    save();
+    const r = D.relics[id];
+    return { type: 'relic', relic: id, name: r.name, msg: `取走「${r.name}」· ${r.desc}` };
   }
 
   function nextLevelExp() {
@@ -504,7 +539,7 @@
       const ch = tile(s.x + dx, s.y + dy);
       return D.monsters[ch] ? predict(ch) : null;
     },
-    tryMove, fight, buy, priceOf, finish, pathTo, pathThrough, pathToNear,
+    tryMove, fight, buy, priceOf, finish, altarChoices, pickRelic, pathTo, pathThrough, pathToNear,
     nextLevelExp, keyName, summary, hasRelic, ownedRelics, beginFloor, restoreFloor,
   };
 })();

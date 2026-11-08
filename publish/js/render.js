@@ -844,6 +844,25 @@
           glow('rgba(255,240,150,0.5)', TILE * 0.52);
           drawEmoji('👸', px, py, 0.64);
           noGlow();
+        } else if (ch === 'X') {
+          // 祭坛：石台 + 三盏未燃尽的灯
+          groundShadow(px, py, TILE * 0.3, 0.4);
+          ctx.fillStyle = 'rgba(20,16,12,0.9)';
+          roundRect(px + TILE * 0.2, py + TILE * 0.46, TILE * 0.6, TILE * 0.4, TILE * 0.06);
+          ctx.fill();
+          ctx.fillStyle = 'rgba(232,196,106,0.16)';
+          ctx.fillRect(px + TILE * 0.22, py + TILE * 0.46, TILE * 0.56, 2);
+          const gl = 0.55 + Math.sin(simT / 620) * 0.45;
+          glow('rgba(255,210,130,' + (0.25 + gl * 0.25).toFixed(2) + ')', TILE * 0.4);
+          for (let k = 0; k < 3; k++) {
+            const cx = px + TILE * (0.34 + k * 0.16);
+            const cy = py + TILE * 0.36 + Math.sin(simT / 380 + k) * TILE * 0.02;
+            ctx.fillStyle = 'rgba(255,225,160,' + (0.35 + gl * 0.4).toFixed(2) + ')';
+            ctx.beginPath();
+            ctx.arc(cx, cy, TILE * 0.05, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          noGlow();
         } else if (ch === 'J') {
           groundShadow(px, py, TILE * 0.22, 0.3);
           glow('rgba(200,160,255,0.42)', TILE * 0.42);

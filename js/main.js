@@ -127,6 +127,16 @@
     return { play(n) { if (map[n]) map[n](); }, startMusic, stopMusic };
   })();
 
+  let flashTimer = null;
+  function flashEdge() {
+    if (REDUCED()) return;
+    const f = el.hitFlash;
+    if (!f) return;
+    f.classList.add('on');
+    clearTimeout(flashTimer);
+    flashTimer = setTimeout(() => f.classList.remove('on'), 190);
+  }
+
   function vibrate(ms) {
     if (!Settings.vib) return;
     if (navigator.vibrate) { try { navigator.vibrate(ms); } catch (e) {} }
@@ -143,6 +153,8 @@
     endOverlay: $('endOverlay'), dialogOverlay: $('dialogOverlay'),
     boardOverlay: $('boardOverlay'), codexOverlay: $('codexOverlay'),
     cfgOverlay: $('cfgOverlay'), choiceOverlay: $('choiceOverlay'),
+    altarOverlay: $('altarOverlay'), altarCards: $('altarCards'),
+    hitFlash: $('hitFlash'), hpGhost: $('hpGhost'), endScore: $('endScore'),
     toast: $('toast'), warnPill: $('warnPill'),
     battleScene: $('battleScene'),
     bsHero: $('bsHero'), bsFoe: $('bsFoe'),
@@ -202,6 +214,7 @@
     } else if (level === 2) {
       Renderer.freeze(REDUCED() ? 70 : 150);
       Renderer.shake(320, 8 * R);
+      flashEdge();
       Renderer.ring(tx, ty, 'rgba(255,120,90,0.8)', T * 2.4, 500);
       Renderer.burst(cx, cy, { count: REDUCED() ? 6 : 16, colors: ['#ff8f6b', '#ffc98f'], speed: 120, life: [420, 850] });
       vibrate(24);
@@ -228,11 +241,20 @@
   }
 
   // ---------- HUD ----------
-  const RELIC_ORDER = ['ward', 'edge', 'ember'];
-  function buildRelicRow() {
-    el.relicRow.innerHTML = RELIC_ORDER.map((id) => {
+  const RELIC_ORDER = ['ward', 'edge', 'ember', 'steel', 'thrift', 'vigor', 'scout'];
+  let relicSig = null;
+  function renderRelicRow(s) {
+    const owned = RELIC_ORDER.filter((id) => s && s.flags['relic_' + id]);
+    const sig = owned.join(',');
+    if (sig === relicSig) return;
+    relicSig = sig;
+    if (!owned.length) {
+      el.relicRow.innerHTML = '<span class="relic empty">＋</span><span class="relic empty">＋</span><span class="relic empty">＋</span>';
+      return;
+    }
+    el.relicRow.innerHTML = owned.map((id) => {
       const r = D.relics[id];
-      return `<span class="relic" data-relic="${id}" title="${r.name}：${r.desc}">${r.emoji}</span>`;
+      return `<span class="relic on" data-relic="${id}" title="${r.name}：${r.desc}">${r.emoji}</span>`;
     }).join('');
   }
   function buildFloorDots() {
@@ -247,6 +269,15 @@
     const pct = Math.max(0, Math.min(100, (s.hp / maxHp) * 100));
     const wrap = $('hpBar').parentElement;
     $('hpBar').style.width = pct + '%';
+    if (pct > lastPct) {
+      // 回血：残影直接跟上，不拖影
+      el.hpGhost.style.transition = 'none';
+      el.hpGhost.style.width = pct + '%';
+      requestAnimationFrame(() => { el.hpGhost.style.transition = ''; });
+    } else {
+      el.hpGhost.style.width = pct + '%';
+    }
+    lastPct = pct;
     $('hpText').textContent = `${Math.max(0, Math.round(s.hp))} / ${Math.round(maxHp)}`;
     wrap.classList.toggle('low', pct <= 25);
     el.floorName.textContent = `第 ${s.floor + 1} 层 · ${D.floors[s.floor].name}`;
@@ -262,9 +293,7 @@
     Array.from(el.floorDots.children).forEach((d, i) => {
       d.className = i === s.floor ? 'now' : i < s.floor ? 'done' : '';
     });
-    el.relicRow.querySelectorAll('.relic').forEach((n) => {
-      n.classList.toggle('on', !!s.flags['relic_' + n.dataset.relic]);
-    });
+    renderRelicRow(s);
 
     ['statAtk', 'statDef', 'statGold'].forEach((id) => {
       const node = $(id);
@@ -279,6 +308,8 @@
 
     if (pct <= 25 && s.hp > 0) Tips.show('low');
   }
+
+  let lastPct = 100;
 
   function shakeHp() {
     const wrap = $('hpBar').parentElement;
@@ -367,7 +398,7 @@
   function saveBoard(entry) {
     const list = loadBoard();
     list.push(entry);
-    list.sort((a, b) => (b.ending === 'true') - (a.ending === 'true') || b.floor - a.floor || a.steps - b.steps);
+    list.sort((a, b) => (b.score || 0) - (a.score || 0) || (b.ending === 'true') - (a.ending === 'true'));
     try { localStorage.setItem('towermates_board', JSON.stringify(list.slice(0, 30))); } catch (e) {}
   }
   const fmtTime = (t) => (t >= 60 ? `${Math.floor(t / 60)}分${t % 60}秒` : `${t}秒`);
@@ -376,14 +407,14 @@
   function openBoard() {
     const mine = loadBoard().map((x) => Object.assign({ mine: true }, x));
     const all = S.shadowRivals.concat(mine);
-    all.sort((a, b) => (b.ending === 'true') - (a.ending === 'true') || b.floor - a.floor || a.steps - b.steps);
+    all.sort((a, b) => (b.score || 0) - (a.score || 0) || (b.ending === 'true') - (a.ending === 'true'));
     $('boardList').innerHTML = all.slice(0, 10).map((r, i) => `<div class="bd-row ${r.mine ? 'mine' : ''}">
         <span class="bd-rank">${i + 1}</span>
         <span class="bd-name">${r.mine ? '你' : r.name}</span>
         <span class="bd-end ${r.ending === 'true' ? 't' : ''}">${endName(r.ending)}</span>
         <span class="bd-floor">${r.floor}层</span>
         <span class="bd-steps">${r.steps}步</span>
-        <span class="bd-time">${fmtTime(r.time)}</span>
+        <span class="bd-time">${r.score || 0}分</span>
       </div>`).join('');
     const codeEl = $('myCode');
     codeEl.textContent = mine.length ? encodeChallenge(mine[0]) : '—— 通关后生成 ——';
@@ -437,7 +468,7 @@
     el.bsHero.textContent = '🧙';
     el.bsFoe.textContent = m.emoji;
     el.bsName.textContent = m.name + (m.boss ? ' · 塔的主人' : '');
-    el.bsRounds.textContent = `${pred.rounds} 回合`;
+    el.bsRounds.textContent = `回合 1 / ${pred.rounds}`;
     el.bsHeroHp.textContent = Math.round(heroHp);
     el.bsFoeHp.textContent = Math.round(foeHp);
     el.bsHeroBar.style.width = '100%';
@@ -469,6 +500,7 @@
     (async () => {
       const K = Math.min(pred.rounds, m.boss ? 8 : 5);
       for (let i = 0; i < K && !skipped; i++) {
+        el.bsRounds.textContent = `回合 ${Math.min(i + 1, pred.rounds)} / ${pred.rounds}`;
         el.bsHero.classList.add('lunge-r');
         await wait(130);
         el.bsHero.classList.remove('lunge-r');
@@ -646,6 +678,50 @@
     });
   }
 
+  // ---------- 祭坛：三选一 ----------
+  function openAltar() {
+    const s = Engine.state();
+    const choices = Engine.altarChoices();
+    if (!choices.length) {
+      s.flags.altar = true;
+      Engine.save();
+      log('行李里已经空了，只剩灰。');
+      refreshHud();
+      return;
+    }
+    el.altarCards.innerHTML = choices.map((id) => {
+      const r = D.relics[id];
+      return `<button class="altar-card" data-id="${id}">
+        <span class="ac-emoji">${r.emoji}</span>
+        <span class="ac-name">${r.name}</span>
+        <span class="ac-desc">${r.desc}</span>
+      </button>`;
+    }).join('');
+    el.altarCards.querySelectorAll('.altar-card').forEach((b) => {
+      b.addEventListener('click', () => chooseAltar(b.dataset.id));
+    });
+    el.altarOverlay.classList.add('show');
+  }
+
+  function chooseAltar(id) {
+    const s = Engine.state();
+    const res = Engine.pickRelic(id);
+    if (res.type !== 'relic') { warn(res.msg || '拿不了'); return; }
+    el.altarOverlay.classList.remove('show');
+    Sound.play('relic');
+    vibrate(20);
+    const T = TN();
+    Renderer.ring(s.x, s.y, 'rgba(255,225,150,0.9)', T * 2.6, 640);
+    Renderer.burst(s.x * T + T / 2, s.y * T + T / 2, {
+      count: 18, colors: ['#ffe6a8', '#ffd27d', '#fff4d6'], speed: 120, life: [450, 900],
+    });
+    log(res.msg, 'gold');
+    warn(res.msg);
+    Tips.show('relic');
+    Achievements.evaluate('relic', s, notifyAchievement);
+    refreshHud();
+  }
+
   // ---------- 结局抉择 ----------
   function showEndingChoice() {
     choiceFocus = null;
@@ -669,6 +745,20 @@
     if (announce) Sound.play('win');
   }
 
+  // ---------- 评分 ----------
+  function scoreOf(s, sum, relicCount) {
+    const maxHp = s.maxHp || 1;
+    let sc = 300;
+    sc += s.ending === 'true' ? 700 : 250;
+    sc += Math.round((Math.max(0, s.hp) / maxHp) * 400);
+    sc += (s.flags.killCount || 0) * 20;
+    sc += relicCount * 80;
+    sc -= Math.round(sum.steps * 0.25);
+    sc -= Math.round(sum.time * 0.15);
+    return Math.max(0, Math.round(sc));
+  }
+  const gradeOf = (sc) => (sc >= 1550 ? 'S' : sc >= 1200 ? 'A' : sc >= 850 ? 'B' : 'C');
+
   // ---------- 结局 ----------
   function showEnd() {
     if (endShown) return;
@@ -690,7 +780,15 @@
     $('endTitle').textContent = E.title;
     $('endDesc').textContent = E.desc;
     $('endBody').textContent = E.body;
-    const relics = Engine.ownedRelics().map((id) => D.relics[id].short).join(' ') || '无';
+    const relicIds = Engine.ownedRelics();
+    const relics = relicIds.map((id) => D.relics[id].short).join(' ') || '无';
+    const sc = scoreOf(s, sum, relicIds.length);
+    const grade = gradeOf(sc);
+    sum.score = sc;
+    const hpPct = Math.max(0, Math.round((s.hp / (s.maxHp || 1)) * 100));
+    $('endScore').innerHTML = `<span class="es-grade ${grade}">${grade}</span>
+      <span class="es-meta">${s.ending === 'true' ? '真结局' : '普通结局'} · 残血 ${hpPct}% · 击杀 ${s.flags.killCount || 0} · 遗物 ${relicIds.length}</span>
+      <span class="es-num">${sc}<small>分</small></span>`;
     $('endStats').innerHTML = `
       <div>结局 <b>${endName(s.ending)}</b></div>
       <div>最终等级 <b>Lv.${sum.level}</b></div>
@@ -922,6 +1020,9 @@
         Renderer.addFloat(ev.short || ev.msg, Engine.state().x * T + T / 2, Engine.state().y * T, '#9fe8b0');
         log(ev.msg, 'good');
         break;
+      case 'altar':
+        openAltar();
+        break;
       case 'shop':
         if (!Engine.state().flags.merchant) {
           Engine.state().flags.merchant = true;
@@ -1148,7 +1249,7 @@
     Renderer.layout(el.stage);
     window.addEventListener('resize', () => Renderer.layout(el.stage));
     if (window.ResizeObserver) new ResizeObserver(() => Renderer.layout(el.stage)).observe(el.stage);
-    buildRelicRow();
+    renderRelicRow(null);
     buildFloorDots();
     bindInput();
     refreshStartBadges();
