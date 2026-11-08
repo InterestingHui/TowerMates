@@ -261,6 +261,7 @@
     bsHeroHp: $('bsHeroHp'), bsFoeHp: $('bsFoeHp'),
     bsName: $('bsName'), bsRounds: $('bsRounds'), bsNumbers: $('bsNumbers'),
     bsPhase: $('bsPhase'), bsPhaseTitle: $('bsPhaseTitle'), bsPhaseText: $('bsPhaseText'),
+    bsBlock: $('bsBlock'), blockPip: $('blockPip'),
     bsPanel: document.querySelector('.bs-panel'),
     guide: $('guide'),
   };
@@ -395,6 +396,11 @@
       d.className = i === s.floor ? 'now' : i < s.floor ? 'done' : '';
     });
     renderRelicRow(s);
+    if (el.blockPip) {
+      const used = !Engine.canBlock();
+      el.blockPip.classList.toggle('used', used);
+      el.blockPip.title = used ? '本层格挡已用完（进下一层恢复）' : '本层还有一次格挡：战斗中可把承伤降到 60%';
+    }
 
     ['statAtk', 'statDef', 'statGold'].forEach((id) => {
       const node = $(id);
@@ -582,6 +588,27 @@
     el.bsPhase.classList.remove('show');
     el.bsPanel.classList.remove('p2', 'p3');
 
+    // 格挡：每层一次，按下后整场承伤 ×0.6（引擎按同样比例结算，数字对得上）
+    let blockScale = 1;
+    let blockOn = false;
+    const canB = Engine.canBlock();
+    // 小架不值得给选项：伤害不到 5% 上限的杂兵战不显示格挡，免得每次都弹
+    const worth = m.boss || pred.damage >= heroMax * 0.05;
+    el.bsBlock.style.display = worth ? '' : 'none';
+    el.bsBlock.classList.remove('done');
+    el.bsBlock.disabled = !canB;
+    el.bsBlock.onclick = (e) => {
+      e.stopPropagation();
+      if (!canB || blockOn) return;
+      blockOn = true;
+      blockScale = 0.6;
+      el.bsBlock.classList.add('done');
+      el.bsBlock.disabled = true;
+      Sound.play('level');
+      vibrate([12, 20, 8]);
+      warn('格挡：这一战的承伤降到 60%');
+    };
+
     function bars() {
       el.bsHeroBar.style.width = Math.max(0, Math.min(100, (heroHp / heroMax) * 100)) + '%';
       el.bsFoeBar.style.width = Math.max(0, Math.min(100, (foeHp / foeMax) * 100)) + '%';
@@ -646,9 +673,10 @@
           el.bsFoe.classList.add('lunge-l');
           await wait(130);
           el.bsFoe.classList.remove('lunge-l');
-          heroHp = Math.max(1, heroHp - pred.per);
+          const take = Math.round(pred.per * blockScale);
+          heroHp = Math.max(1, heroHp - take);
           bars();
-          if (pred.per > 0) dmgNum(el.bsHero, '-' + pred.per, '#ff8f8f');
+          if (take > 0) dmgNum(el.bsHero, '-' + take, blockOn ? '#9fd8ff' : '#ff8f8f');
           el.bsHero.classList.add('hit');
           vibrate(12);
           await wait(95);
@@ -656,7 +684,7 @@
         }
       }
       foeHp = 0;
-      heroHp = Math.max(1, s.hp - pred.damage);
+      heroHp = Math.max(1, s.hp - Math.round(pred.damage * blockScale));
       bars();
       el.bsFoe.classList.add('ko');
       el.battleScene.classList.add('hero-win');
@@ -667,7 +695,8 @@
       el.bsFoe.classList.remove('ko', 'hit');
       el.bsHero.classList.remove('hit', 'lunge-r', 'lunge-l');
       el.battleScene.onclick = null;
-      done();
+      el.bsBlock.onclick = null;
+      done(blockOn);
     })();
   }
 
@@ -759,8 +788,8 @@
     }
 
     battleBusy = true;
-    playBattleScene({ monster: m, pred }, () => {
-      const res = Engine.fight(dx, dy);
+    playBattleScene({ monster: m, pred }, (blocked) => {
+      const res = Engine.fight(dx, dy, { block: blocked });
       battleBusy = false;
       if (res.type === 'fight') applyFightResult(res, tx, ty);
       else { warn(res.msg || '战斗中断'); refreshHud(); }

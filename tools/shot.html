@@ -17,6 +17,7 @@
   const src = {
     floor5: base + '?dev=1#demo=4,2,8',
     battle: base + '?dev=1#demo=0,2,3',
+    battleblock: base + '?dev=1#demo=0,2,3',
     shop: base + '?dev=1#demo=2,4,3',
     tower: base + '?dev=1#demo=5,5,7',
     core: base + '?dev=1#demo=6,5,8',
@@ -40,7 +41,16 @@
       await wait(120);
       const T = w.__tm;
       const E = w.Engine;
-      if (scene === 'start' || scene === 'floor5' || scene === 'battle' || scene === 'shop' || scene === 'tower' || scene === 'core') {
+      if (scene === 'start' || scene === 'floor5' || scene === 'battle' || scene === 'battleblock' || scene === 'shop' || scene === 'tower' || scene === 'core') {
+        if (scene === 'battleblock') {
+          await wait(200);
+          w.__battleSpeed = 4;
+          w.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'ArrowUp' }));
+          await wait(420);
+          const bb = d.getElementById('bsBlock');
+          if (bb) bb.click();
+          await wait(300);
+        }
         if (scene === 'battle') {
           await wait(200);
           w.__battleSpeed = 30;

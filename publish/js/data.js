@@ -40,14 +40,14 @@ window.GAME_DATA = (function () {
   const monsters = {
     A: { name: '蝙蝠', emoji: '🦇', hp: 42, atk: 20, def: 1, gold: 3, exp: 2, kind: '兽' },
     B: { name: '史莱姆', emoji: '🦠', hp: 78, atk: 25, def: 4, gold: 5, exp: 4, kind: '异' },
-    C: { name: '骷髅兵', emoji: '💀', hp: 110, atk: 31, def: 6, gold: 8, exp: 6, kind: '亡' },
-    D: { name: '僵尸', emoji: '🧟', hp: 148, atk: 39, def: 9, gold: 12, exp: 10, kind: '亡' },
-    E: { name: '石像鬼', emoji: '🗿', hp: 210, atk: 51, def: 15, gold: 20, exp: 16, kind: '构' },
-    W: { name: '怨灵', emoji: '👻', hp: 126, atk: 49, def: 6, gold: 16, exp: 16, kind: '亡' },
-    F: { name: '狼人', emoji: '🐺', hp: 265, atk: 61, def: 19, gold: 30, exp: 24, kind: '兽' },
-    H: { name: '骷髅队长', emoji: '🪖', hp: 340, atk: 69, def: 25, gold: 40, exp: 30, kind: '亡' },
-    V: { name: '吸血鬼', emoji: '🧛', hp: 360, atk: 69, def: 21, gold: 45, exp: 34, kind: '亡' },
-    Z: { name: '魔王', emoji: '🐉', hp: 480, atk: 90, def: 22, gold: 0, exp: 0, boss: true, kind: '锁' },
+    C: { name: '骷髅兵', emoji: '💀', hp: 110, atk: 33, def: 6, gold: 8, exp: 6, kind: '亡' },
+    D: { name: '僵尸', emoji: '🧟', hp: 148, atk: 42, def: 9, gold: 12, exp: 10, kind: '亡' },
+    E: { name: '石像鬼', emoji: '🗿', hp: 210, atk: 54, def: 15, gold: 20, exp: 16, kind: '构' },
+    W: { name: '怨灵', emoji: '👻', hp: 126, atk: 52, def: 6, gold: 16, exp: 16, kind: '亡' },
+    F: { name: '狼人', emoji: '🐺', hp: 265, atk: 65, def: 19, gold: 30, exp: 24, kind: '兽' },
+    H: { name: '骷髅队长', emoji: '🪖', hp: 340, atk: 72, def: 25, gold: 40, exp: 30, kind: '亡' },
+    V: { name: '吸血鬼', emoji: '🧛', hp: 360, atk: 72, def: 21, gold: 45, exp: 34, kind: '亡' },
+    Z: { name: '魔王', emoji: '🐉', hp: 480, atk: 92, def: 22, gold: 0, exp: 0, boss: true, kind: '锁' },
     G: { name: '烛', emoji: '🕯️', hp: 50, atk: 0, def: 5, gold: 0, exp: 0, ghost: true, kind: '魂' },
   };
 

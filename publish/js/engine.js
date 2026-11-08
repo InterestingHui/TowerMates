@@ -390,7 +390,12 @@
     return ({ 0: 'candle1', 4: 'candle3' })[s.floor] || 'candle1';
   }
 
-  function fight(dx, dy) {
+  // 每层一次「格挡」：这一战的承伤降到 60%
+  function canBlock() {
+    return !!s && !s.over && !s.won && !s.flags['block_f' + s.floor];
+  }
+
+  function fight(dx, dy, opt) {
     if (!s || s.over || s.won) return { type: 'idle' };
     const nx = s.x + dx;
     const ny = s.y + dy;
@@ -406,7 +411,10 @@
       return { type: 'story', story: 'boss', dx, dy, prediction: p };
     }
 
-    s.hp -= p.damage;
+    const blocked = !!(opt && opt.block) && canBlock();
+    if (blocked) s.flags['block_f' + s.floor] = true;
+    const dmg = blocked ? Math.round(p.damage * 0.6) : p.damage;
+    s.hp -= dmg;
     setTile(nx, ny, '.');
     moveTo(nx, ny);
     s.gold += m.gold;
@@ -424,7 +432,7 @@
     save();
     emit('kill', { name: m.name, boss: !!m.boss });
     return {
-      type: 'fight', damage: p.damage, rounds: p.rounds,
+      type: 'fight', damage: dmg, raw: p.damage, blocked, rounds: p.rounds,
       gold: m.gold, exp: m.exp, heal, levelUps: ups,
       monster: m, boss: !!m.boss,
     };
@@ -639,7 +647,7 @@
       const ch = tile(s.x + dx, s.y + dy);
       return D.monsters[ch] ? predict(ch) : null;
     },
-    tryMove, fight, buy, priceOf, finish, altarChoices, pickRelic, pathTo, pathThrough, pathToNear,
+    tryMove, fight, canBlock, buy, priceOf, finish, altarChoices, pickRelic, pathTo, pathThrough, pathToNear,
     nextLevelExp, keyName, summary, hasRelic, ownedRelics, beginFloor, restoreFloor, goalStatus, settleFloor, revealCore, heartState, heartTake, heartLeave,
   };
 })();

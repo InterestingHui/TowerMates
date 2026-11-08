@@ -14,7 +14,7 @@ const CHROME_CANDIDATES = [
   'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
   'C:/Program Files/Microsoft/Edge/Application/msedge.exe',
 ];
-const SCENES = ['start', 'play', 'dialog', 'battle', 'altar', 'choice', 'end', 'board', 'codex', 'cfg', 'tower', 'core', 'heart', 'stoneidle'];
+const SCENES = ['start', 'play', 'dialog', 'battle', 'battleblock', 'altar', 'choice', 'end', 'board', 'codex', 'cfg', 'tower', 'core', 'heart', 'stoneidle'];
 
 function run(cmd, args) {
   const r = spawnSync(cmd, args, { cwd: ROOT, encoding: 'utf8' });

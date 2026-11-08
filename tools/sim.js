@@ -7,6 +7,7 @@ require('../js/data.js');
 const D = global.GAME_DATA;
 const SIZE = 11;
 const USE_RELIC = !process.argv.includes('--no-relic');
+const USE_BLOCK = !process.argv.includes('--no-block');
 
 let s = {
   floor: 0, x: 0, y: 0,
@@ -154,8 +155,15 @@ function floorLoop(fi) {
     targets.sort((a, b) => a.damage - b.damage);
     const t = targets[0];
     const m = D.monsters[t.ch];
-    s.hp -= t.damage;
-    s.damageTaken += t.damage;
+    // 格挡：每层一次，贪婪地用在本层第一场"够疼"的战斗上
+    let take = t.damage;
+    if (USE_BLOCK && !s.flags['block_f' + s.floor] && take >= s.maxHp * 0.08) {
+      s.flags['block_f' + s.floor] = true;
+      take = Math.round(take * 0.6);
+      console.log(`  ▣ 格挡：${m.name} 承伤 ${t.damage} → ${take}`);
+    }
+    s.hp -= take;
+    s.damageTaken += take;
     s.exp += m.exp;
     s.gold += m.gold;
     s.flags.killCount = (s.flags.killCount || 0) + 1;

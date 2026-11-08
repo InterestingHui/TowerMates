@@ -201,6 +201,26 @@ ok(E.revealCore() === true && E.tile(9, 2) === 'u', '塔规 5 条后王座后露
 ok(E.state().maps[5][2][9] === 'u', '窄梯写进地图');
 ok(D.floors.length === 7 && D.floors[6].name === '锁芯', '第七层存在');
 
+// ---------- 9g. 每层一次的格挡 ----------
+E.newGame();
+s = E.state();
+s.hp = 5000; s.x = 2; s.y = 3;
+ok(E.canBlock(), '新的一层可以格挡');
+const rawDmg = E.predict('A').damage;
+const rBlock = E.fight(0, -1, { block: true });
+ok(rBlock.blocked === true && rBlock.damage === Math.round(rawDmg * 0.6), '格挡后承伤按 60% 结算');
+ok(rBlock.raw === rawDmg, '同时保留原始承伤供界面显示');
+ok(!E.canBlock(), '本层格挡用掉后不可再用');
+s.floor = 1;
+ok(E.canBlock(), '进入下一层后格挡恢复');
+
+E.newGame();
+s = E.state();
+s.hp = 5000; s.x = 2; s.y = 3;
+const rawDmg2 = E.predict('A').damage;
+const rPlain = E.fight(0, -1);
+ok(rPlain.blocked === false && rPlain.damage === rawDmg2, '不格挡时承伤不变');
+
 // ---------- 9f. 塔心石：带走 / 放下 ----------
 E.newGame();
 s = E.state();
