@@ -1186,3 +1186,50 @@ html, body {
   padding: 1px 7px;
   white-space: nowrap;
 }
+
+/* ---------- 榜单：誓约分档 ---------- */
+.board-tabs {
+  display: flex;
+  gap: 5px;
+  margin-bottom: 9px;
+  flex-wrap: wrap;
+}
+.btab {
+  flex: 1 0 auto;
+  padding: 4px 9px;
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 10.5px;
+  cursor: pointer;
+  transition: all 0.18s;
+  white-space: nowrap;
+}
+.btab:hover { border-color: rgba(232, 196, 106, 0.45); color: #d9cba6; }
+.btab.on {
+  border-color: rgba(232, 196, 106, 0.7);
+  background: rgba(232, 196, 106, 0.14);
+  color: #ffe6a8;
+  box-shadow: 0 0 14px rgba(232, 196, 106, 0.16);
+}
+.bd-vowtag {
+  font-style: normal;
+  font-size: 8.5px;
+  line-height: 1;
+  color: #d8bf85;
+  border: 1px solid rgba(232, 196, 106, 0.3);
+  border-radius: 4px;
+  padding: 1px 3px;
+  margin-left: 4px;
+  vertical-align: 1px;
+}
+
+.bd-empty {
+  padding: 22px 10px;
+  text-align: center;
+  font-size: 11px;
+  line-height: 1.8;
+  color: var(--dim);
+}

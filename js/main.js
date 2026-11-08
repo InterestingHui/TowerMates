@@ -520,18 +520,30 @@
   const fmtTime = (t) => (t >= 60 ? `${Math.floor(t / 60)}分${t % 60}秒` : `${t}秒`);
   const endName = (e) => (e === 'true' ? '第六个名字' : e === 'plain' ? '铁与霜' : '未竟');
 
+  let boardFilter = 'all';
+  const VOW_TABS = [['all', '全部'], ['none', '不立誓'], ['mercy', '慈悲'], ['greed', '贪婪'], ['guard', '铁壁']];
+
   function openBoard() {
-    const mine = loadBoard().map((x) => Object.assign({ mine: true }, x));
-    const all = S.shadowRivals.concat(mine);
+    const mine = loadBoard().map((x) => Object.assign({ mine: true, vow: x.vow || 'none' }, x));
+    const all = S.shadowRivals.map((x) => Object.assign({ vow: 'none' }, x)).concat(mine);
     all.sort((a, b) => (b.score || 0) - (a.score || 0) || (b.ending === 'true') - (a.ending === 'true'));
-    $('boardList').innerHTML = all.slice(0, 10).map((r, i) => `<div class="bd-row ${r.mine ? 'mine' : ''}">
+    $('boardTabs').innerHTML = VOW_TABS.map(([id, label]) =>
+      `<button class="btab ${boardFilter === id ? 'on' : ''}" data-f="${id}">${label}</button>`).join('');
+    $('boardTabs').querySelectorAll('.btab').forEach((b) => {
+      b.addEventListener('click', () => { boardFilter = b.dataset.f; openBoard(); });
+    });
+    const rows = boardFilter === 'all' ? all : all.filter((r) => (r.vow || 'none') === boardFilter);
+    $('boardList').innerHTML = (rows.length ? rows.slice(0, 10).map((r, i) => {
+      const v = D.vows[r.vow] || D.vows.none;
+      return `<div class="bd-row ${r.mine ? 'mine' : ''}">
         <span class="bd-rank">${i + 1}</span>
-        <span class="bd-name">${r.mine ? '你' : r.name}</span>
+        <span class="bd-name">${r.mine ? '你' : r.name}${v.name === '不立誓' ? '' : `<i class="bd-vowtag">${v.tag[0]}</i>`}</span>
         <span class="bd-end ${r.ending === 'true' ? 't' : ''}">${endName(r.ending)}</span>
         <span class="bd-floor">${r.floor}层</span>
         <span class="bd-steps">${r.steps}步</span>
         <span class="bd-time">${r.score || 0}分</span>
-      </div>`).join('');
+      </div>`;
+    }).join('') : '<div class="bd-empty">这一档还没有人。去立一条誓约，回来占第一位。</div>');
     const codeEl = $('myCode');
     codeEl.textContent = mine.length ? encodeChallenge(mine[0]) : '—— 通关后生成 ——';
     $('achCount').textContent = `成就 ${Achievements.count()}/${Achievements.DEFS.length}`;
@@ -1025,13 +1037,23 @@
     const relicIds = Engine.ownedRelics();
     const relics = relicIds.map((id) => D.relics[id].short).join(' ') || '无';
     const gs = Engine.goalStatus();
+    sum.vow = s.flags.vow || 'none';
     const sc = scoreOf(s, sum, relicIds.length, gs.done);
     const grade = gradeOf(sc);
     sum.score = sc;
     const hpPct = Math.max(0, Math.round((s.hp / (s.maxHp || 1)) * 100));
     $('endScore').innerHTML = `<span class="es-grade ${grade}">${grade}</span>
-      <span class="es-meta">${s.ending === 'true' ? '真结局' : '普通结局'}${s.flags.heart === 'taken' ? ' · 塔心带走' : s.flags.heart === 'left' ? ' · 塔心留下' : ''} · 残血 ${hpPct}% · 击杀 ${s.flags.killCount || 0} · 遗物 ${relicIds.length}</span>
+      <span class="es-meta">${s.ending === 'true' ? '真结局' : '普通结局'}${s.flags.heart === 'taken' ? ' · 塔心带走' : s.flags.heart === 'left' ? ' · 塔心留下' : ''} · 残血 ${hpPct}% · 击杀 ${s.flags.killCount || 0} · 遗物 ${relicIds.length}${vowDef.mul !== 1 ? ` · 誓约 ×${vowDef.mul.toFixed(2)}` : ''}</span>
       <span class="es-num">${sc}<small>分</small></span>`;
+    if (vowDef.mul !== 1) {
+      $('endScore').title = `基础 ${baseScore} 分 × ${vowDef.name} ${vowDef.mul.toFixed(2)} = ${sc} 分`;
+      $('endScore').classList.add('with-vow');
+    } else {
+      $('endScore').title = '';
+      $('endScore').classList.remove('with-vow');
+    }
+    const vowDef = D.vows[s.flags.vow] || D.vows.none;
+    const baseScore = Math.round(sc / vowDef.mul);
     const TAG = {
       S: '六盏灯全亮。这一趟，你没欠谁。',
       A: '活得不算漂亮。但你活着下来了。',

@@ -1,4 +1,4 @@
-// TowerMates · 成就系统（v1.1：18 项，含遗物/结局/塔心）
+// TowerMates · 成就系统（v1.5：22 项，含遗物/结局/塔心/誓约）
 // 定义 + 检测 + 通知，存储在 localStorage。与引擎解耦，由 main 喂事件。
 (function () {
   const KEY = 'towermates_ach_v1';
@@ -22,6 +22,10 @@
     { id: 'heart_take', name: '心跳在身', emoji: '💗', desc: '带走锁芯的塔心石' },
     { id: 'heart_leave', name: '把手放下', emoji: '🪨', desc: '把塔心石留在锁芯' },
     { id: 'core', name: '塔心', emoji: '🫀', desc: '清空隐藏层「锁芯」' },
+    { id: 'vow_mercy', name: '手软的人', emoji: '🕊️', desc: '以慈悲之誓走到结局' },
+    { id: 'vow_greed', name: '一分不落', emoji: '🪙', desc: '以贪婪之誓走到结局' },
+    { id: 'vow_guard', name: '不必再挡', emoji: '🛡️', desc: '以铁壁之誓走到结局' },
+    { id: 'vow_all', name: '三誓皆立', emoji: '📜', desc: '三条誓约各走到一次结局' },
   ];
 
   let unlocked = {};
@@ -69,6 +73,12 @@
     if (f.heart === 'taken') unlock('heart_take', notify);
     if (f.heart === 'left') unlock('heart_leave', notify);
     if (f.coreClear) unlock('core', notify);
+    if (s.ending) {
+      if (f.vow === 'mercy') unlock('vow_mercy', notify);
+      if (f.vow === 'greed') unlock('vow_greed', notify);
+      if (f.vow === 'guard') unlock('vow_guard', notify);
+      if (isUnlocked('vow_mercy') && isUnlocked('vow_greed') && isUnlocked('vow_guard')) unlock('vow_all', notify);
+    }
   }
 
   function reset() {

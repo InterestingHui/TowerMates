@@ -135,7 +135,12 @@
         if (_vc) _vc.click();
         await wait(260);
         const s = E.state();
-        try { localStorage.setItem('towermates_board', JSON.stringify([{ ending: 'true', floor: 6, level: 9, steps: 520, time: 905 }])); } catch (e) {}
+        try {
+          localStorage.setItem('towermates_board', JSON.stringify([
+            { ending: 'true', floor: 7, level: 9, steps: 520, time: 905, score: 1680, vow: 'greed' },
+            { ending: 'plain', floor: 6, level: 7, steps: 610, time: 1100, score: 1210, vow: 'guard' },
+          ]));
+        } catch (e) {}
         T.openBoard();
         await wait(400);
       } else if (scene === 'codex') {
