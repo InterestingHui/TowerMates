@@ -138,7 +138,8 @@
       return { win: false, reason: '攻击力不足，无法破防', damage: null, rounds: null, m };
     }
     const rounds = Math.ceil(m.hp / out);
-    const per = Math.max(0, m.atk - s.def);
+    let per = Math.max(0, m.atk - s.def);
+    if (s.flags.relic_ward && per > 0) per = Math.max(1, Math.round(per * 0.88)); // 守誓之盾
     const damage = (rounds - 1) * per; // 先手：最后一击不会挨打
     return {
       win: s.hp > damage,
@@ -164,6 +165,13 @@
     return ups;
   }
 
+  // 遗物：一次性、永久生效
+  function applyRelic(id) {
+    if (!id) return;
+    s.flags['relic_' + id] = true;
+    if (id === 'edge') s.atk += 6;   // 断刃之锋：立即加攻
+  }
+
   function pickup(ch) {
     if (ch === '$') {
       s.gold += 50;
@@ -175,6 +183,11 @@
       // 剧情道具：工匠手记
       if (!s.flags.journal) s.flags.journal = true;
       return { type: 'story', story: 'journal', msg: '拾取了一本泛黄的手记', good: true };
+    }
+    if (it.type === 'relic') {
+      applyRelic(it.relic);
+      if (it.story) s.flags[it.story] = true;
+      return { type: 'relic', story: it.story || null, relic: it.relic || null, msg: `拾起${it.name}`, good: true };
     }
     if (it.type === 'hp') {
       s.hp += it.value;
@@ -310,6 +323,10 @@
     s.gold += m.gold;
     s.exp += m.exp;
     s.flags.killCount = (s.flags.killCount || 0) + 1;
+    if (s.flags.relic_ember) {
+      // 余烬灯芯：每次击杀回复 2% 生命（至少 4）
+      s.hp = Math.min(s.maxHp, s.hp + Math.max(4, Math.round(s.maxHp * 0.02)));
+    }
     const ups = levelUp();
     save();
     emit('kill', { name: m.name, boss: !!m.boss });
@@ -330,16 +347,25 @@
     const item = D.shop.find((x) => x.id === id);
     if (!item) return { type: 'refuse', msg: '商品不存在' };
     if (item.codex && s.flags.codex) return { type: 'refuse', msg: '已经拥有窥探之镜' };
+    if (item.once && s.flags['bought_' + item.id]) return { type: 'refuse', msg: '已经拥有这件遗物' };
     if (s.gold < item.price) return { type: 'refuse', msg: '金币不够' };
     s.gold -= item.price;
-    if (item.id === 'key') s.keys.y++;
-    if (item.hp) s.hp += item.hp;
+    if (item.key) s.keys[item.key] = (s.keys[item.key] || 0) + 1;
+    if (item.hp) {
+      s.hp += item.hp;
+      if (s.hp > s.maxHp) s.maxHp = s.hp;
+    }
     if (item.atk) s.atk += item.atk;
     if (item.def) s.def += item.def;
     if (item.codex) s.flags.codex = true;
+    if (item.relic) applyRelic(item.relic);
+    if (item.once) s.flags['bought_' + item.id] = true;
     s.flags.shopCount = (s.flags.shopCount || 0) + 1;
     save();
-    return { type: 'buy', item, msg: item.codex ? '获得「窥探之镜」：怪物情报已解锁' : `购买了${item.name}` };
+    const msg = item.codex ? '获得「窥探之镜」：怪物情报已解锁'
+      : item.relic ? `获得遗物「${item.name}」`
+      : `购买了${item.name}`;
+    return { type: 'buy', item, msg };
   }
 
   function nextLevelExp() {

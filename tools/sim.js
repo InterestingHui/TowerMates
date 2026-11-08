@@ -24,7 +24,9 @@ function predict(ch) {
   const m = D.monsters[ch];
   if (s.atk <= m.def) return { win: false, damage: Infinity, rounds: Infinity };
   const rounds = Math.ceil(m.hp / (s.atk - m.def));
-  const damage = (rounds - 1) * Math.max(0, m.atk - s.def);
+  let per = Math.max(0, m.atk - s.def);
+  if (s.ward && per > 0) per = Math.max(1, Math.round(per * 0.88));
+  const damage = (rounds - 1) * per;
   return { win: s.hp > damage, damage, rounds };
 }
 
@@ -43,6 +45,11 @@ function applyItem(ch) {
   if (it.type === 'def') s.def += it.value;
   if (it.type === 'both') { s.atk += it.value; s.def += it.value; }
   if (it.type === 'key') s.keys[it.key]++;
+  if (it.type === 'relic') {
+    if (it.relic === 'edge') s.atk += 6;
+    if (it.relic === 'ward') s.ward = true;
+    if (it.relic === 'ember') s.ember = true;
+  }
 }
 
 function bfs() {

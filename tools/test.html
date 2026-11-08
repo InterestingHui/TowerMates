@@ -98,6 +98,7 @@
           if (dlg.classList.contains('show')) {
             dlg.dispatchEvent(new MouseEvent('click', { bubbles: true }));
           } else if (choice.classList.contains('show')) {
+            if (pick === 'none') return;
             var btn = d.getElementById(pick === 'true' ? 'choiceTrue' : 'choicePlain');
             if (btn) btn.click();
           } else if (d.getElementById('endOverlay').classList.contains('show')) {

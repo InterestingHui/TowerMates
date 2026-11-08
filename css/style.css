@@ -585,13 +585,37 @@ html, body {
 }
 .dlg-portrait {
   flex: none;
-  width: 56px;
+  width: 58px;
   align-self: stretch;
   display: flex;
   align-items: flex-end;
   margin: -6px 0 -4px -6px;
   animation: ptrIn 0.32s ease-out;
 }
+/* 立绘容器（js/portraits.js 输出 .pt / .pt-aura / .pt-svg） */
+.pt {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.pt-aura {
+  position: absolute;
+  left: 50%;
+  bottom: 4%;
+  width: 82%;
+  height: 76%;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 58%, currentColor 0%, currentColor 20%, transparent 70%);
+  opacity: 0.14;
+  filter: blur(7px);
+  pointer-events: none;
+}
+.pt-svg { position: relative; width: 100%; height: 100%; display: block; }
+.pt-shape { filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.7)) drop-shadow(0 0 6px currentColor); }
 .ptr-svg { width: 100%; height: 100%; max-height: 100px; display: block; }
 @keyframes ptrIn {
   from { opacity: 0; transform: translateY(7px); filter: blur(2px); }

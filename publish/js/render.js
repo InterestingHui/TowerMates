@@ -144,9 +144,11 @@
   }
 
   function drawWall(px, py) {
-    ctx.fillStyle = '#2b3140';
+    const damp = lastFloor === 3;   // 密道：湿墙
+    const burnt = lastFloor === 5;  // 塔顶：焦黑砖
+    ctx.fillStyle = burnt ? '#241c1b' : damp ? '#20262f' : '#2b3140';
     ctx.fillRect(px, py, TILE, TILE);
-    ctx.fillStyle = '#232837';
+    ctx.fillStyle = burnt ? '#1a1413' : damp ? '#1a1f27' : '#232837';
     ctx.fillRect(px + 2, py + 2, TILE - 4, TILE - 4);
     ctx.strokeStyle = 'rgba(255,255,255,0.05)';
     ctx.lineWidth = 1;
@@ -158,10 +160,18 @@
     ctx.stroke();
     ctx.fillStyle = 'rgba(0,0,0,0.25)';
     ctx.fillRect(px + 2, py + TILE - 4, TILE - 4, 2);
+    // 湿墙：顶部一条冷色水光
+    if (damp) {
+      ctx.fillStyle = 'rgba(130,180,210,0.075)';
+      ctx.fillRect(px + 3, py + 3, TILE - 6, 2);
+      ctx.fillStyle = 'rgba(130,180,210,0.04)';
+      ctx.fillRect(px + 3, py + TILE * 0.55, TILE - 6, 1);
+    }
     // 部分墙面加裂纹，避免整片墙过于整齐
     const seed = (px * 13 + py * 7) % 97;
-    if (seed % 7 === 0) {
-      ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+    const crackRate = burnt ? 3 : damp ? 11 : 7;
+    if (seed % crackRate === 0) {
+      ctx.strokeStyle = burnt ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.35)';
       ctx.lineWidth = 1;
       ctx.beginPath();
       const sx = px + TILE * (0.25 + (seed % 5) * 0.08);
@@ -170,6 +180,18 @@
       ctx.lineTo(sx - TILE * 0.05, py + TILE * 0.62);
       ctx.lineTo(sx + TILE * 0.08, py + TILE - 5);
       ctx.stroke();
+      if (burnt) {
+        ctx.beginPath();
+        ctx.moveTo(sx + TILE * 0.1, py + TILE * 0.3);
+        ctx.lineTo(sx + TILE * 0.3, py + TILE * 0.52);
+        ctx.stroke();
+      }
+    }
+    // 塔顶焦砖里残留的暗红余烬
+    if (burnt && seed % 5 === 0) {
+      const glowAmt = 0.07 + (Math.sin(simT / 900 + seed) * 0.5 + 0.5) * 0.07;
+      ctx.fillStyle = `rgba(190,72,42,${glowAmt.toFixed(3)})`;
+      ctx.fillRect(px + TILE * 0.32, py + TILE * 0.62, 3, 3);
     }
   }
 
@@ -524,6 +546,8 @@
 
   function drawTorches() {
     if (!torchList.length) return;
+    // 8 秒周期的整体呼吸：全塔火光同时明暗，营造"活着"的呼吸感
+    const breathe = 0.84 + 0.16 * Math.sin(((simT % 8000) / 8000) * Math.PI * 2);
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     for (const tr of torchList) {
@@ -531,10 +555,10 @@
       // 火焰落在靠近地面的那一侧
       const fx = tr.x * TILE + TILE / 2 + (tr.sx || 0) * TILE * 0.34;
       const fy = tr.y * TILE + TILE / 2 + (tr.sy || 0) * TILE * 0.34;
-      const R = TILE * 1.7 * fl;
+      const R = TILE * 1.7 * fl * (0.94 + breathe * 0.1);
       const g = ctx.createRadialGradient(fx, fy, 1, fx, fy, R);
-      g.addColorStop(0, 'rgba(255,196,120,0.34)');
-      g.addColorStop(0.4, 'rgba(255,150,70,0.12)');
+      g.addColorStop(0, `rgba(255,196,120,${(0.34 * breathe).toFixed(3)})`);
+      g.addColorStop(0.4, `rgba(255,150,70,${(0.12 * breathe).toFixed(3)})`);
       g.addColorStop(1, 'rgba(255,140,60,0)');
       ctx.fillStyle = g;
       ctx.beginPath();
@@ -547,8 +571,8 @@
       ctx.globalCompositeOperation = 'lighter';
       // 火焰
       const fg = ctx.createRadialGradient(fx, fy, 1, fx, fy, TILE * 0.16);
-      fg.addColorStop(0, 'rgba(255,240,190,0.95)');
-      fg.addColorStop(0.5, 'rgba(255,170,80,' + (0.55 + fl * 0.2).toFixed(2) + ')');
+      fg.addColorStop(0, `rgba(255,240,190,${(0.92 * (0.75 + breathe * 0.25)).toFixed(3)})`);
+      fg.addColorStop(0.5, 'rgba(255,170,80,' + (0.5 + fl * 0.24).toFixed(2) + ')');
       fg.addColorStop(1, 'rgba(255,120,40,0)');
       ctx.fillStyle = fg;
       ctx.beginPath();
@@ -560,18 +584,34 @@
 
   function drawBeam() {
     if (lastFloor !== 5) return;
-    const x0 = 5 * TILE;
-    const g = ctx.createLinearGradient(0, 0, 0, TILE * 4.2);
-    g.addColorStop(0, 'rgba(255,240,200,0.15)');
-    g.addColorStop(1, 'rgba(255,240,200,0)');
-    ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.moveTo(x0 + TILE * 0.18, 0);
-    ctx.lineTo(x0 + TILE * 0.82, 0);
-    ctx.lineTo(x0 + TILE * 1.5, TILE * 4.2);
-    ctx.lineTo(x0 - TILE * 0.5, TILE * 4.2);
-    ctx.closePath();
-    ctx.fill();
+    const cx = 5 * TILE + TILE / 2;
+    const H = TILE * 4.2;
+    const N = 14;
+    const maxHalf = TILE * 0.95;
+    ctx.save();
+    // 拆成 14 条竖带：横向高斯衰减 + 纵向渐隐 = 边缘羽化的柔和光柱
+    for (let i = 0; i < N; i++) {
+      const u = (i + 0.5) / N;
+      const off = (u - 0.5) * 2;
+      const fall = Math.pow(Math.max(0, 1 - Math.abs(off)), 2.1);
+      if (fall < 0.02) continue;
+      const topOff = off * maxHalf * 0.42;
+      const botOff = off * maxHalf * 1.02;
+      const halfW = (maxHalf * 2) / N;
+      const g = ctx.createLinearGradient(0, 0, 0, H);
+      g.addColorStop(0, `rgba(255,242,206,${(0.15 * fall).toFixed(3)})`);
+      g.addColorStop(0.55, `rgba(255,238,196,${(0.07 * fall).toFixed(3)})`);
+      g.addColorStop(1, 'rgba(255,238,196,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.moveTo(cx + topOff - halfW * 0.4, 0);
+      ctx.lineTo(cx + topOff + halfW * 0.4, 0);
+      ctx.lineTo(cx + botOff + halfW * 0.62, H);
+      ctx.lineTo(cx + botOff - halfW * 0.62, H);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
   }
 
   function drawTargetMarker() {

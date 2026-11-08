@@ -227,18 +227,33 @@
     });
   }
 
+  // ---------- 角色立绘（复用 js/portraits.js：构图固定，情绪只改光色） ----------
+  function portraitMarkup(who, mood) {
+    if (window.Portraits && window.Portraits.render) {
+      return window.Portraits.render(who, mood || 'calm');
+    }
+    return '';
+  }
+  function hasPortrait(who) {
+    return !!(window.Portraits && window.Portraits.has && window.Portraits.has(who));
+  }
+
   // ---------- 剧情 ----------
   function playStory(key, cb) {
     const script = S[key];
     if (!script) { if (cb) cb(); return; }
     // 兼容两种格式：["旁白", ...] 或 [["角色", "台词"], ...]
-    const lines = script.map((row) => (Array.isArray(row) ? { who: row[0] || '', text: row[1] || '' } : { who: '', text: String(row) }));
+    const lines = script.map((row) => (Array.isArray(row)
+      ? { who: row[0] || '', text: row[1] || '', mood: row[2] || '' }
+      : { who: '', text: String(row), mood: '' }));
     el.dialogOverlay.classList.add('show');
     startTyping(lines, cb);
   }
 
   function startTyping(lines, cb) {
     typing = { lines, idx: 0, cb: cb || null };
+    const skip = $('dlgSkip');
+    if (skip) skip.style.display = lines.length >= 3 ? '' : 'none';
     renderLine();
   }
 
@@ -248,13 +263,28 @@
     const box = $('dlgText');
     const who = $('dlgWho');
     const cue = $('dlgCue');
+    const ptr = $('dlgPortrait');
     who.textContent = line.who;
     who.className = 'dlg-who ' + (line.who === '烛' ? 'ghost' : line.who === '薇拉' ? 'vera' : line.who === '魔王' ? 'boss' : '');
     who.style.display = line.who ? '' : 'none';
+    // 立绘：只给有剪影的角色显示；旁白/手记不显示
+    if (ptr) {
+      const has = hasPortrait(line.who);
+      ptr.innerHTML = has ? portraitMarkup(line.who, line.mood) : '';
+      ptr.style.display = has ? '' : 'none';
+    }
     box.textContent = line.text;
     Sound.play('talk');
     cue.style.visibility = 'visible';
     cue.textContent = typing.idx >= typing.lines.length - 1 ? '— 点击结束 —' : '▼';
+  }
+
+  function skipStory() {
+    if (!typing) return;
+    el.dialogOverlay.classList.remove('show');
+    const cb = typing.cb;
+    typing = null;
+    if (cb) cb();
   }
 
   function advanceDialog() {
@@ -290,6 +320,34 @@
   }
   const fmtTime = (t) => (t >= 60 ? `${Math.floor(t / 60)}分${t % 60}秒` : `${t}秒`);
   const endName = (e) => (e === 'true' ? '第六个名字' : e === 'plain' ? '铁与霜' : '未竟');
+
+  // ---------- 结局解锁记录 ----------
+  const ENDING_KEY = 'towermates_endings';
+  function loadEndings() {
+    try { return JSON.parse(localStorage.getItem(ENDING_KEY) || '{}'); } catch (e) { return {}; }
+  }
+  function markEnding(id) {
+    if (!id) return;
+    const got = loadEndings();
+    if (got[id]) return;
+    got[id] = true;
+    try { localStorage.setItem(ENDING_KEY, JSON.stringify(got)); } catch (err) {}
+    renderEndingBadges();
+  }
+  function renderEndingBadges() {
+    const box = $('endingBadges');
+    if (!box) return;
+    const got = loadEndings();
+    const defs = [
+      { id: 'plain', icon: '⚔️', name: '铁与霜' },
+      { id: 'true', icon: '🕯️', name: '第六个名字' },
+    ];
+    box.innerHTML = defs.map((d) => {
+      const on = !!got[d.id];
+      return `<span class="ebadge${on ? ' on' : ''}" title="${on ? '已达成' : '未解锁'}">` +
+        `<b>${on ? d.icon : '🔒'}</b><i>${on ? d.name : '未解锁'}</i></span>`;
+    }).join('');
+  }
 
   function openBoard() {
     const list = loadBoard();
@@ -363,6 +421,7 @@
     el.bsNumbers.innerHTML = '';
     el.battleScene.classList.add('show');
     el.battleScene.classList.toggle('hero-win', false);
+    el.battleScene.dataset.floor = String(s.floor);
 
     function bars() {
       el.bsHeroBar.style.width = Math.max(0, Math.min(100, (heroHp / heroMax) * 100)) + '%';
@@ -598,6 +657,7 @@
       <div>用时/步数 <b>${fmtTime(sum.time)} / ${sum.steps}步</b></div>
     `;
     saveBoard(sum);
+    markEnding(s.ending);
     $('endCode').textContent = encodeChallenge(sum);
     Achievements.evaluate('finish', s, notifyAchievement);
     el.endOverlay.classList.add('show');
@@ -706,7 +766,7 @@
     const s = Engine.state();
     const f = D.floors[s.floor];
     Renderer.fade(first ? 400 : 300);
-    Renderer.setAmbient(s.floor);
+    Renderer.setAmbient(s.floor, s.maps[s.floor]);
     if (s.floor === 8) Sound.startMusic();
     else Sound.stopMusic();
     if (!first) log(`来到第 ${s.floor + 1} 层 · ${f.name}`, 'gold');
@@ -718,6 +778,7 @@
       Engine.save();
       Achievements.evaluate('floor', s, notifyAchievement);
       if (f.story) playStory(f.story);
+      else if (s.floor === 4 && S.solitude) playStory('solitude');
     }
   }
 
@@ -763,6 +824,13 @@
         Renderer.ring(Engine.state().x, Engine.state().y, 'rgba(159,216,255,0.8)', TILE_N() * 2, 480);
         playStory(ev.story);
         break;
+      case 'relic':
+        Sound.play('pick');
+        log(ev.msg, 'gold');
+        if (ev.relic && D.relics && D.relics[ev.relic]) log(`遗物效果：${D.relics[ev.relic].desc}`, 'gold');
+        Renderer.ring(Engine.state().x, Engine.state().y, 'rgba(232,196,106,0.7)', TILE_N() * 2.2, 520);
+        if (ev.story) playStory(ev.story);
+        break;
       case 'pickup':
         Sound.play('pick');
         {
@@ -801,6 +869,11 @@
   // ---------- 输入 ----------
   function bindInput() {
     el.dialogOverlay.addEventListener('click', advanceDialog);
+    const skipBtn = $('dlgSkip');
+    if (skipBtn) skipBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      skipStory();
+    });
 
     window.addEventListener('keydown', (e) => {
       if (el.startOverlay.classList.contains('show')) return;
@@ -898,7 +971,7 @@
     endShown = false;
     el.log.innerHTML = '';
     log(`继续冒险 · 第 ${s.floor + 1} 层`, 'gold');
-    Renderer.setAmbient(s.floor);
+    Renderer.setAmbient(s.floor, s.maps[s.floor]);
     refreshHud();
     if (s.won) showEnd();
   }
@@ -911,6 +984,7 @@
     bindInput();
 
     if (Engine.hasSave()) $('btnContinue').style.display = 'block';
+    renderEndingBadges();
     $('btnNew').addEventListener('click', startGame);
     $('btnContinue').addEventListener('click', continueGame);
     $('btnReset').addEventListener('click', () => {

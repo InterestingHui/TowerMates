@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>TowerMates · 魔塔原型</title>
-<link rel="stylesheet" href="css/style.css?v=0.3.9">
+<link rel="stylesheet" href="css/style.css?v=0.4.0">
 </head>
 <body>
 <div id="app">
@@ -52,6 +52,7 @@
     <div class="logo">TOWER<span>MATES</span></div>
     <p class="sub">魔塔原型 · v0.3.7</p>
     <p class="desc">第九位勇者的故事，从今夜开始。<br>塔里的事，没有一件是它看起来的样子。</p>
+    <div class="ending-badges" id="endingBadges"></div>
     <button class="btn primary" id="btnNew">开始游戏</button>
     <button class="btn" id="btnContinue" style="display:none">继续游戏</button>
     <button class="btn" id="btnBoard2">🏆 塔友榜</button>
@@ -64,9 +65,13 @@
 <div class="overlay dialog" id="dialogOverlay">
   <div class="dlg-wrap">
     <div class="dlg-box" id="dlgBox">
-      <div class="dlg-who" id="dlgWho"></div>
-      <div class="dlg-text" id="dlgText"></div>
-      <div class="dlg-cue" id="dlgCue">▼</div>
+      <div class="dlg-portrait" id="dlgPortrait"></div>
+      <div class="dlg-main">
+        <div class="dlg-who" id="dlgWho"></div>
+        <div class="dlg-text" id="dlgText"></div>
+        <div class="dlg-cue" id="dlgCue">▼</div>
+      </div>
+      <button class="dlg-skip" id="dlgSkip">跳过本段</button>
     </div>
   </div>
 </div>
@@ -163,11 +168,21 @@
 
 <!-- 最后的抉择 -->
 <div class="overlay" id="choiceOverlay">
-  <div class="panel choice-panel">
-    <div class="choice-title">最后的抉择</div>
+  <div class="choice-stage">
+    <div class="choice-kicker">最后的抉择</div>
     <p class="choice-desc">锁环需要名字，也需要血。<br>手记的角落里，还留着一个没敢签名的人。</p>
-    <button class="btn" id="choicePlain">让她续锁 · 塔继续封着</button>
-    <button class="btn primary" id="choiceTrue">念出第六个名字</button>
+    <div class="choice-duo">
+      <button class="choice-card red" id="choicePlain">
+        <span class="cc-emoji">🩸</span>
+        <span class="cc-title">让她续锁</span>
+        <span class="cc-sub">塔继续封着<br>她留在锁里</span>
+      </button>
+      <button class="choice-card cyan" id="choiceTrue">
+        <span class="cc-emoji">🕯️</span>
+        <span class="cc-title">念出第六个名字</span>
+        <span class="cc-sub">六盏灯亮起<br>她走下海崖</span>
+      </button>
+    </div>
   </div>
 </div>
 
@@ -190,11 +205,12 @@
   </div>
 </div>
 
-<script src="js/data.js?v=0.3.9"></script>
-<script src="js/story.js?v=0.3.9"></script>
-<script src="js/achievements.js?v=0.3.9"></script>
-<script src="js/engine.js?v=0.3.9"></script>
-<script src="js/render.js?v=0.3.9"></script>
-<script src="js/main.js?v=0.3.9"></script>
+<script src="js/data.js?v=0.4.0"></script>
+<script src="js/story.js?v=0.4.0"></script>
+<script src="js/achievements.js?v=0.4.0"></script>
+<script src="js/engine.js?v=0.4.0"></script>
+<script src="js/portraits.js?v=0.4.0"></script>
+<script src="js/render.js?v=0.4.0"></script>
+<script src="js/main.js?v=0.4.0"></script>
 </body>
 </html>

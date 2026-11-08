@@ -137,23 +137,33 @@ ok(chainOk, '六层塔每一层都能正常上楼（无断层）');
 require('../js/story.js');
 const S = global.STORY;
 const refKeys = ['intro', 'candle1', 'candle2', 'candle3', 'journal', 'merchant', 'boss',
-  'princessPlain', 'princessTrue', 'afterChoicePlain', 'afterChoiceTrue', 'solo5', 'brokenSword'];
+  'princessPlain', 'princessTrue', 'afterChoicePlain', 'afterChoiceTrue', 'solitude', 'eighthSword'];
 const miss = refKeys.filter((k) => !Array.isArray(S[k]) || S[k].length === 0);
 ok(miss.length === 0, '关键剧情段全部存在' + (miss.length ? '（缺：' + miss.join(',') + '）' : ''));
 ok(S.intro.length === 5, '序章压缩为 5 句');
 const floorStories = D.floors.map((f) => f.story).filter(Boolean);
-ok(floorStories.length > 0 && floorStories.every((k) => !!S[k]), '楼层绑定的剧情段都有文本');
-const relics = Object.values(D.items).filter((it) => it.type === 'relic');
-ok(relics.length > 0 && relics.every((it) => !!S[it.story]), '剧情遗物都有对应旁白');
+ok(floorStories.every((k) => !!S[k]), '楼层绑定的剧情段都有对应文本');
+ok(!!S.solitude, '第 5 层独白文本存在');
+const relicsWithStory = Object.values(D.items).filter((it) => it.type === 'relic' && it.story);
+ok(relicsWithStory.length > 0 && relicsWithStory.every((it) => !!S[it.story]), '剧情遗物都有对应旁白');
+ok(Object.keys(D.relics || {}).length >= 3, '遗物表至少三种');
 
-// 13. 拾取断剑（第 5 层 x 在 (1,9)）
+// 13. 拾取断剑（第 5 层 S 在 (7,1)，从 (8,1) 向左走）
 E.newGame();
 s = E.state();
-s.floor = 4; s.x = 2; s.y = 9;
+s.floor = 4; s.x = 8; s.y = 1;
 const relicEv = E.tryMove(-1, 0);
-ok(relicEv.type === 'relic' && relicEv.story === 'brokenSword', '走到断剑触发旁白事件');
-ok(E.tile(1, 9) === '.', '断剑拾取后格子清空');
-ok(s.flags.brokenSword === true, '断剑剧情标记已写入');
+ok(relicEv.type === 'relic' && relicEv.story === 'eighthSword', '走到断剑触发旁白事件');
+ok(E.tile(7, 1) === '.', '断剑拾取后格子清空');
+ok(s.flags.eighthSword === true, '断剑剧情标记已写入');
+
+// 14. 守誓之盾（无 story 字段的遗物不应崩）
+E.newGame();
+s = E.state();
+s.floor = 3; s.x = 8; s.y = 1;
+const wardEv = E.tryMove(1, 0);
+ok(wardEv && wardEv.type === 'relic', '拾取守誓之盾触发遗物事件');
+ok(E.tile(9, 1) === '.', '守誓之盾拾取后格子清空');
 
 console.log(fail === 0 ? '\n✓ 全部通过' : `\n✗ ${fail} 项失败`);
 process.exit(fail ? 1 : 0);

@@ -227,58 +227,15 @@
     });
   }
 
-  // ---------- 角色立绘剪影 ----------
-  const PORTRAIT_DEFS = {
-    烛: {
-      color: '#9fd8ff',
-      body: `
-        <path d="M36 6c-11 0-19 9-19 20 0 4 1 8 3 11 3-10 9-15 16-15s13 5 16 15c2-3 3-7 3-11 0-11-8-20-19-20z"/>
-        <ellipse cx="36" cy="30" rx="10" ry="11"/>
-        <path d="M16 96V72c0-10 8-17 20-17s20 7 20 17v24z"/>
-        <path d="M58 52v12" fill="none"/>
-        <circle cx="58" cy="70" r="4.6"/>
-      `,
-    },
-    魔王: {
-      color: '#ff7d7d',
-      body: `
-        <path d="M22 12c-2-6-1-9 2-10 2 3 3 6 3 10z"/>
-        <path d="M50 12c2-6 1-9-2-10-2 3-3 6-3 10z"/>
-        <ellipse cx="36" cy="31" rx="11" ry="12"/>
-        <path d="M8 96V67c0-8 6-14 13-16l7 9 8-4 8 4 7-9c7 2 13 8 13 16v29z"/>
-      `,
-    },
-    薇拉: {
-      color: '#ffc4e0',
-      body: `
-        <path d="M26 13l3-8 3 7 4-9 4 9 3-7 3 8z"/>
-        <path d="M19 23c0-10 7-17 17-17s17 7 17 17v41h-5V33c0-3-2-5-4-4-2 1-5 2-8 2s-6-1-8-2c-2-1-4 0-4 4v31h-5z"/>
-        <ellipse cx="36" cy="30" rx="9" ry="10"/>
-        <path d="M17 96V74c0-9 8-16 19-16s19 7 19 16v22z"/>
-      `,
-    },
-    秤: {
-      color: '#e8c46a',
-      body: `
-        <path d="M26 16c0-4 4-6 10-6s10 2 10 6z"/>
-        <path d="M9 22h54c0-4-12-7-27-7S9 18 9 22z"/>
-        <ellipse cx="36" cy="35" rx="9" ry="10"/>
-        <path d="M16 96V75c0-9 8-16 20-16s20 7 20 16v21z"/>
-        <path d="M62 48v28M53 56h18" fill="none"/>
-      `,
-    },
-  };
-
-  function portraitMarkup(who) {
-    const P = PORTRAIT_DEFS[who];
-    if (!P) return '';
-    return `<svg class="ptr-svg" viewBox="0 0 72 96" aria-hidden="true">
-      <defs><linearGradient id="ptrGrad" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stop-color="${P.color}" stop-opacity=".46"/>
-        <stop offset="1" stop-color="${P.color}" stop-opacity=".07"/>
-      </linearGradient></defs>
-      <g fill="url(#ptrGrad)" stroke="${P.color}" stroke-opacity=".62" stroke-width="1.1" stroke-linejoin="round">${P.body}</g>
-    </svg>`;
+  // ---------- 角色立绘（复用 js/portraits.js：构图固定，情绪只改光色） ----------
+  function portraitMarkup(who, mood) {
+    if (window.Portraits && window.Portraits.render) {
+      return window.Portraits.render(who, mood || 'calm');
+    }
+    return '';
+  }
+  function hasPortrait(who) {
+    return !!(window.Portraits && window.Portraits.has && window.Portraits.has(who));
   }
 
   // ---------- 剧情 ----------
@@ -286,7 +243,9 @@
     const script = S[key];
     if (!script) { if (cb) cb(); return; }
     // 兼容两种格式：["旁白", ...] 或 [["角色", "台词"], ...]
-    const lines = script.map((row) => (Array.isArray(row) ? { who: row[0] || '', text: row[1] || '' } : { who: '', text: String(row) }));
+    const lines = script.map((row) => (Array.isArray(row)
+      ? { who: row[0] || '', text: row[1] || '', mood: row[2] || '' }
+      : { who: '', text: String(row), mood: '' }));
     el.dialogOverlay.classList.add('show');
     startTyping(lines, cb);
   }
@@ -310,8 +269,8 @@
     who.style.display = line.who ? '' : 'none';
     // 立绘：只给有剪影的角色显示；旁白/手记不显示
     if (ptr) {
-      const has = !!PORTRAIT_DEFS[line.who];
-      ptr.innerHTML = has ? portraitMarkup(line.who) : '';
+      const has = hasPortrait(line.who);
+      ptr.innerHTML = has ? portraitMarkup(line.who, line.mood) : '';
       ptr.style.display = has ? '' : 'none';
     }
     box.textContent = line.text;
@@ -807,7 +766,7 @@
     const s = Engine.state();
     const f = D.floors[s.floor];
     Renderer.fade(first ? 400 : 300);
-    Renderer.setAmbient(s.floor);
+    Renderer.setAmbient(s.floor, s.maps[s.floor]);
     if (s.floor === 8) Sound.startMusic();
     else Sound.stopMusic();
     if (!first) log(`来到第 ${s.floor + 1} 层 · ${f.name}`, 'gold');
@@ -819,6 +778,7 @@
       Engine.save();
       Achievements.evaluate('floor', s, notifyAchievement);
       if (f.story) playStory(f.story);
+      else if (s.floor === 4 && S.solitude) playStory('solitude');
     }
   }
 
@@ -867,8 +827,9 @@
       case 'relic':
         Sound.play('pick');
         log(ev.msg, 'gold');
+        if (ev.relic && D.relics && D.relics[ev.relic]) log(`遗物效果：${D.relics[ev.relic].desc}`, 'gold');
         Renderer.ring(Engine.state().x, Engine.state().y, 'rgba(232,196,106,0.7)', TILE_N() * 2.2, 520);
-        playStory(ev.story);
+        if (ev.story) playStory(ev.story);
         break;
       case 'pickup':
         Sound.play('pick');
@@ -1010,7 +971,7 @@
     endShown = false;
     el.log.innerHTML = '';
     log(`继续冒险 · 第 ${s.floor + 1} 层`, 'gold');
-    Renderer.setAmbient(s.floor);
+    Renderer.setAmbient(s.floor, s.maps[s.floor]);
     refreshHud();
     if (s.won) showEnd();
   }
