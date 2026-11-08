@@ -28,6 +28,7 @@
       steps: 0,
       startedAt: Date.now(),
       snap: null,
+      floorEnter: null,
     };
     const map = s.maps[0];
     outer: for (let y = 0; y < SIZE; y++) {
@@ -104,6 +105,13 @@
   // ---------- 本层快照：软锁兜底 ----------
   function beginFloor() {
     if (!s) return;
+    s.floorEnter = {
+      floor: s.floor,
+      kills: s.flags.killCount || 0,
+      shop: s.flags.shopCount || 0,
+      hp: s.hp,
+      maxHp: s.maxHp,
+    };
     s.snap = {
       floor: s.floor, x: s.x, y: s.y,
       hp: s.hp, maxHp: s.maxHp, atk: s.atk, def: s.def,
@@ -112,6 +120,7 @@
       flags: JSON.parse(JSON.stringify(s.flags)),
       maps: JSON.parse(JSON.stringify(s.maps)),
       steps: s.steps,
+      floorEnter: JSON.parse(JSON.stringify(s.floorEnter)),
     };
     save();
   }
@@ -126,12 +135,14 @@
     s.flags = JSON.parse(JSON.stringify(k.flags));
     s.maps = JSON.parse(JSON.stringify(k.maps));
     s.steps = k.steps;
+    s.floorEnter = k.floorEnter || null;
     s.won = false;
     save();
     return true;
   }
 
   function changeFloor(dir) {
+    settleFloor();
     const target = s.floor + dir;
     if (target < 0 || target >= D.floors.length) return null;
     s.floor = target;
@@ -208,6 +219,7 @@
   }
 
   function finish(ending) {
+    settleFloor();
     s.won = true;
     s.ending = ending;
     s.finishedAt = Date.now();
@@ -239,6 +251,8 @@
         s.keys[ch]--;
         setTile(nx, ny, '.');
         moveTo(nx, ny);
+        s.flags['door_f' + s.floor] = true;
+        s.flags['door_' + ch] = true;
         saveSoon();
         return { type: 'open', msg: `用${keyName(ch)}打开了门`, good: true };
       }
@@ -289,6 +303,45 @@
     return { type: 'move' };
   }
 
+  // ---------- 每层的「规矩」 ----------
+  function floorHasMonster() {
+    const map = s.maps[s.floor];
+    for (let y = 0; y < SIZE; y++) {
+      for (let x = 0; x < SIZE; x++) {
+        const m = D.monsters[map[y][x]];
+        if (m && !m.ghost) return true;
+      }
+    }
+    return false;
+  }
+
+  function settleFloor() {
+    const fe = s.floorEnter;
+    if (!s || !fe || fe.floor !== s.floor) return;
+    const g = D.floorGoals[s.floor];
+    if (!g) return;
+    const kills = (s.flags.killCount || 0) - fe.kills;
+    const shop = (s.flags.shopCount || 0) - fe.shop;
+    let ok = false;
+    if (g.type === 'killsMax') ok = kills <= g.v;
+    else if (g.type === 'openDoor') ok = !!s.flags['door_f' + s.floor];
+    else if (g.type === 'noShop') ok = shop === 0;
+    else if (g.type === 'killKind') ok = !!s.flags['kill_' + g.v];
+    else if (g.type === 'clear') ok = !floorHasMonster();
+    else if (g.type === 'hpAbove') ok = s.hp >= (s.maxHp || 1) * g.v;
+    s.flags['goal_' + s.floor] = ok;
+    s.flags['goalKills_' + s.floor] = kills;
+  }
+
+  function goalStatus() {
+    const list = D.floorGoals.map((g, i) => ({
+      floor: i,
+      text: g.text,
+      done: !!(s && s.flags['goal_' + i]),
+    }));
+    return { list, done: list.filter((x) => x.done).length, total: list.length };
+  }
+
   // 幽灵按层给对白：第 1 层、第 5 层各一段
   function ghostStory() {
     return ({ 0: 'candle1', 4: 'candle3' })[s.floor] || 'candle1';
@@ -316,6 +369,7 @@
     s.gold += m.gold;
     s.exp += m.exp;
     s.flags.killCount = (s.flags.killCount || 0) + 1;
+    s.flags['kill_' + ch] = true;
 
     let heal = 0;
     if (hasRelic('ember') && !m.boss) {
@@ -541,6 +595,6 @@
       return D.monsters[ch] ? predict(ch) : null;
     },
     tryMove, fight, buy, priceOf, finish, altarChoices, pickRelic, pathTo, pathThrough, pathToNear,
-    nextLevelExp, keyName, summary, hasRelic, ownedRelics, beginFloor, restoreFloor,
+    nextLevelExp, keyName, summary, hasRelic, ownedRelics, beginFloor, restoreFloor, goalStatus, settleFloor,
   };
 })();

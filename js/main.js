@@ -792,13 +792,14 @@
   }
 
   // ---------- 评分 ----------
-  function scoreOf(s, sum, relicCount) {
+  function scoreOf(s, sum, relicCount, goalDone) {
     const maxHp = s.maxHp || 1;
     let sc = 300;
     sc += s.ending === 'true' ? 700 : 250;
     sc += Math.round((Math.max(0, s.hp) / maxHp) * 400);
     sc += (s.flags.killCount || 0) * 20;
     sc += relicCount * 80;
+    sc += (goalDone || 0) * 60;
     sc -= Math.round(sum.steps * 0.25);
     sc -= Math.round(sum.time * 0.15);
     sc -= (s.flags.retries || 0) * 80;
@@ -829,7 +830,8 @@
     $('endBody').textContent = E.body;
     const relicIds = Engine.ownedRelics();
     const relics = relicIds.map((id) => D.relics[id].short).join(' ') || '无';
-    const sc = scoreOf(s, sum, relicIds.length);
+    const gs = Engine.goalStatus();
+    const sc = scoreOf(s, sum, relicIds.length, gs.done);
     const grade = gradeOf(sc);
     sum.score = sc;
     const hpPct = Math.max(0, Math.round((s.hp / (s.maxHp || 1)) * 100));
@@ -846,6 +848,7 @@
     const brief = [];
     brief.push(`带走 ${relicIds.length} 件遗物 · 击杀 ${s.flags.killCount || 0} 只`);
     if (s.flags.worstHit) brief.push(`最狠的一场：${s.flags.worstName} −${s.flags.worstHit}`);
+    brief.push(`塔规 ${gs.done}/${gs.total}`);
     brief.push(s.flags.retries ? `重来本层 ${s.flags.retries} 次` : '一次没回头');
     $('endBrief').innerHTML = brief.map((t) => `<span>${t}</span>`).join('');
     $('endStats').innerHTML = `
@@ -886,6 +889,8 @@
     $('fcNum').textContent = `第 ${floor + 1} 层 / 共 ${D.floors.length} 层`;
     $('fcName').textContent = f.name;
     $('fcTip').textContent = f.tip;
+    const goal = D.floorGoals && D.floorGoals[floor];
+    $('fcGoal').textContent = goal ? `这一层的规矩 · ${goal.text}` : '';
     const card = $('floorCard');
     card.classList.remove('show');
     void card.offsetWidth;
@@ -1003,7 +1008,7 @@
 
     if (!first) log(`来到第 ${s.floor + 1} 层 · ${f.name}`, 'gold');
     log(f.tip);
-    if (!first) showFloorCard(s.floor);
+    showFloorCard(s.floor);
 
     Engine.beginFloor();
 

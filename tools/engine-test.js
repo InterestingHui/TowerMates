@@ -154,6 +154,43 @@ s = E.state();
 E.pickRelic('scout');
 ok(s.flags.codex === true, '无名之镜：直接解锁窥探之镜');
 
+// ---------- 9d. 每层的「规矩」 ----------
+E.newGame();
+s = E.state();
+s.hp = 5000;
+E.beginFloor();
+E.fight(0, -1); // 打掉 (2,2) 的蝙蝠
+s.x = 8; s.y = 8;
+ev = E.tryMove(0, 1); // 踩上楼
+ok(ev.type === 'floor' && s.flags.goal_0 === true, '第 1 层：只杀 1 只 → 规矩达成');
+
+E.newGame();
+s = E.state();
+s.floor = 2; s.x = 5; s.y = 9; s.gold = 200;
+E.beginFloor();
+E.buy('atk');
+s.x = 2; s.y = 1;
+E.tryMove(-1, 0);
+ok(s.flags.goal_2 === false, '第 3 层：在秤那里花了钱 → 规矩未达成');
+
+E.newGame();
+s = E.state();
+s.floor = 1; s.x = 5; s.y = 8; s.keys.y = 1;
+E.beginFloor();
+E.tryMove(0, -1); // 开黄门
+s.x = 2; s.y = 1;
+E.tryMove(-1, 0); // 上楼
+ok(s.flags.goal_1 === true, '第 2 层：用黄钥匙开了内室 → 规矩达成');
+
+E.newGame();
+s = E.state();
+s.floor = 5; s.hp = s.maxHp; s.won = false;
+E.beginFloor();
+E.finish('true');
+ok(s.flags.goal_5 === true, '第 6 层：满血收尾 → 规矩达成');
+const gs = E.goalStatus();
+ok(gs.total === 6 && gs.list.length === 6, '塔规面板共 6 条');
+
 // ---------- 10. 首见魔王先对白 ----------
 E.newGame();
 s = E.state();

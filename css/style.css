@@ -982,3 +982,14 @@ html, body {
   margin-left: 4px;
   vertical-align: 1px;
 }
+
+/* ---------- 楼层卡片：本层规矩 ---------- */
+.fc-goal {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(232, 196, 106, 0.16);
+  font-size: 10.5px;
+  letter-spacing: 0.4px;
+  color: rgba(232, 196, 106, 0.82);
+}
+.fc-goal:empty { display: none; }

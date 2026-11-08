@@ -188,6 +188,16 @@ window.GAME_DATA = (function () {
     },
   ];
 
+  // 每层的「规矩」：离开该层时结算，达成 +1，结算加分（不影响战斗数值）
+  const floorGoals = [
+    { type: 'killsMax', v: 1, text: '只打挡路的那一只（击杀 ≤ 1）' },
+    { type: 'openDoor', text: '用黄钥匙打开内室' },
+    { type: 'noShop', text: '不在秤那里花一枚金币' },
+    { type: 'killKind', v: 'E', text: '打倒密道的石像鬼' },
+    { type: 'clear', text: '把狼厅的怪清空' },
+    { type: 'hpAbove', v: 0.5, text: '半血以上打赢魔王' },
+  ];
+
   const shop = [
     { id: 'key', name: '黄钥匙', emoji: '🔑', price: 20, key: 'y' },
     { id: 'rkey', name: '红钥匙', emoji: '🗝️', price: 45, key: 'r' },
@@ -198,5 +208,5 @@ window.GAME_DATA = (function () {
     { id: 'codex', name: '窥探之镜', emoji: '🔮', price: 100, codex: true, once: true },
   ];
 
-  return { LEGEND, PALETTE, kindColor, monsters, items, relics, altarPool, levelExp, floors, shop };
+  return { LEGEND, PALETTE, kindColor, monsters, items, relics, altarPool, levelExp, floors, floorGoals, shop };
 })();
