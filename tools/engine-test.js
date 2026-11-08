@@ -201,6 +201,21 @@ ok(E.revealCore() === true && E.tile(9, 2) === 'u', '塔规 5 条后王座后露
 ok(E.state().maps[5][2][9] === 'u', '窄梯写进地图');
 ok(D.floors.length === 7 && D.floors[6].name === '锁芯', '第七层存在');
 
+// ---------- 9j. 路遇：按层分池 / 深层事件 / 钥匙门槛 ----------
+ok(E.eventPool(0).every((e) => (e.tier || 'a') === 'a'), '浅层只出温和事件');
+ok(E.eventPool(5).every((e) => e.tier === 'b'), '第 6 层只出深层事件');
+ok(E.eventPool(0).length === 6 && E.eventPool(5).length === 6, '两个池子各 6 个事件');
+ok(D.events.length === 12, '事件池共 12 个');
+
+E.newGame();
+s = E.state();
+s.floor = 3; s.gold = 0; s.keys.y = 0;
+const bridge = D.events.find((e) => e.id === 'bridge');
+const keyOpt = bridge.options.findIndex((o) => o.effect.keys && o.effect.keys.y < 0);
+ok(keyOpt >= 0 && E.eventCost(bridge.options[keyOpt]) === '钥匙不够', '钥匙不足时选项被标记为不可选');
+s.keys.y = 3;
+ok(E.eventCost(bridge.options[keyOpt]) === null, '钥匙够了就可以选');
+
 // ---------- 9i. 路遇事件 ----------
 E.newGame();
 s = E.state();
@@ -208,15 +223,15 @@ s.x = 4; s.y = 4;
 ev = E.tryMove(0, -1);
 ok(ev.type === 'event' && !!ev.eventId, '踩到路遇点弹出事件');
 ok(!!D.events.find((x) => x.id === ev.eventId), '事件来自数据池');
-const evId = ev.eventId;
+// 用固定事件，避免随机导致用例飘
 s.gold = 500;
-const atkA2 = s.atk, maxA2 = s.maxHp, goldA2 = s.gold;
-const eRes = E.resolveEvent(evId, 0);
+const atkA2 = s.atk, maxA2 = s.maxHp;
+const eRes = E.resolveEvent('smith', 0);
 ok(eRes.type === 'event' && typeof eRes.msg === 'string', '选择后返回结果文案');
-ok(s.atk !== atkA2 || s.maxHp !== maxA2 || s.gold !== goldA2 || (s.flags.eventScore || 0) > 0, '选项真的改变了数值或分数');
+ok(s.atk === atkA2 + 2 && s.maxHp === maxA2 - 120, '铁匠磨刃：攻击 +2、上限 −120');
 ok(E.tile(4, 3) === '.', '路遇点用掉后清空');
 ok(s.flags.ev_f0 === true, '本层路遇只触发一次');
-ok(E.resolveEvent(evId, 0).type === 'event', '同一事件仍可被再次结算（由主流程保证不重复弹）');
+ok(D.events.find((e) => e.id === 'broker').options[0].effect.atk === 3, '深层事件「赌命的商人」存在');
 
 E.newGame();
 s = E.state();

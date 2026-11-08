@@ -175,6 +175,19 @@
         T.refreshHud();
         T.resolveBattle(0, -1);
         await wait(500);
+      } else if (scene === 'eventdeep') {
+        d.getElementById('btnNew').click();
+        await wait(200);
+        const _vc3 = d.querySelector('#vowCards .vow-card[data-vow="none"]');
+        if (_vc3) _vc3.click();
+        await wait(260);
+        const dlD = d.getElementById('dialogOverlay');
+        for (let i = 0; i < 8; i++) { dlD.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
+        const sD = E.state();
+        sD.floor = 4; sD.gold = 120;
+        T.refreshHud();
+        T.openEvent('broker');
+        await wait(600);
       } else if (scene === 'event') {
         d.getElementById('btnNew').click();
         await wait(200);

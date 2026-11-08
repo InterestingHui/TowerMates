@@ -57,6 +57,7 @@ function applyEff(eff) {
   if (eff.def) s.def = Math.max(0, s.def + eff.def);
   if (eff.maxHp) { s.maxHp = Math.max(100, s.maxHp + eff.maxHp); s.hp = Math.min(s.hp, s.maxHp); }
   if (eff.healPct) s.hp = Math.min(s.maxHp, s.hp + Math.round(s.maxHp * eff.healPct));
+  if (eff.hpPct) s.hp = Math.max(1, Math.min(s.maxHp, s.hp + Math.round(s.maxHp * eff.hpPct)));
   if (eff.hp) s.hp = Math.max(1, Math.min(s.maxHp, s.hp + eff.hp));
   if (eff.keys) Object.keys(eff.keys).forEach((k) => { s.keys[k] = (s.keys[k] || 0) + eff.keys[k]; });
 }
@@ -149,11 +150,17 @@ function floorLoop(fi) {
       const ch = s.maps[s.floor][y][x];
       if (ch === 'X') { altar(fi); s.maps[s.floor][y][x] = '.'; picked++; continue; }
       if (ch === '?') {
-        // 模拟固定走"选项 0"（每层的路遇按层号轮换，保证可复现）
-        const e = D.events[(fi + 1) % D.events.length];
+        // 模拟固定走"选项 0"（按层分池后轮换，保证可复现）
+        const pool = D.events.filter((e) => (e.tier || 'a') === (fi >= 3 ? 'b' : 'a'));
+        const e = pool[fi % pool.length];
         const o = e.options[0];
         const cost = o.effect.gold && o.effect.gold < 0 ? -o.effect.gold : 0;
-        if (cost > 0 && s.gold < cost) { s.maps[s.floor][y][x] = '.'; picked++; continue; }
+        const keyCost = o.effect.keys && o.effect.keys.y < 0 ? -o.effect.keys.y : 0;
+        if ((cost > 0 && s.gold < cost) || (keyCost > 0 && s.keys.y < keyCost)) {
+          s.maps[s.floor][y][x] = '.';
+          picked++;
+          continue;
+        }
         applyEff(o.effect);
         s.maps[s.floor][y][x] = '.';
         picked++;

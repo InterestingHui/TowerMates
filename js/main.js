@@ -938,10 +938,11 @@
     el.evName.textContent = e.name;
     el.evText.textContent = e.text;
     el.evOpts.innerHTML = e.options.map((o, i) => {
+      const block = Engine.eventCost(o);
       const cost = o.effect.gold && o.effect.gold < 0 ? -o.effect.gold : 0;
-      const poor = cost > 0 && s.gold < cost;
-      return `<button class="ev-opt" data-i="${i}" ${poor ? 'disabled' : ''}>
-        <b>${o.label}</b><small>${poor ? `还差 ${cost - s.gold} 金` : o.tip}</small>
+      const why = block === '金币不够' ? `还差 ${cost - s.gold} 金` : block || '';
+      return `<button class="ev-opt" data-i="${i}" ${block ? 'disabled' : ''}>
+        <b>${o.label}</b><small>${block ? why : o.tip}</small>
       </button>`;
     }).join('');
     el.evOpts.querySelectorAll('.ev-opt').forEach((b) => {

@@ -358,8 +358,15 @@
   }
 
   // ---------- 路遇：踩到 '?' 从池子里随机抽一个 ----------
-  function pickEvent() {
-    const pool = D.events;
+  // 浅层只出温和事件，第 4 层起才出"换命"的深层事件
+  function eventPool(floor) {
+    const tier = (floor >= 3) ? 'b' : 'a';
+    const pool = D.events.filter((e) => (e.tier || 'a') === tier);
+    return pool.length ? pool : D.events;
+  }
+
+  function pickEvent(floor) {
+    const pool = eventPool(floor === undefined ? (s ? s.floor : 0) : floor);
     return pool[(Math.random() * pool.length) | 0].id;
   }
 
@@ -373,9 +380,22 @@
       s.hp = Math.min(s.hp, s.maxHp);
     }
     if (eff.healPct) s.hp = Math.min(s.maxHp, s.hp + Math.round(s.maxHp * eff.healPct));
+    if (eff.hpPct) s.hp = Math.max(1, Math.min(s.maxHp, s.hp + Math.round(s.maxHp * eff.hpPct)));
     if (eff.hp) s.hp = Math.max(1, Math.min(s.maxHp, s.hp + eff.hp));
     if (eff.keys) Object.keys(eff.keys).forEach((k) => { s.keys[k] = (s.keys[k] || 0) + eff.keys[k]; });
     if (eff.score) s.flags.eventScore = (s.flags.eventScore || 0) + eff.score;
+  }
+
+  // 选项的"付不起"判定：金币或钥匙不足时返回原因
+  function eventCost(o) {
+    if (!o || !o.effect) return null;
+    if (o.effect.gold && o.effect.gold < 0 && s.gold < -o.effect.gold) return '金币不够';
+    if (o.effect.keys) {
+      for (const k of Object.keys(o.effect.keys)) {
+        if (o.effect.keys[k] < 0 && (s.keys[k] || 0) < -o.effect.keys[k]) return '钥匙不够';
+      }
+    }
+    return null;
   }
 
   function resolveEvent(id, idx) {
@@ -383,7 +403,8 @@
     const e = D.events.find((x) => x.id === id);
     const o = e && e.options[idx];
     if (!o) return { type: 'refuse', msg: '没有这个选项' };
-    if (o.effect.gold && o.effect.gold < 0 && s.gold < -o.effect.gold) return { type: 'refuse', msg: '金币不够' };
+    const blocked = eventCost(o);
+    if (blocked) return { type: 'refuse', msg: blocked };
     applyEffect(o.effect);
     s.flags['ev_f' + s.floor] = true;
     if (tile(s.x, s.y) === '?') setTile(s.x, s.y, '.');
@@ -709,6 +730,6 @@
       return D.monsters[ch] ? predict(ch) : null;
     },
     tryMove, fight, canBlock, buy, priceOf, finish, altarChoices, pickRelic, pathTo, pathThrough, pathToNear,
-    nextLevelExp, keyName, summary, hasRelic, ownedRelics, beginFloor, restoreFloor, goalStatus, settleFloor, revealCore, heartState, heartTake, heartLeave, vow, pickEvent, resolveEvent, applyEffect,
+    nextLevelExp, keyName, summary, hasRelic, ownedRelics, beginFloor, restoreFloor, goalStatus, settleFloor, revealCore, heartState, heartTake, heartLeave, vow, pickEvent, eventPool, eventCost, resolveEvent, applyEffect,
   };
 })();
