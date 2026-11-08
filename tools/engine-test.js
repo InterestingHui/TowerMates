@@ -283,6 +283,7 @@ ok(need.every((k) => Array.isArray(S[k]) && S[k].length), '所有剧情段都存
 ok(S.intro.length === 5, '序章压缩为 5 句');
 ok(S.boss.some((l) => String(l[1]).includes('肩上')), '魔王提到薇拉小时候');
 ok(S.merchant.some((l) => String(l[1]).includes('铜币')), '三十枚铜币移到商人台词');
+ok(!!S.endingTrue.epilogue && !!S.endingPlain.epilogue, '两个结局都有后日谈');
 
 console.log(fail === 0 ? '\n✓ 全部通过' : `\n✗ ${fail} 项失败`);
 process.exit(fail ? 1 : 0);

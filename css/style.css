@@ -993,3 +993,48 @@ html, body {
   color: rgba(232, 196, 106, 0.82);
 }
 .fc-goal:empty { display: none; }
+
+/* ---------- 魔王三阶段 ---------- */
+.bs-phase {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-align: center;
+  padding: 18px;
+  background: radial-gradient(circle at 50% 45%, rgba(58, 8, 10, 0.965), rgba(5, 3, 5, 0.985));
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.24s ease;
+  border-radius: 18px;
+}
+.bs-phase.show { opacity: 1; }
+.bs-phase b {
+  font-family: Georgia, "Microsoft YaHei", serif;
+  font-size: 17px;
+  letter-spacing: 3px;
+  color: #ffb0a0;
+  text-shadow: 0 0 18px rgba(255, 80, 60, 0.5);
+}
+.bs-phase span { font-size: 11.5px; line-height: 1.7; color: #d8b6b0; max-width: 260px; }
+.bs-panel.p2 { border-color: rgba(255, 110, 90, 0.38); }
+.bs-panel.p3 { border-color: rgba(255, 70, 60, 0.62); box-shadow: 0 0 0 1px rgba(255, 70, 60, 0.25), 0 26px 64px rgba(0, 0, 0, 0.7); }
+.bs-panel.p3 .bs-avatar { filter: drop-shadow(0 0 16px rgba(255, 60, 40, 0.85)); }
+
+.battle-scene.phasing .bs-numbers { opacity: 0; transition: opacity 0.14s ease; }
+
+/* ---------- 结局后日谈 ---------- */
+.end-epi {
+  margin: 0 0 9px;
+  font-size: 11.5px;
+  line-height: 1.8;
+  color: #9aa3b4;
+  text-align: left;
+  padding-left: 2px;
+  border-left: 2px solid rgba(232, 196, 106, 0.25);
+  padding: 1px 0 1px 9px;
+}
+.end-epi:empty { display: none; }

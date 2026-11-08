@@ -119,6 +119,17 @@
         await wait(200);
         T.openCfg();
         await wait(400);
+      } else if (scene === 'bossphase') {
+        d.getElementById('btnNew').click();
+        await wait(200);
+        const dlC = d.getElementById('dialogOverlay');
+        for (let i = 0; i < 8; i++) { dlC.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
+        const sC = E.state();
+        sC.floor = 5; sC.x = 5; sC.y = 5; sC.hp = 3000; sC.maxHp = 3000; sC.atk = 60; sC.def = 40;
+        sC.flags.boss = true;
+        T.refreshHud();
+        T.resolveBattle(0, -1);
+        await wait(500);
       } else if (scene === 'altar5') {
         d.getElementById('btnNew').click();
         await wait(250);

@@ -193,6 +193,8 @@
     bsHeroBar: $('bsHeroBar'), bsFoeBar: $('bsFoeBar'),
     bsHeroHp: $('bsHeroHp'), bsFoeHp: $('bsFoeHp'),
     bsName: $('bsName'), bsRounds: $('bsRounds'), bsNumbers: $('bsNumbers'),
+    bsPhase: $('bsPhase'), bsPhaseTitle: $('bsPhaseTitle'), bsPhaseText: $('bsPhaseText'),
+    bsPanel: document.querySelector('.bs-panel'),
     guide: $('guide'),
   };
 
@@ -510,6 +512,8 @@
     el.bsNumbers.innerHTML = '';
     el.battleScene.classList.add('show');
     el.battleScene.classList.remove('hero-win');
+    el.bsPhase.classList.remove('show');
+    el.bsPanel.classList.remove('p2', 'p3');
 
     function bars() {
       el.bsHeroBar.style.width = Math.max(0, Math.min(100, (heroHp / heroMax) * 100)) + '%';
@@ -533,6 +537,26 @@
 
     (async () => {
       const K = Math.min(pred.rounds, m.boss ? 8 : 5);
+      // 魔王三阶段：血量跨过 66% / 33% 时插一段短过场（只改表现，不改数值）
+      const PHASES = [
+        { at: 0.66, n: 2, title: '第二道锁 · 裂', text: '魔王：别把我想成一道门。门后面还有东西。' },
+        { at: 0.33, n: 3, title: '第三道锁 · 塔心', text: '魔王：再近一点，你就看得见她的名字了。' },
+      ];
+      let phaseIdx = 0;
+      const showPhase = async (ph) => {
+        el.bsPhaseTitle.textContent = ph.title;
+        el.bsPhaseText.textContent = ph.text;
+        el.bsPhase.classList.add('show');
+        el.battleScene.classList.add('phasing');
+        el.bsPanel.classList.add('p' + ph.n);
+        Sound.play('hitBig');
+        vibrate([24, 36, 24]);
+        await wait(780);
+        el.bsPhase.classList.remove('show');
+        el.battleScene.classList.remove('phasing');
+        await wait(170);
+      };
+
       for (let i = 0; i < K && !skipped; i++) {
         el.bsRounds.textContent = `回合 ${Math.min(i + 1, pred.rounds)} / ${pred.rounds}`;
         el.bsHero.classList.add('lunge-r');
@@ -547,6 +571,10 @@
         await wait(95);
         el.bsFoe.classList.remove('hit');
         if (foeHp <= 0) break;
+        if (m.boss && phaseIdx < PHASES.length && !skipped && foeHp / foeMax <= PHASES[phaseIdx].at) {
+          await showPhase(PHASES[phaseIdx]);
+          phaseIdx++;
+        }
         if (i < K - 1 && !skipped) {
           el.bsFoe.classList.add('lunge-l');
           await wait(130);
@@ -568,7 +596,7 @@
       Sound.play(m.boss ? 'hitBig' : 'hit');
       await wait(370);
       el.battleScene.classList.remove('show');
-      el.battleScene.classList.remove('hero-win');
+      el.battleScene.classList.remove('hero-win', 'phasing');
       el.bsFoe.classList.remove('ko', 'hit');
       el.bsHero.classList.remove('hit', 'lunge-r', 'lunge-l');
       el.battleScene.onclick = null;
@@ -828,6 +856,7 @@
     $('endTitle').textContent = E.title;
     $('endDesc').textContent = E.desc;
     $('endBody').textContent = E.body;
+    $('endEpi').textContent = E.epilogue || '';
     const relicIds = Engine.ownedRelics();
     const relics = relicIds.map((id) => D.relics[id].short).join(' ') || '无';
     const gs = Engine.goalStatus();
