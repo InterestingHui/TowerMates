@@ -851,6 +851,29 @@
         if (ch === '#') continue;
         const px = x * TILE;
         const py = y * TILE;
+        // 石头被带走后，原地只剩一座空石座（不改地图也能表现状态）
+        const hp = state.flags && state.flags.heartAt;
+        if (ch === '.' && state.flags && state.flags.heart === 'taken' && hp && x === hp[0] && y === hp[1]) {
+          groundShadow(px, py, TILE * 0.3, 0.35);
+          ctx.fillStyle = 'rgba(48,42,52,0.95)';
+          roundRect(px + TILE * 0.2, py + TILE * 0.52, TILE * 0.6, TILE * 0.3, TILE * 0.05);
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(186,166,190,0.3)';
+          ctx.lineWidth = 1;
+          roundRect(px + TILE * 0.2, py + TILE * 0.52, TILE * 0.6, TILE * 0.3, TILE * 0.05);
+          ctx.stroke();
+          ctx.fillStyle = 'rgba(206,186,210,0.22)';
+          ctx.fillRect(px + TILE * 0.22, py + TILE * 0.53, TILE * 0.56, 1.4);
+          // 中间的空槽
+          ctx.fillStyle = 'rgba(9,7,11,0.96)';
+          ctx.beginPath();
+          ctx.ellipse(px + TILE / 2, py + TILE * 0.65, TILE * 0.15, TILE * 0.065, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(255,140,165,0.16)';
+          ctx.beginPath();
+          ctx.ellipse(px + TILE / 2, py + TILE * 0.65, TILE * 0.15, TILE * 0.065, 0, 0, Math.PI * 2);
+          ctx.stroke();
+        }
         if (ch === 'y' || ch === 'r') drawDoor(ch, px, py);
         else if (ch === 'u' || ch === 'n') drawStairs(ch, px, py);
         else if (ch === 'M') drawMerchant(px, py);

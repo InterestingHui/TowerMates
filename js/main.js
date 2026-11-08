@@ -17,12 +17,12 @@
 
   // ---------- 设置 ----------
   const Settings = (() => {
-    let data = { fx: 'full', sfx: true, vib: true };
+    let data = { fx: 'full', sfx: true, music: true, vib: true };
     try {
       const old = JSON.parse(localStorage.getItem('towermates_cfg') || 'null');
       const cur = JSON.parse(localStorage.getItem('towermates_cfg_v2') || 'null');
       if (cur) data = Object.assign(data, cur);
-      else if (old) data = { fx: old.reduceFx ? 'low' : 'full', sfx: !old.mute, vib: true };
+      else if (old) data = { fx: old.reduceFx ? 'low' : 'full', sfx: !old.mute, music: !old.mute, vib: true };
     } catch (e) {}
     const save = () => {
       try { localStorage.setItem('towermates_cfg_v2', JSON.stringify(data)); } catch (e) {}
@@ -30,9 +30,11 @@
     return {
       get fx() { return data.fx; },
       get sfx() { return data.sfx; },
+      get music() { return data.music; },
       get vib() { return data.vib; },
       cycleFx() { data.fx = data.fx === 'full' ? 'low' : 'full'; save(); return data.fx; },
       toggleSfx() { data.sfx = !data.sfx; save(); return data.sfx; },
+      toggleMusic() { data.music = !data.music; save(); return data.music; },
       toggleVib() { data.vib = !data.vib; save(); return data.vib; },
     };
   })();
@@ -61,17 +63,22 @@
   const Sound = (() => {
     let actx = null;
     let music = null;
-    function ensure() {
-      if (!Settings.sfx) return null;
+    function ctxOnly() {
       if (!actx) {
         const AC = window.AudioContext || window.webkitAudioContext;
         if (!AC) return null;
         actx = new AC();
       }
-      if (actx.state === 'suspended') actx.resume();
+      if (actx.state === 'suspended') { try { actx.resume(); } catch (e) {} }
       return actx;
     }
+    // 音效与音乐各有开关，任何一边开着都需要一个 AudioContext
+    function ensure() {
+      if (!Settings.sfx && !Settings.music) return null;
+      return ctxOnly();
+    }
     function beep(freq, dur, type, gain, slide, delay) {
+      if (!Settings.sfx) return;
       const c = ensure();
       if (!c) return;
       const t0 = c.currentTime + (delay || 0);
@@ -89,6 +96,7 @@
     }
     function startMusic() {
       stopMusic();
+      if (!Settings.music) return;
       const c = ensure();
       if (!c) return;
       music = { oscs: [] };
@@ -123,7 +131,7 @@
     // 深层垫音：越往上基频越低，塔顶最沉
     function setPad(floor) {
       const f = { 3: 55, 4: 49, 5: 43.65, 6: 41.2 }[floor] || 0;
-      if (!Settings.sfx || !f) { stopPad(); return; }
+      if (!Settings.music || !f) { stopPad(); return; }
       if (pad && pad.freq === f) return;
       stopPad();
       const c = ensure();
@@ -139,6 +147,63 @@
       o2.connect(g2).connect(g);
       o1.start(); o2.start();
       pad = { freq: f, o: [o1, o2], g };
+    }
+
+    // ---------- 每层的旋律动机 ----------
+    // 只用几个音：越往上越少、越慢；集市是大调，密道是弗里几亚，塔顶只留纯五度
+    const MOTIFS = {
+      0: { root: 220, gap: 4600, steps: [[0, 0.7], [3, 0.55], [7, 1.0], [5, 0.6]] },
+      1: { root: 220, gap: 5000, steps: [[0, 0.8], [5, 0.6], [3, 0.9], [10, 1.1]] },
+      2: { root: 261.63, gap: 4200, steps: [[0, 0.5], [4, 0.5], [7, 0.8], [9, 0.6], [7, 0.9]] },
+      3: { root: 207.65, gap: 5600, steps: [[0, 1.0], [1, 0.7], [6, 1.2], [5, 0.9]] },
+      4: { root: 196, gap: 5800, steps: [[0, 0.9], [3, 0.6], [10, 1.0], [7, 1.3]] },
+      5: { root: 174.61, gap: 6800, steps: [[0, 1.4], [7, 1.8], [3, 1.2], [12, 2.2]] },
+      6: { root: 146.83, gap: 5200, steps: [[0, 1.1], [6, 0.9], [1, 1.4], [0, 1.8]] },
+    };
+    let motif = null;
+
+    function stopMotif() {
+      if (!motif) return;
+      clearTimeout(motif.timer);
+      motif = null;
+    }
+
+    function setMotif(floor) {
+      if (motif && motif.floor === floor) return;
+      stopMotif();
+      const cfg = MOTIFS[floor];
+      if (!Settings.music || !cfg) return;
+      const cur = { floor, timer: null };
+      motif = cur;
+      const once = () => {
+        if (motif !== cur) return;
+        let acc = 0;
+        cfg.steps.forEach(([semi, dur]) => {
+          const f = cfg.root * Math.pow(2, semi / 12);
+          beepTone(f, dur, 0.013, acc);
+          beepTone(f * 2, dur * 0.8, 0.0035, acc + 0.02);
+          acc += dur * 0.92;
+        });
+        cur.timer = setTimeout(once, cfg.gap + acc * 1000);
+      };
+      cur.timer = setTimeout(once, cfg.gap * 0.45);
+    }
+
+    // 动机用的音色：慢起、慢落，像远处有人在敲钟
+    function beepTone(freq, dur, gain, delay) {
+      const c = ensure();
+      if (!c) return;
+      const t0 = c.currentTime + (delay || 0);
+      const o = c.createOscillator();
+      const g = c.createGain();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(freq, t0);
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(gain, t0 + Math.min(0.22, dur * 0.35));
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      o.connect(g).connect(c.destination);
+      o.start(t0);
+      o.stop(t0 + dur + 0.05);
     }
 
     const map = {
@@ -157,7 +222,7 @@
       skip: () => beep(500, 0.08, 'sine', 0.03, 240),
       heal: () => { beep(440, 0.1, 'sine', 0.035); beep(660, 0.16, 'sine', 0.03, null, 0.08); },
     };
-    return { play(n) { if (map[n]) map[n](); }, startMusic, stopMusic, setPad };
+    return { play(n) { if (map[n]) map[n](); }, startMusic, stopMusic, setPad, setMotif, stopMotif };
   })();
 
   let flashTimer = null;
@@ -904,6 +969,9 @@
     const sum = Engine.summary();
 
     Sound.play('win');
+    Sound.stopMotif();
+    Sound.setPad(-1);
+    Sound.stopMusic();
     if (!REDUCED()) {
       Renderer.pulse();
       Renderer.shake(600, 10);
@@ -1095,6 +1163,7 @@
     if (s.floor === 5 && !s.flags.bossKilled) Sound.startMusic();
     else Sound.stopMusic();
     Sound.setPad(s.floor);
+    Sound.setMotif(s.floor);
 
     if (!first) log(`来到第 ${s.floor + 1} 层 · ${f.name}`, 'gold');
     log(f.tip);
@@ -1218,6 +1287,16 @@
     el.dialogOverlay.addEventListener('click', advanceDialog);
     $('dlgSkip').addEventListener('click', (e) => { e.stopPropagation(); skipDialog(); });
     $('dlgPrev').addEventListener('click', (e) => { e.stopPropagation(); prevDialog(); });
+
+    // 切回标签页时音频上下文可能被系统挂起：恢复并重排一次音乐
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) { Sound.stopMotif(); return; }
+      const st = Engine.state();
+      if (!st || !Settings.music) return;
+      Sound.setPad(st.floor);
+      Sound.setMotif(st.floor);
+      if (st.floor === 5 && !st.flags.bossKilled) Sound.startMusic();
+    });
 
     window.addEventListener('keydown', (e) => {
       if (el.startOverlay.classList.contains('show')) return;
@@ -1360,8 +1439,13 @@
     $('cfgFx').addEventListener('click', () => { Settings.cycleFx(); refreshCfg(); });
     $('cfgSfx').addEventListener('click', () => {
       Settings.toggleSfx();
-      if (!Settings.sfx) { Sound.stopMusic(); Sound.setPad(-1); }
-      else { const st = Engine.state(); if (st) Sound.setPad(st.floor); }
+      refreshCfg();
+    });
+    $('cfgMusic').addEventListener('click', () => {
+      Settings.toggleMusic();
+      const st = Engine.state();
+      if (!Settings.music) { Sound.stopMusic(); Sound.setPad(-1); Sound.stopMotif(); }
+      else if (st) { Sound.setPad(st.floor); Sound.setMotif(st.floor); if (st.floor === 5 && !st.flags.bossKilled) Sound.startMusic(); }
       refreshCfg();
     });
     $('cfgVib').addEventListener('click', () => { Settings.toggleVib(); refreshCfg(); vibrate(12); });
@@ -1377,6 +1461,8 @@
     $('cfgFxVal').className = Settings.fx === 'low' ? 'off' : '';
     $('cfgSfxVal').textContent = Settings.sfx ? '开' : '关';
     $('cfgSfxVal').className = Settings.sfx ? '' : 'off';
+    $('cfgMusicVal').textContent = Settings.music ? '开' : '关';
+    $('cfgMusicVal').className = Settings.music ? '' : 'off';
     $('cfgVibVal').textContent = Settings.vib ? '开' : '关';
     $('cfgVibVal').className = Settings.vib ? '' : 'off';
     const s = Engine.state();

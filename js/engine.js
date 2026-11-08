@@ -350,6 +350,7 @@
     if (s.flags.heart) return { type: 'refuse', msg: '你已经做过决定了' };
     s.flags.heart = 'taken';
     s.flags.relic_heart = true;
+    s.flags.heartAt = [s.x, s.y];
     s.maxHp += 300;
     s.hp += 300;
     if (tile(s.x, s.y) === 'K') setTile(s.x, s.y, '.');

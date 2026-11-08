@@ -213,6 +213,7 @@ ok(take.type === 'heart' && take.choice === 'taken', '选择带走');
 ok(s.maxHp === maxBefore + 300 && s.hp === hpBefore + 300, '带走：生命上限与当前生命各 +300');
 ok(s.flags.relic_heart === true && E.hasRelic('heart'), '塔心石进遗物栏');
 ok(E.tile(5, 5) === '.', '带走后石台清空');
+ok(Array.isArray(s.flags.heartAt) && s.flags.heartAt[0] === 5 && s.flags.heartAt[1] === 5, '记下空石座的位置，供渲染用');
 ok(E.heartTake().type === 'refuse', '同一颗石头不能拿两次');
 s.x = 5; s.y = 6;
 ok(E.tryMove(0, -1).type === 'move', '已抉择后再踩不再弹层（无格可踩时返回 move/refuse）');

@@ -20,6 +20,7 @@
     shop: base + '?dev=1#demo=2,4,3',
     tower: base + '?dev=1#demo=5,5,7',
     core: base + '?dev=1#demo=6,5,8',
+    stoneidle: base + '?dev=1#demo=6,5,8',
   }[scene] || base + '?dev=1';
   f.src = src;
 
@@ -131,6 +132,32 @@
         T.refreshHud();
         T.resolveBattle(0, -1);
         await wait(500);
+      } else if (scene === 'stoneidle') {
+        const sI = E.state();
+        const rowI = sI.maps[6][5];
+        if (typeof rowI === 'string') sI.maps[6][5] = rowI.split('');
+        sI.maps[6][5][5] = '.';
+        sI.flags.heart = 'taken';
+        sI.flags.heartAt = [5, 5];
+        sI.flags.relic_heart = true;
+        T.refreshHud();
+        await wait(1200);
+      } else if (scene === 'stonegone') {
+        d.getElementById('btnNew').click();
+        await wait(200);
+        const dlG = d.getElementById('dialogOverlay');
+        for (let i = 0; i < 8; i++) { dlG.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
+        const sG = E.state();
+        sG.floor = 6; sG.x = 5; sG.y = 6;
+        T.refreshHud();
+        T.act(0, -1);
+        await wait(300);
+        d.getElementById('heartTake').click();
+        await wait(500);
+        d.getElementById('dlgSkip').click();
+        await wait(400);
+        w.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'ArrowLeft' }));
+        await wait(1800);
       } else if (scene === 'hearttake') {
         d.getElementById('btnNew').click();
         await wait(200);
