@@ -25,7 +25,7 @@
       maps: floorMaps(),
       over: false, won: false, ending: null,
       flags: { vow: v },
-      ver: 4,
+      ver: 5,
       steps: 0,
       startedAt: Date.now(),
       snap: null,
@@ -49,7 +49,7 @@
       const raw = localStorage.getItem(SAVE_KEY);
       if (!raw) return false;
       const parsed = JSON.parse(raw);
-      return !!parsed && parsed.ver === 4 && parsed.maps && parsed.maps.length === D.floors.length;
+      return !!parsed && parsed.ver === 5 && parsed.maps && parsed.maps.length === D.floors.length;
     } catch (e) { return false; }
   }
 
@@ -73,7 +73,7 @@
       if (!raw) return null;
       const parsed = JSON.parse(raw);
       // 旧版本的存档（地图里没有遗物格）一律作废，避免读到半新半旧的世界
-      if (!parsed || parsed.ver !== 4 || !parsed.maps || parsed.maps.length !== D.floors.length) return null;
+      if (!parsed || parsed.ver !== 5 || !parsed.maps || parsed.maps.length !== D.floors.length) return null;
       s = parsed;
       if (!s.flags) s.flags = {};
       if (!s.ending) s.ending = null;
@@ -401,9 +401,9 @@
   }
 
   // ---------- 路遇：踩到 '?' 从池子里随机抽一个 ----------
-  // 浅层只出温和事件，第 4 层起才出"换命"的深层事件
+  // 浅层温和；第 4 层起换「换命」的深层；第 7 层起换与名字/时间有关的锁梁事件
   function eventPool(floor) {
-    const tier = (floor >= 3) ? 'b' : 'a';
+    const tier = floor >= 6 ? 'c' : floor >= 3 ? 'b' : 'a';
     const pool = D.events.filter((e) => (e.tier || 'a') === tier);
     return pool.length ? pool : D.events;
   }
@@ -481,10 +481,14 @@
     return { type: 'heart', choice: 'left', name: '塔心石', msg: '你把手收了回来 · 石头还在那儿跳' };
   }
 
-  // 塔规达成 5 条以上时，击败魔王后王座后露出窄梯
+  // 塔规达成 8 条以上时，击败衡后塔顶露出窄梯
   function revealCore() {
-    if (!s || s.floor !== 5) return false;
-    if (goalStatus().done < 5) return false;
+    if (!s) return false;
+    const f = D.floors[s.floor];
+    if (!f || !f.hiddenGate) return false;
+    if (!s.flags.bossKilled_U) return false;
+    settleFloor();
+    if (goalStatus().done < 8) return false;
     if (tile(9, 2) === 'u') return true;
     setTile(9, 2, 'u');
     save();
@@ -500,9 +504,9 @@
     return { list, done: list.filter((x) => x.done).length, total: list.length };
   }
 
-  // 幽灵按层给对白：第 1 层、第 5 层各一段
+  // 幽灵按层给对白：第 1、5、7、11 层各一段
   function ghostStory() {
-    return ({ 0: 'candle1', 4: 'candle3' })[s.floor] || 'candle1';
+    return ({ 0: 'candle1', 4: 'candle3', 6: 'candle4', 10: 'candle5' })[s.floor] || 'candle1';
   }
 
   function vow() {
@@ -526,10 +530,10 @@
     const p = predict(ch);
     if (!p.win) return { type: 'refuse', msg: p.reason || '无法战胜' };
 
-    if (m.boss && !s.flags.boss) {
-      s.flags.boss = true;
+    if (m.boss && !s.flags['boss_seen_' + ch]) {
+      s.flags['boss_seen_' + ch] = true;
       save();
-      return { type: 'story', story: 'boss', dx, dy, prediction: p };
+      return { type: 'story', story: m.story || 'boss', dx, dy, prediction: p };
     }
 
     const blocked = !!(opt && opt.block) && canBlock();
@@ -545,6 +549,12 @@
     s.exp += m.exp;
     s.flags.killCount = (s.flags.killCount || 0) + 1;
     s.flags['kill_' + ch] = true;
+    if (m.boss) {
+      s.flags['bossKilled_' + ch] = true;
+      if (ch === 'Z') s.flags.bossKilled = true;
+      if (m.chapter) s.flags['chap_' + m.chapter] = true;
+      if (m.finalBoss) s.flags.finalBossKilled = true;
+    }
 
     let heal = 0;
     if (hasRelic('ember') && !m.boss) {
@@ -558,7 +568,8 @@
     return {
       type: 'fight', damage: dmg, raw: p.damage, blocked, rounds: p.rounds,
       gold: goldGain, exp: m.exp, heal, levelUps: ups,
-      monster: m, boss: !!m.boss,
+      monster: m, boss: !!m.boss, chapter: m.chapter || 0,
+      after: m.after || null, finalBoss: !!m.finalBoss,
     };
   }
 

@@ -104,6 +104,17 @@ function priceOf(item) {
   if (VOW === 'nameless') price = Math.max(1, Math.round(price * 1.4));
   return price;
 }
+// 用层阶之钥回秤那里补药：模拟玩家在硬仗前回城，不模拟往返步数
+function healAtShop() {
+  let bought = 0;
+  while (s.hp < s.maxHp * 0.9 && s.gold >= 30) {
+    s.gold -= 30;
+    s.hp = Math.min(s.maxHp, s.hp + 160);
+    bought++;
+  }
+  if (bought) console.log(`  回秤那里补了 ${bought} 瓶红药水 → HP ${s.hp}/${s.maxHp}`);
+}
+
 function shop() {
   let bought = 0;
   for (;;) {
@@ -133,7 +144,11 @@ function bfs() {
       if (nx < 0 || ny < 0 || nx >= SIZE || ny >= SIZE || seen[ny][nx]) continue;
       const ch = map[ny][nx];
       if (ch === '#') continue;
-      if (D.monsters[ch] && !D.monsters[ch].ghost && !predict(ch).win) continue;
+      if (D.monsters[ch] && !D.monsters[ch].ghost && !predict(ch).win) {
+        const mb = D.monsters[ch];
+        const canBlockBoss = mb.boss && !s.flags['block_f' + s.floor] && Math.round(predict(ch).damage * 0.6) < s.hp;
+        if (!canBlockBoss) continue;
+      }
       if ((ch === 'y' || ch === 'r') && s.keys[ch] <= 0) continue;
       seen[ny][nx] = true;
       q.push([nx, ny]);
@@ -144,6 +159,7 @@ function bfs() {
 
 function floorLoop(fi) {
   console.log(`\n—— 第 ${fi + 1} 层 ${D.floors[fi].name} ——`);
+  if (fi >= 5 && s.hp < s.maxHp * 0.55) healAtShop();
   let guard = 0;
   while (guard++ < 300) {
     const cells = bfs();
@@ -154,7 +170,7 @@ function floorLoop(fi) {
       if (ch === '?') {
         if (NO_EVENT) { s.maps[s.floor][y][x] = '.'; picked++; continue; }
         // 模拟固定走"选项 0"（按层分池后轮换，保证可复现）
-        const pool = D.events.filter((e) => (e.tier || 'a') === (fi >= 3 ? 'b' : 'a'));
+        const pool = D.events.filter((e) => (e.tier || 'a') === (fi >= 6 ? 'c' : fi >= 3 ? 'b' : 'a'));
         const e = pool[fi % pool.length];
         const o = e.options[0];
         const cost = o.effect.gold && o.effect.gold < 0 ? -o.effect.gold : 0;
@@ -178,7 +194,7 @@ function floorLoop(fi) {
     }
     if (picked) {
       console.log(`  拾取 ${picked} 件 → HP ${s.hp}/${s.maxHp} ATK ${s.atk} DEF ${s.def} 金 ${s.gold} 经验 ${s.exp} Lv.${s.level}`);
-      if (fi === 2) shop();
+      if (fi === 2 || fi === 7) shop();
       continue;
     }
     const targets = [];
@@ -192,10 +208,11 @@ function floorLoop(fi) {
     targets.sort((a, b) => a.damage - b.damage);
     const t = targets[0];
     const m = D.monsters[t.ch];
-    // 格挡：每层一次，贪婪地用在本层第一场"够疼"的战斗上
+    const isBoss = !!m.boss;
+    // 格挡：Boss 层留给 Boss，普通层用在本层第一场"够疼"的战斗上
     let take = t.damage;
     if (VOW === 'guard') take = Math.round(take * 0.82);
-    if (USE_BLOCK && VOW !== 'guard' && VOW !== 'ascetic' && VOW !== 'nameless' && !s.flags['block_f' + s.floor] && take >= s.maxHp * 0.08) {
+    if (USE_BLOCK && VOW !== 'guard' && VOW !== 'ascetic' && VOW !== 'nameless' && (isBoss || !D.floors[fi].boss) && !s.flags['block_f' + s.floor] && take >= s.maxHp * 0.08) {
       s.flags['block_f' + s.floor] = true;
       take = Math.round(take * 0.6);
       console.log(`  ▣ 格挡：${m.name} 承伤 ${t.damage} → ${take}`);

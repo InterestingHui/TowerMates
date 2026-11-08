@@ -149,9 +149,10 @@
         setTimeout(() => cur.o.forEach((x) => { try { x.stop(); } catch (e) {} }), 1400);
       } catch (e) {}
     }
-    // 深层垫音：越往上基频越低，塔顶最沉
+    // 深层垫音：越往上基频越低，锁梁最沉
+    const PAD = [0, 0, 0, 55, 49, 43.65, 41.2, 38.9, 36.7, 34.65, 32.7, 30.87, 29.14];
     function setPad(floor) {
-      const f = { 3: 55, 4: 49, 5: 43.65, 6: 41.2 }[floor] || 0;
+      const f = PAD[floor] || 0;
       if (!Settings.music || !f) { stopPad(); return; }
       if (pad && pad.freq === f) return;
       stopPad();
@@ -180,6 +181,13 @@
       4: { root: 196, gap: 5800, steps: [[0, 0.9], [3, 0.6], [10, 1.0], [7, 1.3]] },
       5: { root: 174.61, gap: 6800, steps: [[0, 1.4], [7, 1.8], [3, 1.2], [12, 2.2]] },
       6: { root: 146.83, gap: 5200, steps: [[0, 1.1], [6, 0.9], [1, 1.4], [0, 1.8]] },
+      // 锁梁：动机更短、间隔更长，像有人在很远的地方数数
+      7: { root: 164.81, gap: 6200, steps: [[0, 1.2], [5, 0.8], [10, 1.4], [3, 1.0]] },
+      8: { root: 196, gap: 5000, steps: [[0, 0.7], [3, 0.6], [7, 0.9], [12, 0.5]] },
+      9: { root: 146.83, gap: 7200, steps: [[0, 1.6], [7, 2.0], [5, 1.4], [0, 2.4]] },
+      10: { root: 138.59, gap: 6600, steps: [[0, 1.2], [1, 0.9], [6, 1.5], [8, 1.8]] },
+      11: { root: 130.81, gap: 7400, steps: [[0, 1.5], [3, 1.2], [10, 1.8], [0, 2.2]] },
+      12: { root: 123.47, gap: 8400, steps: [[0, 2.0], [7, 2.4], [5, 1.6], [12, 2.8]] },
     };
     let motif = null;
 
@@ -472,6 +480,16 @@
     renderLine();
   }
 
+  // 连续播几段对白：一段读完自动接下一段
+  function playSequence(keys) {
+    const next = () => {
+      const k = keys.shift();
+      if (!k) return;
+      playStory(k, next);
+    };
+    next();
+  }
+
   function renderLine() {
     if (!typing) return;
     const line = typing.lines[typing.idx];
@@ -480,7 +498,10 @@
     $('dlgWho').className = 'dlg-who ' + (line.who === '烛' ? 'ghost'
       : line.who === '薇拉' ? 'vera'
         : line.who === '魔王' || line.who === '炬' ? 'boss'
-          : line.who === '秤' ? 'merchant' : '');
+          : line.who === '砚' ? 'yan'
+            : line.who === '铎' ? 'duo'
+              : line.who === '衡' ? 'heng'
+                : line.who === '秤' ? 'merchant' : '');
     $('dlgWho').style.display = line.who ? '' : 'none';
     const text = $('dlgText');
     text.textContent = line.text;
@@ -620,7 +641,7 @@
 
     el.bsHero.textContent = '🧙';
     el.bsFoe.textContent = m.emoji;
-    el.bsName.textContent = m.name + (m.boss ? ' · 塔的主人' : '');
+    el.bsName.textContent = m.name + (m.boss ? ' · ' + (m.title || '塔的主人') : '');
     el.bsRounds.textContent = `回合 1 / ${pred.rounds}`;
     el.bsHeroHp.textContent = Math.round(heroHp);
     el.bsFoeHp.textContent = Math.round(foeHp);
@@ -675,10 +696,10 @@
 
     (async () => {
       const K = Math.min(pred.rounds, m.boss ? 8 : 5);
-      // 魔王三阶段：血量跨过 66% / 33% 时插一段短过场（只改表现，不改数值）
-      const PHASES = [
-        { at: 0.66, n: 2, title: '第二道锁 · 裂', text: '魔王：别把我想成一道门。门后面还有东西。' },
-        { at: 0.33, n: 3, title: '第三道锁 · 塔心', text: '魔王：再近一点，你就看得见她的名字了。' },
+      // Boss 三阶段：血量跨过 66% / 33% 时插一段短过场（只改表现，不改数值）
+      const PHASES = m.phases || [
+        { at: 0.66, n: 2, title: '第二道锁 · 裂', text: '别把我想成一道门。门后面还有东西。' },
+        { at: 0.33, n: 3, title: '第三道锁 · 塔心', text: '再近一点，你就看得见她的名字了。' },
       ];
       let phaseIdx = 0;
       const showPhase = async (ph) => {
@@ -764,24 +785,35 @@
       Sound.play('level');
       Renderer.ring(s2.x, s2.y, 'rgba(255,224,138,0.9)', TN() * 2.6, 560);
       Renderer.addFloat('LEVEL UP', s2.x * TN() + TN() / 2, s2.y * TN() - 8, '#ffe08a', true);
-      log(`升级！Lv.${s2.level}　攻击+${3 * res.levelUps}　防御+${3 * res.levelUps}　生命+${150 * res.levelUps}`, 'gold');
+      const gain = 130 + (Engine.hasRelic('vigor') ? 80 : 0);
+      log(`升级！Lv.${s2.level}　攻击+${3 * res.levelUps}　防御+${2 * res.levelUps}　生命+${gain * res.levelUps}`, 'gold');
     }
     if (res.boss) {
-      log('魔王散成六盏灯，一层一层落了下去。', 'gold');
-      s2.flags.bossKilled = true;
+      const m = res.monster;
+      log(m.defeat || `${m.name}倒下了。`, 'gold');
       Engine.save();
       Sound.stopMusic();
-      if (Engine.revealCore()) {
-        log('王座后面露出一段窄梯，往上还有一层。', 'gold');
-        warn('塔规足够：王座后露出一段窄梯');
-        Renderer.ring(9, 2, 'rgba(255,225,150,0.9)', TN() * 2.4, 720);
-        Renderer.burst(9 * TN() + TN() / 2, 2 * TN() + TN() / 2, {
-          count: 16, colors: ['#ffe6a8', '#ffd27d'], speed: 110, life: [500, 900],
-        });
-        Sound.play('relic');
-      } else {
-        log('王座后面像是有一道缝，但你看不出门道。', 'warn');
+      if (res.chapter) {
+        const ch = D.chapters[res.chapter - 1];
+        if (ch) {
+          log(`${ch.title} 完成 · ${ch.theme}`, 'gold');
+          warn(`${ch.title} · 完`);
+        }
       }
+      if (res.finalBoss) {
+        if (Engine.revealCore()) {
+          log('塔顶后面露出一段窄梯，往上还有一层。', 'gold');
+          warn('塔规足够：塔顶后露出一段窄梯');
+          Renderer.ring(9, 2, 'rgba(255,225,150,0.9)', TN() * 2.4, 720);
+          Renderer.burst(9 * TN() + TN() / 2, 2 * TN() + TN() / 2, {
+            count: 16, colors: ['#ffe6a8', '#ffd27d'], speed: 110, life: [500, 900],
+          });
+          Sound.play('relic');
+        } else {
+          log('塔顶后面像是有一道缝，但你看不出门道。', 'warn');
+        }
+      }
+      if (res.after) playStory(res.after);
     }
     if (res.damage > 0 && (!s2.flags.worstHit || res.damage > s2.flags.worstHit)) {
       s2.flags.worstHit = res.damage;
@@ -813,8 +845,9 @@
       Renderer.flashTile(tx, ty, 'rgba(255,80,80,0.35)', 260);
       Renderer.shake(130, 2.5);
       if (m.boss) {
-        warn('打不过。回第 3 层找秤，把金币换成力量。');
-        log('魔王太强了。塔里还有没清完的怪，或者回第 3 层找秤。', 'warn');
+        const shop = nearestShopFloor(s.floor);
+        warn(`打不过。回第 ${shop} 层找秤，把金币换成力量。`);
+        log(`${m.name}太强了。塔里还有没清完的怪，或者回第 ${shop} 层找秤。`, 'warn');
       } else {
         warn(pred.reason === '攻击力不足，无法破防' ? '攻击力不足，无法破防' : '这一战会要你的命，先变强吧');
         log(`无法战胜${m.name}：${pred.reason}`, 'warn');
@@ -824,10 +857,10 @@
 
     Tips.show('fight');
 
-    if (m.boss && !s.flags.boss) {
-      s.flags.boss = true;
+    if (m.boss && !s.flags['boss_seen_' + ch]) {
+      s.flags['boss_seen_' + ch] = true;
       Engine.save();
-      playStory('boss', () => resolveBattle(dx, dy));
+      playStory(m.story || 'boss', () => resolveBattle(dx, dy));
       return;
     }
 
@@ -1089,6 +1122,7 @@
     sc += (s.flags.killCount || 0) * 20;
     sc += relicCount * 80;
     sc += (goalDone || 0) * 60;
+    for (let i = 1; i <= D.chapters.length; i++) if (s.flags['chap_' + i]) sc += 140;
     if (s.flags.coreClear) sc += 200;
     sc += s.flags.eventScore || 0;
     if (s.flags.heart === 'taken') sc += 200;
@@ -1099,7 +1133,7 @@
     const mul = (D.vows[s.flags.vow] || D.vows.none).mul;
     return Math.max(0, Math.round(sc * mul));
   }
-  const gradeOf = (sc) => (sc >= 1550 ? 'S' : sc >= 1200 ? 'A' : sc >= 850 ? 'B' : 'C');
+  const gradeOf = (sc) => (sc >= 3200 ? 'S' : sc >= 2500 ? 'A' : sc >= 1800 ? 'B' : 'C');
 
   // ---------- 结局 ----------
   function showEnd() {
@@ -1131,8 +1165,10 @@
     const relics = relicIds.map((id) => D.relics[id].short).join(' ') || '无';
     const gs = Engine.goalStatus();
     sum.vow = s.flags.vow || 'none';
-    const emberGain = Math.max(1, Math.floor(sc / 100));
+    const vowDef = D.vows[s.flags.vow] || D.vows.none;
     const sc = scoreOf(s, sum, relicIds.length, gs.done);
+    const baseScore = Math.round(sc / vowDef.mul);
+    const emberGain = Math.max(1, Math.floor(sc / 180));
     const grade = gradeOf(sc);
     sum.score = sc;
     const hpPct = Math.max(0, Math.round((s.hp / (s.maxHp || 1)) * 100));
@@ -1146,8 +1182,6 @@
       $('endScore').title = '';
       $('endScore').classList.remove('with-vow');
     }
-    const vowDef = D.vows[s.flags.vow] || D.vows.none;
-    const baseScore = Math.round(sc / vowDef.mul);
     const TAG = {
       S: '六盏灯全亮。这一趟，你没欠谁。',
       A: '活得不算漂亮。但你活着下来了。',
@@ -1160,7 +1194,7 @@
     if (s.flags.worstHit) brief.push(`最狠的一场：${s.flags.worstName} −${s.flags.worstHit}`);
     brief.push(`塔规 ${gs.done}/${gs.total}`);
     brief.push(s.flags.retries ? `重来本层 ${s.flags.retries} 次` : '一次没回头');
-    const NEXT = { C: ['B', 850], B: ['A', 1200], A: ['S', 1550] }[grade];
+    const NEXT = { C: ['B', 1800], B: ['A', 2500], A: ['S', 3200] }[grade];
     if (NEXT) brief.push(`再 ${Math.max(1, NEXT[1] - sc)} 分进 ${NEXT[0]}`);
     Meta.add(emberGain);
     brief.push(`✦ 余烬 +${emberGain}`);
@@ -1209,7 +1243,10 @@
   let floorCardTimer = null;
   function showFloorCard(floor) {
     const f = D.floors[floor];
-    $('fcNum').textContent = `第 ${floor + 1} 层 / 共 ${D.floors.length} 层`;
+    const ch = f.chapter ? D.chapters[f.chapter - 1] : null;
+    $('fcNum').textContent = ch
+      ? `${ch.title} · ${floor + 1}/${D.floors.length} 层`
+      : `第 ${floor + 1} 层 / 共 ${D.floors.length} 层`;
     $('fcName').textContent = f.name;
     $('fcTip').textContent = f.tip;
     const goal = D.floorGoals && D.floorGoals[floor];
@@ -1320,12 +1357,26 @@
   // ---------- 行动 ----------
   const dirs = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
 
+  // 这一层还有活着的 Boss 吗（Boss 层才播 BGM）
+  function floorBossAlive(s) {
+    const f = D.floors[s.floor];
+    if (!f || !f.boss) return null;
+    return s.flags['bossKilled_' + f.boss] ? null : D.monsters[f.boss];
+  }
+
+  // 最近的有商人的楼层（打不过时的提示）
+  function nearestShopFloor(floor) {
+    const list = D.floors.map((f, i) => (f.map.join('').includes('M') ? i + 1 : 0)).filter(Boolean);
+    const below = list.filter((n) => n <= floor + 1);
+    return below.length ? below[below.length - 1] : (list[0] || 3);
+  }
+
   function enterFloor(first) {
     const s = Engine.state();
     const f = D.floors[s.floor];
     Renderer.fade(first ? 420 : 320);
     Renderer.setAmbient(s.floor);
-    if (s.floor === 5 && !s.flags.bossKilled) Sound.startMusic();
+    if (floorBossAlive(s)) Sound.startMusic();
     else Sound.stopMusic();
     Sound.setPad(s.floor);
     Sound.setMotif(s.floor);
@@ -1336,16 +1387,31 @@
 
     Engine.beginFloor();
 
-    // 剧情触发：密道的烛、狼厅的独白
-    if (s.floor === 3 && !s.flags.candle2) {
-      s.flags.candle2 = true;
-      s.flags.secret1 = true;
+    // 章节入口 + 关键剧情。F4 是第二章开头，接烛的第二段。
+    const seq = [];
+    if (s.floor === 3) {
+      if (!s.flags.ch2) { s.flags.ch2 = true; seq.push('ch2'); }
+      if (!s.flags.candle2) { s.flags.candle2 = true; s.flags.secret1 = true; seq.push('candle2'); }
+      if (seq.length) {
+        Engine.save();
+        Achievements.evaluate('floor', s, notifyAchievement);
+        playSequence(seq);
+        return;
+      }
+    }
+    if (s.floor === 6 && !s.flags.ch3) {
+      s.flags.ch3 = true;
       Engine.save();
-      Achievements.evaluate('floor', s, notifyAchievement);
-      playStory('candle2');
+      playStory('ch3');
       return;
     }
-    if (s.floor === 6 && !s.flags.core) {
+    if (s.floor === 9 && !s.flags.ch4) {
+      s.flags.ch4 = true;
+      Engine.save();
+      playStory('ch4');
+      return;
+    }
+    if (s.floor === 12 && !s.flags.core) {
       s.flags.core = true;
       Engine.save();
       playStory('core');
@@ -1425,10 +1491,14 @@
         openEvent(ev.eventId);
         break;
       case 'shop':
-        if (!Engine.state().flags.merchant) {
-          Engine.state().flags.merchant = true;
+        if (s.floor === 2 && !s.flags.merchant) {
+          s.flags.merchant = true;
           Engine.save();
           playStory('merchant', () => { Sound.play('buy'); openShop(); });
+        } else if (s.floor === 7 && !s.flags.merchant2) {
+          s.flags.merchant2 = true;
+          Engine.save();
+          playStory('merchant2', () => { Sound.play('buy'); openShop(); });
         } else {
           openShop();
         }
@@ -1463,7 +1533,7 @@
       if (!st || !Settings.music) return;
       Sound.setPad(st.floor);
       Sound.setMotif(st.floor);
-      if (st.floor === 5 && !st.flags.bossKilled) Sound.startMusic();
+      if (floorBossAlive(st)) Sound.startMusic();
     });
 
     window.addEventListener('keydown', (e) => {
@@ -1614,7 +1684,7 @@
       Settings.toggleMusic();
       const st = Engine.state();
       if (!Settings.music) { Sound.stopMusic(); Sound.setPad(-1); Sound.stopMotif(); }
-      else if (st) { Sound.setPad(st.floor); Sound.setMotif(st.floor); if (st.floor === 5 && !st.flags.bossKilled) Sound.startMusic(); }
+      else if (st) { Sound.setPad(st.floor); Sound.setMotif(st.floor); if (floorBossAlive(st)) Sound.startMusic(); }
       refreshCfg();
     });
     $('cfgVib').addEventListener('click', () => { Settings.toggleVib(); refreshCfg(); vibrate(12); });
@@ -1720,7 +1790,7 @@
     Renderer.fade(400);
     refreshHud();
     if (s.won) showEnd();
-    if (s.floor === 5 && !s.flags.bossKilled) Sound.startMusic();
+    if (floorBossAlive(s)) Sound.startMusic();
   }
 
   function boot() {

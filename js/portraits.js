@@ -2,7 +2,7 @@
 // 半身剪影 + 边缘受光，情绪只改光色与眼神，不改构图。
 // 用法：Portraits.render('烛', 'warm') → HTML 字符串；无立绘的角色返回 ''。
 (function () {
-  const KEY = { 烛: 'candle', 炬: 'torch', 魔王: 'torch', 薇拉: 'vera', 秤: 'scale' };
+  const KEY = { 烛: 'candle', 炬: 'torch', 魔王: 'torch', 薇拉: 'vera', 秤: 'scale', 砚: 'yan', 铎: 'duo', 衡: 'heng' };
 
   // 每个角色的基准光色 + 情绪偏移
   const COLORS = {
@@ -21,6 +21,18 @@
     scale: {
       base: '#e8c46a',
       warm: '#ffd88a', sad: '#c9b07a', hard: '#e0a85a', tired: '#b6a58a', firm: '#f0d08a', calm: '#e8c46a',
+    },
+    yan: {
+      base: '#b9a6ff',
+      warm: '#d8c9ff', sad: '#8d7fc0', hard: '#9a7bff', tired: '#a99cc4', firm: '#cbb8ff', calm: '#b9a6ff',
+    },
+    duo: {
+      base: '#e8c46a',
+      warm: '#ffd88a', sad: '#c9a96a', hard: '#ffb347', tired: '#b6a06a', firm: '#ffd27d', calm: '#e8c46a',
+    },
+    heng: {
+      base: '#9fd8ff',
+      warm: '#cfeaff', sad: '#7fa8c8', hard: '#7fb8e0', tired: '#9ab0c4', firm: '#bfe4ff', calm: '#9fd8ff',
     },
   };
 
@@ -85,6 +97,11 @@
       <path d="M35 110l-5 10h10z" fill="none" stroke="currentColor" stroke-opacity=".35" stroke-width="1.2"/>
       <circle cx="24" cy="84" r="2.6" fill="currentColor" opacity=".6"/>`,
   };
+
+  // 三位锁匠共用炬的剪影，只换光色：他们本来就是一炉里出来的
+  BODY.yan = BODY.torch;
+  BODY.duo = BODY.torch;
+  BODY.heng = BODY.torch;
 
   function colorOf(id, mood) {
     const c = COLORS[id];

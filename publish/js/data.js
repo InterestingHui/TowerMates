@@ -8,6 +8,7 @@ window.GAME_DATA = (function () {
     u: '上楼', n: '下楼',
     y: '黄门', r: '红门',
     p: '红药水', P: '蓝药水', s: '铁剑', d: '铁盾', m: '力量宝石',
+    a: '精钢剑', b: '秘银甲', c: '魂晶', h: '圣水',
     k: '黄钥匙', L: '红钥匙', $: '金币', M: '商人', T: '公主', J: '工匠手记',
     O: '守誓之盾', S: '断裂佩剑', X: '八个人的行李', K: '塔心石', '?': '路遇', Q: '层阶之钥',
   };
@@ -47,16 +48,65 @@ window.GAME_DATA = (function () {
     F: { name: '狼人', emoji: '🐺', hp: 265, atk: 71, def: 19, gold: 30, exp: 24, kind: '兽' },
     H: { name: '骷髅队长', emoji: '🪖', hp: 340, atk: 77, def: 25, gold: 40, exp: 30, kind: '亡' },
     V: { name: '吸血鬼', emoji: '🧛', hp: 360, atk: 77, def: 21, gold: 45, exp: 34, kind: '亡' },
-    Z: { name: '魔王', emoji: '🐉', hp: 480, atk: 99, def: 22, gold: 0, exp: 0, boss: true, kind: '锁' },
+    // ---- 锁梁（第 7 层起）：被名字遗弃的东西 ----
+    I: { name: '锈犬', emoji: '🐕', hp: 360, atk: 92, def: 24, gold: 50, exp: 55, kind: '兽' },
+    R: { name: '提灯僧', emoji: '🏮', hp: 480, atk: 100, def: 30, gold: 58, exp: 65, kind: '亡' },
+    1: { name: '空甲', emoji: '🛡️', hp: 560, atk: 96, def: 34, gold: 62, exp: 72, kind: '构' },
+    2: { name: '锁蛭', emoji: '🪱', hp: 420, atk: 102, def: 26, gold: 55, exp: 60, kind: '异' },
+    3: { name: '无面者', emoji: '👤', hp: 520, atk: 106, def: 32, gold: 66, exp: 70, kind: '魂' },
+    4: { name: '灰烬祭司', emoji: '🧙', hp: 640, atk: 106, def: 36, gold: 72, exp: 80, kind: '亡' },
+    5: { name: '锈王', emoji: '👑', hp: 760, atk: 126, def: 42, gold: 90, exp: 95, kind: '兽' },
+    6: { name: '守名人', emoji: '🗿', hp: 820, atk: 132, def: 44, gold: 96, exp: 105, kind: '构' },
+    // ---- 章节 Boss：每位守一道锁，也守着上楼的唯一一条路 ----
+    N: {
+      name: '砚', emoji: '📖', hp: 300, atk: 42, def: 16, gold: 200, exp: 90, boss: true, kind: '锁',
+      title: '第二位工匠 · 名册之锁', story: 'bossYan', after: 'afterYan', chapter: 1,
+      defeat: '名册合上了。纸页自己翻到最后一页，又慢慢停住。',
+      phases: [
+        { at: 0.66, n: 2, title: '第二页 · 名字', text: '砚：这一页写的是你。别急着看结尾。' },
+        { at: 0.33, n: 3, title: '第三页 · 空行', text: '砚：空着的那一行，本来该是我。' },
+      ],
+    },
+    Z: {
+      name: '魔王', emoji: '🐉', hp: 480, atk: 99, def: 22, gold: 300, exp: 180, boss: true, kind: '锁',
+      title: '第一位工匠 · 炉心之锁', story: 'bossJu', after: 'afterJu', chapter: 2,
+      defeat: '魔王散成六盏灯，一层一层落了下去。',
+      phases: [
+        { at: 0.66, n: 2, title: '第二道锁 · 裂', text: '魔王：别把我想成一道门。门后面还有东西。' },
+        { at: 0.33, n: 3, title: '第三道锁 · 塔心', text: '魔王：再近一点，你就看得见她的名字了。' },
+      ],
+    },
+    Y: {
+      name: '铎', emoji: '🔔', hp: 780, atk: 120, def: 40, gold: 420, exp: 200, boss: true, kind: '锁',
+      title: '第五位工匠 · 时辰之锁', story: 'bossDuo', after: 'afterDuo', chapter: 3,
+      defeat: '钟声停了。整座塔安静得能听见灰尘落下。',
+      phases: [
+        { at: 0.66, n: 2, title: '第二声 · 钟', text: '铎：钟响第二声，镇上就该点灯了。' },
+        { at: 0.33, n: 3, title: '第三声 · 停', text: '铎：你听——停了。三百年第一次停。' },
+      ],
+    },
+    U: {
+      name: '衡', emoji: '🪶', hp: 1400, atk: 158, def: 52, gold: 600, exp: 260, boss: true, kind: '锁',
+      title: '第六位工匠 · 无名之锁', story: 'bossHeng', after: 'afterHeng', chapter: 4, finalBoss: true,
+      defeat: '刻刀落在桌上。刀刃还是朝着门。',
+      phases: [
+        { at: 0.66, n: 2, title: '第二刀 · 深', text: '衡：刻深一点。浅了，三百年就磨平了。' },
+        { at: 0.33, n: 3, title: '第三刀 · 名', text: '衡：最后一行，你打算写谁？' },
+      ],
+    },
     G: { name: '烛', emoji: '🕯️', hp: 50, atk: 0, def: 5, gold: 0, exp: 0, ghost: true, kind: '魂' },
   };
 
   const items = {
     p: { name: '红药水', emoji: '🧪', type: 'hp', value: 160 },
     P: { name: '蓝药水', emoji: '💧', type: 'hp', value: 420 },
+    h: { name: '圣水', emoji: '🍶', type: 'hp', value: 900 },
     s: { name: '铁剑', emoji: '🗡️', type: 'atk', value: 2 },
     d: { name: '铁盾', emoji: '🛡️', type: 'def', value: 2 },
+    a: { name: '精钢剑', emoji: '⚔️', type: 'atk', value: 4 },
+    b: { name: '秘银甲', emoji: '🛡️', type: 'def', value: 4 },
     m: { name: '力量宝石', emoji: '💎', type: 'both', value: 2 },
+    c: { name: '魂晶', emoji: '💠', type: 'both', value: 3 },
     k: { name: '黄钥匙', emoji: '🔑', type: 'key', key: 'y' },
     L: { name: '红钥匙', emoji: '🗝️', type: 'key', key: 'r' },
     J: { name: '工匠手记', emoji: '📜', type: 'story', flag: 'journal', story: 'journal' },
@@ -85,11 +135,12 @@ window.GAME_DATA = (function () {
   const altarPool = ['steel', 'thrift', 'vigor', 'scout', 'ember'];
 
   // 升到下一级所需经验（索引 = 当前等级-1）
-  const levelExp = [10, 24, 42, 64, 92, 125, 165, 205];
+  // 前 9 级沿用原曲线；锁梁六层把上限抬到 Lv.19，后 10 级每级约 +300 经验。
+  const levelExp = [10, 24, 42, 64, 92, 125, 165, 205, 450, 740, 1030, 1320, 1610, 1900, 2190, 2480, 2770, 3060];
 
   const floors = [
     {
-      name: '塔之入口',
+      name: '塔之入口', chapter: 1,
       tip: '塔里的空气不流动。墙上的刻痕很新——有人一直在数着进来的人。',
       map: [
         '###########',
@@ -106,7 +157,7 @@ window.GAME_DATA = (function () {
       ],
     },
     {
-      name: '回廊',
+      name: '回廊', chapter: 1,
       tip: '楼梯被反复修过。蜡油还是温的，像刚有人提着灯走过。',
       map: [
         '###########',
@@ -123,24 +174,24 @@ window.GAME_DATA = (function () {
       ],
     },
     {
-      name: '幽暗集市',
+      name: '幽暗集市', chapter: 1, boss: 'N',
       tip: '空荡的大厅里只有一副货摊。商人说，他在等「像你一样傻的人」。',
       map: [
         '###########',
-        '#u...D...$#',
+        '#u.......$#',
         '#.#######.#',
-        '#.#..M..#.#',
-        '#.#L....#.#',
         '#.#..D..#.#',
-        '#.###.###.#',
-        '#....k..?y#',
-        '#.p.....X$#',
+        '#.#y......#',
+        '#####N#####',
+        '#....M....#',
+        '#.p..k..?.#',
+        '#.L.D...X$#',
         '#....n....#',
         '###########',
       ],
     },
     {
-      name: '密道',
+      name: '密道', chapter: 2, ambient: 'mist',
       tip: '这一层不在图纸上。造它的人，把答案折进一页纸，压在砖缝里。',
       map: [
         '###########',
@@ -157,7 +208,7 @@ window.GAME_DATA = (function () {
       ],
     },
     {
-      name: '狼厅',
+      name: '狼厅', chapter: 2,
       tip: '狼群不饿，它们在守着什么。角落里有半截剑，刃口全是往上砍的崩口。',
       map: [
         '###########',
@@ -174,16 +225,15 @@ window.GAME_DATA = (function () {
       ],
     },
     {
-      name: '塔顶王座',
+      name: '塔顶王座', chapter: 2, boss: 'Z', ambient: 'boss',
       tip: '塔顶没有想象中的黑暗。王座空着，烛台灭着；有人替你把路让开了。',
-      hiddenGate: true,
       map: [
         '###########',
-        '#....T....#',
         '#.........#',
+        '#.........#',
+        '#....u....#',
         '#.........#',
         '#####Z#####',
-        '#.........#',
         '#.........#',
         '#.........#',
         '#.P..?..$.#',
@@ -192,19 +242,121 @@ window.GAME_DATA = (function () {
       ],
     },
     {
-      // 隐藏层：塔规达成 5 条以上、击败魔王后，王座后露出一段窄梯
-      name: '锁芯',
-      tip: '王座后面是一段窄梯。塔把最要紧的东西，放在最高的地方。',
+      name: '塔脊', chapter: 3, ambient: 'mist',
+      tip: '锁梁上的风是横着走的。墙缝里没有灰——这里太久没有人呼吸。',
+      map: [
+        '###########',
+        '#u...#...$#',
+        '#.##.#.##.#',
+        '#.#..I..#.#',
+        '#.#.###.#.#',
+        '#...#R#...#',
+        '#.###.###.#',
+        '#.I.Gp#.k.#',
+        '#.R.?.1.#.#',
+        '#....n....#',
+        '###########',
+      ],
+    },
+    {
+      name: '空廊', chapter: 3,
+      tip: '一整层都是空房间。塔把你用不着的东西收在这里，包括别人的名字。',
+      map: [
+        '###########',
+        '#u..M...a.#',
+        '#.#######.#',
+        '#.#..X.4#.#',
+        '#.#.###.4.#',
+        '#.#.2.#.#.#',
+        '#...#.#p.3#',
+        '#.###.###.#',
+        '#.h..?..k.#',
+        '#..3.2.n..#',
+        '###########',
+      ],
+    },
+    {
+      name: '钟楼', chapter: 3, boss: 'Y', ambient: 'boss',
+      tip: '钟挂着，钟舌是断的。可你上楼时，它响了一下。',
+      map: [
+        '###########',
+        '#u..R....$#',
+        '#.#######.#',
+        '#.#.....#.#',
+        '#.#..2....#',
+        '#####Y#####',
+        '#.........#',
+        '#.b..p..h.#',
+        '#.I.?.3.k.#',
+        '#....3.n..#',
+        '###########',
+      ],
+    },
+    {
+      name: '名墙', chapter: 4, ambient: 'mist',
+      tip: '一面墙，六个名字。第七个位置空着，石灰还是新的。',
+      map: [
+        '###########',
+        '#u..4....$#',
+        '#.#######.#',
+        '#.#..5..#.#',
+        '#.#.6...#.#',
+        '#.#..#..#.#',
+        '#.#..#..#.#',
+        '#.#..#.4#.#',
+        '#.c..P..b.#',
+        '#.2.3.n..k#',
+        '###########',
+      ],
+    },
+    {
+      name: '刻名室', chapter: 4, ambient: 'mist',
+      tip: '刻刀摆在桌上，刀刃朝着门。有人刚刚离开，或者一直没走。',
+      map: [
+        '###########',
+        '#u..a...$.#',
+        '#.#######.#',
+        '#.#..G..5.#',
+        '#.#.###.#.#',
+        '#.#..4..3.#',
+        '#...#.#...#',
+        '#6###.###.#',
+        '#.h.p?..c.#',
+        '#.5.3..n.6#',
+        '###########',
+      ],
+    },
+    {
+      name: '塔顶·无名', chapter: 4, boss: 'U', hiddenGate: true, ambient: 'boss',
+      tip: '塔顶比你想的矮。云在脚下，名字在头顶。',
+      map: [
+        '###########',
+        '#....T....#',
+        '#.........#',
+        '#....#....#',
+        '#.P.....$.#',
+        '#####U#####',
+        '#.........#',
+        '#....5..6.#',
+        '#.h..?..c.#',
+        '#.6..3.n..#',
+        '###########',
+      ],
+    },
+    {
+      // 隐藏层：塔规达成 8 条以上、击败衡后，塔顶后露出一段窄梯
+      name: '锁芯', chapter: 0, ambient: 'mist',
+      tip: '塔顶后面是一段窄梯。塔把最要紧的东西，放在最高的地方。',
       map: [
         '###########',
         '#....#....#',
-        '#.H..#..V.#',
+        '#.3..#..4.#',
         '#....#....#',
         '#.##...##.#',
         '#....K....#',
         '#.##...##.#',
         '#....#....#',
-        '#.m.?#..F.#',
+        '#.1.?#..2.#',
         '#....n....#',
         '###########',
       ],
@@ -219,6 +371,32 @@ window.GAME_DATA = (function () {
     { type: 'killKind', v: 'E', text: '打倒密道的石像鬼' },
     { type: 'clear', text: '把狼厅的怪清空' },
     { type: 'hpAbove', v: 0.5, text: '半血以上打赢魔王' },
+    { type: 'killsMax', v: 3, text: '塔脊上最多打三只（击杀 ≤ 3）' },
+    { type: 'noShop', text: '不在空廊的货摊上花一枚金币' },
+    { type: 'hpAbove', v: 0.4, text: '四成血以上离开钟楼' },
+    { type: 'hpAbove', v: 0.45, text: '四成半血以上离开名墙' },
+    { type: 'clear', text: '把刻名室清空' },
+    { type: 'hpAbove', v: 0.5, text: '半血以上打赢衡' },
+  ];
+
+  // 四章结构：每章三层、章末一 Boss；Boss 站在上楼唯一的路上。
+  const chapters = [
+    {
+      id: 1, title: '第一章 · 刻痕', theme: '规矩与计数', from: 1, to: 3, boss: 'N', bossFloor: 3,
+      blurb: '镇上每十年送一个人进塔。今年轮到你。塔把你的名字写在名册上，用的是还没干的墨。',
+    },
+    {
+      id: 2, title: '第二章 · 明塔', theme: '真相与代价', from: 4, to: 6, boss: 'Z', bossFloor: 6,
+      blurb: '六层塔身，六道锁环。你以为走到塔顶就到头了——直到王座后面露出一段向上的窄梯。',
+    },
+    {
+      id: 3, title: '第三章 · 塔脊', theme: '被删掉的六层', from: 7, to: 9, boss: 'Y', bossFloor: 9,
+      blurb: '锁梁上的六层不在任何图纸里。钟每十年响一次，镇上就送一个人上来——那不是规矩，是账期。',
+    },
+    {
+      id: 4, title: '第四章 · 无名', theme: '名字的重量', from: 10, to: 12, boss: 'U', bossFloor: 12,
+      blurb: '六个名字刻在墙上，第七个位置空着。刻名的人还在等最后一位勇者，替这座塔写完最后一行。',
+    },
   ];
 
   // 开局三誓：给整局换一套规则，不同誓约的结算分倍率不同（难的那条分更高）
@@ -351,6 +529,47 @@ window.GAME_DATA = (function () {
         { label: '记下位置就走', tip: '结算 +150 分', effect: { score: 150 }, msg: '你在墙上刻了个记号。' },
       ],
     },
+    // ---- 锁梁（第 7 层起）才有的事件：这里的东西都跟「名字」和「时间」有关 ----
+    {
+      id: 'bell', tier: 'c', name: '断钟', emoji: '🔔',
+      text: '钟舌掉在你脚边，断口是新的。钟还挂着，像一个张着嘴的人。',
+      options: [
+        { label: '敲一下', tip: '生命 −8%，结算 +240 分', effect: { hpPct: -0.08, score: 240 }, msg: '钟声没有传出去。它在你胸腔里响。' },
+        { label: '把钟舌带走', tip: '金币 +280，防御 −2', effect: { gold: 280, def: -2 }, msg: '铜很沉。你走了两步，听见钟自己响了一下。' },
+      ],
+    },
+    {
+      id: 'names', tier: 'c', name: '第七个名字', emoji: '✍️',
+      text: '墙上空着一格，石灰还是新的。旁边放着半截粉笔。',
+      options: [
+        { label: '刻一个假名', tip: '防御 +2，生命上限 −120', effect: { def: 2, maxHp: -120 }, msg: '你刻了一个谁也不是的名字。墙没有反应。' },
+        { label: '什么也不刻', tip: '回复 12% 生命', effect: { healPct: 0.12 }, msg: '你把粉笔放回原处，指尖白了一层。' },
+      ],
+    },
+    {
+      id: 'debt', tier: 'c', name: '秤的欠条', emoji: '📜',
+      text: '一张欠条压在砖下，落款是「岚」。金额那一栏空着，像故意留给后来的人。',
+      options: [
+        { label: '替他还上', tip: '金币 −400，攻击 +3', effect: { gold: -400, atk: 3 }, msg: '你把金币压在欠条上。风把它们一起吹走了。' },
+        { label: '把欠条烧掉', tip: '结算 +220 分', effect: { score: 220 }, msg: '纸烧得很快。你听见楼上有人叹了口气。' },
+      ],
+    },
+    {
+      id: 'lantern', tier: 'c', name: '提灯僧的灯', emoji: '🏮',
+      text: '提灯僧坐在台阶上，灯里的火比他人还高。他把灯递过来，没说话。',
+      options: [
+        { label: '接过来', tip: '生命上限 +200，生命 −10%', effect: { maxHp: 200, hpPct: -0.1 }, msg: '灯很烫。你的影子在墙上多留了一会儿。' },
+        { label: '替他吹灭', tip: '回复 40% 生命', effect: { healPct: 0.4 }, msg: '灯灭的一瞬，他的肩膀塌了下去，像终于睡着了。' },
+      ],
+    },
+    {
+      id: 'chisel', tier: 'c', name: '桌上的刻刀', emoji: '🪶',
+      text: '刻刀摆在桌上，刀刃朝着门。刀柄上缠着六圈旧布，每一圈都写着一个名字。',
+      options: [
+        { label: '拿起来', tip: '攻击 +4，防御 −2', effect: { atk: 4, def: -2 }, msg: '刀比看上去重。你握住它时，六圈布同时松了一点。' },
+        { label: '放回原处', tip: '结算 +260 分', effect: { score: 260 }, msg: '你把刀摆正，刀刃仍然朝着门。' },
+      ],
+    },
   ];
 
   const shop = [
@@ -363,5 +582,5 @@ window.GAME_DATA = (function () {
     { id: 'codex', name: '窥探之镜', emoji: '🔮', price: 100, codex: true, once: true },
   ];
 
-  return { LEGEND, PALETTE, kindColor, monsters, items, relics, altarPool, levelExp, floors, floorGoals, vows, events, shop };
+  return { LEGEND, PALETTE, kindColor, monsters, items, relics, altarPool, levelExp, floors, floorGoals, chapters, vows, events, shop };
 })();

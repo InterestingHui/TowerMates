@@ -21,8 +21,8 @@
     battleblock: base + '?dev=1#demo=0,2,3',
     shop: base + '?dev=1#demo=2,4,3',
     tower: base + '?dev=1#demo=5,5,7',
-    core: base + '?dev=1#demo=6,5,8',
-    stoneidle: base + '?dev=1#demo=6,5,8',
+    core: base + '?dev=1#demo=12,5,8',
+    stoneidle: base + '?dev=1#demo=12,5,8',
   }[scene] || base + '?dev=1';
   f.src = src;
 
@@ -88,7 +88,7 @@
         const _vc = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
         if (_vc) _vc.click();
         await wait(260);
-        T.playStory('boss');
+        T.playStory('bossJu');
         await wait(500);
         for (let i = 0; i < 4; i++) {
           d.getElementById('dialogOverlay').dispatchEvent(new MouseEvent('click', { bubbles: true }));
@@ -170,7 +170,7 @@
         const dlC = d.getElementById('dialogOverlay');
         for (let i = 0; i < 8; i++) { dlC.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
         const sC = E.state();
-        sC.floor = 5; sC.x = 5; sC.y = 5; sC.hp = 3000; sC.maxHp = 3000; sC.atk = 60; sC.def = 40;
+        sC.floor = 5; sC.x = 5; sC.y = 6; sC.hp = 3000; sC.maxHp = 3000; sC.atk = 60; sC.def = 40;
         sC.flags.boss = true;
         T.refreshHud();
         T.resolveBattle(0, -1);
@@ -234,9 +234,9 @@
         await wait(600);
       } else if (scene === 'stoneidle') {
         const sI = E.state();
-        const rowI = sI.maps[6][5];
-        if (typeof rowI === 'string') sI.maps[6][5] = rowI.split('');
-        sI.maps[6][5][5] = '.';
+        const rowI = sI.maps[12][5];
+        if (typeof rowI === 'string') sI.maps[12][5] = rowI.split('');
+        sI.maps[12][5][5] = '.';
         sI.flags.heart = 'taken';
         sI.flags.heartAt = [5, 5];
         sI.flags.relic_heart = true;
@@ -251,7 +251,7 @@
         const dlG = d.getElementById('dialogOverlay');
         for (let i = 0; i < 8; i++) { dlG.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
         const sG = E.state();
-        sG.floor = 6; sG.x = 5; sG.y = 6;
+        sG.floor = 12; sG.x = 5; sG.y = 6;
         T.refreshHud();
         T.act(0, -1);
         await wait(300);
@@ -270,7 +270,7 @@
         const dlT = d.getElementById('dialogOverlay');
         for (let i = 0; i < 8; i++) { dlT.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
         const sT = E.state();
-        sT.floor = 6; sT.x = 5; sT.y = 6;
+        sT.floor = 12; sT.x = 5; sT.y = 6;
         T.refreshHud();
         T.act(0, -1);
         await wait(400);
@@ -294,7 +294,7 @@
         const dlH = d.getElementById('dialogOverlay');
         for (let i = 0; i < 8; i++) { dlH.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
         const sH = E.state();
-        sH.floor = 6; sH.x = 5; sH.y = 6;
+        sH.floor = 12; sH.x = 5; sH.y = 6;
         T.refreshHud();
         T.act(0, -1);
         await wait(500);
@@ -366,7 +366,7 @@
         out.push('skipDialog=' + !dl.classList.contains('show'));
         // 2) 塔顶 → 公主 → 抉择
         const s4 = E.state();
-        s4.floor = 5; s4.x = 5; s4.y = 2; s4.flags.journal = true;
+        s4.floor = 11; s4.x = 5; s4.y = 2; s4.flags.journal = true;
         T.act(0, -1);
         await wait(400);
         out.push('princessDialog=' + dl.classList.contains('show') + ' who=' + d.getElementById('dlgWho').textContent);

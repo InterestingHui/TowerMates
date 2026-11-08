@@ -26,10 +26,10 @@ ok(s.hp === 1000 && s.atk === 10 && s.def === 10, '初始属性 1000/10/10');
 ok(s.keys.y === 1 && s.keys.r === 0, '初始 1 把黄钥匙、0 把红钥匙');
 
 // ---------- 2. 开门 ----------
-s.floor = 2; s.x = 8; s.y = 7;
-let ev = E.tryMove(1, 0);
+s.floor = 2; s.x = 4; s.y = 4;
+let ev = E.tryMove(-1, 0);
 ok(ev.type === 'open' && s.keys.y === 0, '黄门打开并消耗钥匙');
-ok(E.tile(9, 7) === '.', '门变成地面');
+ok(E.tile(3, 4) === '.', '门变成地面');
 
 // ---------- 3. 无钥匙被锁 ----------
 s.floor = 3; s.x = 9; s.y = 3; s.keys.r = 0;
@@ -58,7 +58,7 @@ const warded = E.predict('F');
 ok(plain.damage > 0 && warded.damage === Math.floor(plain.damage * 0.88), '守誓之盾让承伤 −12%');
 
 // ---------- 6. 商店与动态价格 ----------
-s.floor = 2; s.x = 4; s.y = 3; s.gold = 100;
+s.floor = 2; s.x = 4; s.y = 6; s.gold = 100;
 delete s.flags.buy_atk;
 ev = E.tryMove(1, 0);
 ok(ev.type === 'shop', '踩到商人弹出商店');
@@ -189,17 +189,19 @@ E.beginFloor();
 E.finish('true');
 ok(s.flags.goal_5 === true, '第 6 层：满血收尾 → 规矩达成');
 const gs = E.goalStatus();
-ok(gs.total === 6 && gs.list.length === 6, '塔规面板共 6 条');
+ok(gs.total === 12 && gs.list.length === 12, '塔规面板共 12 条');
 
 // ---------- 9e. 隐藏门「锁芯」 ----------
 E.newGame();
 s = E.state();
-s.floor = 5;
-ok(E.revealCore() === false, '塔规不足时王座后面没有路');
-for (let g = 0; g < 5; g++) s.flags['goal_' + g] = true;
-ok(E.revealCore() === true && E.tile(9, 2) === 'u', '塔规 5 条后王座后露出窄梯');
-ok(E.state().maps[5][2][9] === 'u', '窄梯写进地图');
-ok(D.floors.length === 7 && D.floors[6].name === '锁芯', '第七层存在');
+s.floor = 11;
+ok(E.revealCore() === false, '没打赢衡时塔顶后面没有路');
+s.flags.bossKilled_U = true;
+ok(E.revealCore() === false, '塔规不足时塔顶后面没有路');
+for (let g = 0; g < 8; g++) s.flags['goal_' + g] = true;
+ok(E.revealCore() === true && E.tile(9, 2) === 'u', '塔规 8 条后塔顶露出窄梯');
+ok(E.state().maps[11][2][9] === 'u', '窄梯写进地图');
+ok(D.floors.length === 13 && D.floors[12].name === '锁芯', '第十三层的锁芯存在');
 
 // ---------- 9l. 层阶之钥：跳层 ----------
 E.newGame();
@@ -235,8 +237,9 @@ ok(E.priceOf(D.shop.find((x) => x.id === 'atk')) === 84, '无名之誓：物价 
 // ---------- 9j. 路遇：按层分池 / 深层事件 / 钥匙门槛 ----------
 ok(E.eventPool(0).every((e) => (e.tier || 'a') === 'a'), '浅层只出温和事件');
 ok(E.eventPool(5).every((e) => e.tier === 'b'), '第 6 层只出深层事件');
-ok(E.eventPool(0).length === 6 && E.eventPool(5).length === 6, '两个池子各 6 个事件');
-ok(D.events.length === 12, '事件池共 12 个');
+ok(E.eventPool(6).every((e) => e.tier === 'c'), '第 7 层只出锁梁事件');
+ok(E.eventPool(0).length === 6 && E.eventPool(5).length === 6 && E.eventPool(6).length === 5, '三个池子分别有 6 / 6 / 5 个事件');
+ok(D.events.length === 17, '事件池共 17 个');
 
 E.newGame();
 s = E.state();
@@ -329,7 +332,7 @@ ok(rPlain.blocked === false && rPlain.damage === rawDmg2, '不格挡时承伤不
 // ---------- 9f. 塔心石：带走 / 放下 ----------
 E.newGame();
 s = E.state();
-s.floor = 6; s.x = 5; s.y = 6;
+s.floor = 12; s.x = 5; s.y = 6;
 ev = E.tryMove(0, -1);
 ok(ev.type === 'heart', '踩到塔心石弹出抉择');
 const hpBefore = s.hp, maxBefore = s.maxHp;
@@ -345,7 +348,7 @@ ok(E.tryMove(0, -1).type === 'move', '已抉择后再踩不再弹层（无格可
 
 E.newGame();
 s = E.state();
-s.floor = 6; s.x = 5; s.y = 6;
+s.floor = 12; s.x = 5; s.y = 6;
 E.tryMove(0, -1);
 const hp2 = s.hp, max2 = s.maxHp;
 const leave = E.heartLeave();
@@ -358,11 +361,11 @@ ok(E.heartState() === 'left', '状态记为 left');
 // ---------- 10. 首见魔王先对白 ----------
 E.newGame();
 s = E.state();
-s.floor = 5; s.x = 5; s.y = 5; s.hp = 3000; s.atk = 50; s.def = 30; s.flags.boss = false;
+s.floor = 5; s.x = 5; s.y = 6; s.hp = 3000; s.atk = 50; s.def = 30;
 ev = E.fight(0, -1);
-ok(ev.type === 'story' && ev.story === 'boss', '首见魔王先触发对白');
-ok(E.tile(5, 4) === 'Z', '对白阶段魔王保留');
-ok(s.y === 5 && s.x === 5, '玩家留在原位');
+ok(ev.type === 'story' && ev.story === 'bossJu', '首见魔王先触发对白');
+ok(E.tile(5, 5) === 'Z', '对白阶段魔王保留');
+ok(s.y === 6 && s.x === 5, '玩家留在原位');
 const bossFight = E.fight(0, -1);
 ok(bossFight.type === 'fight' && bossFight.boss, '对白后可正常挑战魔王');
 ok(s.hp < 3000, '魔王战造成真实伤害');
@@ -380,7 +383,7 @@ ok(ev.type === 'story' && ev.story === 'candle3', '第 5 层幽灵触发 candle3
 
 // ---------- 12. 手记决定结局分支 ----------
 s.won = false;
-s.floor = 5; s.x = 5; s.y = 2;
+s.floor = 11; s.x = 5; s.y = 2;
 s.flags.journal = false;
 ev = E.tryMove(0, -1);
 ok(ev.type === 'princess' && ev.hasJournal === false, '无手记 → 普通结局分支');
@@ -413,7 +416,7 @@ E.save();
 E.load();
 ok(E.state().hp === 777 && E.state().floor === 3, '存档写入并可读取');
 
-// ---------- 16. 六层塔链路 ----------
+// ---------- 16. 十三层塔链路 ----------
 E.newGame();
 s = E.state();
 let chainOk = true;
@@ -423,7 +426,8 @@ for (let fi = 0; fi < D.floors.length - 1; fi++) {
   let ux = -1, uy = -1;
   for (let y = 0; y < 11; y++) for (let x = 0; x < 11; x++) if (map[y][x] === 'u') { ux = x; uy = y; }
   if (ux < 0 && D.floors[fi].hiddenGate) {
-    for (let g = 0; g < 5; g++) s.flags['goal_' + g] = true;
+    s.flags.bossKilled_U = true;
+    for (let g = 0; g < 8; g++) s.flags['goal_' + g] = true;
     E.revealCore();
     for (let y = 0; y < 11; y++) for (let x = 0; x < 11; x++) if (map[y][x] === 'u') { ux = x; uy = y; }
   }
@@ -443,14 +447,14 @@ for (let fi = 0; fi < D.floors.length - 1; fi++) {
     break;
   }
 }
-ok(chainOk, '七层塔每一层都能正常上楼（含隐藏门）');
+ok(chainOk, '十三层塔每一层都能正常上楼（含隐藏门）');
 
 // ---------- 17. 剧情文本完整性 ----------
 const S = global.STORY;
-const need = ['intro', 'candle1', 'candle2', 'candle3', 'journal', 'merchant', 'eighthSword', 'solitude', 'boss', 'princessPlain', 'princessTrue', 'afterChoicePlain', 'afterChoiceTrue'];
+const need = ['intro', 'candle1', 'candle2', 'candle3', 'candle4', 'candle5', 'journal', 'merchant', 'merchant2', 'eighthSword', 'solitude', 'ch2', 'ch3', 'ch4', 'bossYan', 'afterYan', 'bossJu', 'afterJu', 'bossDuo', 'afterDuo', 'bossHeng', 'afterHeng', 'core', 'princessPlain', 'princessTrue', 'afterChoicePlain', 'afterChoiceTrue'];
 ok(need.every((k) => Array.isArray(S[k]) && S[k].length), '所有剧情段都存在且非空');
-ok(S.intro.length === 5, '序章压缩为 5 句');
-ok(S.boss.some((l) => String(l[1]).includes('肩上')), '魔王提到薇拉小时候');
+ok(S.intro.length === 6, '序章 6 句（多一句「塔只有六层」的假象）');
+ok(S.bossJu.some((l) => String(l[1]).includes('肩上')), '魔王提到薇拉小时候');
 ok(S.merchant.some((l) => String(l[1]).includes('铜币')), '三十枚铜币移到商人台词');
 ok(!!S.endingTrue.epilogue && !!S.endingPlain.epilogue, '两个结局都有后日谈');
 

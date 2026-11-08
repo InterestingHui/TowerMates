@@ -60,6 +60,23 @@ D.floors.forEach((f, fi) => {
   if (isolated) err(`${isolated} 个格子不可达`);
 });
 
+// 章节结构：四章、每章三层、章末一位 Boss，Boss 必须站在该章最后一层
+if (D.chapters.length !== 4) err(`章节数应为 4，实际 ${D.chapters.length}`);
+D.chapters.forEach((ch) => {
+  console.log(`\n== ${ch.title}｜第 ${ch.from}–${ch.to} 层｜Boss ${ch.boss} ==`);
+  if (ch.to - ch.from + 1 !== 3) err(`${ch.title} 不是 3 层`);
+  const bossFloor = D.floors[ch.bossFloor - 1];
+  if (!bossFloor) err(`${ch.title} 的 Boss 层 ${ch.bossFloor} 不存在`);
+  else if (bossFloor.boss !== ch.boss) err(`${ch.title} 的 Boss 层没有 ${ch.boss}`);
+  const boss = D.monsters[ch.boss];
+  if (!boss || !boss.boss) err(`${ch.title} 的 Boss ${ch.boss} 没有 boss 标记`);
+  if (boss && (!boss.story || !boss.after)) err(`Boss ${ch.boss} 缺剧情键`);
+  for (let i = ch.from; i <= ch.to; i++) {
+    if (D.floors[i - 1].chapter !== ch.id) err(`第 ${i} 层章节标记不是 ${ch.id}`);
+  }
+});
+if (D.floorGoals.length !== D.floors.length - 1) err(`塔规应为 ${D.floors.length - 1} 条，实际 ${D.floorGoals.length}`);
+
 // 图例覆盖：地图里不允许出现没登记的字符
 D.floors.forEach((f, fi) => {
   new Set(f.map.join('')).forEach((ch) => {

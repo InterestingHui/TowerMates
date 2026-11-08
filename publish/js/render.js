@@ -105,11 +105,18 @@
   }
 
   // ---------- 楼层配置 ----------
-  const FLOOR_MOOD = [0.13, 0.16, 0.19, 0.25, 0.29, 0.37, 0.43];
-  const WALL_MAT = ['brick', 'brick', 'stone', 'wet', 'stone', 'charred', 'wet'];
+  const FLOOR_MOOD = [0.13, 0.16, 0.19, 0.25, 0.29, 0.37, 0.34, 0.30, 0.40, 0.33, 0.36, 0.44, 0.30];
+  const WALL_MAT = ['brick', 'brick', 'stone', 'wet', 'stone', 'charred', 'wet', 'stone', 'wet', 'stone', 'charred', 'stone', 'wet'];
+  // 每层地砖底色：锁梁六层各有自己的温度
+  const FLOOR_TINT = [
+    null, null, null, ['#12101c', '#0f0d18'], null, ['#1a1016', '#160e13'],
+    ['#101a22', '#0d161d'], ['#1a1712', '#161310'], ['#1b1510', '#17110d'],
+    ['#191a20', '#15161b'], ['#15131a', '#111016'], ['#1c1014', '#170d10'], ['#0d1420', '#0a111a'],
+  ];
 
   function setAmbient(floorIndex, map) {
-    const mode = floorIndex === 5 ? 'boss' : (floorIndex === 3 || floorIndex === 6) ? 'mist' : 'torch';
+    const fdef = window.GAME_DATA && window.GAME_DATA.floors[floorIndex];
+    const mode = (fdef && fdef.ambient) || 'torch';
     ambient = { mode, embers: [], spawnAcc: 0 };
     lastFloor = floorIndex;
     torchList = [];
@@ -159,9 +166,8 @@
   // ---------- 地板 ----------
   function drawFloorTile(px, py, x, y) {
     const h = hash(x, y);
-    let base = (x + y) % 2 === 0 ? '#101622' : '#0d121c';
-    if (lastFloor === 5) base = (x + y) % 2 === 0 ? '#1a1016' : '#160e13';
-    else if (lastFloor === 3) base = (x + y) % 2 === 0 ? '#12101c' : '#0f0d18';
+    const tint = FLOOR_TINT[lastFloor];
+    let base = (x + y) % 2 === 0 ? (tint ? tint[0] : '#101622') : (tint ? tint[1] : '#0d121c');
     ctx.fillStyle = base;
     ctx.fillRect(px, py, TILE, TILE);
 

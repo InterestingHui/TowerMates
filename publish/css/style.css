@@ -75,9 +75,9 @@ html, body {
 
 .floor-row { display: flex; align-items: center; justify-content: flex-start; gap: 8px; }
 .floor-name { font-size: 12px; color: var(--muted); letter-spacing: 1px; }
-.floor-dots { display: flex; gap: 3px; align-items: center; margin-left: auto; }
+.floor-dots { display: flex; gap: 2px; align-items: center; margin-left: auto; }
 .floor-dots i {
-  width: 6px; height: 6px; border-radius: 50%;
+  width: 5px; height: 5px; border-radius: 50%;
   background: rgba(255, 255, 255, 0.13);
   display: block;
   transition: background 0.25s, box-shadow 0.25s, transform 0.25s;
@@ -183,9 +183,10 @@ html, body {
   border: 1px solid rgba(232, 196, 106, 0.18);
   backdrop-filter: blur(3px);
   max-width: 82%;
+  min-width: 250px;
 }
 .floor-card.show { opacity: 1; transform: translate(-50%, 0); }
-.fc-num { font-size: 10.5px; letter-spacing: 4px; color: var(--gold); opacity: 0.9; }
+.fc-num { font-size: 10.5px; letter-spacing: 2px; color: var(--gold); opacity: 0.9; }
 .fc-name {
   font-family: Georgia, "Microsoft YaHei", serif;
   font-size: 21px; letter-spacing: 5px; color: #fff; margin: 3px 0 5px;
@@ -417,6 +418,9 @@ html, body {
 .dlg-who.vera { color: var(--pink); }
 .dlg-who.boss { color: #ff8f8f; }
 .dlg-who.merchant { color: var(--green); }
+.dlg-who.yan { color: #b9a6ff; }
+.dlg-who.duo { color: #ffd27d; }
+.dlg-who.heng { color: #bfe4ff; }
 .dlg-text {
   font-size: 13.5px;
   line-height: 1.78;

@@ -1,4 +1,4 @@
-// TowerMates · 成就系统（v1.5：22 项，含遗物/结局/塔心/誓约）
+// TowerMates · 成就系统（v2.0：27 项，含章节 Boss/遗物/结局/塔心/誓约）
 // 定义 + 检测 + 通知，存储在 localStorage。与引擎解耦，由 main 喂事件。
 (function () {
   const KEY = 'towermates_ach_v1';
@@ -17,6 +17,11 @@
     { id: 'journal', name: '工匠手记', emoji: '📜', desc: '找到压在砖缝里的手记' },
     { id: 'edge', name: '接过断剑', emoji: '🗡️', desc: '拾起第八位勇者的断裂佩剑' },
     { id: 'boss', name: '弑王', emoji: '🐉', desc: '击败塔顶的魔王' },
+    { id: 'boss_yan', name: '账已两清', emoji: '📖', desc: '击败名册之锁的砚' },
+    { id: 'boss_duo', name: '钟停', emoji: '🔔', desc: '击败守钟人铎' },
+    { id: 'boss_heng', name: '刻刀放下', emoji: '🪶', desc: '击败刻名者衡' },
+    { id: 'all_boss', name: '四把锁', emoji: '🔐', desc: '一局内击败四位章节 Boss' },
+    { id: 'floor12', name: '塔顶之上', emoji: '🗼', desc: '抵达第 12 层「塔顶·无名」' },
     { id: 'end_true', name: '同伴之塔', emoji: '🕯️', desc: '达成真结局「第六个名字」' },
     { id: 'end_plain', name: '铁与霜', emoji: '⚔️', desc: '达成普通结局「铁与霜」' },
     { id: 'heart_take', name: '心跳在身', emoji: '💗', desc: '带走锁芯的塔心石' },
@@ -68,6 +73,11 @@
     if (f.journal) unlock('journal', notify);
     if (f.relic_edge) unlock('edge', notify);
     if (f.bossKilled) unlock('boss', notify);
+    if (f.bossKilled_N) unlock('boss_yan', notify);
+    if (f.bossKilled_Y) unlock('boss_duo', notify);
+    if (f.bossKilled_U) unlock('boss_heng', notify);
+    if (f.bossKilled_N && f.bossKilled_Z && f.bossKilled_Y && f.bossKilled_U) unlock('all_boss', notify);
+    if (s.floor >= 11) unlock('floor12', notify);
     if (s.ending === 'true') unlock('end_true', notify);
     if (s.ending === 'plain') unlock('end_plain', notify);
     if (f.heart === 'taken') unlock('heart_take', notify);
