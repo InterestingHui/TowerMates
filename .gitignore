@@ -1,3 +1,4 @@
 .tmp-chrome/
 *.genie
 live-*.png
+tools/out/

@@ -108,6 +108,38 @@
         music = null;
       }
     }
+    let pad = null;
+    function stopPad() {
+      if (!pad) return;
+      const cur = pad;
+      pad = null;
+      try {
+        cur.g.gain.cancelScheduledValues(actx.currentTime);
+        cur.g.gain.setTargetAtTime(0.0001, actx.currentTime, 0.35);
+        setTimeout(() => cur.o.forEach((x) => { try { x.stop(); } catch (e) {} }), 1400);
+      } catch (e) {}
+    }
+    // 深层垫音：越往上基频越低，塔顶最沉
+    function setPad(floor) {
+      const f = { 3: 55, 4: 49, 5: 43.65 }[floor] || 0;
+      if (!Settings.sfx || !f) { stopPad(); return; }
+      if (pad && pad.freq === f) return;
+      stopPad();
+      const c = ensure();
+      if (!c) return;
+      const g = c.createGain();
+      g.gain.setValueAtTime(0.0001, c.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.014, c.currentTime + 2.6);
+      g.connect(c.destination);
+      const o1 = c.createOscillator(); o1.type = 'sine'; o1.frequency.value = f;
+      const o2 = c.createOscillator(); o2.type = 'triangle'; o2.frequency.value = f * 1.5;
+      const g2 = c.createGain(); g2.gain.value = 0.3;
+      o1.connect(g);
+      o2.connect(g2).connect(g);
+      o1.start(); o2.start();
+      pad = { freq: f, o: [o1, o2], g };
+    }
+
     const map = {
       step: () => beep(200 + Math.random() * 30, 0.04, 'sine', 0.014),
       hit: () => { beep(180, 0.09, 'sawtooth', 0.045, 80); beep(90, 0.12, 'square', 0.035, 60); },
@@ -124,7 +156,7 @@
       skip: () => beep(500, 0.08, 'sine', 0.03, 240),
       heal: () => { beep(440, 0.1, 'sine', 0.035); beep(660, 0.16, 'sine', 0.03, null, 0.08); },
     };
-    return { play(n) { if (map[n]) map[n](); }, startMusic, stopMusic };
+    return { play(n) { if (map[n]) map[n](); }, startMusic, stopMusic, setPad };
   })();
 
   let flashTimer = null;
@@ -320,7 +352,9 @@
 
   // ---------- 对白 ----------
   function playStory(key, cb) {
-    const script = S[key];
+    // 对白期间画面暂停重绘，这里先补一帧，避免遮罩后面是空画布
+    if (Engine.state() && !covered()) { try { Renderer.draw(Engine.state()); } catch (e) {} }
+    const script = Array.isArray(key) ? key : S[key];
     if (!script) { if (cb) cb(); return; }
     const lines = script.map((row) => {
       if (Array.isArray(row)) return { who: row[0] || '', text: row[1] || '', mood: row[2] || '' };
@@ -440,7 +474,7 @@
       }
       return `<div class="cx-row">
         <span class="cx-emoji">${m.emoji}</span>
-        <span class="cx-name">${m.name}</span>
+        <span class="cx-name">${m.name}<i class="cx-tag">${m.kind}</i></span>
         <span class="cx-stat">HP ${m.hp} · 攻 ${m.atk} · 防 ${m.def}</span>
         <span class="cx-loss ${cls}">${loss}</span>
         <span class="cx-reward">${m.gold}💰 ${m.exp}✨</span>
@@ -730,6 +764,8 @@
     Tips.show('relic');
     Achievements.evaluate('relic', s, notifyAchievement);
     refreshHud();
+    const lore = S.relicLore && S.relicLore[id];
+    if (lore) setTimeout(() => { if (!typing) playStory(lore); }, 260);
   }
 
   // ---------- 结局抉择 ----------
@@ -963,6 +999,7 @@
     Renderer.setAmbient(s.floor);
     if (s.floor === 5 && !s.flags.bossKilled) Sound.startMusic();
     else Sound.stopMusic();
+    Sound.setPad(s.floor);
 
     if (!first) log(`来到第 ${s.floor + 1} 层 · ${f.name}`, 'gold');
     log(f.tip);
@@ -1211,7 +1248,8 @@
     $('cfgFx').addEventListener('click', () => { Settings.cycleFx(); refreshCfg(); });
     $('cfgSfx').addEventListener('click', () => {
       Settings.toggleSfx();
-      if (!Settings.sfx) Sound.stopMusic();
+      if (!Settings.sfx) { Sound.stopMusic(); Sound.setPad(-1); }
+      else { const st = Engine.state(); if (st) Sound.setPad(st.floor); }
       refreshCfg();
     });
     $('cfgVib').addEventListener('click', () => { Settings.toggleVib(); refreshCfg(); vibrate(12); });
@@ -1235,6 +1273,16 @@
       const on = s && s.flags['relic_' + id];
       return `<div class="cfg-relic ${on ? 'on' : ''}"><i>${on ? r.emoji : '○'}</i>${r.name}<span>${on ? r.desc : '未获得'}</span></div>`;
     }).join('');
+  }
+
+  // 遮罩是否完全盖住画布（盖住时暂停重绘）
+  const FULL_OVERLAYS = ['startOverlay', 'dialogOverlay', 'shopOverlay', 'boardOverlay',
+    'codexOverlay', 'cfgOverlay', 'choiceOverlay', 'altarOverlay', 'endOverlay'];
+  function covered() {
+    for (const id of FULL_OVERLAYS) {
+      if (el[id] && el[id].classList.contains('show')) return true;
+    }
+    return false;
   }
 
   // ---------- 启动 ----------
@@ -1307,7 +1355,9 @@
 
     function loop() {
       const s = Engine.state();
-      if (s) Renderer.draw(s);
+      // 遮罩完全盖住画布时不重绘：省电，也避免后台空转掉帧
+      const force = Renderer.needsDraw && Renderer.needsDraw();
+      if (s && !document.hidden && (!covered() || force)) Renderer.draw(s);
       requestAnimationFrame(loop);
     }
     requestAnimationFrame(loop);

@@ -27,6 +27,16 @@ window.GAME_DATA = (function () {
     mist: '#8f7bff',
   };
 
+  // 怪物按「类」统一配色：同一族的怪在地图上用同一种底光，便于一眼分辨威胁类型
+  const kindColor = {
+    兽: 'rgba(255, 176, 110, 0.16)',
+    亡: 'rgba(140, 200, 255, 0.15)',
+    构: 'rgba(176, 184, 200, 0.14)',
+    异: 'rgba(150, 220, 150, 0.14)',
+    锁: 'rgba(255, 80, 70, 0.2)',
+    魂: 'rgba(159, 216, 255, 0.2)',
+  };
+
   const monsters = {
     A: { name: '蝙蝠', emoji: '🦇', hp: 42, atk: 20, def: 1, gold: 3, exp: 2, kind: '兽' },
     B: { name: '史莱姆', emoji: '🦠', hp: 78, atk: 25, def: 4, gold: 5, exp: 4, kind: '异' },
@@ -188,5 +198,5 @@ window.GAME_DATA = (function () {
     { id: 'codex', name: '窥探之镜', emoji: '🔮', price: 100, codex: true, once: true },
   ];
 
-  return { LEGEND, PALETTE, monsters, items, relics, altarPool, levelExp, floors, shop };
+  return { LEGEND, PALETTE, kindColor, monsters, items, relics, altarPool, levelExp, floors, shop };
 })();

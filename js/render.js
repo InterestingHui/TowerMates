@@ -25,6 +25,7 @@
   let ambient = { mode: 'torch', embers: [], spawnAcc: 0 };
   let torchList = [];
   let bgCanvas = null, bgKey = '';
+  let dirty = true; // 画布尺寸/楼层变化后需要补一帧
   let beamCanvas = null, beamKey = '';
 
   const EMOJI_FONT = '"Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji","Microsoft YaHei",sans-serif';
@@ -49,6 +50,7 @@
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     bgKey = '';
     beamKey = '';
+    dirty = true;
   }
 
   // ---------- 对外特效接口 ----------
@@ -511,6 +513,17 @@
     const m = D.monsters[ch];
     const bob = Math.sin(t / 420 + px * 0.11) * TILE * 0.035;
     groundShadow(px, py, TILE * (m.boss ? 0.4 : 0.3), 0.4);
+    // 同族底光：兽=琥珀 / 亡=霜蓝 / 构=石灰 / 异=苔绿
+    const tint = !m.boss && !m.ghost && D.kindColor && D.kindColor[m.kind];
+    if (tint) {
+      const kg = ctx.createRadialGradient(px + TILE / 2, py + TILE * 0.6, 1, px + TILE / 2, py + TILE * 0.6, TILE * 0.52);
+      kg.addColorStop(0, tint);
+      kg.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = kg;
+      ctx.beginPath();
+      ctx.arc(px + TILE / 2, py + TILE * 0.6, TILE * 0.52, 0, Math.PI * 2);
+      ctx.fill();
+    }
     if (m.boss) {
       const g = ctx.createRadialGradient(px + TILE / 2, py + TILE / 2, 1, px + TILE / 2, py + TILE / 2, TILE * 0.66);
       g.addColorStop(0, 'rgba(255,60,60,0.26)');
@@ -801,6 +814,7 @@
   // ---------- 主绘制 ----------
   function draw(state) {
     if (!state) return;
+    dirty = false;
     const now = performance.now();
     lastDt = Math.min(50, now - (lastNow || now));
     lastNow = now;
@@ -919,6 +933,7 @@
     init, layout, draw, snapshot,
     addFloat, shake, fade, freeze, pulse, flashTile, ring, burst,
     setAmbient, setTarget,
+    needsDraw: () => dirty,
     getTile: () => TILE,
   };
 })();

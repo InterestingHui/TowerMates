@@ -365,7 +365,7 @@ html, body {
 .eb i { font-style: normal; opacity: 0.9; }
 
 /* ================= 对白 ================= */
-.overlay.dialog { padding: 16px; }
+.overlay.dialog { padding: 16px; background: rgba(3, 5, 9, 0.78); }
 .dlg-wrap {
   width: 100%;
   max-width: 460px;
@@ -969,4 +969,16 @@ html, body {
   border-radius: 20px;
   padding: 3px 8px;
   white-space: nowrap;
+}
+
+/* ---------- 图鉴：族群标签 ---------- */
+.cx-tag {
+  font-style: normal;
+  font-size: 9px;
+  color: var(--dim);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+  padding: 0 3px;
+  margin-left: 4px;
+  vertical-align: 1px;
 }

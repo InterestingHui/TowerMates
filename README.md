@@ -1,4 +1,4 @@
-# TowerMates · 魔塔 v0.6
+# TowerMates · 魔塔 v0.7
 
 一个可直接在浏览器里玩的魔塔（固定数值 RPG），6 层塔、完整剧情、双结局、七件遗物与三选一祭坛。纯前端、零依赖、数据驱动。
 
@@ -60,6 +60,7 @@ tools/sim.js        贪心通关模拟（--no-relic 对照）
 tools/engine-test.js 引擎单测
 tools/serve.js      极简静态服务器
 tools/shot.html     无头截图/端到端脚本（?scene=start|dialog|choice|flow|auto…）
+tools/regress.js    质量闸门：校验+模拟+单测+11 张截图，一条命令
 ```
 
 ## 核心规则
@@ -83,7 +84,8 @@ p红药 P蓝药 s剑 d盾 m宝石
 改完跑：
 
 ```bash
-node tools/check.js && node tools/sim.js && node tools/engine-test.js
+node tools/regress.js        # 全套：校验 + 模拟 + 单测 + 截图
+node tools/check.js          # 只跑地图/数据校验
 ```
 
 ## 下一步
