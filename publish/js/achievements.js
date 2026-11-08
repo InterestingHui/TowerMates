@@ -1,4 +1,4 @@
-// TowerMates · 成就系统（v0.4：15 项，含遗物/结局）
+// TowerMates · 成就系统（v1.1：18 项，含遗物/结局/塔心）
 // 定义 + 检测 + 通知，存储在 localStorage。与引擎解耦，由 main 喂事件。
 (function () {
   const KEY = 'towermates_ach_v1';
@@ -19,6 +19,9 @@
     { id: 'boss', name: '弑王', emoji: '🐉', desc: '击败塔顶的魔王' },
     { id: 'end_true', name: '同伴之塔', emoji: '🕯️', desc: '达成真结局「第六个名字」' },
     { id: 'end_plain', name: '铁与霜', emoji: '⚔️', desc: '达成普通结局「铁与霜」' },
+    { id: 'heart_take', name: '心跳在身', emoji: '💗', desc: '带走锁芯的塔心石' },
+    { id: 'heart_leave', name: '把手放下', emoji: '🪨', desc: '把塔心石留在锁芯' },
+    { id: 'core', name: '塔心', emoji: '🫀', desc: '清空隐藏层「锁芯」' },
   ];
 
   let unlocked = {};
@@ -63,6 +66,9 @@
     if (f.bossKilled) unlock('boss', notify);
     if (s.ending === 'true') unlock('end_true', notify);
     if (s.ending === 'plain') unlock('end_plain', notify);
+    if (f.heart === 'taken') unlock('heart_take', notify);
+    if (f.heart === 'left') unlock('heart_leave', notify);
+    if (f.coreClear) unlock('core', notify);
   }
 
   function reset() {

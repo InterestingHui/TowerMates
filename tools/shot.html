@@ -97,7 +97,7 @@
         d.getElementById('btnNew').click();
         await wait(250);
         const s = E.state();
-        s.ending = 'true'; s.won = true; s.finishedAt = Date.now() - 360000;
+        s.ending = 'true'; s.won = true; s.startedAt = Date.now() - 360000;
         s.flags.journal = true; s.flags.relic_ward = true; s.flags.relic_edge = true;
         T.showEnd();
         await wait(600);
@@ -131,6 +131,39 @@
         T.refreshHud();
         T.resolveBattle(0, -1);
         await wait(500);
+      } else if (scene === 'hearttake') {
+        d.getElementById('btnNew').click();
+        await wait(200);
+        const dlT = d.getElementById('dialogOverlay');
+        for (let i = 0; i < 8; i++) { dlT.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
+        const sT = E.state();
+        sT.floor = 6; sT.x = 5; sT.y = 6;
+        T.refreshHud();
+        T.act(0, -1);
+        await wait(400);
+        d.getElementById('heartTake').click();
+        await wait(700);
+        const relics = d.querySelectorAll('#relicRow .relic.on').length;
+        errBox.textContent = 'heart=' + E.state().flags.heart
+          + ' maxHp=' + E.state().maxHp
+          + ' overlay=' + d.getElementById('heartOverlay').classList.contains('show')
+          + ' dialog=' + dlT.classList.contains('show')
+          + ' who=' + d.getElementById('dlgWho').textContent
+          + ' relics=' + relics
+          + ' err=' + (errs.length ? errs.join('|') : 'none');
+        return;
+      } else if (scene === 'heart') {
+        d.getElementById('btnNew').click();
+        await wait(200);
+        const dlH = d.getElementById('dialogOverlay');
+        for (let i = 0; i < 8; i++) { dlH.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
+        const sH = E.state();
+        sH.floor = 6; sH.x = 5; sH.y = 6;
+        T.refreshHud();
+        T.act(0, -1);
+        await wait(500);
+        T.setHeartFocus('take');
+        await wait(300);
       } else if (scene === 'altar5') {
         d.getElementById('btnNew').click();
         await wait(250);

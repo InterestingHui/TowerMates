@@ -285,6 +285,13 @@
       return { type: 'altar' };
     }
 
+    if (ch === 'K') {
+      moveTo(nx, ny);
+      if (s.flags.heart) { saveSoon(); return { type: 'move', msg: '石头还在跳' }; }
+      save();
+      return { type: 'heart' };
+    }
+
     if (ch === '.') {
       moveTo(nx, ny);
       saveSoon();
@@ -331,6 +338,31 @@
     else if (g.type === 'hpAbove') ok = s.hp >= (s.maxHp || 1) * g.v;
     s.flags['goal_' + s.floor] = ok;
     s.flags['goalKills_' + s.floor] = kills;
+  }
+
+  // ---------- 塔心石：带走，或者放下 ----------
+  function heartState() {
+    return s && s.flags.heart ? s.flags.heart : null;
+  }
+
+  function heartTake() {
+    if (!s) return { type: 'refuse', msg: '没有进行游戏' };
+    if (s.flags.heart) return { type: 'refuse', msg: '你已经做过决定了' };
+    s.flags.heart = 'taken';
+    s.flags.relic_heart = true;
+    s.maxHp += 300;
+    s.hp += 300;
+    if (tile(s.x, s.y) === 'K') setTile(s.x, s.y, '.');
+    save();
+    return { type: 'heart', choice: 'taken', name: '塔心石', msg: '你带走了塔心石 · 生命上限 +300' };
+  }
+
+  function heartLeave() {
+    if (!s) return { type: 'refuse', msg: '没有进行游戏' };
+    if (s.flags.heart) return { type: 'refuse', msg: '你已经做过决定了' };
+    s.flags.heart = 'left';
+    save();
+    return { type: 'heart', choice: 'left', name: '塔心石', msg: '你把手收了回来 · 石头还在那儿跳' };
   }
 
   // 塔规达成 5 条以上时，击败魔王后王座后露出窄梯
@@ -594,7 +626,8 @@
 
   function summary() {
     if (!s) return null;
-    const time = Math.round(((s.finishedAt || Date.now()) - s.startedAt) / 1000);
+    // 系统时间被往回调整时可能为负：钳到 0，否则会出现「-360 秒」并在评分里反向加分
+    const time = Math.max(0, Math.round(((s.finishedAt || Date.now()) - s.startedAt) / 1000));
     return { ending: s.ending, floor: s.floor + 1, level: s.level, steps: s.steps, time };
   }
 
@@ -606,6 +639,6 @@
       return D.monsters[ch] ? predict(ch) : null;
     },
     tryMove, fight, buy, priceOf, finish, altarChoices, pickRelic, pathTo, pathThrough, pathToNear,
-    nextLevelExp, keyName, summary, hasRelic, ownedRelics, beginFloor, restoreFloor, goalStatus, settleFloor, revealCore,
+    nextLevelExp, keyName, summary, hasRelic, ownedRelics, beginFloor, restoreFloor, goalStatus, settleFloor, revealCore, heartState, heartTake, heartLeave,
   };
 })();

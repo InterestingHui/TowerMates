@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#07090f">
 <title>TowerMates · 魔塔</title>
-<link rel="stylesheet" href="css/style.css?v=1.0.0">
+<link rel="stylesheet" href="css/style.css?v=1.1.0">
 </head>
 <body>
 <div id="app">
@@ -88,7 +88,7 @@
       </svg>
     </div>
     <div class="logo">TOWER<span>MATES</span></div>
-    <p class="sub">魔塔 · v1.0</p>
+    <p class="sub">魔塔 · v1.1</p>
     <p class="desc">第九位勇者的故事，从今夜开始。<br>塔里的事，没有一件是它看起来的样子。</p>
     <div class="ending-badges" id="endingBadges"></div>
     <button class="btn primary" id="btnNew">开始游戏</button>
@@ -250,6 +250,31 @@
   </div>
 </div>
 
+<!-- 塔心石：带走，或者放下 -->
+<div class="overlay" id="heartOverlay">
+  <div class="heart-stage">
+    <div class="heart-kicker">塔 心 石</div>
+    <p class="heart-desc">三盏灯围着一块石头。它在跳，很慢。<br>你可以带走它，也可以让它留在这儿。</p>
+    <div class="choice-duo">
+      <button class="choice-card take" id="heartTake">
+        <span class="cc-ring"></span>
+        <span class="cc-emoji">💗</span>
+        <span class="cc-title">带走</span>
+        <span class="cc-sub">生命上限 +300<br>石头在你胸口跳</span>
+        <span class="cc-hint">← 左</span>
+      </button>
+      <button class="choice-card leave" id="heartLeave">
+        <span class="cc-ring"></span>
+        <span class="cc-emoji">🪨</span>
+        <span class="cc-title">放下</span>
+        <span class="cc-sub">不留一件东西<br>结算多 120 分</span>
+        <span class="cc-hint">右 →</span>
+      </button>
+    </div>
+    <div class="choice-hint">← → 切换 · Enter 确认</div>
+  </div>
+</div>
+
 <!-- 最后的抉择 -->
 <div class="overlay" id="choiceOverlay">
   <div class="choice-stage">
@@ -298,12 +323,12 @@
   </div>
 </div>
 
-<script src="js/data.js?v=1.0.0"></script>
-<script src="js/story.js?v=1.0.0"></script>
-<script src="js/portraits.js?v=1.0.0"></script>
-<script src="js/achievements.js?v=1.0.0"></script>
-<script src="js/engine.js?v=1.0.0"></script>
-<script src="js/render.js?v=1.0.0"></script>
-<script src="js/main.js?v=1.0.0"></script>
+<script src="js/data.js?v=1.1.0"></script>
+<script src="js/story.js?v=1.1.0"></script>
+<script src="js/portraits.js?v=1.1.0"></script>
+<script src="js/achievements.js?v=1.1.0"></script>
+<script src="js/engine.js?v=1.1.0"></script>
+<script src="js/render.js?v=1.1.0"></script>
+<script src="js/main.js?v=1.1.0"></script>
 </body>
 </html>

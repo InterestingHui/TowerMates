@@ -201,6 +201,34 @@ ok(E.revealCore() === true && E.tile(9, 2) === 'u', '塔规 5 条后王座后露
 ok(E.state().maps[5][2][9] === 'u', '窄梯写进地图');
 ok(D.floors.length === 7 && D.floors[6].name === '锁芯', '第七层存在');
 
+// ---------- 9f. 塔心石：带走 / 放下 ----------
+E.newGame();
+s = E.state();
+s.floor = 6; s.x = 5; s.y = 6;
+ev = E.tryMove(0, -1);
+ok(ev.type === 'heart', '踩到塔心石弹出抉择');
+const hpBefore = s.hp, maxBefore = s.maxHp;
+const take = E.heartTake();
+ok(take.type === 'heart' && take.choice === 'taken', '选择带走');
+ok(s.maxHp === maxBefore + 300 && s.hp === hpBefore + 300, '带走：生命上限与当前生命各 +300');
+ok(s.flags.relic_heart === true && E.hasRelic('heart'), '塔心石进遗物栏');
+ok(E.tile(5, 5) === '.', '带走后石台清空');
+ok(E.heartTake().type === 'refuse', '同一颗石头不能拿两次');
+s.x = 5; s.y = 6;
+ok(E.tryMove(0, -1).type === 'move', '已抉择后再踩不再弹层（无格可踩时返回 move/refuse）');
+
+E.newGame();
+s = E.state();
+s.floor = 6; s.x = 5; s.y = 6;
+E.tryMove(0, -1);
+const hp2 = s.hp, max2 = s.maxHp;
+const leave = E.heartLeave();
+ok(leave.type === 'heart' && leave.choice === 'left', '选择放下');
+ok(s.hp === hp2 && s.maxHp === max2, '放下：不改变生命');
+ok(s.flags.relic_heart !== true && !E.hasRelic('heart'), '放下：不进遗物栏');
+ok(E.tile(5, 5) === 'K', '放下后石头仍在原地');
+ok(E.heartState() === 'left', '状态记为 left');
+
 // ---------- 10. 首见魔王先对白 ----------
 E.newGame();
 s = E.state();

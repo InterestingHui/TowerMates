@@ -878,6 +878,61 @@
             ctx.fill();
           }
           noGlow();
+        } else if (ch === 'K') {
+          // 塔心石：石台 + 三盏灯 + 一颗会跳的心
+          const beat = Math.pow(Math.max(0, Math.sin(simT / 700)), 3);
+          const g2 = ctx.createRadialGradient(px + TILE / 2, py + TILE * 0.5, 1, px + TILE / 2, py + TILE * 0.5, TILE * 0.62);
+          g2.addColorStop(0, 'rgba(255,110,140,' + (0.26 + beat * 0.4).toFixed(3) + ')');
+          g2.addColorStop(1, 'rgba(255,110,140,0)');
+          ctx.fillStyle = g2;
+          ctx.beginPath();
+          ctx.arc(px + TILE / 2, py + TILE * 0.5, TILE * 0.62, 0, Math.PI * 2);
+          ctx.fill();
+          // 石台
+          ctx.fillStyle = 'rgba(26,22,26,0.94)';
+          roundRect(px + TILE * 0.18, py + TILE * 0.58, TILE * 0.64, TILE * 0.26, TILE * 0.05);
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(255,150,175,0.22)';
+          ctx.lineWidth = 1;
+          roundRect(px + TILE * 0.18, py + TILE * 0.58, TILE * 0.64, TILE * 0.26, TILE * 0.05);
+          ctx.stroke();
+          ctx.fillStyle = 'rgba(255,150,175,0.3)';
+          ctx.fillRect(px + TILE * 0.2, py + TILE * 0.58, TILE * 0.6, 1.5);
+          // 三盏灯
+          for (let k = 0; k < 3; k++) {
+            const a = -Math.PI / 2 + (k - 1) * 0.85;
+            const lx = px + TILE / 2 + Math.cos(a) * TILE * 0.3;
+            const ly = py + TILE * 0.52 + Math.sin(a) * TILE * 0.22;
+            const fl = 0.4 + Math.abs(Math.sin(simT / 300 + k * 1.7)) * 0.5;
+            ctx.fillStyle = 'rgba(255,228,170,' + fl.toFixed(2) + ')';
+            ctx.beginPath();
+            ctx.arc(lx, ly, TILE * 0.045, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          // 心：一颗嵌在暗石里的红核，随节拍胀缩
+          ctx.fillStyle = 'rgba(10,7,11,0.92)';
+          ctx.beginPath();
+          ctx.arc(px + TILE / 2, py + TILE * 0.54, TILE * 0.29, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(255,140,165,' + (0.18 + beat * 0.3).toFixed(2) + ')';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.arc(px + TILE / 2, py + TILE * 0.54, TILE * 0.29, 0, Math.PI * 2);
+          ctx.stroke();
+          const hs = TILE * (0.225 + beat * 0.055);
+          ctx.save();
+          ctx.translate(px + TILE / 2, py + TILE * 0.56);
+          ctx.fillStyle = 'rgba(255,120,150,' + (0.72 + beat * 0.28).toFixed(2) + ')';
+          ctx.beginPath();
+          ctx.moveTo(0, hs * 0.9);
+          ctx.bezierCurveTo(-hs * 1.5, -hs * 0.2, -hs * 0.6, -hs * 1.2, 0, -hs * 0.42);
+          ctx.bezierCurveTo(hs * 0.6, -hs * 1.2, hs * 1.5, -hs * 0.2, 0, hs * 0.9);
+          ctx.fill();
+          ctx.fillStyle = 'rgba(255,225,235,' + (0.35 + beat * 0.4).toFixed(2) + ')';
+          ctx.beginPath();
+          ctx.arc(-hs * 0.42, -hs * 0.42, hs * 0.24, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
         } else if (ch === 'J') {
           groundShadow(px, py, TILE * 0.22, 0.3);
           glow('rgba(200,160,255,0.42)', TILE * 0.42);

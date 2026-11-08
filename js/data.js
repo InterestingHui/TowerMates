@@ -9,7 +9,7 @@ window.GAME_DATA = (function () {
     y: '黄门', r: '红门',
     p: '红药水', P: '蓝药水', s: '铁剑', d: '铁盾', m: '力量宝石',
     k: '黄钥匙', L: '红钥匙', $: '金币', M: '商人', T: '公主', J: '工匠手记',
-    O: '守誓之盾', S: '断裂佩剑', X: '八个人的行李',
+    O: '守誓之盾', S: '断裂佩剑', X: '八个人的行李', K: '塔心石',
   };
 
   // 统一色板：CSS 与 Canvas 共用同一套语义色
@@ -63,6 +63,7 @@ window.GAME_DATA = (function () {
     // 遗物：一次性、永久生效，构成每局的取舍
     O: { name: '守誓之盾', emoji: '🛡️', type: 'relic', relic: 'ward' },
     S: { name: '断裂佩剑', emoji: '⚔️', type: 'relic', relic: 'edge', story: 'eighthSword' },
+    K: { name: '塔心石', emoji: '💗', type: 'heart' },
   };
 
   // 遗物说明（HUD / 设置页 / 结算都用它）
@@ -75,6 +76,7 @@ window.GAME_DATA = (function () {
     thrift: { name: '岚的账本', emoji: '📒', short: '账', desc: '商店价格 −25%' },
     vigor: { name: '磐的灯油', emoji: '🏺', short: '油', desc: '每次升级额外 +80 生命' },
     scout: { name: '无名之镜', emoji: '🔍', short: '镜', desc: '直接获得窥探之镜' },
+    heart: { name: '塔心石', emoji: '💗', short: '心', desc: '生命上限 +300（带走时结算）' },
   };
 
   // 祭坛的可选池（不含剧情固定的守誓之盾/断刃之锋）
@@ -197,10 +199,10 @@ window.GAME_DATA = (function () {
         '#.H..#..V.#',
         '#....#....#',
         '#.##...##.#',
-        '#....F....#',
+        '#....K....#',
         '#.##...##.#',
         '#....#....#',
-        '#.m..#....#',
+        '#.m..#..F.#',
         '#....n....#',
         '###########',
       ],

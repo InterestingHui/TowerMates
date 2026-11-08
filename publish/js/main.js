@@ -13,6 +13,7 @@
   let battleBusy = false;
   let guideTimer = null;
   let choiceFocus = null;
+  let heartFocus = null;
 
   // ---------- 设置 ----------
   const Settings = (() => {
@@ -185,6 +186,7 @@
     endOverlay: $('endOverlay'), dialogOverlay: $('dialogOverlay'),
     boardOverlay: $('boardOverlay'), codexOverlay: $('codexOverlay'),
     cfgOverlay: $('cfgOverlay'), choiceOverlay: $('choiceOverlay'),
+    heartOverlay: $('heartOverlay'), heartTake: $('heartTake'), heartLeave: $('heartLeave'),
     altarOverlay: $('altarOverlay'), altarCards: $('altarCards'),
     hitFlash: $('hitFlash'), hpGhost: $('hpGhost'), endScore: $('endScore'),
     toast: $('toast'), warnPill: $('warnPill'),
@@ -275,7 +277,7 @@
   }
 
   // ---------- HUD ----------
-  const RELIC_ORDER = ['ward', 'edge', 'ember', 'steel', 'thrift', 'vigor', 'scout'];
+  const RELIC_ORDER = ['ward', 'edge', 'ember', 'steel', 'thrift', 'vigor', 'scout', 'heart'];
   let relicSig = null;
   function renderRelicRow(s) {
     const owned = RELIC_ORDER.filter((id) => s && s.flags['relic_' + id]);
@@ -648,6 +650,9 @@
       s2.flags.worstName = res.monster.name;
       Engine.save();
     }
+    if (s2.flags.coreClear && !s2.flags.heart) {
+      log('锁芯空了。那颗石头还在跳——你可以带走它，也可以让它留在这儿。', 'gold');
+    }
     Achievements.evaluate('kill', s2, notifyAchievement);
     refreshHud();
   }
@@ -807,6 +812,46 @@
     if (lore) setTimeout(() => { if (!typing) playStory(lore); }, 260);
   }
 
+  // ---------- 塔心石：带走 / 放下 ----------
+  function openHeart() {
+    heartFocus = null;
+    document.querySelectorAll('#heartOverlay .choice-card').forEach((c) => c.classList.remove('focus'));
+    el.heartOverlay.classList.add('show');
+    warn('石头在跳。你可以带走它，也可以让它留在这儿。');
+  }
+
+  function setHeartFocus(which) {
+    heartFocus = which;
+    document.querySelectorAll('#heartOverlay .choice-card').forEach((c) => c.classList.remove('focus'));
+    (which === 'take' ? el.heartTake : el.heartLeave).classList.add('focus');
+  }
+
+  function chooseHeart(which) {
+    if (!heartFocus) return;
+    const s = Engine.state();
+    const res = which === 'take' ? Engine.heartTake() : Engine.heartLeave();
+    if (res.type !== 'heart') { warn(res.msg || '拿不了'); return; }
+    el.heartOverlay.classList.remove('show');
+    heartFocus = null;
+    const T = TN();
+    if (which === 'take') {
+      Sound.play('relic');
+      vibrate([18, 40, 18]);
+      Renderer.ring(s.x, s.y, 'rgba(255,140,170,0.9)', T * 2.8, 720);
+      Renderer.burst(s.x * T + T / 2, s.y * T + T / 2, {
+        count: 22, colors: ['#ffb6c8', '#ffd9e2', '#fff0f4'], speed: 130, life: [480, 1000],
+      });
+    } else {
+      Sound.play('open');
+      Renderer.ring(s.x, s.y, 'rgba(150,215,225,0.85)', T * 2.4, 640);
+    }
+    log(res.msg, 'gold');
+    warn(res.msg);
+    refreshHud();
+    Achievements.evaluate('heart', s, notifyAchievement);
+    setTimeout(() => { if (!typing) playStory(which === 'take' ? 'heartTake' : 'heartLeave'); }, 240);
+  }
+
   // ---------- 结局抉择 ----------
   function showEndingChoice() {
     choiceFocus = null;
@@ -840,6 +885,8 @@
     sc += relicCount * 80;
     sc += (goalDone || 0) * 60;
     if (s.flags.coreClear) sc += 200;
+    if (s.flags.heart === 'taken') sc += 200;
+    else if (s.flags.heart === 'left') sc += 320;
     sc -= Math.round(sum.steps * 0.25);
     sc -= Math.round(sum.time * 0.15);
     sc -= (s.flags.retries || 0) * 80;
@@ -868,7 +915,8 @@
     $('endTitle').textContent = E.title;
     $('endDesc').textContent = E.desc;
     $('endBody').textContent = E.body;
-    $('endEpi').textContent = (E.epilogue || '') + (s.flags.coreClear && E.core ? ' ' + E.core : '');
+    const heartLine = s.flags.heart === 'taken' ? E.coreTake : s.flags.heart === 'left' ? E.coreLeave : (s.flags.coreClear ? E.core : '');
+    $('endEpi').textContent = (E.epilogue || '') + (heartLine ? ' ' + heartLine : '');
     const relicIds = Engine.ownedRelics();
     const relics = relicIds.map((id) => D.relics[id].short).join(' ') || '无';
     const gs = Engine.goalStatus();
@@ -877,7 +925,7 @@
     sum.score = sc;
     const hpPct = Math.max(0, Math.round((s.hp / (s.maxHp || 1)) * 100));
     $('endScore').innerHTML = `<span class="es-grade ${grade}">${grade}</span>
-      <span class="es-meta">${s.ending === 'true' ? '真结局' : '普通结局'} · 残血 ${hpPct}% · 击杀 ${s.flags.killCount || 0} · 遗物 ${relicIds.length}</span>
+      <span class="es-meta">${s.ending === 'true' ? '真结局' : '普通结局'}${s.flags.heart === 'taken' ? ' · 塔心带走' : s.flags.heart === 'left' ? ' · 塔心留下' : ''} · 残血 ${hpPct}% · 击杀 ${s.flags.killCount || 0} · 遗物 ${relicIds.length}</span>
       <span class="es-num">${sc}<small>分</small></span>`;
     const TAG = {
       S: '六盏灯全亮。这一趟，你没欠谁。',
@@ -899,6 +947,7 @@
       <div>剩余生命 <b>${Math.round(s.hp)}</b></div>
       <div>击杀 <b>${s.flags.killCount || 0}</b></div>
       <div>遗物 <b>${relics}</b></div>
+      <div>塔心 <b>${s.flags.heart === 'taken' ? '带走' : s.flags.heart === 'left' ? '留下' : '未至'}</b></div>
       <div>步数 <b>${sum.steps} 步</b></div>
       <div>用时 <b>${fmtTime(sum.time)}</b></div>
     `;
@@ -1135,6 +1184,9 @@
       case 'altar':
         openAltar();
         break;
+      case 'heart':
+        openHeart();
+        break;
       case 'shop':
         if (!Engine.state().flags.merchant) {
           Engine.state().flags.merchant = true;
@@ -1173,6 +1225,12 @@
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); advanceDialog(); }
         else if (e.key === 'Escape') skipDialog();
         else if (e.key === 'Backspace' || e.key === 'ArrowLeft') { e.preventDefault(); prevDialog(); }
+        return;
+      }
+      if (el.heartOverlay.classList.contains('show')) {
+        if (e.key === 'ArrowLeft') { e.preventDefault(); setHeartFocus('take'); }
+        else if (e.key === 'ArrowRight') { e.preventDefault(); setHeartFocus('leave'); }
+        else if (e.key === 'Enter' && heartFocus) { e.preventDefault(); chooseHeart(heartFocus); }
         return;
       }
       if (el.choiceOverlay.classList.contains('show')) {
@@ -1248,6 +1306,8 @@
     $('shopClose').addEventListener('click', closeShop);
     $('choicePlain').addEventListener('click', () => chooseEnding('plain'));
     $('choiceTrue').addEventListener('click', () => chooseEnding('true'));
+    el.heartTake.addEventListener('click', () => { setHeartFocus('take'); chooseHeart('take'); });
+    el.heartLeave.addEventListener('click', () => { setHeartFocus('leave'); chooseHeart('leave'); });
     $('btnBoard').addEventListener('click', openBoard);
     $('btnBoard2').addEventListener('click', openBoard);
     $('boardClose').addEventListener('click', closeBoard);
@@ -1329,7 +1389,7 @@
 
   // 遮罩是否完全盖住画布（盖住时暂停重绘）
   const FULL_OVERLAYS = ['startOverlay', 'dialogOverlay', 'shopOverlay', 'boardOverlay',
-    'codexOverlay', 'cfgOverlay', 'choiceOverlay', 'altarOverlay', 'endOverlay'];
+    'codexOverlay', 'cfgOverlay', 'choiceOverlay', 'altarOverlay', 'heartOverlay', 'endOverlay'];
   function covered() {
     for (const id of FULL_OVERLAYS) {
       if (el[id] && el[id].classList.contains('show')) return true;
@@ -1418,7 +1478,7 @@
   // 开发/自动化用：暴露少量内部入口，便于截图与回归（不影响正常玩法）
   window.__tm = {
     playStory, showEnd, openShop, openCodex, openBoard, openCfg, closeCfg,
-    showFloorCard, showEndingChoice, completeEnding, setChoiceFocus,
+    showFloorCard, showEndingChoice, completeEnding, setChoiceFocus, openHeart, chooseHeart, setHeartFocus,
     resolveBattle, act, refreshHud, refreshStartBadges,
   };
 
