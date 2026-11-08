@@ -15,7 +15,8 @@
 
   const floorMaps = () => D.floors.map((f) => f.map.map((row) => row.split('')));
 
-  function newGame() {
+  function newGame(vow) {
+    const v = D.vows[vow] ? vow : 'none';
     s = {
       floor: 0, x: 1, y: 1,
       hp: 1000, maxHp: 1000, atk: 10, def: 10,
@@ -23,13 +24,14 @@
       keys: { y: 1, r: 0 },
       maps: floorMaps(),
       over: false, won: false, ending: null,
-      flags: {},
+      flags: { vow: v },
       ver: 4,
       steps: 0,
       startedAt: Date.now(),
       snap: null,
       floorEnter: null,
     };
+    if (v === 'mercy') s.atk = Math.max(1, s.atk - 3);
     const map = s.maps[0];
     outer: for (let y = 0; y < SIZE; y++) {
       for (let x = 0; x < SIZE; x++) {
@@ -148,12 +150,20 @@
     s.floor = target;
     const map = s.maps[target];
     const mark = dir > 0 ? 'n' : 'u';
+    let nx = s.x, ny = s.y;
     for (let y = 0; y < SIZE; y++) {
       for (let x = 0; x < SIZE; x++) {
-        if (map[y][x] === mark) { s.x = x; s.y = y; return { floor: target, x, y }; }
+        if (map[y][x] === mark) { nx = x; ny = y; y = SIZE; break; }
       }
     }
-    return { floor: target, x: s.x, y: s.y };
+    s.x = nx; s.y = ny;
+    // 慈悲之誓：往上走一层回 12% 生命（下楼不触发，免得来回刷）
+    let heal = 0;
+    if (dir > 0 && vow() === 'mercy') {
+      heal = Math.min(Math.round((s.maxHp || s.hp) * 0.12), Math.max(0, s.maxHp - s.hp));
+      s.hp += heal;
+    }
+    return { floor: target, x: nx, y: ny, heal };
   }
 
   function predict(ch) {
@@ -390,9 +400,15 @@
     return ({ 0: 'candle1', 4: 'candle3' })[s.floor] || 'candle1';
   }
 
-  // 每层一次「格挡」：这一战的承伤降到 60%
+  function vow() {
+    return (s && s.flags && D.vows[s.flags.vow]) ? s.flags.vow : 'none';
+  }
+
+  // 每层一次「格挡」：这一战的承伤降到 60%（铁壁之誓放弃它）
   function canBlock() {
-    return !!s && !s.over && !s.won && !s.flags['block_f' + s.floor];
+    if (!s || s.over || s.won) return false;
+    if (vow() === 'guard') return false;
+    return !s.flags['block_f' + s.floor];
   }
 
   function fight(dx, dy, opt) {
@@ -413,11 +429,14 @@
 
     const blocked = !!(opt && opt.block) && canBlock();
     if (blocked) s.flags['block_f' + s.floor] = true;
-    const dmg = blocked ? Math.round(p.damage * 0.6) : p.damage;
+    let dmg = p.damage;
+    if (vow() === 'guard') dmg = Math.round(dmg * 0.82);
+    if (blocked) dmg = Math.round(dmg * 0.6);
     s.hp -= dmg;
     setTile(nx, ny, '.');
     moveTo(nx, ny);
-    s.gold += m.gold;
+    const goldGain = vow() === 'greed' ? Math.round(m.gold * 1.7) : m.gold;
+    s.gold += goldGain;
     s.exp += m.exp;
     s.flags.killCount = (s.flags.killCount || 0) + 1;
     s.flags['kill_' + ch] = true;
@@ -433,7 +452,7 @@
     emit('kill', { name: m.name, boss: !!m.boss });
     return {
       type: 'fight', damage: dmg, raw: p.damage, blocked, rounds: p.rounds,
-      gold: m.gold, exp: m.exp, heal, levelUps: ups,
+      gold: goldGain, exp: m.exp, heal, levelUps: ups,
       monster: m, boss: !!m.boss,
     };
   }
@@ -444,6 +463,7 @@
     const step = item.id === 'atk' || item.id === 'def' ? 20 : 0;
     let price = item.price + (s.flags['buy_' + item.id] || 0) * step;
     if (hasRelic('thrift')) price = Math.max(1, Math.round(price * 0.75));
+    if (vow() === 'greed') price = Math.max(1, Math.round(price * 1.3));
     return price;
   }
 
@@ -648,6 +668,6 @@
       return D.monsters[ch] ? predict(ch) : null;
     },
     tryMove, fight, canBlock, buy, priceOf, finish, altarChoices, pickRelic, pathTo, pathThrough, pathToNear,
-    nextLevelExp, keyName, summary, hasRelic, ownedRelics, beginFloor, restoreFloor, goalStatus, settleFloor, revealCore, heartState, heartTake, heartLeave,
+    nextLevelExp, keyName, summary, hasRelic, ownedRelics, beginFloor, restoreFloor, goalStatus, settleFloor, revealCore, heartState, heartTake, heartLeave, vow,
   };
 })();

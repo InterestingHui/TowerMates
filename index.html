@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#07090f">
 <title>TowerMates · 魔塔</title>
-<link rel="stylesheet" href="css/style.css?v=1.3.0">
+<link rel="stylesheet" href="css/style.css?v=1.4.0">
 </head>
 <body>
 <div id="app">
@@ -20,6 +20,7 @@
     </div>
     <div class="floor-row">
       <div class="floor-name" id="floorName">第 1 层 · 塔之入口</div>
+      <span class="vowtag" id="vowTag" hidden></span>
       <div class="floor-dots" id="floorDots"></div>
     </div>
     <div class="chips">
@@ -89,7 +90,7 @@
       </svg>
     </div>
     <div class="logo">TOWER<span>MATES</span></div>
-    <p class="sub">魔塔 · v1.3</p>
+    <p class="sub">魔塔 · v1.4</p>
     <p class="desc">第九位勇者的故事，从今夜开始。<br>塔里的事，没有一件是它看起来的样子。</p>
     <div class="ending-badges" id="endingBadges"></div>
     <button class="btn primary" id="btnNew">开始游戏</button>
@@ -104,6 +105,16 @@
 </div>
 
 <!-- 对白 -->
+<!-- 立誓：开局选一条规矩 -->
+<div class="overlay" id="vowOverlay">
+  <div class="vow-stage">
+    <div class="vow-kicker">立 誓</div>
+    <p class="vow-desc">进塔之前，先给自己定一条规矩。<br>选了就改不回来——誓约越难，结算分越高。</p>
+    <div class="vow-cards" id="vowCards"></div>
+    <div class="vow-hint">点一张开始 · 可以选「不立誓」</div>
+  </div>
+</div>
+
 <div class="overlay dialog" id="dialogOverlay">
   <div class="dlg-wrap">
     <div class="dlg-box" id="dlgBox">
@@ -217,7 +228,7 @@
     </div>
     <div class="cfg-help">
       <div class="cfg-help-title">玩法</div>
-      <p>方向键 / WASD 走一格，点远处自动寻路。撞上怪物即战斗，打不过会被拦住。钥匙开对应的门，商人在第 3 层。塔共 6 层，第 6 层是塔顶——塔规攒够的话，塔顶后面还有一段窄梯。每层有一次「格挡」，战斗中点一下能把这一场的承伤降到 60%。</p>
+      <p>方向键 / WASD 走一格，点远处自动寻路。撞上怪物即战斗，打不过会被拦住。钥匙开对应的门，商人在第 3 层。塔共 6 层，第 6 层是塔顶——塔规攒够的话，塔顶后面还有一段窄梯。每层有一次「格挡」，战斗中点一下能把这一场的承伤降到 60%。开局可以立一条誓约改变整局规则，誓约越难，结算分倍率越高。</p>
     </div>
     <div class="actions">
       <button class="btn" id="cfgRetry">↺ 重来本层</button>
@@ -326,12 +337,12 @@
   </div>
 </div>
 
-<script src="js/data.js?v=1.3.0"></script>
-<script src="js/story.js?v=1.3.0"></script>
-<script src="js/portraits.js?v=1.3.0"></script>
-<script src="js/achievements.js?v=1.3.0"></script>
-<script src="js/engine.js?v=1.3.0"></script>
-<script src="js/render.js?v=1.3.0"></script>
-<script src="js/main.js?v=1.3.0"></script>
+<script src="js/data.js?v=1.4.0"></script>
+<script src="js/story.js?v=1.4.0"></script>
+<script src="js/portraits.js?v=1.4.0"></script>
+<script src="js/achievements.js?v=1.4.0"></script>
+<script src="js/engine.js?v=1.4.0"></script>
+<script src="js/render.js?v=1.4.0"></script>
+<script src="js/main.js?v=1.4.0"></script>
 </body>
 </html>

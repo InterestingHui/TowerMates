@@ -252,6 +252,7 @@
     boardOverlay: $('boardOverlay'), codexOverlay: $('codexOverlay'),
     cfgOverlay: $('cfgOverlay'), choiceOverlay: $('choiceOverlay'),
     heartOverlay: $('heartOverlay'), heartTake: $('heartTake'), heartLeave: $('heartLeave'),
+    vowOverlay: $('vowOverlay'), vowCards: $('vowCards'), vowTag: $('vowTag'),
     altarOverlay: $('altarOverlay'), altarCards: $('altarCards'),
     hitFlash: $('hitFlash'), hpGhost: $('hpGhost'), endScore: $('endScore'),
     toast: $('toast'), warnPill: $('warnPill'),
@@ -396,6 +397,12 @@
       d.className = i === s.floor ? 'now' : i < s.floor ? 'done' : '';
     });
     renderRelicRow(s);
+    if (el.vowTag) {
+      const v = D.vows[s.flags.vow] || D.vows.none;
+      el.vowTag.hidden = v.name === '不立誓';
+      el.vowTag.textContent = v.tag;
+      el.vowTag.title = `${v.name}：${v.desc}（结算 ×${v.mul.toFixed(2)}）`;
+    }
     if (el.blockPip) {
       const used = !Engine.canBlock();
       el.blockPip.classList.toggle('used', used);
@@ -984,7 +991,8 @@
     sc -= Math.round(sum.steps * 0.25);
     sc -= Math.round(sum.time * 0.15);
     sc -= (s.flags.retries || 0) * 80;
-    return Math.max(0, Math.round(sc));
+    const mul = (D.vows[s.flags.vow] || D.vows.none).mul;
+    return Math.max(0, Math.round(sc * mul));
   }
   const gradeOf = (sc) => (sc >= 1550 ? 'S' : sc >= 1200 ? 'A' : sc >= 850 ? 'B' : 'C');
 
@@ -1045,6 +1053,7 @@
       <div>击杀 <b>${s.flags.killCount || 0}</b></div>
       <div>遗物 <b>${relics}</b></div>
       <div>塔心 <b>${s.flags.heart === 'taken' ? '带走' : s.flags.heart === 'left' ? '留下' : '未至'}</b></div>
+      <div>誓约 <b>${(D.vows[s.flags.vow] || D.vows.none).name}</b></div>
       <div>步数 <b>${sum.steps} 步</b></div>
       <div>用时 <b>${fmtTime(sum.time)}</b></div>
     `;
@@ -1504,7 +1513,7 @@
 
   // 遮罩是否完全盖住画布（盖住时暂停重绘）
   const FULL_OVERLAYS = ['startOverlay', 'dialogOverlay', 'shopOverlay', 'boardOverlay',
-    'codexOverlay', 'cfgOverlay', 'choiceOverlay', 'altarOverlay', 'heartOverlay', 'endOverlay'];
+    'codexOverlay', 'cfgOverlay', 'choiceOverlay', 'altarOverlay', 'heartOverlay', 'vowOverlay', 'endOverlay'];
   function covered() {
     for (const id of FULL_OVERLAYS) {
       if (el[id] && el[id].classList.contains('show')) return true;
@@ -1512,9 +1521,31 @@
     return false;
   }
 
+  // ---------- 立誓 ----------
+  function openVow() {
+    el.vowCards.innerHTML = Object.keys(D.vows).map((id) => {
+      const v = D.vows[id];
+      return `<button class="vow-card ${id === 'none' ? 'hero' : ''}" data-vow="${id}">
+        <span class="vc-emoji">${v.emoji}</span>
+        <span class="vc-name">${v.name}</span>
+        <span class="vc-desc">${v.desc}</span>
+        <span class="vc-mul">结算 ×${v.mul.toFixed(2)}</span>
+      </button>`;
+    }).join('');
+    el.vowCards.querySelectorAll('.vow-card').forEach((b) => {
+      b.addEventListener('click', () => chooseVow(b.dataset.vow));
+    });
+    el.vowOverlay.classList.add('show');
+  }
+
+  function chooseVow(id) {
+    el.vowOverlay.classList.remove('show');
+    startGame(id);
+  }
+
   // ---------- 启动 ----------
-  function startGame() {
-    Engine.newGame();
+  function startGame(vow) {
+    Engine.newGame(vow);
     stopWalk();
     endShown = false;
     el.log.innerHTML = '';
@@ -1523,8 +1554,10 @@
     el.endOverlay.classList.remove('show');
     el.choiceOverlay.classList.remove('show');
     refreshHud();
+    const vs = D.vows[Engine.vow()] || D.vows.none;
     playStory('intro', () => {
       enterFloor(true);
+      if (Engine.vow() !== 'none') log(`你立下了${vs.name}：${vs.desc}`, 'gold');
       log('你踏入了魔塔。塔顶传来极轻的、像铃声一样的声音。', 'gold');
       Tips.show('walk');
     });
@@ -1532,7 +1565,7 @@
 
   function continueGame() {
     const s = Engine.load();
-    if (!s) return startGame();
+    if (!s) { openVow(); return; }
     el.startOverlay.classList.remove('show');
     endShown = false;
     el.log.innerHTML = '';
@@ -1555,7 +1588,7 @@
     refreshStartBadges();
 
     if (Engine.hasSave()) $('btnContinue').style.display = 'block';
-    $('btnNew').addEventListener('click', startGame);
+    $('btnNew').addEventListener('click', openVow);
     $('btnContinue').addEventListener('click', continueGame);
 
     // 开发用：index.html#demo=楼层,x,y 直接进游戏（不播序章）
@@ -1593,7 +1626,7 @@
   // 开发/自动化用：暴露少量内部入口，便于截图与回归（不影响正常玩法）
   window.__tm = {
     playStory, showEnd, openShop, openCodex, openBoard, openCfg, closeCfg,
-    showFloorCard, showEndingChoice, completeEnding, setChoiceFocus, openHeart, chooseHeart, setHeartFocus,
+    showFloorCard, showEndingChoice, completeEnding, setChoiceFocus, openHeart, chooseHeart, setHeartFocus, openVow, chooseVow,
     resolveBattle, act, refreshHud, refreshStartBadges,
   };
 

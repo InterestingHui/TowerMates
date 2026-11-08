@@ -201,6 +201,39 @@ ok(E.revealCore() === true && E.tile(9, 2) === 'u', '塔规 5 条后王座后露
 ok(E.state().maps[5][2][9] === 'u', '窄梯写进地图');
 ok(D.floors.length === 7 && D.floors[6].name === '锁芯', '第七层存在');
 
+// ---------- 9h. 开局三誓 ----------
+E.newGame();
+ok(E.vow() === 'none', '默认不立誓');
+
+E.newGame('mercy');
+s = E.state();
+ok(E.vow() === 'mercy' && s.atk === 7, '慈悲之誓：开局攻击 −3');
+s.hp = 500; s.x = 8; s.y = 8;
+ev = E.tryMove(0, 1);
+ok(ev.type === 'floor' && ev.at.heal === Math.round(s.maxHp * 0.12), '慈悲之誓：上一层回 12% 生命');
+ok(s.hp === 500 + Math.round(s.maxHp * 0.12), '回血真的加到了生命上');
+const hpAfterUp = s.hp;
+s.x = 8; s.y = 8;
+E.tryMove(0, -1);
+ok(s.hp === hpAfterUp, '下楼不回血（不能来回刷）');
+
+E.newGame('guard');
+s = E.state();
+ok(!E.canBlock(), '铁壁之誓：没有格挡');
+s.hp = 5000; s.x = 2; s.y = 3;
+const guardRaw = E.predict('A').damage;
+const gRes = E.fight(0, -1);
+ok(gRes.damage === Math.round(guardRaw * 0.82), '铁壁之誓：承伤按 82% 结算');
+
+E.newGame('greed');
+s = E.state();
+ok(E.priceOf(D.shop.find((x) => x.id === 'atk')) === 78, '贪婪之誓：价目 +30%（60 → 78）');
+s.hp = 5000; s.x = 2; s.y = 3;
+const goldBefore = s.gold;
+const greedRes = E.fight(0, -1);
+ok(greedRes.gold === Math.round(D.monsters.A.gold * 1.7), '贪婪之誓：击杀金币 +70%');
+ok(s.gold === goldBefore + Math.round(D.monsters.A.gold * 1.7), '金币真的进了口袋');
+
 // ---------- 9g. 每层一次的格挡 ----------
 E.newGame();
 s = E.state();

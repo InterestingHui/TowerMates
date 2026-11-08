@@ -14,6 +14,7 @@
   const errBox = document.getElementById('err');
   const errs = [];
   const base = q.get('page') || '/index.html';
+  const VOWPICK = q.get('vow') || 'none';
   const src = {
     floor5: base + '?dev=1#demo=4,2,8',
     battle: base + '?dev=1#demo=0,2,3',
@@ -69,7 +70,10 @@
         }
       } else if (scene === 'dialog') {
         d.getElementById('btnNew').click();
-        await wait(300);
+        await wait(200);
+        const _vc = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
+        if (_vc) _vc.click();
+        await wait(260);
         d.getElementById('dialogOverlay').dispatchEvent(new MouseEvent('click', { bubbles: true }));
         await wait(200);
         for (let i = 0; i < 5; i++) {
@@ -80,7 +84,10 @@
         await wait(500);
       } else if (scene === 'boss') {
         d.getElementById('btnNew').click();
-        await wait(300);
+        await wait(200);
+        const _vc = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
+        if (_vc) _vc.click();
+        await wait(260);
         T.playStory('boss');
         await wait(500);
         for (let i = 0; i < 4; i++) {
@@ -91,6 +98,9 @@
       } else if (scene === 'vera') {
         d.getElementById('btnNew').click();
         await wait(200);
+        const _vc = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
+        if (_vc) _vc.click();
+        await wait(260);
         T.playStory('princessTrue');
         await wait(400);
         for (let i = 0; i < 2; i++) {
@@ -101,12 +111,18 @@
       } else if (scene === 'choice') {
         d.getElementById('btnNew').click();
         await wait(200);
+        const _vc = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
+        if (_vc) _vc.click();
+        await wait(260);
         T.showEndingChoice();
         T.setChoiceFocus('true');
         await wait(700);
       } else if (scene === 'end') {
         d.getElementById('btnNew').click();
-        await wait(250);
+        await wait(200);
+        const _vc = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
+        if (_vc) _vc.click();
+        await wait(260);
         const s = E.state();
         s.ending = 'true'; s.won = true; s.startedAt = Date.now() - 360000;
         s.flags.journal = true; s.flags.relic_ward = true; s.flags.relic_edge = true;
@@ -115,6 +131,9 @@
       } else if (scene === 'board') {
         d.getElementById('btnNew').click();
         await wait(200);
+        const _vc = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
+        if (_vc) _vc.click();
+        await wait(260);
         const s = E.state();
         try { localStorage.setItem('towermates_board', JSON.stringify([{ ending: 'true', floor: 6, level: 9, steps: 520, time: 905 }])); } catch (e) {}
         T.openBoard();
@@ -122,6 +141,9 @@
       } else if (scene === 'codex') {
         d.getElementById('btnNew').click();
         await wait(200);
+        const _vc = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
+        if (_vc) _vc.click();
+        await wait(260);
         const s = E.state();
         s.flags.codex = true; s.floor = 4; s.atk = 30; s.def = 22;
         T.openCodex();
@@ -129,11 +151,17 @@
       } else if (scene === 'cfg') {
         d.getElementById('btnNew').click();
         await wait(200);
+        const _vc = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
+        if (_vc) _vc.click();
+        await wait(260);
         T.openCfg();
         await wait(400);
       } else if (scene === 'bossphase') {
         d.getElementById('btnNew').click();
         await wait(200);
+        const _vc = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
+        if (_vc) _vc.click();
+        await wait(260);
         const dlC = d.getElementById('dialogOverlay');
         for (let i = 0; i < 8; i++) { dlC.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
         const sC = E.state();
@@ -142,6 +170,9 @@
         T.refreshHud();
         T.resolveBattle(0, -1);
         await wait(500);
+      } else if (scene === 'vow') {
+        d.getElementById('btnNew').click();
+        await wait(600);
       } else if (scene === 'stoneidle') {
         const sI = E.state();
         const rowI = sI.maps[6][5];
@@ -155,6 +186,9 @@
       } else if (scene === 'stonegone') {
         d.getElementById('btnNew').click();
         await wait(200);
+        const _vc = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
+        if (_vc) _vc.click();
+        await wait(260);
         const dlG = d.getElementById('dialogOverlay');
         for (let i = 0; i < 8; i++) { dlG.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
         const sG = E.state();
@@ -171,6 +205,9 @@
       } else if (scene === 'hearttake') {
         d.getElementById('btnNew').click();
         await wait(200);
+        const _vc = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
+        if (_vc) _vc.click();
+        await wait(260);
         const dlT = d.getElementById('dialogOverlay');
         for (let i = 0; i < 8; i++) { dlT.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
         const sT = E.state();
@@ -192,6 +229,9 @@
       } else if (scene === 'heart') {
         d.getElementById('btnNew').click();
         await wait(200);
+        const _vc = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
+        if (_vc) _vc.click();
+        await wait(260);
         const dlH = d.getElementById('dialogOverlay');
         for (let i = 0; i < 8; i++) { dlH.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
         const sH = E.state();
@@ -203,7 +243,10 @@
         await wait(300);
       } else if (scene === 'altar5') {
         d.getElementById('btnNew').click();
-        await wait(250);
+        await wait(200);
+        const _vc = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
+        if (_vc) _vc.click();
+        await wait(260);
         const dlB = d.getElementById('dialogOverlay');
         for (let i = 0; i < 8; i++) { dlB.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
         const sB = E.state();
@@ -213,7 +256,10 @@
         await wait(600);
       } else if (scene === 'altar') {
         d.getElementById('btnNew').click();
-        await wait(250);
+        await wait(200);
+        const _vc = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
+        if (_vc) _vc.click();
+        await wait(260);
         const dlA = d.getElementById('dialogOverlay');
         for (let i = 0; i < 8; i++) { dlA.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
         const sA = E.state();
@@ -223,7 +269,10 @@
         await wait(600);
       } else if (scene === 'hud') {
         d.getElementById('btnNew').click();
-        await wait(250);
+        await wait(200);
+        const _vc = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
+        if (_vc) _vc.click();
+        await wait(260);
         const dl2 = d.getElementById('dialogOverlay');
         for (let i = 0; i < 8; i++) { dl2.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
         const s5 = E.state();
@@ -238,6 +287,9 @@
         const out = [];
         d.getElementById('btnNew').click();
         await wait(200);
+        const _vc = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
+        if (_vc) _vc.click();
+        await wait(260);
         const dl = d.getElementById('dialogOverlay');
         for (let i = 0; i < 8; i++) { dl.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
         await wait(200);
@@ -281,6 +333,9 @@
         };
         d.getElementById('btnNew').click();
         await wait(200);
+        const _vc = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
+        if (_vc) _vc.click();
+        await wait(260);
         const dl = d.getElementById('dialogOverlay');
         for (let i = 0; i < 8; i++) { dl.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(60); }
         await wait(300);
@@ -295,7 +350,10 @@
         return;
       } else if (scene === 'play') {
         d.getElementById('btnNew').click();
-        await wait(300);
+        await wait(200);
+        const _vc = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
+        if (_vc) _vc.click();
+        await wait(260);
         for (let i = 0; i < 6; i++) { d.getElementById('dialogOverlay').dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(70); }
         await wait(500);
       }

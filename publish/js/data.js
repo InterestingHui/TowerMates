@@ -219,6 +219,26 @@ window.GAME_DATA = (function () {
     { type: 'hpAbove', v: 0.5, text: '半血以上打赢魔王' },
   ];
 
+  // 开局三誓：给整局换一套规则，不同誓约的结算分倍率不同（难的那条分更高）
+  const vows = {
+    none: {
+      name: '不立誓', emoji: '○', tag: '如常',
+      desc: '什么都不改。第一次爬塔就选它。', mul: 1,
+    },
+    mercy: {
+      name: '慈悲之誓', emoji: '🕊️', tag: '手软',
+      desc: '攻击 −3；每上一层回复 12% 生命', mul: 0.96,
+    },
+    greed: {
+      name: '贪婪之誓', emoji: '🪙', tag: '贪财',
+      desc: '击杀金币 +70%；秤的价目 +30%', mul: 1.1,
+    },
+    guard: {
+      name: '铁壁之誓', emoji: '🛡️', tag: '死守',
+      desc: '不能格挡；每场战斗承伤 −18%', mul: 1.03,
+    },
+  };
+
   const shop = [
     { id: 'key', name: '黄钥匙', emoji: '🔑', price: 20, key: 'y' },
     { id: 'rkey', name: '红钥匙', emoji: '🗝️', price: 45, key: 'r' },
@@ -229,5 +249,5 @@ window.GAME_DATA = (function () {
     { id: 'codex', name: '窥探之镜', emoji: '🔮', price: 100, codex: true, once: true },
   ];
 
-  return { LEGEND, PALETTE, kindColor, monsters, items, relics, altarPool, levelExp, floors, floorGoals, shop };
+  return { LEGEND, PALETTE, kindColor, monsters, items, relics, altarPool, levelExp, floors, floorGoals, vows, shop };
 })();

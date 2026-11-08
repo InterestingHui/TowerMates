@@ -8,15 +8,18 @@ const D = global.GAME_DATA;
 const SIZE = 11;
 const USE_RELIC = !process.argv.includes('--no-relic');
 const USE_BLOCK = !process.argv.includes('--no-block');
+const VOW = (process.argv.find((a) => a.startsWith('--vow=')) || '--vow=none').slice(6);
 
 let s = {
   floor: 0, x: 0, y: 0,
   hp: 1000, maxHp: 1000, atk: 10, def: 10, gold: 0, exp: 0, level: 1,
   keys: { y: 1, r: 0 },
-  flags: {},
+  flags: { vow: VOW },
   maps: D.floors.map((f) => f.map.map((r) => r.split(''))),
   damageTaken: 0,
 };
+
+if (VOW === 'mercy') s.atk = Math.max(1, s.atk - 3);
 
 (function place() {
   const m = s.maps[0];
@@ -84,6 +87,7 @@ function priceOf(item) {
   const step = item.id === 'atk' || item.id === 'def' ? 20 : 0;
   let price = item.price + (s.flags['buy_' + item.id] || 0) * step;
   if (USE_RELIC && s.flags.relic_thrift) price = Math.max(1, Math.round(price * 0.75));
+  if (VOW === 'greed') price = Math.max(1, Math.round(price * 1.3));
   return price;
 }
 function shop() {
@@ -157,7 +161,8 @@ function floorLoop(fi) {
     const m = D.monsters[t.ch];
     // 格挡：每层一次，贪婪地用在本层第一场"够疼"的战斗上
     let take = t.damage;
-    if (USE_BLOCK && !s.flags['block_f' + s.floor] && take >= s.maxHp * 0.08) {
+    if (VOW === 'guard') take = Math.round(take * 0.82);
+    if (USE_BLOCK && VOW !== 'guard' && !s.flags['block_f' + s.floor] && take >= s.maxHp * 0.08) {
       s.flags['block_f' + s.floor] = true;
       take = Math.round(take * 0.6);
       console.log(`  ▣ 格挡：${m.name} 承伤 ${t.damage} → ${take}`);
@@ -165,7 +170,7 @@ function floorLoop(fi) {
     s.hp -= take;
     s.damageTaken += take;
     s.exp += m.exp;
-    s.gold += m.gold;
+    s.gold += VOW === 'greed' ? Math.round(m.gold * 1.7) : m.gold;
     s.flags.killCount = (s.flags.killCount || 0) + 1;
     if (hasRelic('ember') && !m.boss) {
       const heal = Math.min(Math.max(4, Math.floor(s.maxHp * 0.02)), Math.max(0, s.maxHp - s.hp));
@@ -193,6 +198,7 @@ function climb() {
     const r = floorLoop(fi);
     if (r === false) { console.log('\n✗ 卡住'); return; }
     if (r === 'win') { console.log('\n✓ 通关成功'); report(); return; }
+    if (VOW === 'mercy') s.hp = Math.min(s.maxHp, s.hp + Math.round(s.maxHp * 0.12));
     const next = s.maps[fi + 1];
     outer: for (let y = 0; y < SIZE; y++) {
       for (let x = 0; x < SIZE; x++) {
