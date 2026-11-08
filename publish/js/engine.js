@@ -295,6 +295,13 @@
       return { type: 'altar' };
     }
 
+    if (ch === '?') {
+      moveTo(nx, ny);
+      if (s.flags['ev_f' + s.floor]) { saveSoon(); return { type: 'move' }; }
+      save();
+      return { type: 'event', eventId: pickEvent() };
+    }
+
     if (ch === 'K') {
       moveTo(nx, ny);
       if (s.flags.heart) { saveSoon(); return { type: 'move', msg: '石头还在跳' }; }
@@ -348,6 +355,40 @@
     else if (g.type === 'hpAbove') ok = s.hp >= (s.maxHp || 1) * g.v;
     s.flags['goal_' + s.floor] = ok;
     s.flags['goalKills_' + s.floor] = kills;
+  }
+
+  // ---------- 路遇：踩到 '?' 从池子里随机抽一个 ----------
+  function pickEvent() {
+    const pool = D.events;
+    return pool[(Math.random() * pool.length) | 0].id;
+  }
+
+  function applyEffect(eff) {
+    if (!eff) return;
+    if (eff.gold) s.gold = Math.max(0, s.gold + eff.gold);
+    if (eff.atk) s.atk = Math.max(1, s.atk + eff.atk);
+    if (eff.def) s.def = Math.max(0, s.def + eff.def);
+    if (eff.maxHp) {
+      s.maxHp = Math.max(100, s.maxHp + eff.maxHp);
+      s.hp = Math.min(s.hp, s.maxHp);
+    }
+    if (eff.healPct) s.hp = Math.min(s.maxHp, s.hp + Math.round(s.maxHp * eff.healPct));
+    if (eff.hp) s.hp = Math.max(1, Math.min(s.maxHp, s.hp + eff.hp));
+    if (eff.keys) Object.keys(eff.keys).forEach((k) => { s.keys[k] = (s.keys[k] || 0) + eff.keys[k]; });
+    if (eff.score) s.flags.eventScore = (s.flags.eventScore || 0) + eff.score;
+  }
+
+  function resolveEvent(id, idx) {
+    if (!s) return { type: 'refuse', msg: '没有进行游戏' };
+    const e = D.events.find((x) => x.id === id);
+    const o = e && e.options[idx];
+    if (!o) return { type: 'refuse', msg: '没有这个选项' };
+    if (o.effect.gold && o.effect.gold < 0 && s.gold < -o.effect.gold) return { type: 'refuse', msg: '金币不够' };
+    applyEffect(o.effect);
+    s.flags['ev_f' + s.floor] = true;
+    if (tile(s.x, s.y) === '?') setTile(s.x, s.y, '.');
+    save();
+    return { type: 'event', msg: o.msg, label: o.label };
   }
 
   // ---------- 塔心石：带走，或者放下 ----------
@@ -668,6 +709,6 @@
       return D.monsters[ch] ? predict(ch) : null;
     },
     tryMove, fight, canBlock, buy, priceOf, finish, altarChoices, pickRelic, pathTo, pathThrough, pathToNear,
-    nextLevelExp, keyName, summary, hasRelic, ownedRelics, beginFloor, restoreFloor, goalStatus, settleFloor, revealCore, heartState, heartTake, heartLeave, vow,
+    nextLevelExp, keyName, summary, hasRelic, ownedRelics, beginFloor, restoreFloor, goalStatus, settleFloor, revealCore, heartState, heartTake, heartLeave, vow, pickEvent, resolveEvent, applyEffect,
   };
 })();

@@ -253,6 +253,7 @@
     cfgOverlay: $('cfgOverlay'), choiceOverlay: $('choiceOverlay'),
     heartOverlay: $('heartOverlay'), heartTake: $('heartTake'), heartLeave: $('heartLeave'),
     vowOverlay: $('vowOverlay'), vowCards: $('vowCards'), vowTag: $('vowTag'),
+    eventOverlay: $('eventOverlay'), evEmoji: $('evEmoji'), evName: $('evName'), evText: $('evText'), evOpts: $('evOpts'),
     altarOverlay: $('altarOverlay'), altarCards: $('altarCards'),
     hitFlash: $('hitFlash'), hpGhost: $('hpGhost'), endScore: $('endScore'),
     toast: $('toast'), warnPill: $('warnPill'),
@@ -925,6 +926,43 @@
     if (lore) setTimeout(() => { if (!typing) playStory(lore); }, 260);
   }
 
+  // ---------- 路遇 ----------
+  let curEvent = null;
+
+  function openEvent(id) {
+    const e = D.events.find((x) => x.id === id);
+    if (!e) return;
+    curEvent = e;
+    const s = Engine.state();
+    el.evEmoji.textContent = e.emoji;
+    el.evName.textContent = e.name;
+    el.evText.textContent = e.text;
+    el.evOpts.innerHTML = e.options.map((o, i) => {
+      const cost = o.effect.gold && o.effect.gold < 0 ? -o.effect.gold : 0;
+      const poor = cost > 0 && s.gold < cost;
+      return `<button class="ev-opt" data-i="${i}" ${poor ? 'disabled' : ''}>
+        <b>${o.label}</b><small>${poor ? `还差 ${cost - s.gold} 金` : o.tip}</small>
+      </button>`;
+    }).join('');
+    el.evOpts.querySelectorAll('.ev-opt').forEach((b) => {
+      b.addEventListener('click', () => chooseEvent(Number(b.dataset.i)));
+    });
+    el.eventOverlay.classList.add('show');
+  }
+
+  function chooseEvent(idx) {
+    if (!curEvent) return;
+    const res = Engine.resolveEvent(curEvent.id, idx);
+    if (res.type !== 'event') { warn(res.msg || '做不了'); return; }
+    el.eventOverlay.classList.remove('show');
+    curEvent = null;
+    Sound.play('relic');
+    vibrate(14);
+    log(`${res.label} · ${res.msg}`, 'gold');
+    warn(res.msg);
+    refreshHud();
+  }
+
   // ---------- 塔心石：带走 / 放下 ----------
   function openHeart() {
     heartFocus = null;
@@ -998,6 +1036,7 @@
     sc += relicCount * 80;
     sc += (goalDone || 0) * 60;
     if (s.flags.coreClear) sc += 200;
+    sc += s.flags.eventScore || 0;
     if (s.flags.heart === 'taken') sc += 200;
     else if (s.flags.heart === 'left') sc += 320;
     sc -= Math.round(sum.steps * 0.25);
@@ -1066,6 +1105,8 @@
     if (s.flags.worstHit) brief.push(`最狠的一场：${s.flags.worstName} −${s.flags.worstHit}`);
     brief.push(`塔规 ${gs.done}/${gs.total}`);
     brief.push(s.flags.retries ? `重来本层 ${s.flags.retries} 次` : '一次没回头');
+    const NEXT = { C: ['B', 850], B: ['A', 1200], A: ['S', 1550] }[grade];
+    if (NEXT) brief.push(`再 ${Math.max(1, NEXT[1] - sc)} 分进 ${NEXT[0]}`);
     $('endBrief').innerHTML = brief.map((t) => `<span>${t}</span>`).join('');
     $('endStats').innerHTML = `
       <div>结局 <b>${endName(s.ending)}</b></div>
@@ -1316,6 +1357,9 @@
       case 'heart':
         openHeart();
         break;
+      case 'event':
+        openEvent(ev.eventId);
+        break;
       case 'shop':
         if (!Engine.state().flags.merchant) {
           Engine.state().flags.merchant = true;
@@ -1479,7 +1523,7 @@
     $('btnAgain').addEventListener('click', () => {
       el.endOverlay.classList.remove('show');
       Engine.reset();
-      startGame();
+      openVow();
     });
     $('cfgRetry').addEventListener('click', () => {
       const ok = Engine.restoreFloor();
@@ -1535,7 +1579,7 @@
 
   // 遮罩是否完全盖住画布（盖住时暂停重绘）
   const FULL_OVERLAYS = ['startOverlay', 'dialogOverlay', 'shopOverlay', 'boardOverlay',
-    'codexOverlay', 'cfgOverlay', 'choiceOverlay', 'altarOverlay', 'heartOverlay', 'vowOverlay', 'endOverlay'];
+    'codexOverlay', 'cfgOverlay', 'choiceOverlay', 'altarOverlay', 'heartOverlay', 'vowOverlay', 'eventOverlay', 'endOverlay'];
   function covered() {
     for (const id of FULL_OVERLAYS) {
       if (el[id] && el[id].classList.contains('show')) return true;
@@ -1648,7 +1692,7 @@
   // 开发/自动化用：暴露少量内部入口，便于截图与回归（不影响正常玩法）
   window.__tm = {
     playStory, showEnd, openShop, openCodex, openBoard, openCfg, closeCfg,
-    showFloorCard, showEndingChoice, completeEnding, setChoiceFocus, openHeart, chooseHeart, setHeartFocus, openVow, chooseVow,
+    showFloorCard, showEndingChoice, completeEnding, setChoiceFocus, openHeart, chooseHeart, setHeartFocus, openVow, chooseVow, openEvent, chooseEvent,
     resolveBattle, act, refreshHud, refreshStartBadges,
   };
 

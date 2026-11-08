@@ -175,6 +175,19 @@
         T.refreshHud();
         T.resolveBattle(0, -1);
         await wait(500);
+      } else if (scene === 'event') {
+        d.getElementById('btnNew').click();
+        await wait(200);
+        const _vc2 = d.querySelector('#vowCards .vow-card[data-vow="none"]');
+        if (_vc2) _vc2.click();
+        await wait(260);
+        const dlE = d.getElementById('dialogOverlay');
+        for (let i = 0; i < 8; i++) { dlE.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
+        const sE = E.state();
+        sE.x = 4; sE.y = 4; sE.gold = 200;
+        T.refreshHud();
+        T.openEvent('herbalist');
+        await wait(600);
       } else if (scene === 'vow') {
         d.getElementById('btnNew').click();
         await wait(600);

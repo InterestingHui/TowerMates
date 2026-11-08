@@ -50,6 +50,17 @@ function levelUp() {
   }
 }
 
+function applyEff(eff) {
+  if (!eff) return;
+  if (eff.gold) s.gold = Math.max(0, s.gold + eff.gold);
+  if (eff.atk) s.atk = Math.max(1, s.atk + eff.atk);
+  if (eff.def) s.def = Math.max(0, s.def + eff.def);
+  if (eff.maxHp) { s.maxHp = Math.max(100, s.maxHp + eff.maxHp); s.hp = Math.min(s.hp, s.maxHp); }
+  if (eff.healPct) s.hp = Math.min(s.maxHp, s.hp + Math.round(s.maxHp * eff.healPct));
+  if (eff.hp) s.hp = Math.max(1, Math.min(s.maxHp, s.hp + eff.hp));
+  if (eff.keys) Object.keys(eff.keys).forEach((k) => { s.keys[k] = (s.keys[k] || 0) + eff.keys[k]; });
+}
+
 function applyItem(ch) {
   if (ch === '$') { s.gold += 50; return; }
   const it = D.items[ch];
@@ -137,6 +148,18 @@ function floorLoop(fi) {
     for (const [x, y] of cells) {
       const ch = s.maps[s.floor][y][x];
       if (ch === 'X') { altar(fi); s.maps[s.floor][y][x] = '.'; picked++; continue; }
+      if (ch === '?') {
+        // 模拟固定走"选项 0"（每层的路遇按层号轮换，保证可复现）
+        const e = D.events[(fi + 1) % D.events.length];
+        const o = e.options[0];
+        const cost = o.effect.gold && o.effect.gold < 0 ? -o.effect.gold : 0;
+        if (cost > 0 && s.gold < cost) { s.maps[s.floor][y][x] = '.'; picked++; continue; }
+        applyEff(o.effect);
+        s.maps[s.floor][y][x] = '.';
+        picked++;
+        console.log(`  ◇ 路遇 ${e.name} → ${o.label}`);
+        continue;
+      }
       if (ch === '$' || D.items[ch]) {
         applyItem(ch);
         s.maps[s.floor][y][x] = '.';

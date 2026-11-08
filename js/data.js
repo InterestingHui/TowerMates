@@ -9,7 +9,7 @@ window.GAME_DATA = (function () {
     y: '黄门', r: '红门',
     p: '红药水', P: '蓝药水', s: '铁剑', d: '铁盾', m: '力量宝石',
     k: '黄钥匙', L: '红钥匙', $: '金币', M: '商人', T: '公主', J: '工匠手记',
-    O: '守誓之盾', S: '断裂佩剑', X: '八个人的行李', K: '塔心石',
+    O: '守誓之盾', S: '断裂佩剑', X: '八个人的行李', K: '塔心石', '?': '路遇',
   };
 
   // 统一色板：CSS 与 Canvas 共用同一套语义色
@@ -40,14 +40,14 @@ window.GAME_DATA = (function () {
   const monsters = {
     A: { name: '蝙蝠', emoji: '🦇', hp: 42, atk: 20, def: 1, gold: 3, exp: 2, kind: '兽' },
     B: { name: '史莱姆', emoji: '🦠', hp: 78, atk: 25, def: 4, gold: 5, exp: 4, kind: '异' },
-    C: { name: '骷髅兵', emoji: '💀', hp: 110, atk: 33, def: 6, gold: 8, exp: 6, kind: '亡' },
-    D: { name: '僵尸', emoji: '🧟', hp: 148, atk: 42, def: 9, gold: 12, exp: 10, kind: '亡' },
-    E: { name: '石像鬼', emoji: '🗿', hp: 210, atk: 54, def: 15, gold: 20, exp: 16, kind: '构' },
-    W: { name: '怨灵', emoji: '👻', hp: 126, atk: 52, def: 6, gold: 16, exp: 16, kind: '亡' },
-    F: { name: '狼人', emoji: '🐺', hp: 265, atk: 65, def: 19, gold: 30, exp: 24, kind: '兽' },
-    H: { name: '骷髅队长', emoji: '🪖', hp: 340, atk: 72, def: 25, gold: 40, exp: 30, kind: '亡' },
-    V: { name: '吸血鬼', emoji: '🧛', hp: 360, atk: 72, def: 21, gold: 45, exp: 34, kind: '亡' },
-    Z: { name: '魔王', emoji: '🐉', hp: 480, atk: 92, def: 22, gold: 0, exp: 0, boss: true, kind: '锁' },
+    C: { name: '骷髅兵', emoji: '💀', hp: 110, atk: 35, def: 6, gold: 8, exp: 6, kind: '亡' },
+    D: { name: '僵尸', emoji: '🧟', hp: 148, atk: 45, def: 9, gold: 12, exp: 10, kind: '亡' },
+    E: { name: '石像鬼', emoji: '🗿', hp: 210, atk: 57, def: 15, gold: 20, exp: 16, kind: '构' },
+    W: { name: '怨灵', emoji: '👻', hp: 126, atk: 55, def: 6, gold: 16, exp: 16, kind: '亡' },
+    F: { name: '狼人', emoji: '🐺', hp: 265, atk: 68, def: 19, gold: 30, exp: 24, kind: '兽' },
+    H: { name: '骷髅队长', emoji: '🪖', hp: 340, atk: 74, def: 25, gold: 40, exp: 30, kind: '亡' },
+    V: { name: '吸血鬼', emoji: '🧛', hp: 360, atk: 74, def: 21, gold: 45, exp: 34, kind: '亡' },
+    Z: { name: '魔王', emoji: '🐉', hp: 480, atk: 94, def: 22, gold: 0, exp: 0, boss: true, kind: '锁' },
     G: { name: '烛', emoji: '🕯️', hp: 50, atk: 0, def: 5, gold: 0, exp: 0, ghost: true, kind: '魂' },
   };
 
@@ -93,7 +93,7 @@ window.GAME_DATA = (function () {
         '###########',
         '#....#....#',
         '#.A..#.k..#',
-        '#....#..G.#',
+        '#...?#..G.#',
         '#..###....#',
         '#.@...B...#',
         '#..###....#',
@@ -131,7 +131,7 @@ window.GAME_DATA = (function () {
         '#.#L....#.#',
         '#.#..D..#.#',
         '#.###.###.#',
-        '#....k...y#',
+        '#....k..?y#',
         '#.p.....X$#',
         '#....n....#',
         '###########',
@@ -149,7 +149,7 @@ window.GAME_DATA = (function () {
         '#.#.....#.#',
         '#.###.###.#',
         '#.J.....P.#',
-        '#.W....k..#',
+        '#.W..?..k.#',
         '#.......u.#',
         '###########',
       ],
@@ -227,7 +227,7 @@ window.GAME_DATA = (function () {
     },
     mercy: {
       name: '慈悲之誓', emoji: '🕊️', tag: '手软',
-      desc: '攻击 −3；每上一层回复 12% 生命', mul: 0.96,
+      desc: '攻击 −3；每上一层回复 12% 生命', mul: 1.05,
     },
     greed: {
       name: '贪婪之誓', emoji: '🪙', tag: '贪财',
@@ -235,9 +235,62 @@ window.GAME_DATA = (function () {
     },
     guard: {
       name: '铁壁之誓', emoji: '🛡️', tag: '死守',
-      desc: '不能格挡；每场战斗承伤 −18%', mul: 1.03,
+      desc: '不能格挡；每场战斗承伤 −18%', mul: 1.01,
     },
   };
+
+  // 路遇：每局从池子里随机抽，踩到 '?' 才出现——这是「每局不一样」的主要来源
+  const events = [
+    {
+      id: 'smith', name: '流浪铁匠', emoji: '🔨',
+      text: '铁匠把锤子架在石头上：「磨刃伤身。」他说完就不再开口。',
+      options: [
+        { label: '磨刃', tip: '攻击 +2，生命上限 −120', effect: { atk: 2, maxHp: -120 }, msg: '刃口亮了一线。你的手腕到现在还在抖。' },
+        { label: '把旧铁卖他', tip: '金币 +120', effect: { gold: 120 }, msg: '他把你的旧铁收进袋里，没还价。' },
+      ],
+    },
+    {
+      id: 'drunk', name: '醉汉', emoji: '🍺',
+      text: '墙根坐着一个醉汉，酒壶递到你面前。',
+      options: [
+        { label: '喝一口', tip: '回复 18% 生命，防御 −1', effect: { healPct: 0.18, def: -1 }, msg: '烧得喉咙发疼，力气却回来一点。' },
+        { label: '给他一枚金币', tip: '金币 −1，随他哼的歌回 8% 生命', effect: { gold: -1, healPct: 0.08 }, msg: '他哼了半支曲子。你居然听懂了。' },
+        { label: '走开', tip: '什么也不发生', effect: {}, msg: '你绕过他，他没抬头。' },
+      ],
+    },
+    {
+      id: 'shrine', name: '旧神龛', emoji: '🕯️',
+      text: '神龛早就不亮了，供台上还摆着没烂完的蜜饯。',
+      options: [
+        { label: '把蜜饯吃了', tip: '生命上限 +160', effect: { maxHp: 160 }, msg: '甜得发苦，你却吃完了。' },
+        { label: '连供盘一起拿走', tip: '金币 +90，防御 −1', effect: { gold: 90, def: -1 }, msg: '你没敢回头。' },
+      ],
+    },
+    {
+      id: 'veteran', name: '独臂老兵', emoji: '🪖',
+      text: '老兵靠在楼梯口。他只剩一条手臂，却还在磨盾。',
+      options: [
+        { label: '跟他学举盾', tip: '防御 +2，攻击 −1', effect: { def: 2, atk: -1 }, msg: '他没说名字，只教了你姿势。' },
+        { label: '听他说完', tip: '回复 10% 生命', effect: { healPct: 0.1 }, msg: '你听了很久。他说的其实是另一座塔。' },
+      ],
+    },
+    {
+      id: 'herbalist', name: '卖药的', emoji: '🌿',
+      text: '她摊开一包草：「能救命的，也能卖钱的。」',
+      options: [
+        { label: '当场喝掉', tip: '回复 30% 生命', effect: { healPct: 0.3 }, msg: '苦得能看见星星。' },
+        { label: '买一把红钥匙', tip: '金币 −130，红钥匙 +1', effect: { gold: -130, keys: { r: 1 } }, msg: '她把钥匙系在布条上递给你。' },
+      ],
+    },
+    {
+      id: 'carve', name: '墙上的名字', emoji: '✍️',
+      text: '这面墙上刻满了名字。最后一个刻到一半就停了。',
+      options: [
+        { label: '刻上自己的', tip: '结算 +180 分', effect: { score: 180 }, msg: '刻痕很浅，像怕被人看见。' },
+        { label: '摸一摸就上楼', tip: '回复 8% 生命', effect: { healPct: 0.08 }, msg: '石头上还是温的。' },
+      ],
+    },
+  ];
 
   const shop = [
     { id: 'key', name: '黄钥匙', emoji: '🔑', price: 20, key: 'y' },
@@ -249,5 +302,5 @@ window.GAME_DATA = (function () {
     { id: 'codex', name: '窥探之镜', emoji: '🔮', price: 100, codex: true, once: true },
   ];
 
-  return { LEGEND, PALETTE, kindColor, monsters, items, relics, altarPool, levelExp, floors, floorGoals, vows, shop };
+  return { LEGEND, PALETTE, kindColor, monsters, items, relics, altarPool, levelExp, floors, floorGoals, vows, events, shop };
 })();

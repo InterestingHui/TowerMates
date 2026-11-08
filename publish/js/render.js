@@ -901,6 +901,36 @@
             ctx.fill();
           }
           noGlow();
+        } else if (ch === '?') {
+          // 路遇：一盏挂在钉子上的灯，下面站着一个看不清的人
+          groundShadow(px, py, TILE * 0.26, 0.35);
+          const pg = 0.5 + Math.sin(simT / 900) * 0.5;
+          glow('rgba(255,214,150,' + (0.16 + pg * 0.14).toFixed(2) + ')', TILE * 0.5);
+          // 灯
+          ctx.fillStyle = 'rgba(255,226,168,' + (0.55 + pg * 0.4).toFixed(2) + ')';
+          ctx.beginPath();
+          ctx.arc(px + TILE * 0.62, py + TILE * 0.3, TILE * 0.055, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(255,226,168,0.22)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(px + TILE * 0.62, py + TILE * 0.3);
+          ctx.lineTo(px + TILE * 0.62, py + TILE * 0.14);
+          ctx.stroke();
+          // 人影
+          ctx.fillStyle = 'rgba(16,14,20,0.82)';
+          ctx.beginPath();
+          ctx.moveTo(px + TILE * 0.34, py + TILE * 0.8);
+          ctx.quadraticCurveTo(px + TILE * 0.34, py + TILE * 0.42, px + TILE * 0.48, py + TILE * 0.42);
+          ctx.quadraticCurveTo(px + TILE * 0.62, py + TILE * 0.42, px + TILE * 0.62, py + TILE * 0.8);
+          ctx.closePath();
+          ctx.fill();
+          ctx.fillStyle = 'rgba(255,226,168,' + (0.35 + pg * 0.35).toFixed(2) + ')';
+          ctx.font = Math.round(TILE * 0.34) + 'px Georgia, serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('?', px + TILE * 0.48, py + TILE * 0.3);
+          noGlow();
         } else if (ch === 'K') {
           // 塔心石：石台 + 三盏灯 + 一颗会跳的心
           const beat = Math.pow(Math.max(0, Math.sin(simT / 700)), 3);

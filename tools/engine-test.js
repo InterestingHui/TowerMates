@@ -201,6 +201,32 @@ ok(E.revealCore() === true && E.tile(9, 2) === 'u', '塔规 5 条后王座后露
 ok(E.state().maps[5][2][9] === 'u', '窄梯写进地图');
 ok(D.floors.length === 7 && D.floors[6].name === '锁芯', '第七层存在');
 
+// ---------- 9i. 路遇事件 ----------
+E.newGame();
+s = E.state();
+s.x = 4; s.y = 4;
+ev = E.tryMove(0, -1);
+ok(ev.type === 'event' && !!ev.eventId, '踩到路遇点弹出事件');
+ok(!!D.events.find((x) => x.id === ev.eventId), '事件来自数据池');
+const evId = ev.eventId;
+s.gold = 500;
+const atkA2 = s.atk, maxA2 = s.maxHp, goldA2 = s.gold;
+const eRes = E.resolveEvent(evId, 0);
+ok(eRes.type === 'event' && typeof eRes.msg === 'string', '选择后返回结果文案');
+ok(s.atk !== atkA2 || s.maxHp !== maxA2 || s.gold !== goldA2 || (s.flags.eventScore || 0) > 0, '选项真的改变了数值或分数');
+ok(E.tile(4, 3) === '.', '路遇点用掉后清空');
+ok(s.flags.ev_f0 === true, '本层路遇只触发一次');
+ok(E.resolveEvent(evId, 0).type === 'event', '同一事件仍可被再次结算（由主流程保证不重复弹）');
+
+E.newGame();
+s = E.state();
+s.x = 4; s.y = 4;
+const ev2 = E.tryMove(0, -1);
+s.gold = 0;
+const poorIdx = D.events.find((x) => x.id === ev2.eventId).options.findIndex((o) => o.effect.gold < 0);
+if (poorIdx >= 0) ok(E.resolveEvent(ev2.eventId, poorIdx).type === 'refuse', '金币不够时该选项被拒绝');
+else ok(true, '（该事件没有花钱选项）');
+
 // ---------- 9h. 开局三誓 ----------
 E.newGame();
 ok(E.vow() === 'none', '默认不立誓');
