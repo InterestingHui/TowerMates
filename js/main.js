@@ -227,6 +227,60 @@
     });
   }
 
+  // ---------- 角色立绘剪影 ----------
+  const PORTRAIT_DEFS = {
+    烛: {
+      color: '#9fd8ff',
+      body: `
+        <path d="M36 6c-11 0-19 9-19 20 0 4 1 8 3 11 3-10 9-15 16-15s13 5 16 15c2-3 3-7 3-11 0-11-8-20-19-20z"/>
+        <ellipse cx="36" cy="30" rx="10" ry="11"/>
+        <path d="M16 96V72c0-10 8-17 20-17s20 7 20 17v24z"/>
+        <path d="M58 52v12" fill="none"/>
+        <circle cx="58" cy="70" r="4.6"/>
+      `,
+    },
+    魔王: {
+      color: '#ff7d7d',
+      body: `
+        <path d="M22 12c-2-6-1-9 2-10 2 3 3 6 3 10z"/>
+        <path d="M50 12c2-6 1-9-2-10-2 3-3 6-3 10z"/>
+        <ellipse cx="36" cy="31" rx="11" ry="12"/>
+        <path d="M8 96V67c0-8 6-14 13-16l7 9 8-4 8 4 7-9c7 2 13 8 13 16v29z"/>
+      `,
+    },
+    薇拉: {
+      color: '#ffc4e0',
+      body: `
+        <path d="M26 13l3-8 3 7 4-9 4 9 3-7 3 8z"/>
+        <path d="M19 23c0-10 7-17 17-17s17 7 17 17v41h-5V33c0-3-2-5-4-4-2 1-5 2-8 2s-6-1-8-2c-2-1-4 0-4 4v31h-5z"/>
+        <ellipse cx="36" cy="30" rx="9" ry="10"/>
+        <path d="M17 96V74c0-9 8-16 19-16s19 7 19 16v22z"/>
+      `,
+    },
+    秤: {
+      color: '#e8c46a',
+      body: `
+        <path d="M26 16c0-4 4-6 10-6s10 2 10 6z"/>
+        <path d="M9 22h54c0-4-12-7-27-7S9 18 9 22z"/>
+        <ellipse cx="36" cy="35" rx="9" ry="10"/>
+        <path d="M16 96V75c0-9 8-16 20-16s20 7 20 16v21z"/>
+        <path d="M62 48v28M53 56h18" fill="none"/>
+      `,
+    },
+  };
+
+  function portraitMarkup(who) {
+    const P = PORTRAIT_DEFS[who];
+    if (!P) return '';
+    return `<svg class="ptr-svg" viewBox="0 0 72 96" aria-hidden="true">
+      <defs><linearGradient id="ptrGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="${P.color}" stop-opacity=".46"/>
+        <stop offset="1" stop-color="${P.color}" stop-opacity=".07"/>
+      </linearGradient></defs>
+      <g fill="url(#ptrGrad)" stroke="${P.color}" stroke-opacity=".62" stroke-width="1.1" stroke-linejoin="round">${P.body}</g>
+    </svg>`;
+  }
+
   // ---------- 剧情 ----------
   function playStory(key, cb) {
     const script = S[key];
@@ -239,6 +293,8 @@
 
   function startTyping(lines, cb) {
     typing = { lines, idx: 0, cb: cb || null };
+    const skip = $('dlgSkip');
+    if (skip) skip.style.display = lines.length >= 3 ? '' : 'none';
     renderLine();
   }
 
@@ -248,13 +304,28 @@
     const box = $('dlgText');
     const who = $('dlgWho');
     const cue = $('dlgCue');
+    const ptr = $('dlgPortrait');
     who.textContent = line.who;
     who.className = 'dlg-who ' + (line.who === '烛' ? 'ghost' : line.who === '薇拉' ? 'vera' : line.who === '魔王' ? 'boss' : '');
     who.style.display = line.who ? '' : 'none';
+    // 立绘：只给有剪影的角色显示；旁白/手记不显示
+    if (ptr) {
+      const has = !!PORTRAIT_DEFS[line.who];
+      ptr.innerHTML = has ? portraitMarkup(line.who) : '';
+      ptr.style.display = has ? '' : 'none';
+    }
     box.textContent = line.text;
     Sound.play('talk');
     cue.style.visibility = 'visible';
     cue.textContent = typing.idx >= typing.lines.length - 1 ? '— 点击结束 —' : '▼';
+  }
+
+  function skipStory() {
+    if (!typing) return;
+    el.dialogOverlay.classList.remove('show');
+    const cb = typing.cb;
+    typing = null;
+    if (cb) cb();
   }
 
   function advanceDialog() {
@@ -290,6 +361,34 @@
   }
   const fmtTime = (t) => (t >= 60 ? `${Math.floor(t / 60)}分${t % 60}秒` : `${t}秒`);
   const endName = (e) => (e === 'true' ? '第六个名字' : e === 'plain' ? '铁与霜' : '未竟');
+
+  // ---------- 结局解锁记录 ----------
+  const ENDING_KEY = 'towermates_endings';
+  function loadEndings() {
+    try { return JSON.parse(localStorage.getItem(ENDING_KEY) || '{}'); } catch (e) { return {}; }
+  }
+  function markEnding(id) {
+    if (!id) return;
+    const got = loadEndings();
+    if (got[id]) return;
+    got[id] = true;
+    try { localStorage.setItem(ENDING_KEY, JSON.stringify(got)); } catch (err) {}
+    renderEndingBadges();
+  }
+  function renderEndingBadges() {
+    const box = $('endingBadges');
+    if (!box) return;
+    const got = loadEndings();
+    const defs = [
+      { id: 'plain', icon: '⚔️', name: '铁与霜' },
+      { id: 'true', icon: '🕯️', name: '第六个名字' },
+    ];
+    box.innerHTML = defs.map((d) => {
+      const on = !!got[d.id];
+      return `<span class="ebadge${on ? ' on' : ''}" title="${on ? '已达成' : '未解锁'}">` +
+        `<b>${on ? d.icon : '🔒'}</b><i>${on ? d.name : '未解锁'}</i></span>`;
+    }).join('');
+  }
 
   function openBoard() {
     const list = loadBoard();
@@ -363,6 +462,7 @@
     el.bsNumbers.innerHTML = '';
     el.battleScene.classList.add('show');
     el.battleScene.classList.toggle('hero-win', false);
+    el.battleScene.dataset.floor = String(s.floor);
 
     function bars() {
       el.bsHeroBar.style.width = Math.max(0, Math.min(100, (heroHp / heroMax) * 100)) + '%';
@@ -598,6 +698,7 @@
       <div>用时/步数 <b>${fmtTime(sum.time)} / ${sum.steps}步</b></div>
     `;
     saveBoard(sum);
+    markEnding(s.ending);
     $('endCode').textContent = encodeChallenge(sum);
     Achievements.evaluate('finish', s, notifyAchievement);
     el.endOverlay.classList.add('show');
@@ -763,6 +864,12 @@
         Renderer.ring(Engine.state().x, Engine.state().y, 'rgba(159,216,255,0.8)', TILE_N() * 2, 480);
         playStory(ev.story);
         break;
+      case 'relic':
+        Sound.play('pick');
+        log(ev.msg, 'gold');
+        Renderer.ring(Engine.state().x, Engine.state().y, 'rgba(232,196,106,0.7)', TILE_N() * 2.2, 520);
+        playStory(ev.story);
+        break;
       case 'pickup':
         Sound.play('pick');
         {
@@ -801,6 +908,11 @@
   // ---------- 输入 ----------
   function bindInput() {
     el.dialogOverlay.addEventListener('click', advanceDialog);
+    const skipBtn = $('dlgSkip');
+    if (skipBtn) skipBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      skipStory();
+    });
 
     window.addEventListener('keydown', (e) => {
       if (el.startOverlay.classList.contains('show')) return;
@@ -911,6 +1023,7 @@
     bindInput();
 
     if (Engine.hasSave()) $('btnContinue').style.display = 'block';
+    renderEndingBadges();
     $('btnNew').addEventListener('click', startGame);
     $('btnContinue').addEventListener('click', continueGame);
     $('btnReset').addEventListener('click', () => {

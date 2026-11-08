@@ -176,6 +176,11 @@
       if (!s.flags.journal) s.flags.journal = true;
       return { type: 'story', story: 'journal', msg: '拾取了一本泛黄的手记', good: true };
     }
+    if (it.type === 'relic') {
+      // 剧情遗物：只触发一次旁白，不提供数值
+      s.flags[it.story] = true;
+      return { type: 'relic', story: it.story, msg: `拾起${it.name}`, good: true };
+    }
     if (it.type === 'hp') {
       s.hp += it.value;
       if (s.hp > s.maxHp) {
