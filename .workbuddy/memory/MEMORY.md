@@ -1,15 +1,17 @@
 # TowerMates 长期记忆
 
-## 当前版本：v0.4.0（2026-11-08）
-- 12 项叙事/画面优化点已全部闭环，详见 `docs/polish-notes.md`。
-- 新增系统：角色立绘（`js/portraits.js`，SVG+情绪光色）、结局收集徽章、对白跳过、遗物三件套（守誓之盾/断刃之锋/余烬灯芯）。
-- 双会话曾并行改同一仓库：data/story 归一路、main/render/css 归另一路，合并态 tag `snapshot-merge-v04`；再遇到并发请按文件层分工，勿整文件 Write。
+## 当前版本：v0.4（2026-11-08，commit 59c78c5）
+- 12 项叙事/画面优化点全部闭环，详见 `docs/polish-notes.md`（含实现位置表 + bug 清单 + 验证方式）。
+- 系统：角色立绘（`js/portraits.js`，SVG 四人剪影 + 6 情绪光色）、结局徽章、对白跳过/上一句、遗物三件套（守誓之盾 −12% 承伤 / 断刃之锋 +6 攻 / 余烬灯芯击杀回血）。
+- 数值：升级攻+3/防+2/血+130；攻防训练递增定价（每次 +20）；贪心全清承伤 3588、终局剩 16%。平衡基准是「拿遗物」，无遗物会在塔顶被拦并提示回第 3 层补给。
+- 工程：静态层离屏预渲染（地板/墙/AO/红毯）、存档节流 + `ver` 版本号、每层入口快照（重来本层）。
+- 开发命令：`node tools/check.js` / `sim.js` / `engine-test.js`；截图/端到端用 `node tools/serve.js 8799 .` + `tools/shot.html?scene=flow`。
+- 并发教训：同一仓库被两路会话整文件写会互相清零；正确做法是先复制到临时目录构建、跑通后一次性同步（mtime + git status + md5 三重确认）。
 
 ## 当前进度（2026-11-07）
 - 原型 v0.1 已完成并上线：https://towermates.app.workbuddy.host/?sharecode=U7XMLC2NKJ
 - 技术形态：纯前端 HTML5（原生 JS + Canvas，零依赖），6 层塔可通关；data.js 数据驱动（11x11 字符串地图）。
 - 线上发布目录 publish/（只含 index.html + css + js）；源码根目录另有 tools/ 校验与模拟脚本。
-- 开发命令：`node tools/check.js` / `node tools/sim.js` / `node tools/engine-test.js`。
 - 注意：本地 git 无远端（无 gh CLI），推 GitHub 需用户提供仓库或凭据。
 
 ## 项目定位

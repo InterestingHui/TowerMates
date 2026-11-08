@@ -5,6 +5,7 @@
 </head>
 <body>
 <iframe id="f" style="width:430px;height:900px;border:0;display:block"></iframe>
+<script>if(location.search.indexOf("w=")>-1){var W=Number(new URLSearchParams(location.search).get("w"))||430;document.getElementById("f").style.width=W+"px";}</script>
 <pre id="err"></pre>
 <script>
   const q = new URLSearchParams(location.search);
@@ -12,12 +13,13 @@
   const f = document.getElementById('f');
   const errBox = document.getElementById('err');
   const errs = [];
+  const base = q.get('page') || '/index.html';
   const src = {
-    floor5: '/index.html?dev=1#demo=4,2,8',
-    battle: '/index.html?dev=1#demo=0,2,3',
-    shop: '/index.html?dev=1#demo=2,4,3',
-    tower: '/index.html?dev=1#demo=5,5,7',
-  }[scene] || '/index.html?dev=1';
+    floor5: base + '?dev=1#demo=4,2,8',
+    battle: base + '?dev=1#demo=0,2,3',
+    shop: base + '?dev=1#demo=2,4,3',
+    tower: base + '?dev=1#demo=5,5,7',
+  }[scene] || base + '?dev=1';
   f.src = src;
 
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
