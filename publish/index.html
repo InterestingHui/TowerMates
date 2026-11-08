@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#07090f">
 <title>TowerMates · 魔塔</title>
-<link rel="stylesheet" href="css/style.css?v=1.8.0">
+<link rel="stylesheet" href="css/style.css?v=1.9.0">
 </head>
 <body>
 <div id="app">
@@ -90,7 +90,7 @@
       </svg>
     </div>
     <div class="logo">TOWER<span>MATES</span></div>
-    <p class="sub">魔塔 · v1.8</p>
+    <p class="sub">魔塔 · v1.9</p>
     <p class="desc">第九位勇者的故事，从今夜开始。<br>塔里的事，没有一件是它看起来的样子。</p>
     <div class="ending-badges" id="endingBadges"></div>
     <p class="start-ember" id="startEmber"></p>
@@ -266,6 +266,18 @@
   </div>
 </div>
 
+<!-- 层阶之钥：跳层 -->
+<div class="overlay" id="gateOverlay">
+  <div class="gate-panel">
+    <div class="gate-kicker">层 阶 之 钥</div>
+    <p class="gate-desc">只认走过的路。没到过的楼层，钥匙也打不开。</p>
+    <div class="gate-list" id="gateList"></div>
+    <div class="actions" style="margin-top:12px">
+      <button class="btn" id="gateClose">合上钥匙</button>
+    </div>
+  </div>
+</div>
+
 <!-- 路遇 -->
 <div class="overlay" id="eventOverlay">
   <div class="event-panel">
@@ -349,12 +361,12 @@
   </div>
 </div>
 
-<script src="js/data.js?v=1.8.0"></script>
-<script src="js/story.js?v=1.8.0"></script>
-<script src="js/portraits.js?v=1.8.0"></script>
-<script src="js/achievements.js?v=1.8.0"></script>
-<script src="js/engine.js?v=1.8.0"></script>
-<script src="js/render.js?v=1.8.0"></script>
-<script src="js/main.js?v=1.8.0"></script>
+<script src="js/data.js?v=1.9.0"></script>
+<script src="js/story.js?v=1.9.0"></script>
+<script src="js/portraits.js?v=1.9.0"></script>
+<script src="js/achievements.js?v=1.9.0"></script>
+<script src="js/engine.js?v=1.9.0"></script>
+<script src="js/render.js?v=1.9.0"></script>
+<script src="js/main.js?v=1.9.0"></script>
 </body>
 </html>

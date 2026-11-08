@@ -175,6 +175,20 @@
         T.refreshHud();
         T.resolveBattle(0, -1);
         await wait(500);
+      } else if (scene === 'gate') {
+        d.getElementById('btnNew').click();
+        await wait(200);
+        const _vcg = d.querySelector('#vowCards .vow-card[data-vow="none"]');
+        if (_vcg) _vcg.click();
+        await wait(260);
+        const dlG2 = d.getElementById('dialogOverlay');
+        for (let i = 0; i < 8; i++) { dlG2.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
+        const sG2 = E.state();
+        sG2.flags.relic_gate = true;
+        sG2.flags.maxFloor = 4;
+        T.refreshHud();
+        T.openGate();
+        await wait(500);
       } else if (scene === 'vowbuy') {
         T.Meta.add(200);
         d.getElementById('btnNew').click();

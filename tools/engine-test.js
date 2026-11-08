@@ -201,6 +201,24 @@ ok(E.revealCore() === true && E.tile(9, 2) === 'u', '塔规 5 条后王座后露
 ok(E.state().maps[5][2][9] === 'u', '窄梯写进地图');
 ok(D.floors.length === 7 && D.floors[6].name === '锁芯', '第七层存在');
 
+// ---------- 9l. 层阶之钥：跳层 ----------
+E.newGame();
+s = E.state();
+ok(E.jumpTo(1).type === 'refuse', '没有钥匙时跳不了');
+s.flags.relic_gate = true;
+s.flags.maxFloor = 2;
+ok(E.visitedMax() === 2, '最远到过第 3 层');
+ok(E.jumpTo(4).type === 'refuse', '没到过的楼层跳不过去');
+ok(E.jumpTo(0).type === 'refuse', '不能原地跳');
+const jr = E.jumpTo(1);
+ok(jr.type === 'floor' && jr.jump === true, '跳层成功');
+ok(s.floor === 1, '真的到了第 2 层');
+ok(E.tile(s.x, s.y) === 'n', '落在该层的上楼口');
+ok(E.jumpTo(1).type === 'refuse', '同一层不能重复跳');
+s.flags.maxFloor = 0;
+s.floor = 0;
+ok(E.visitedMax() === 0, '旧存档没有 maxFloor 时按当前层算');
+
 // ---------- 9k. 余烬誓约（苦行 / 无名） ----------
 E.newGame('ascetic');
 s = E.state();

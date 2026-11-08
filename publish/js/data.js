@@ -9,7 +9,7 @@ window.GAME_DATA = (function () {
     y: '黄门', r: '红门',
     p: '红药水', P: '蓝药水', s: '铁剑', d: '铁盾', m: '力量宝石',
     k: '黄钥匙', L: '红钥匙', $: '金币', M: '商人', T: '公主', J: '工匠手记',
-    O: '守誓之盾', S: '断裂佩剑', X: '八个人的行李', K: '塔心石', '?': '路遇',
+    O: '守誓之盾', S: '断裂佩剑', X: '八个人的行李', K: '塔心石', '?': '路遇', Q: '层阶之钥',
   };
 
   // 统一色板：CSS 与 Canvas 共用同一套语义色
@@ -64,6 +64,7 @@ window.GAME_DATA = (function () {
     O: { name: '守誓之盾', emoji: '🛡️', type: 'relic', relic: 'ward' },
     S: { name: '断裂佩剑', emoji: '⚔️', type: 'relic', relic: 'edge', story: 'eighthSword' },
     K: { name: '塔心石', emoji: '💗', type: 'heart' },
+    Q: { name: '层阶之钥', emoji: '🗝️', type: 'relic', relic: 'gate', story: 'gateLore' },
   };
 
   // 遗物说明（HUD / 设置页 / 结算都用它）
@@ -77,6 +78,7 @@ window.GAME_DATA = (function () {
     vigor: { name: '磐的灯油', emoji: '🏺', short: '油', desc: '每次升级额外 +80 生命' },
     scout: { name: '无名之镜', emoji: '🔍', short: '镜', desc: '直接获得窥探之镜' },
     heart: { name: '塔心石', emoji: '💗', short: '心', desc: '生命上限 +300（带走时结算）' },
+    gate: { name: '层阶之钥', emoji: '🗝️', short: '钥', desc: '点遗物栏的它，就能跳到走过的楼层' },
   };
 
   // 祭坛的可选池（不含剧情固定的守誓之盾/断刃之锋）
@@ -97,7 +99,7 @@ window.GAME_DATA = (function () {
         '#..###....#',
         '#.@...B...#',
         '#..###....#',
-        '#....#..p.#',
+        '#Q...#..p.#',
         '#.s..#....#',
         '#....#.$u.#',
         '###########',

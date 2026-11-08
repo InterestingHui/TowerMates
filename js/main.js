@@ -275,6 +275,7 @@
     heartOverlay: $('heartOverlay'), heartTake: $('heartTake'), heartLeave: $('heartLeave'),
     vowOverlay: $('vowOverlay'), vowCards: $('vowCards'), vowTag: $('vowTag'),
     eventOverlay: $('eventOverlay'), evEmoji: $('evEmoji'), evName: $('evName'), evText: $('evText'), evOpts: $('evOpts'),
+    gateOverlay: $('gateOverlay'), gateList: $('gateList'),
     altarOverlay: $('altarOverlay'), altarCards: $('altarCards'),
     hitFlash: $('hitFlash'), hpGhost: $('hpGhost'), endScore: $('endScore'),
     toast: $('toast'), warnPill: $('warnPill'),
@@ -366,7 +367,7 @@
   }
 
   // ---------- HUD ----------
-  const RELIC_ORDER = ['ward', 'edge', 'ember', 'steel', 'thrift', 'vigor', 'scout', 'heart'];
+  const RELIC_ORDER = ['ward', 'edge', 'ember', 'steel', 'thrift', 'vigor', 'scout', 'gate', 'heart'];
   let relicSig = null;
   function renderRelicRow(s) {
     const owned = RELIC_ORDER.filter((id) => s && s.flags['relic_' + id]);
@@ -381,6 +382,8 @@
       const r = D.relics[id];
       return `<span class="relic on" data-relic="${id}" title="${r.name}：${r.desc}">${r.emoji}</span>`;
     }).join('');
+    const gateChip = el.relicRow.querySelector('.relic[data-relic="gate"]');
+    if (gateChip) gateChip.addEventListener('click', openGate);
   }
   function buildFloorDots() {
     el.floorDots.innerHTML = D.floors.map(() => '<i></i>').join('');
@@ -945,6 +948,35 @@
     refreshHud();
     const lore = S.relicLore && S.relicLore[id];
     if (lore) setTimeout(() => { if (!typing) playStory(lore); }, 260);
+  }
+
+  // ---------- 层阶之钥：跳层 ----------
+  function openGate() {
+    const s = Engine.state();
+    if (!s || !Engine.hasRelic('gate')) return;
+    const max = Engine.visitedMax();
+    el.gateList.innerHTML = D.floors.map((f, i) => {
+      const here = i === s.floor;
+      const locked = i > max;
+      const tip = here ? '你在这里' : locked ? '没到过' : '跳过去';
+      return `<button class="gate-row ${here ? 'here' : ''}" data-f="${i}" ${here || locked ? 'disabled' : ''}>
+        <b>${i + 1}</b><span>${f.name}</span><small>${tip}</small>
+      </button>`;
+    }).join('');
+    el.gateList.querySelectorAll('.gate-row').forEach((b) => {
+      b.addEventListener('click', () => doJump(Number(b.dataset.f)));
+    });
+    el.gateOverlay.classList.add('show');
+  }
+
+  function doJump(target) {
+    const res = Engine.jumpTo(target);
+    if (res.type !== 'floor') { warn(res.msg || '跳不了'); return; }
+    el.gateOverlay.classList.remove('show');
+    stopWalk();
+    Sound.play('door');
+    vibrate([8, 18, 8]);
+    enterFloor(false);
   }
 
   // ---------- 路遇 ----------
@@ -1552,6 +1584,7 @@
       refreshCfg();
       warn('已清空存档、成就与榜单');
     });
+    $('gateClose').addEventListener('click', () => el.gateOverlay.classList.remove('show'));
     $('btnAgain').addEventListener('click', () => {
       el.endOverlay.classList.remove('show');
       Engine.reset();
@@ -1611,7 +1644,7 @@
 
   // 遮罩是否完全盖住画布（盖住时暂停重绘）
   const FULL_OVERLAYS = ['startOverlay', 'dialogOverlay', 'shopOverlay', 'boardOverlay',
-    'codexOverlay', 'cfgOverlay', 'choiceOverlay', 'altarOverlay', 'heartOverlay', 'vowOverlay', 'eventOverlay', 'endOverlay'];
+    'codexOverlay', 'cfgOverlay', 'choiceOverlay', 'altarOverlay', 'heartOverlay', 'vowOverlay', 'eventOverlay', 'gateOverlay', 'endOverlay'];
   function covered() {
     for (const id of FULL_OVERLAYS) {
       if (el[id] && el[id].classList.contains('show')) return true;
@@ -1739,7 +1772,7 @@
   // 开发/自动化用：暴露少量内部入口，便于截图与回归（不影响正常玩法）
   window.__tm = {
     playStory, showEnd, openShop, openCodex, openBoard, openCfg, closeCfg,
-    showFloorCard, showEndingChoice, completeEnding, setChoiceFocus, openHeart, chooseHeart, setHeartFocus, openVow, chooseVow, openEvent, chooseEvent, Meta,
+    showFloorCard, showEndingChoice, completeEnding, setChoiceFocus, openHeart, chooseHeart, setHeartFocus, openVow, chooseVow, openEvent, chooseEvent, openGate, jumpTo: (i) => doJump(i), Meta,
     resolveBattle, act, refreshHud, refreshStartBadges,
   };
 

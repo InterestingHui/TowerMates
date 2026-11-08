@@ -158,6 +158,7 @@
       }
     }
     s.x = nx; s.y = ny;
+    s.flags.maxFloor = Math.max(s.flags.maxFloor || 0, target);
     // 慈悲之誓：往上走一层回 12% 生命（下楼不触发，免得来回刷）
     let heal = 0;
     if (dir > 0 && vow() === 'mercy') {
@@ -364,6 +365,39 @@
     else if (g.type === 'hpAbove') ok = s.hp >= (s.maxHp || 1) * g.v;
     s.flags['goal_' + s.floor] = ok;
     s.flags['goalKills_' + s.floor] = kills;
+  }
+
+  // ---------- 层阶之钥：在走过的楼层之间跳 ----------
+  function visitedMax() {
+    if (!s) return 0;
+    return Math.max(s.flags.maxFloor || 0, s.floor);
+  }
+
+  function jumpTo(target) {
+    if (!s) return { type: 'refuse', msg: '没有进行游戏' };
+    if (!hasRelic('gate')) return { type: 'refuse', msg: '你没有层阶之钥' };
+    if (target < 0 || target >= D.floors.length) return { type: 'refuse', msg: '没有那一层' };
+    if (target > visitedMax()) return { type: 'refuse', msg: '你还没走到那一层' };
+    if (target === s.floor) return { type: 'refuse', msg: '你就在这一层' };
+    settleFloor();
+    s.floor = target;
+    const map = s.maps[target];
+    let pos = null;
+    for (let y = 0; y < SIZE && !pos; y++) {
+      for (let x = 0; x < SIZE; x++) if (map[y][x] === 'n') { pos = { x, y }; break; }
+    }
+    if (!pos) {
+      for (let y = 0; y < SIZE && !pos; y++) {
+        for (let x = 0; x < SIZE; x++) if (map[y][x] === 'u') { pos = { x, y }; break; }
+      }
+    }
+    if (pos) { s.x = pos.x; s.y = pos.y; }
+    save();
+    return {
+      type: 'floor', dir: 0, jump: true,
+      msg: `层阶之钥：第 ${target + 1} 层 · ${D.floors[target].name}`,
+      at: { floor: target, x: s.x, y: s.y, heal: 0 },
+    };
   }
 
   // ---------- 路遇：踩到 '?' 从池子里随机抽一个 ----------
@@ -740,6 +774,6 @@
       return D.monsters[ch] ? predict(ch) : null;
     },
     tryMove, fight, canBlock, buy, priceOf, finish, altarChoices, pickRelic, pathTo, pathThrough, pathToNear,
-    nextLevelExp, keyName, summary, hasRelic, ownedRelics, beginFloor, restoreFloor, goalStatus, settleFloor, revealCore, heartState, heartTake, heartLeave, vow, pickEvent, eventPool, eventCost, resolveEvent, applyEffect,
+    nextLevelExp, keyName, summary, hasRelic, ownedRelics, beginFloor, restoreFloor, goalStatus, settleFloor, revealCore, heartState, heartTake, heartLeave, vow, pickEvent, eventPool, eventCost, resolveEvent, applyEffect, jumpTo, visitedMax,
   };
 })();

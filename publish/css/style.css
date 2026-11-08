@@ -1312,3 +1312,55 @@ html, body {
   border-radius: 20px;
   padding: 1px 7px;
 }
+
+/* ---------- 层阶之钥（跳层） ---------- */
+#gateOverlay {
+  background:
+    radial-gradient(105% 75% at 50% 40%, rgba(30, 38, 52, 0.6), rgba(5, 5, 8, 0) 72%),
+    #040507;
+}
+.gate-panel {
+  width: 100%;
+  max-width: 430px;
+  padding: 20px 16px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(232, 196, 106, 0.18);
+  background: linear-gradient(180deg, rgba(20, 22, 28, 0.95), rgba(8, 9, 13, 0.97));
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.65);
+  text-align: center;
+  animation: popIn 0.26s ease-out;
+}
+.gate-kicker { font-size: 11px; letter-spacing: 8px; color: var(--gold); }
+.gate-desc { font-size: 11px; line-height: 1.8; color: var(--muted); margin: 8px 0 13px; }
+.gate-list { display: flex; flex-direction: column; gap: 6px; }
+.gate-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 11px;
+  border: 1px solid rgba(232, 196, 106, 0.22);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.16s;
+}
+.gate-row b {
+  font-family: Georgia, serif;
+  font-size: 15px;
+  color: var(--gold);
+  min-width: 18px;
+  text-align: center;
+}
+.gate-row span { flex: 1; }
+.gate-row small { font-size: 10px; color: var(--dim); }
+.gate-row:hover:not(:disabled) { border-color: rgba(232, 196, 106, 0.66); transform: translateX(3px); }
+.gate-row.here { border-color: rgba(232, 196, 106, 0.55); background: rgba(232, 196, 106, 0.1); }
+.gate-row.here small { color: var(--gold); }
+.gate-row:disabled { cursor: default; }
+.gate-row:disabled:not(.here) { opacity: 0.34; }
+.relic.on[data-relic="gate"] { cursor: pointer; }
+.relic.on[data-relic="gate"]:hover { transform: scale(1.14); }
