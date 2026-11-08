@@ -1,5 +1,10 @@
 # TowerMates 长期记忆
 
+## 当前版本：v0.4.0（2026-11-08）
+- 12 项叙事/画面优化点已全部闭环，详见 `docs/polish-notes.md`。
+- 新增系统：角色立绘（`js/portraits.js`，SVG+情绪光色）、结局收集徽章、对白跳过、遗物三件套（守誓之盾/断刃之锋/余烬灯芯）。
+- 双会话曾并行改同一仓库：data/story 归一路、main/render/css 归另一路，合并态 tag `snapshot-merge-v04`；再遇到并发请按文件层分工，勿整文件 Write。
+
 ## 当前进度（2026-11-07）
 - 原型 v0.1 已完成并上线：https://towermates.app.workbuddy.host/?sharecode=U7XMLC2NKJ
 - 技术形态：纯前端 HTML5（原生 JS + Canvas，零依赖），6 层塔可通关；data.js 数据驱动（11x11 字符串地图）。
