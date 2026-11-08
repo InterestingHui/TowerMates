@@ -119,6 +119,16 @@
         await wait(200);
         T.openCfg();
         await wait(400);
+      } else if (scene === 'altar5') {
+        d.getElementById('btnNew').click();
+        await wait(250);
+        const dlB = d.getElementById('dialogOverlay');
+        for (let i = 0; i < 8; i++) { dlB.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
+        const sB = E.state();
+        sB.floor = 4; sB.x = 8; sB.y = 1;
+        T.refreshHud();
+        T.act(1, 0);
+        await wait(600);
       } else if (scene === 'altar') {
         d.getElementById('btnNew').click();
         await wait(250);

@@ -570,6 +570,11 @@
       Engine.save();
       Sound.stopMusic();
     }
+    if (res.damage > 0 && (!s2.flags.worstHit || res.damage > s2.flags.worstHit)) {
+      s2.flags.worstHit = res.damage;
+      s2.flags.worstName = res.monster.name;
+      Engine.save();
+    }
     Achievements.evaluate('kill', s2, notifyAchievement);
     refreshHud();
   }
@@ -681,14 +686,19 @@
   // ---------- 祭坛：三选一 ----------
   function openAltar() {
     const s = Engine.state();
-    const choices = Engine.altarChoices();
+    const choices = Engine.altarChoices(s.floor >= 4 ? 2 : 3);
     if (!choices.length) {
       s.flags.altar = true;
+      s.flags['altar_f' + s.floor] = true;
+      if (Engine.tile(s.x, s.y) === 'X') Engine.state().maps[s.floor][s.y][s.x] = '.';
       Engine.save();
       log('行李里已经空了，只剩灰。');
       refreshHud();
       return;
     }
+    document.querySelector('#altarOverlay .altar-desc').innerHTML = s.floor >= 4
+      ? '这一堆还没人动过：一双铁腕、半瓶灯油、一本没写完的账。<br>你只能带走一件。'
+      : '八个人留下的东西堆在墙角：卷刃的剑、干粮、泡烂的账册。<br>你只能带走一件。';
     el.altarCards.innerHTML = choices.map((id) => {
       const r = D.relics[id];
       return `<button class="altar-card" data-id="${id}">
@@ -755,6 +765,7 @@
     sc += relicCount * 80;
     sc -= Math.round(sum.steps * 0.25);
     sc -= Math.round(sum.time * 0.15);
+    sc -= (s.flags.retries || 0) * 80;
     return Math.max(0, Math.round(sc));
   }
   const gradeOf = (sc) => (sc >= 1550 ? 'S' : sc >= 1200 ? 'A' : sc >= 850 ? 'B' : 'C');
@@ -789,6 +800,18 @@
     $('endScore').innerHTML = `<span class="es-grade ${grade}">${grade}</span>
       <span class="es-meta">${s.ending === 'true' ? '真结局' : '普通结局'} · 残血 ${hpPct}% · 击杀 ${s.flags.killCount || 0} · 遗物 ${relicIds.length}</span>
       <span class="es-num">${sc}<small>分</small></span>`;
+    const TAG = {
+      S: '六盏灯全亮。这一趟，你没欠谁。',
+      A: '活得不算漂亮。但你活着下来了。',
+      B: '你带走了塔的一半秘密。',
+      C: '塔记住了你的名字——仅此而已。',
+    };
+    $('endTag').textContent = TAG[grade] || '';
+    const brief = [];
+    brief.push(`带走 ${relicIds.length} 件遗物 · 击杀 ${s.flags.killCount || 0} 只`);
+    if (s.flags.worstHit) brief.push(`最狠的一场：${s.flags.worstName} −${s.flags.worstHit}`);
+    brief.push(s.flags.retries ? `重来本层 ${s.flags.retries} 次` : '一次没回头');
+    $('endBrief').innerHTML = brief.map((t) => `<span>${t}</span>`).join('');
     $('endStats').innerHTML = `
       <div>结局 <b>${endName(s.ending)}</b></div>
       <div>最终等级 <b>Lv.${sum.level}</b></div>
@@ -1178,6 +1201,8 @@
       Renderer.setAmbient(s.floor);
       Renderer.fade(420);
       refreshHud();
+      s.flags.retries = (s.flags.retries || 0) + 1;
+      Engine.save();
       log(`退回第 ${s.floor + 1} 层入口`, 'gold');
       warn('已退回本层入口');
     });

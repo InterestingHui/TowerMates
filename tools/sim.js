@@ -62,14 +62,20 @@ function applyItem(ch) {
   }
 }
 
-// 祭坛：模拟"最稳的一手"——拿鸦的铁腕（+3 攻 +3 防）
-function altar() {
-  if (!USE_RELIC || s.flags.altar) return;
-  s.flags.altar = true;
-  s.flags.relic_steel = true;
-  s.atk += 3;
-  s.def += 3;
-  console.log('  ◈ 祭坛：鸦的铁腕（攻 +3 / 防 +3）');
+// 祭坛：模拟"最稳的两手"——第 3 层拿铁腕，第 5 层拿灯油
+function altar(fi) {
+  const key = 'altar_f' + fi;
+  if (!USE_RELIC || s.flags[key]) return;
+  s.flags[key] = true;
+  if (fi < 4) {
+    s.flags.relic_steel = true;
+    s.atk += 3;
+    s.def += 3;
+    console.log('  ◈ 祭坛：鸦的铁腕（攻 +3 / 防 +3）');
+  } else {
+    s.flags.relic_vigor = true;
+    console.log('  ◈ 祭坛：磐的灯油（升级额外 +80 生命）');
+  }
 }
 
 // 商店：只在有商人的层（第 3 层）把金币换成成长
@@ -125,7 +131,7 @@ function floorLoop(fi) {
     let picked = 0;
     for (const [x, y] of cells) {
       const ch = s.maps[s.floor][y][x];
-      if (ch === 'X') { altar(); s.maps[s.floor][y][x] = '.'; picked++; continue; }
+      if (ch === 'X') { altar(fi); s.maps[s.floor][y][x] = '.'; picked++; continue; }
       if (ch === '$' || D.items[ch]) {
         applyItem(ch);
         s.maps[s.floor][y][x] = '.';

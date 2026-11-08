@@ -944,3 +944,29 @@ html, body {
   .altar-card { min-height: 158px; padding: 12px 5px; }
   .altar-card .ac-name { font-size: 11.5px; }
 }
+
+/* ---------- 结局尾注与战报 ---------- */
+.end-tag {
+  margin: 0 0 8px;
+  font-size: 12px;
+  line-height: 1.7;
+  color: #d9cba6;
+  letter-spacing: 0.5px;
+  text-align: center;
+}
+.end-brief {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  justify-content: center;
+  margin-bottom: 9px;
+}
+.end-brief span {
+  font-size: 10px;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 20px;
+  padding: 3px 8px;
+  white-space: nowrap;
+}

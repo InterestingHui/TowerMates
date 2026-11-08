@@ -121,6 +121,17 @@ ok(pick.type === 'relic' && s.atk === atkA + 3 && s.def === defA + 3, '鸦的铁
 ok(s.flags.altar === true && E.tile(8, 8) === '.', '祭坛拿走一次后清空');
 ok(E.pickRelic('steel').type === 'refuse', '同一件不能拿两次');
 
+// ---------- 9b2. 第二座祭坛（第 5 层，二选一） ----------
+E.newGame();
+s = E.state();
+s.floor = 4; s.x = 8; s.y = 1;
+ev = E.tryMove(1, 0);
+ok(ev.type === 'altar', '第 5 层的行李堆同样触发三选一');
+ok(E.altarChoices(2).length === 2, '第 5 层只给 2 个选择');
+const pick2 = E.pickRelic(E.altarChoices(2)[0]);
+ok(pick2.type === 'relic' && s.flags['altar_f4'] === true, '第二座祭坛的标记独立');
+ok(!s.flags.altar_f2, '拿第 5 层的不会用掉第 3 层的');
+
 // ---------- 9c. 岚的账本 / 磐的灯油 / 无名之镜 ----------
 E.newGame();
 s = E.state();

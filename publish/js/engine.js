@@ -266,7 +266,7 @@
 
     if (ch === 'X') {
       moveTo(nx, ny);
-      if (s.flags.altar) { saveSoon(); return { type: 'move' }; }
+      if (s.flags['altar_f' + s.floor]) { saveSoon(); return { type: 'move' }; }
       save();
       return { type: 'altar' };
     }
@@ -371,14 +371,14 @@
   }
 
   // ---------- 祭坛：前八位勇者的行李，三选一 ----------
-  function altarChoices() {
+  function altarChoices(count) {
     if (!s) return [];
     const pool = D.altarPool.filter((id) => !hasRelic(id));
     for (let i = pool.length - 1; i > 0; i--) {
       const j = (Math.random() * (i + 1)) | 0;
       const t = pool[i]; pool[i] = pool[j]; pool[j] = t;
     }
-    return pool.slice(0, 3);
+    return pool.slice(0, Math.max(1, count || 3));
   }
 
   function pickRelic(id) {
@@ -389,6 +389,7 @@
     if (id === 'steel') { s.atk += 3; s.def += 3; }
     if (id === 'scout') s.flags.codex = true;
     s.flags.altar = true;
+    s.flags['altar_f' + s.floor] = true;
     if (tile(s.x, s.y) === 'X') setTile(s.x, s.y, '.');
     save();
     const r = D.relics[id];
