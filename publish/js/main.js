@@ -121,7 +121,7 @@
     }
     // 深层垫音：越往上基频越低，塔顶最沉
     function setPad(floor) {
-      const f = { 3: 55, 4: 49, 5: 43.65 }[floor] || 0;
+      const f = { 3: 55, 4: 49, 5: 43.65, 6: 41.2 }[floor] || 0;
       if (!Settings.sfx || !f) { stopPad(); return; }
       if (pad && pad.freq === f) return;
       stopPad();
@@ -631,6 +631,17 @@
       s2.flags.bossKilled = true;
       Engine.save();
       Sound.stopMusic();
+      if (Engine.revealCore()) {
+        log('王座后面露出一段窄梯，往上还有一层。', 'gold');
+        warn('塔规足够：王座后露出一段窄梯');
+        Renderer.ring(9, 2, 'rgba(255,225,150,0.9)', TN() * 2.4, 720);
+        Renderer.burst(9 * TN() + TN() / 2, 2 * TN() + TN() / 2, {
+          count: 16, colors: ['#ffe6a8', '#ffd27d'], speed: 110, life: [500, 900],
+        });
+        Sound.play('relic');
+      } else {
+        log('王座后面像是有一道缝，但你看不出门道。', 'warn');
+      }
     }
     if (res.damage > 0 && (!s2.flags.worstHit || res.damage > s2.flags.worstHit)) {
       s2.flags.worstHit = res.damage;
@@ -828,6 +839,7 @@
     sc += (s.flags.killCount || 0) * 20;
     sc += relicCount * 80;
     sc += (goalDone || 0) * 60;
+    if (s.flags.coreClear) sc += 200;
     sc -= Math.round(sum.steps * 0.25);
     sc -= Math.round(sum.time * 0.15);
     sc -= (s.flags.retries || 0) * 80;
@@ -856,7 +868,7 @@
     $('endTitle').textContent = E.title;
     $('endDesc').textContent = E.desc;
     $('endBody').textContent = E.body;
-    $('endEpi').textContent = E.epilogue || '';
+    $('endEpi').textContent = (E.epilogue || '') + (s.flags.coreClear && E.core ? ' ' + E.core : '');
     const relicIds = Engine.ownedRelics();
     const relics = relicIds.map((id) => D.relics[id].short).join(' ') || '无';
     const gs = Engine.goalStatus();
@@ -1048,6 +1060,12 @@
       Engine.save();
       Achievements.evaluate('floor', s, notifyAchievement);
       playStory('candle2');
+      return;
+    }
+    if (s.floor === 6 && !s.flags.core) {
+      s.flags.core = true;
+      Engine.save();
+      playStory('core');
       return;
     }
     if (s.floor === 4 && !s.flags.solo5) {

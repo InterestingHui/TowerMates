@@ -333,6 +333,16 @@
     s.flags['goalKills_' + s.floor] = kills;
   }
 
+  // 塔规达成 5 条以上时，击败魔王后王座后露出窄梯
+  function revealCore() {
+    if (!s || s.floor !== 5) return false;
+    if (goalStatus().done < 5) return false;
+    if (tile(9, 2) === 'u') return true;
+    setTile(9, 2, 'u');
+    save();
+    return true;
+  }
+
   function goalStatus() {
     const list = D.floorGoals.map((g, i) => ({
       floor: i,
@@ -376,6 +386,7 @@
       heal = Math.min(Math.max(4, Math.floor((s.maxHp || s.hp) * 0.02)), Math.max(0, s.maxHp - s.hp));
       s.hp += heal;
     }
+    if (s.floor === D.floors.length - 1 && !floorHasMonster()) s.flags.coreClear = true;
     const ups = levelUp();
     save();
     emit('kill', { name: m.name, boss: !!m.boss });
@@ -595,6 +606,6 @@
       return D.monsters[ch] ? predict(ch) : null;
     },
     tryMove, fight, buy, priceOf, finish, altarChoices, pickRelic, pathTo, pathThrough, pathToNear,
-    nextLevelExp, keyName, summary, hasRelic, ownedRelics, beginFloor, restoreFloor, goalStatus, settleFloor,
+    nextLevelExp, keyName, summary, hasRelic, ownedRelics, beginFloor, restoreFloor, goalStatus, settleFloor, revealCore,
   };
 })();

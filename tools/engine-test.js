@@ -191,6 +191,16 @@ ok(s.flags.goal_5 === true, '第 6 层：满血收尾 → 规矩达成');
 const gs = E.goalStatus();
 ok(gs.total === 6 && gs.list.length === 6, '塔规面板共 6 条');
 
+// ---------- 9e. 隐藏门「锁芯」 ----------
+E.newGame();
+s = E.state();
+s.floor = 5;
+ok(E.revealCore() === false, '塔规不足时王座后面没有路');
+for (let g = 0; g < 5; g++) s.flags['goal_' + g] = true;
+ok(E.revealCore() === true && E.tile(9, 2) === 'u', '塔规 5 条后王座后露出窄梯');
+ok(E.state().maps[5][2][9] === 'u', '窄梯写进地图');
+ok(D.floors.length === 7 && D.floors[6].name === '锁芯', '第七层存在');
+
 // ---------- 10. 首见魔王先对白 ----------
 E.newGame();
 s = E.state();
@@ -258,6 +268,11 @@ for (let fi = 0; fi < D.floors.length - 1; fi++) {
   const map = s.maps[fi];
   let ux = -1, uy = -1;
   for (let y = 0; y < 11; y++) for (let x = 0; x < 11; x++) if (map[y][x] === 'u') { ux = x; uy = y; }
+  if (ux < 0 && D.floors[fi].hiddenGate) {
+    for (let g = 0; g < 5; g++) s.flags['goal_' + g] = true;
+    E.revealCore();
+    for (let y = 0; y < 11; y++) for (let x = 0; x < 11; x++) if (map[y][x] === 'u') { ux = x; uy = y; }
+  }
   if (ux < 0) { console.log(`✗ 第 ${fi + 1} 层没有上楼`); chainOk = false; break; }
   let px = -1, py = -1;
   for (const [dx, dy] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
@@ -274,7 +289,7 @@ for (let fi = 0; fi < D.floors.length - 1; fi++) {
     break;
   }
 }
-ok(chainOk, '六层塔每一层都能正常上楼（无断层）');
+ok(chainOk, '七层塔每一层都能正常上楼（含隐藏门）');
 
 // ---------- 17. 剧情文本完整性 ----------
 const S = global.STORY;

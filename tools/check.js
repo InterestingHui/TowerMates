@@ -23,7 +23,8 @@ D.floors.forEach((f, fi) => {
   if (fi === 0 && counts['@'] !== 1) err('第一层应有且仅有 1 个 @');
   if (fi > 0 && counts['@']) err('只有第一层能有 @');
   // 每一层（除顶层）都必须有且仅有 1 个上楼，否则会卡层
-  if (fi < D.floors.length - 1 && counts['u'] !== 1) err(`应有且仅有 1 个上楼 u（实际 ${counts['u'] || 0}）`);
+  if (fi < D.floors.length - 1 && !f.hiddenGate && counts['u'] !== 1) err(`应有且仅有 1 个上楼 u（实际 ${counts['u'] || 0}）`);
+  if (f.hiddenGate && counts['u']) err('隐藏门层的上楼应由脚本生成，不应写在地图里');
   if (fi > 0 && counts['n'] !== 1) err(`应有且仅有 1 个下楼 n（实际 ${counts['n'] || 0}）`);
   if (fi === D.floors.length - 1 && counts['u']) err('顶层不应有上楼');
   if (fi === 0 && counts['n']) err('第一层不应有下楼');

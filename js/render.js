@@ -105,11 +105,12 @@
   }
 
   // ---------- 楼层配置 ----------
-  const FLOOR_MOOD = [0.13, 0.16, 0.19, 0.25, 0.29, 0.37];
-  const WALL_MAT = ['brick', 'brick', 'stone', 'wet', 'stone', 'charred'];
+  const FLOOR_MOOD = [0.13, 0.16, 0.19, 0.25, 0.29, 0.37, 0.43];
+  const WALL_MAT = ['brick', 'brick', 'stone', 'wet', 'stone', 'charred', 'wet'];
 
   function setAmbient(floorIndex, map) {
-    ambient = { mode: floorIndex === 5 ? 'boss' : floorIndex === 3 ? 'mist' : 'torch', embers: [], spawnAcc: 0 };
+    const mode = floorIndex === 5 ? 'boss' : (floorIndex === 3 || floorIndex === 6) ? 'mist' : 'torch';
+    ambient = { mode, embers: [], spawnAcc: 0 };
     lastFloor = floorIndex;
     torchList = [];
     if (!map && window.Engine && window.Engine.state()) {
