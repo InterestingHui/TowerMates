@@ -458,5 +458,60 @@ ok(S.bossJu.some((l) => String(l[1]).includes('肩上')), '魔王提到薇拉小
 ok(S.merchant.some((l) => String(l[1]).includes('铜币')), '三十枚铜币移到商人台词');
 ok(!!S.endingTrue.epilogue && !!S.endingPlain.epilogue, '两个结局都有后日谈');
 
+// ---------- 18. v2.1 章末回响 / 锁环 / Boss 台词池 ----------
+E.newGame();
+s = E.state();
+ok(Array.isArray(s.flags.rings) && s.flags.rings.length === 0, '新局锁环为空');
+ok(typeof s.flags.phaseSeed === 'number', '每局有独立的 Boss 台词种子');
+
+s.floor = 2;
+s.floorEnter = { floor: 2, kills: 0, shop: 0, hp: s.hp, maxHp: s.maxHp };
+s.flags.goal_0 = true; s.flags.goal_1 = true; s.flags.goal_2 = true;
+const echo = E.settleChapter(1);
+ok(echo && echo.done === 3 && echo.bonus === 300, '三条塔规全达成 → 章回响 +300 分');
+ok(echo.pending === true, '达成两条以上才开锁环三选一');
+const ringOpts = s.flags['ringChoices_1'] || [];
+ok(ringOpts.length === 3 && ringOpts.every((id) => D.rings[id]), '锁环候选恰好三枚且都已定义');
+ok(E.pendingRing() === 1, '未选完的锁环刷新后仍可继续');
+const ringGold0 = s.gold;
+const picked = E.pickRing(ringOpts[0]);
+ok(picked.type === 'ring' && E.rings().length === 1, '选中的锁环写入存档');
+ok(E.pendingRing() === null, '选完锁环后待办清除');
+if (ringOpts[0] === 'coin') ok(s.gold === ringGold0 + 200, '铜币之环立即发 200 金');
+
+s.flags.rings = ['parry'];
+s.atk = 60; s.def = 30; s.hp = 5000; s.maxHp = 5000;
+ok(E.ringBlockScale() === 0.5, '断刃之环把格挡比例改成 0.5');
+const dBase = E.fightDamage('F', false).damage;
+ok(E.fightDamage('F', true).damage === Math.round(dBase * 0.5), '演出用的真实承伤与格挡比例一致');
+ok(dBase === E.predict('F').damage, '无修正时真实承伤等于预测承伤');
+ok(E.hasRing('parry') && E.rings().indexOf('parry') >= 0, '锁环查询接口一致');
+
+const ph = E.bossPhases('N');
+ok(Array.isArray(ph) && ph.length === 2 && !!ph[0].title && !!ph[1].text, 'Boss 每局抽两段阶段台词');
+ok(E.bossPhases('N') === ph, '同一局重复取到的台词组合不变');
+
+E.newGame();
+s = E.state();
+s.floorEnter = { floor: 0, kills: 0, shop: 0, hp: s.hp, maxHp: s.maxHp };
+const gp = E.goalPreview();
+ok(gp && typeof gp.text === 'string' && typeof gp.ok === 'boolean', '本层规矩可实时预览');
+ok(s.flags.goal_0 === undefined, '实时预览不会提前写结算标记');
+
+// Boss 击败 → 章末回响的完整链路（不是只测结算函数）
+E.newGame();
+s = E.state();
+s.floor = 2; s.x = 5; s.y = 6;
+s.atk = 80; s.def = 40; s.hp = 6000; s.maxHp = 6000;
+s.floorEnter = { floor: 2, kills: 0, shop: 0, hp: s.hp, maxHp: s.maxHp };
+s.flags.boss_seen_N = true;
+s.flags.goal_0 = true; s.flags.goal_1 = true;
+const bossRes = E.fight(0, -1);
+ok(bossRes.type === 'fight' && bossRes.boss, 'Boss 砚可正常击败');
+ok(bossRes.echo && bossRes.echo.chapter === 1, 'Boss 击败会返回本章回响');
+ok(bossRes.echo.done === 3 && bossRes.echo.pending === true, '章末层在 Boss 倒下时提前结算并开三选一');
+ok(s.flags.goalLocked_2 === true, '章末层塔规已锁定，之后吃药不会改判');
+ok(s.flags.echoScore === 300, '章回响奖分写进存档');
+
 console.log(fail === 0 ? '\n✓ 全部通过' : `\n✗ ${fail} 项失败`);
 process.exit(fail ? 1 : 0);

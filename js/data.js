@@ -66,6 +66,17 @@ window.GAME_DATA = (function () {
         { at: 0.66, n: 2, title: '第二页 · 名字', text: '砚：这一页写的是你。别急着看结尾。' },
         { at: 0.33, n: 3, title: '第三页 · 空行', text: '砚：空着的那一行，本来该是我。' },
       ],
+      // 每局从两个池各抽一段：同一局固定，换一局台词组合不同
+      phasePool: {
+        p2: [
+          { at: 0.66, n: 2, title: '第二页 · 名字', text: '砚：这一页写的是你。别急着看结尾。' },
+          { at: 0.66, n: 2, title: '第二页 · 墨', text: '砚：墨还没干。你来得比账期早了三天。' },
+        ],
+        p3: [
+          { at: 0.33, n: 3, title: '第三页 · 空行', text: '砚：空着的那一行，本来该是我。' },
+          { at: 0.33, n: 3, title: '第三页 · 划掉', text: '砚：划掉一个名字，塔就会再向镇上要一个。' },
+        ],
+      },
     },
     Z: {
       name: '魔王', emoji: '🐉', hp: 480, atk: 99, def: 22, gold: 300, exp: 180, boss: true, kind: '锁',
@@ -75,6 +86,16 @@ window.GAME_DATA = (function () {
         { at: 0.66, n: 2, title: '第二道锁 · 裂', text: '魔王：别把我想成一道门。门后面还有东西。' },
         { at: 0.33, n: 3, title: '第三道锁 · 塔心', text: '魔王：再近一点，你就看得见她的名字了。' },
       ],
+      phasePool: {
+        p2: [
+          { at: 0.66, n: 2, title: '第二道锁 · 裂', text: '魔王：别把我想成一道门。门后面还有东西。' },
+          { at: 0.66, n: 2, title: '第二道锁 · 锈', text: '魔王：锈是从名字开始的。先是笔迹，然后是人。' },
+        ],
+        p3: [
+          { at: 0.33, n: 3, title: '第三道锁 · 塔心', text: '魔王：再近一点，你就看得见她的名字了。' },
+          { at: 0.33, n: 3, title: '第三道锁 · 放手', text: '魔王：别替我难过。我只是先一步被用完了。' },
+        ],
+      },
     },
     Y: {
       name: '铎', emoji: '🔔', hp: 780, atk: 120, def: 40, gold: 420, exp: 200, boss: true, kind: '锁',
@@ -84,6 +105,16 @@ window.GAME_DATA = (function () {
         { at: 0.66, n: 2, title: '第二声 · 钟', text: '铎：钟响第二声，镇上就该点灯了。' },
         { at: 0.33, n: 3, title: '第三声 · 停', text: '铎：你听——停了。三百年第一次停。' },
       ],
+      phasePool: {
+        p2: [
+          { at: 0.66, n: 2, title: '第二声 · 钟', text: '铎：钟响第二声，镇上就该点灯了。' },
+          { at: 0.66, n: 2, title: '第二声 · 数', text: '铎：我数过。每一次，都比上一次短一点。' },
+        ],
+        p3: [
+          { at: 0.33, n: 3, title: '第三声 · 停', text: '铎：你听——停了。三百年第一次停。' },
+          { at: 0.33, n: 3, title: '第三声 · 债', text: '铎：钟可以停。欠下的那些年，不会自己回来。' },
+        ],
+      },
     },
     U: {
       name: '衡', emoji: '🪶', hp: 1400, atk: 158, def: 52, gold: 600, exp: 260, boss: true, kind: '锁',
@@ -93,6 +124,16 @@ window.GAME_DATA = (function () {
         { at: 0.66, n: 2, title: '第二刀 · 深', text: '衡：刻深一点。浅了，三百年就磨平了。' },
         { at: 0.33, n: 3, title: '第三刀 · 名', text: '衡：最后一行，你打算写谁？' },
       ],
+      phasePool: {
+        p2: [
+          { at: 0.66, n: 2, title: '第二刀 · 深', text: '衡：刻深一点。浅了，三百年就磨平了。' },
+          { at: 0.66, n: 2, title: '第二刀 · 空', text: '衡：那一笔停了三百年。我每天替它掸一次灰。' },
+        ],
+        p3: [
+          { at: 0.33, n: 3, title: '第三刀 · 名', text: '衡：最后一行，你打算写谁？' },
+          { at: 0.33, n: 3, title: '第三刀 · 交', text: '衡：刀快，石头软。难的从来不是刻，是选。' },
+        ],
+      },
     },
     G: { name: '烛', emoji: '🕯️', hp: 50, atk: 0, def: 5, gold: 0, exp: 0, ghost: true, kind: '魂' },
   };
@@ -133,6 +174,40 @@ window.GAME_DATA = (function () {
 
   // 祭坛的可选池（不含剧情固定的守誓之盾/断刃之锋）
   const altarPool = ['steel', 'thrift', 'vigor', 'scout', 'ember'];
+
+  // ---------- 锁环：章末回响的构筑奖励 ----------
+  // 规则：击败章末 Boss 时结算该章 3 条塔规，达成 ≥2 条才能三选一。
+  // 刻意不做「直接 +攻防」：这座塔的余量极小，加战力会打穿曲线；
+  // 锁环改的是规则、资源与信息，让「认真做塔规」变成一条构筑路线。
+  const rings = {
+    ledger:   { name: '名册之环', emoji: '📖', short: '册', chapter: 1, desc: '每条塔规额外 +25 分' },
+    lamp:     { name: '借灯之环', emoji: '🕯️', short: '灯', chapter: 1, desc: '每上一层回复 5% 生命' },
+    coin:     { name: '铜币之环', emoji: '🪙', short: '币', chapter: 1, desc: '立刻获得 200 金币' },
+    keyring:  { name: '钥匙之环', emoji: '🔑', short: '钥', chapter: 1, desc: '立刻获得 2 黄钥匙、1 红钥匙' },
+
+    parry:    { name: '断刃之环', emoji: '⚔️', short: '刃', chapter: 2, desc: '格挡时承伤 ×0.5（原 ×0.6）' },
+    cinder:   { name: '灰烬之环', emoji: '🔥', short: '烬', chapter: 2, desc: '每次击杀回复 1% 生命（至少 3）' },
+    thrift2:  { name: '账期之环', emoji: '📒', short: '账', chapter: 2, desc: '商店价格再 −15%' },
+    vitality: { name: '灯油之环', emoji: '🏺', short: '油', chapter: 2, desc: '生命上限 +240，并回复 240' },
+
+    bell:     { name: '停钟之环', emoji: '🔔', short: '钟', chapter: 3, desc: 'Boss 战承伤 −8%' },
+    stair:    { name: '回廊之环', emoji: '🪜', short: '廊', chapter: 3, desc: '每上一层额外回复 4% 生命' },
+    scope:    { name: '明镜之环', emoji: '🔍', short: '镜', chapter: 3, desc: '立刻获得窥探之镜' },
+    hour:     { name: '时辰之环', emoji: '⏳', short: '时', chapter: 3, desc: '结算的用时扣分减半' },
+
+    seventh:  { name: '第七格之环', emoji: '✍️', short: '格', chapter: 4, desc: '锁芯门槛从 8 条塔规降到 7 条' },
+    chisel:   { name: '刻刀之环', emoji: '🪶', short: '刀', chapter: 4, desc: '最终评分 ×1.06' },
+    heart:    { name: '塔心之环', emoji: '💗', short: '心', chapter: 4, desc: '带走塔心石多 +100 上限；放下多 +120 分' },
+    oath:     { name: '守誓之环', emoji: '🕊️', short: '誓', chapter: 4, desc: '结算余烬 +3' },
+  };
+
+  // 每章抽 3 个给玩家选（池 4 个 → 每局的构筑起点不同）
+  const ringPools = {
+    1: ['ledger', 'lamp', 'coin', 'keyring'],
+    2: ['parry', 'cinder', 'thrift2', 'vitality'],
+    3: ['bell', 'stair', 'scope', 'hour'],
+    4: ['seventh', 'chisel', 'heart', 'oath'],
+  };
 
   // 升到下一级所需经验（索引 = 当前等级-1）
   // 前 9 级沿用原曲线；锁梁六层把上限抬到 Lv.19，后 10 级每级约 +300 经验。
@@ -294,7 +369,7 @@ window.GAME_DATA = (function () {
     },
     {
       name: '名墙', chapter: 4, ambient: 'mist',
-      tip: '一面墙，六个名字。第七个位置空着，石灰还是新的。',
+      tip: '墙上五道刻完的名字，第六道只刻了一个起笔。旁边那一格还空着，石灰是新的。',
       map: [
         '###########',
         '#u..4....$#',
@@ -383,19 +458,23 @@ window.GAME_DATA = (function () {
   const chapters = [
     {
       id: 1, title: '第一章 · 刻痕', theme: '规矩与计数', from: 1, to: 3, boss: 'N', bossFloor: 3,
+      color: '#e8c46a', accent: 'rgba(232,196,106,0.20)',
       blurb: '镇上每十年送一个人进塔。今年轮到你。塔把你的名字写在名册上，用的是还没干的墨。',
     },
     {
       id: 2, title: '第二章 · 明塔', theme: '真相与代价', from: 4, to: 6, boss: 'Z', bossFloor: 6,
+      color: '#ff9f6b', accent: 'rgba(255,159,107,0.20)',
       blurb: '六层塔身，六道锁环。你以为走到塔顶就到头了——直到王座后面露出一段向上的窄梯。',
     },
     {
       id: 3, title: '第三章 · 塔脊', theme: '被删掉的六层', from: 7, to: 9, boss: 'Y', bossFloor: 9,
+      color: '#9fd8ff', accent: 'rgba(159,216,255,0.20)',
       blurb: '锁梁上的六层不在任何图纸里。钟每十年响一次，镇上就送一个人上来——那不是规矩，是账期。',
     },
     {
       id: 4, title: '第四章 · 无名', theme: '名字的重量', from: 10, to: 12, boss: 'U', bossFloor: 12,
-      blurb: '六个名字刻在墙上，第七个位置空着。刻名的人还在等最后一位勇者，替这座塔写完最后一行。',
+      color: '#b9a4ff', accent: 'rgba(185,164,255,0.20)',
+      blurb: '墙上五道刻完，第六道只刻了一个起笔。刻名的人还在等，有人把那一笔写完。',
     },
   ];
 
@@ -582,5 +661,5 @@ window.GAME_DATA = (function () {
     { id: 'codex', name: '窥探之镜', emoji: '🔮', price: 100, codex: true, once: true },
   ];
 
-  return { LEGEND, PALETTE, kindColor, monsters, items, relics, altarPool, levelExp, floors, floorGoals, chapters, vows, events, shop };
+  return { LEGEND, PALETTE, kindColor, monsters, items, relics, altarPool, rings, ringPools, levelExp, floors, floorGoals, chapters, vows, events, shop };
 })();

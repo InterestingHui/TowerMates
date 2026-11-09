@@ -24,7 +24,7 @@
       keys: { y: 1, r: 0 },
       maps: floorMaps(),
       over: false, won: false, ending: null,
-      flags: { vow: v },
+      flags: { vow: v, rings: [], phaseSeed: (Math.random() * 1e9) | 0, echoScore: 0 },
       ver: 5,
       steps: 0,
       startedAt: Date.now(),
@@ -76,6 +76,10 @@
       if (!parsed || parsed.ver !== 5 || !parsed.maps || parsed.maps.length !== D.floors.length) return null;
       s = parsed;
       if (!s.flags) s.flags = {};
+      // v2.1 新增字段：老存档补齐默认值即可继续玩，不需要作废
+      if (!Array.isArray(s.flags.rings)) s.flags.rings = [];
+      if (typeof s.flags.phaseSeed !== 'number') s.flags.phaseSeed = (Math.random() * 1e9) | 0;
+      if (typeof s.flags.echoScore !== 'number') s.flags.echoScore = 0;
       if (!s.ending) s.ending = null;
       if (s.keys && s.keys.b !== undefined) { s.keys.r = (s.keys.r || 0) + (s.keys.b || 0); delete s.keys.b; }
       if (!s.keys) s.keys = { y: 0, r: 0 };
@@ -100,6 +104,113 @@
   const setTile = (x, y, ch) => { s.maps[s.floor][y][x] = ch; };
   const hasRelic = (id) => !!(s && s.flags && s.flags['relic_' + id]);
   const ownedRelics = () => (s ? Object.keys(D.relics).filter(hasRelic) : []);
+
+  // ---------- 锁环：章末回响给的构筑，改规则不改攻防 ----------
+  const rings = () => (s && Array.isArray(s.flags.rings) ? s.flags.rings : []);
+  const hasRing = (id) => rings().indexOf(id) >= 0;
+  const ringBlockScale = () => (hasRing('parry') ? 0.5 : 0.6);
+
+  // 战斗的「真实承伤」：格挡、誓约、锁环都在这里算一次，演出与结算共用同一份
+  function fightDamage(ch, blocked) {
+    const p = predict(ch);
+    if (!p || p.damage === null) return null;
+    const m = D.monsters[ch];
+    let dmg = p.damage;
+    if (vow() === 'guard') dmg = Math.round(dmg * 0.82);
+    if (hasRing('bell') && m && m.boss) dmg = Math.round(dmg * 0.92);
+    if (blocked) dmg = Math.round(dmg * ringBlockScale());
+    return { damage: dmg, raw: p.damage, per: p.per, rounds: p.rounds, out: p.out, blockScale: blocked ? ringBlockScale() : 1 };
+  }
+
+  // 每局从 Boss 的两个台词池各抽一段；结果写进存档，同一局重进战斗不会变
+  function bossPhases(ch) {
+    if (!s) return null;
+    const key = 'phases_' + ch;
+    if (s.flags[key]) return s.flags[key];
+    const m = D.monsters[ch];
+    if (!m) return null;
+    if (!m.phasePool) return m.phases || null;
+    const seed = (s.flags.phaseSeed || 1) + ch.charCodeAt(0) * 7919;
+    const pool = m.phasePool;
+    const picked = [
+      pool.p2[Math.abs(seed) % pool.p2.length],
+      pool.p3[Math.abs(seed >> 3) % pool.p3.length],
+    ];
+    s.flags[key] = picked;
+    save();
+    return picked;
+  }
+
+  // 章末结算：三条塔规定成绩；≥2 条才开锁环三选一
+  function ringChoices(ch) {
+    const owned = rings();
+    const pool = (D.ringPools[ch] || []).filter((id) => owned.indexOf(id) < 0);
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = (Math.random() * (i + 1)) | 0;
+      const t = pool[i]; pool[i] = pool[j]; pool[j] = t;
+    }
+    return pool.slice(0, 3);
+  }
+
+  function settleChapter(ch) {
+    if (!s || !D.chapters[ch - 1]) return null;
+    const meta = D.chapters[ch - 1];
+    const last = meta.to - 1;
+    // Boss 刚倒下时的血量就是这一章的最终血量：提前结算章末层并锁住，避免之后吃药改判
+    settleFloor();
+    if (s.floor === last) s.flags['goalLocked_' + last] = true;
+    const list = [];
+    for (let i = meta.from - 1; i <= last; i++) {
+      list.push({ floor: i, text: D.floorGoals[i] ? D.floorGoals[i].text : '', done: !!s.flags['goal_' + i] });
+    }
+    const done = list.filter((x) => x.done).length;
+    const bonus = [0, 90, 180, 300][done] || 0;
+    if (s.flags['echo_' + ch] === undefined) {
+      s.flags.echoScore = (s.flags.echoScore || 0) + bonus;
+      s.flags['echoBonus_' + ch] = bonus;
+      s.flags['echo_' + ch] = done;
+    }
+    const pending = done >= 2 && !hasRingChapter(ch) && !s.flags['ringDone_' + ch];
+    if (pending && !s.flags['ringChoices_' + ch]) s.flags['ringChoices_' + ch] = ringChoices(ch);
+    if (pending) s.flags['ringPending_' + ch] = true;
+    save();
+    return {
+      chapter: ch, title: meta.title, theme: meta.theme, color: meta.color,
+      list, done, bonus, pending,
+    };
+  }
+
+  function hasRingChapter(ch) {
+    return rings().some((id) => D.rings[id] && D.rings[id].chapter === ch);
+  }
+
+  // 刷新/退出后回来，未选完的锁环仍要能选
+  function pendingRing() {
+    if (!s) return null;
+    for (let ch = 1; ch <= D.chapters.length; ch++) {
+      if (s.flags['ringPending_' + ch]) return ch;
+    }
+    return null;
+  }
+
+  function pickRing(id) {
+    if (!s || !D.rings[id]) return { type: 'refuse', msg: '没有这枚锁环' };
+    const ch = D.rings[id].chapter;
+    if (!s.flags['ringPending_' + ch]) return { type: 'refuse', msg: '这一章的锁环已经选过了' };
+    const choices = s.flags['ringChoices_' + ch] || [];
+    if (choices.indexOf(id) < 0) return { type: 'refuse', msg: '这枚锁环不在候选里' };
+    if (hasRing(id)) return { type: 'refuse', msg: '已经装上了' };
+    s.flags.rings = rings().concat(id);
+    if (id === 'coin') s.gold += 200;
+    if (id === 'keyring') { s.keys.y += 2; s.keys.r += 1; }
+    if (id === 'vitality') { s.maxHp += 240; s.hp += 240; }
+    if (id === 'scope') s.flags.codex = true;
+    delete s.flags['ringPending_' + ch];
+    s.flags['ringDone_' + ch] = true;
+    save();
+    const r = D.rings[id];
+    return { type: 'ring', ring: id, name: r.name, chapter: ch, msg: `装入「${r.name}」· ${r.desc}` };
+  }
 
   const keyName = (k) => (k === 'y' ? '黄钥匙' : '红钥匙');
 
@@ -161,14 +272,17 @@
     s.flags.maxFloor = Math.max(s.flags.maxFloor || 0, target);
     // 慈悲之誓：往上走一层回 12% 生命（下楼不触发，免得来回刷）
     let heal = 0;
-    if (dir > 0 && vow() === 'mercy') {
-      heal = Math.min(Math.round((s.maxHp || s.hp) * 0.12), Math.max(0, s.maxHp - s.hp));
-      s.hp += heal;
-    }
-    // 苦行 / 无名：没有格挡，但每上一层塔会补给你 25% 生命
-    if (dir > 0 && (vow() === 'ascetic' || vow() === 'nameless')) {
-      heal = Math.min(Math.round((s.maxHp || s.hp) * 0.10), Math.max(0, s.maxHp - s.hp));
-      s.hp += heal;
+    const gain = (pct) => {
+      const v = Math.min(Math.round((s.maxHp || s.hp) * pct), Math.max(0, s.maxHp - s.hp));
+      s.hp += v; heal += v;
+    };
+    if (dir > 0 && vow() === 'mercy') gain(0.12);
+    // 苦行 / 无名：没有格挡，但每上一层塔会补给你 10% 生命
+    if (dir > 0 && (vow() === 'ascetic' || vow() === 'nameless')) gain(0.10);
+    // 锁环「借灯 / 回廊」：只在往上走时生效，跳层不回血，防止来回刷
+    if (dir > 0) {
+      const pct = (hasRing('lamp') ? 0.05 : 0) + (hasRing('stair') ? 0.04 : 0);
+      if (pct > 0) gain(pct);
     }
     return { floor: target, x: nx, y: ny, heal };
   }
@@ -349,22 +463,43 @@
     return false;
   }
 
+  function goalResult(g, kills, shop) {
+    if (g.type === 'killsMax') return kills <= g.v;
+    if (g.type === 'openDoor') return !!s.flags['door_f' + s.floor];
+    if (g.type === 'noShop') return shop === 0;
+    if (g.type === 'killKind') return !!s.flags['kill_' + g.v];
+    if (g.type === 'clear') return !floorHasMonster();
+    if (g.type === 'hpAbove') return s.hp >= (s.maxHp || 1) * g.v;
+    return false;
+  }
+
   function settleFloor() {
+    if (!s) return;
     const fe = s.floorEnter;
-    if (!s || !fe || fe.floor !== s.floor) return;
+    if (!fe || fe.floor !== s.floor) return;
+    // 章末层在 Boss 倒下时已提前结算并锁住，之后吃药/清怪不再改判
+    if (s.flags['goalLocked_' + s.floor]) return;
     const g = D.floorGoals[s.floor];
     if (!g) return;
     const kills = (s.flags.killCount || 0) - fe.kills;
     const shop = (s.flags.shopCount || 0) - fe.shop;
-    let ok = false;
-    if (g.type === 'killsMax') ok = kills <= g.v;
-    else if (g.type === 'openDoor') ok = !!s.flags['door_f' + s.floor];
-    else if (g.type === 'noShop') ok = shop === 0;
-    else if (g.type === 'killKind') ok = !!s.flags['kill_' + g.v];
-    else if (g.type === 'clear') ok = !floorHasMonster();
-    else if (g.type === 'hpAbove') ok = s.hp >= (s.maxHp || 1) * g.v;
-    s.flags['goal_' + s.floor] = ok;
+    s.flags['goal_' + s.floor] = goalResult(g, kills, shop);
     s.flags['goalKills_' + s.floor] = kills;
+  }
+
+  // HUD 实时显示「本层规矩」是否达成（只读，不写档）
+  function goalPreview() {
+    if (!s) return null;
+    const g = D.floorGoals[s.floor];
+    if (!g) return null;
+    if (s.flags['goalLocked_' + s.floor]) {
+      return { text: g.text, ok: !!s.flags['goal_' + s.floor], locked: true };
+    }
+    const fe = s.floorEnter;
+    if (!fe || fe.floor !== s.floor) return { text: g.text, ok: false, locked: false };
+    const kills = (s.flags.killCount || 0) - fe.kills;
+    const shop = (s.flags.shopCount || 0) - fe.shop;
+    return { text: g.text, ok: goalResult(g, kills, shop), locked: false };
   }
 
   // ---------- 层阶之钥：在走过的楼层之间跳 ----------
@@ -466,11 +601,12 @@
     s.flags.heart = 'taken';
     s.flags.relic_heart = true;
     s.flags.heartAt = [s.x, s.y];
-    s.maxHp += 300;
-    s.hp += 300;
+    const bonus = hasRing('heart') ? 100 : 0;
+    s.maxHp += 300 + bonus;
+    s.hp += 300 + bonus;
     if (tile(s.x, s.y) === 'K') setTile(s.x, s.y, '.');
     save();
-    return { type: 'heart', choice: 'taken', name: '塔心石', msg: '你带走了塔心石 · 生命上限 +300' };
+    return { type: 'heart', choice: 'taken', name: '塔心石', msg: `你带走了塔心石 · 生命上限 +${300 + bonus}` };
   }
 
   function heartLeave() {
@@ -488,7 +624,8 @@
     if (!f || !f.hiddenGate) return false;
     if (!s.flags.bossKilled_U) return false;
     settleFloor();
-    if (goalStatus().done < 8) return false;
+    const need = hasRing('seventh') ? 7 : 8;
+    if (goalStatus().done < need) return false;
     if (tile(9, 2) === 'u') return true;
     setTile(9, 2, 'u');
     save();
@@ -538,9 +675,7 @@
 
     const blocked = !!(opt && opt.block) && canBlock();
     if (blocked) s.flags['block_f' + s.floor] = true;
-    let dmg = p.damage;
-    if (vow() === 'guard') dmg = Math.round(dmg * 0.82);
-    if (blocked) dmg = Math.round(dmg * 0.6);
+    const dmg = fightDamage(ch, blocked).damage;
     s.hp -= dmg;
     setTile(nx, ny, '.');
     moveTo(nx, ny);
@@ -549,17 +684,27 @@
     s.exp += m.exp;
     s.flags.killCount = (s.flags.killCount || 0) + 1;
     s.flags['kill_' + ch] = true;
+    let echo = null;
     if (m.boss) {
       s.flags['bossKilled_' + ch] = true;
       if (ch === 'Z') s.flags.bossKilled = true;
-      if (m.chapter) s.flags['chap_' + m.chapter] = true;
+      if (m.chapter) {
+        s.flags['chap_' + m.chapter] = true;
+        echo = settleChapter(m.chapter);
+      }
       if (m.finalBoss) s.flags.finalBossKilled = true;
     }
 
     let heal = 0;
-    if (hasRelic('ember') && !m.boss) {
-      heal = Math.min(Math.max(4, Math.floor((s.maxHp || s.hp) * 0.02)), Math.max(0, s.maxHp - s.hp));
-      s.hp += heal;
+    if (!m.boss) {
+      if (hasRelic('ember')) {
+        const h = Math.min(Math.max(4, Math.floor((s.maxHp || s.hp) * 0.02)), Math.max(0, s.maxHp - s.hp));
+        s.hp += h; heal += h;
+      }
+      if (hasRing('cinder')) {
+        const h = Math.min(Math.max(3, Math.floor((s.maxHp || s.hp) * 0.01)), Math.max(0, s.maxHp - s.hp));
+        s.hp += h; heal += h;
+      }
     }
     if (s.floor === D.floors.length - 1 && !floorHasMonster()) s.flags.coreClear = true;
     const ups = levelUp();
@@ -569,7 +714,7 @@
       type: 'fight', damage: dmg, raw: p.damage, blocked, rounds: p.rounds,
       gold: goldGain, exp: m.exp, heal, levelUps: ups,
       monster: m, boss: !!m.boss, chapter: m.chapter || 0,
-      after: m.after || null, finalBoss: !!m.finalBoss,
+      after: m.after || null, finalBoss: !!m.finalBoss, echo,
     };
   }
 
@@ -579,6 +724,7 @@
     const step = item.id === 'atk' || item.id === 'def' ? 20 : 0;
     let price = item.price + (s.flags['buy_' + item.id] || 0) * step;
     if (hasRelic('thrift')) price = Math.max(1, Math.round(price * 0.75));
+    if (hasRing('thrift2')) price = Math.max(1, Math.round(price * 0.85));
     if (vow() === 'greed') price = Math.max(1, Math.round(price * 1.3));
     if (vow() === 'nameless') price = Math.max(1, Math.round(price * 1.4));
     return price;
@@ -785,6 +931,7 @@
       return D.monsters[ch] ? predict(ch) : null;
     },
     tryMove, fight, canBlock, buy, priceOf, finish, altarChoices, pickRelic, pathTo, pathThrough, pathToNear,
-    nextLevelExp, keyName, summary, hasRelic, ownedRelics, beginFloor, restoreFloor, goalStatus, settleFloor, revealCore, heartState, heartTake, heartLeave, vow, pickEvent, eventPool, eventCost, resolveEvent, applyEffect, jumpTo, visitedMax,
+    nextLevelExp, keyName, summary, hasRelic, ownedRelics, beginFloor, restoreFloor, goalStatus, settleFloor, goalPreview, revealCore, heartState, heartTake, heartLeave, vow, pickEvent, eventPool, eventCost, resolveEvent, applyEffect, jumpTo, visitedMax,
+    rings, hasRing, ringBlockScale, fightDamage, bossPhases, settleChapter, ringChoices, pendingRing, pickRing,
   };
 })();

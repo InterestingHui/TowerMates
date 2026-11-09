@@ -17,7 +17,7 @@
 
   // ---------- 设置 ----------
   const Settings = (() => {
-    let data = { fx: 'full', sfx: true, music: true, vib: true };
+    let data = { fx: 'full', sfx: true, music: true, vib: true, fast: false };
     try {
       const old = JSON.parse(localStorage.getItem('towermates_cfg') || 'null');
       const cur = JSON.parse(localStorage.getItem('towermates_cfg_v2') || 'null');
@@ -32,7 +32,9 @@
       get sfx() { return data.sfx; },
       get music() { return data.music; },
       get vib() { return data.vib; },
+      get fast() { return !!data.fast; },
       cycleFx() { data.fx = data.fx === 'full' ? 'low' : 'full'; save(); return data.fx; },
+      toggleFast() { data.fast = !data.fast; save(); return data.fast; },
       toggleSfx() { data.sfx = !data.sfx; save(); return data.sfx; },
       toggleMusic() { data.music = !data.music; save(); return data.music; },
       toggleVib() { data.vib = !data.vib; save(); return data.vib; },
@@ -296,6 +298,11 @@
     bsBlock: $('bsBlock'), blockPip: $('blockPip'),
     bsPanel: document.querySelector('.bs-panel'),
     guide: $('guide'),
+    goalRow: $('goalRow'), goalText: $('goalText'), goalState: $('goalState'),
+    ringRow: $('ringRow'),
+    echoOverlay: $('echoOverlay'), echoKicker: $('echoKicker'), echoLine: $('echoLine'),
+    echoGoals: $('echoGoals'), echoReward: $('echoReward'), echoRings: $('echoRings'),
+    echoHint: $('echoHint'), echoClose: $('echoClose'),
   };
 
   // ---------- 顶部提示 ----------
@@ -393,8 +400,31 @@
     const gateChip = el.relicRow.querySelector('.relic[data-relic="gate"]');
     if (gateChip) gateChip.addEventListener('click', openGate);
   }
+
+  // 锁环：圆形 chip，与方形遗物一眼分开
+  let ringSig = null;
+  function renderRingRow(s) {
+    const owned = Engine.rings();
+    const sig = owned.join(',');
+    if (sig === ringSig) return;
+    ringSig = sig;
+    el.ringRow.innerHTML = owned.map((id) => {
+      const r = D.rings[id];
+      return `<span class="ring-chip" data-ring="${id}" title="${r.name}：${r.desc}">${r.emoji}</span>`;
+    }).join('');
+  }
+
+  // 章节主色只在这里注入一次，四章共用同一套组件
+  function setChapterColor(floor) {
+    const f = D.floors[floor];
+    const ch = f && f.chapter ? D.chapters[f.chapter - 1] : null;
+    const root = document.documentElement.style;
+    root.setProperty('--chapter', ch ? ch.color : D.PALETTE.gold);
+    root.setProperty('--chapter-soft', ch ? ch.accent : 'rgba(232,196,106,0.20)');
+  }
+
   function buildFloorDots() {
-    el.floorDots.innerHTML = D.floors.map(() => '<i></i>').join('');
+    el.floorDots.innerHTML = D.floors.map((f, i) => `<i data-ch="${f.chapter || 0}" title="第 ${i + 1} 层"></i>`).join('');
   }
 
   function refreshHud() {
@@ -430,6 +460,21 @@
       d.className = i === s.floor ? 'now' : i < s.floor ? 'done' : '';
     });
     renderRelicRow(s);
+    renderRingRow(s);
+    setChapterColor(s.floor);
+
+    // 本层规矩实时反馈：以前只有离开楼层才知道做没做到
+    const gp = Engine.goalPreview();
+    if (el.goalRow) {
+      el.goalRow.hidden = !gp;
+      if (gp) {
+        el.goalText.textContent = gp.text;
+        el.goalState.textContent = gp.locked ? (gp.ok ? '已结算' : '未达成') : (gp.ok ? '已达成' : '进行中');
+        el.goalRow.classList.toggle('ok', !!gp.ok);
+        el.goalRow.classList.toggle('locked', !!gp.locked);
+        el.goalRow.title = `第 ${s.floor + 1} 层的额外目标 · 离开本层时结算，达成 +60 分${gp.locked ? '（本章已结算）' : ''}`;
+      }
+    }
     if (el.vowTag) {
       const v = D.vows[s.flags.vow] || D.vows.none;
       el.vowTag.hidden = v.name === '不立誓';
@@ -633,7 +678,8 @@
     let heroHp = s.hp;
     let foeHp = foeMax;
     let skipped = false;
-    const speed = window.__battleSpeed || 1;
+    // 「快速战斗」把整段演出压到 42%，重复刷层时不再被迫看完
+    const speed = (window.__battleSpeed || 1) * (Settings.fast ? 0.42 : 1);
     const wait = (ms) => new Promise((r) => setTimeout(r, ms * speed));
 
     const bg = Renderer.snapshot();
@@ -657,21 +703,26 @@
     let blockScale = 1;
     let blockOn = false;
     const canB = Engine.canBlock();
+    // 格挡比例由引擎给出（断刃之环会把它从 0.6 改成 0.5），演出与结算不会各算各的
+    const scaleWhenBlocked = info.dmgBlock && info.dmgBase.damage > 0
+      ? Math.max(0.05, info.dmgBlock.damage / info.dmgBase.damage)
+      : Engine.ringBlockScale();
     // 小架不值得给选项：伤害不到 5% 上限的杂兵战不显示格挡，免得每次都弹
     const worth = m.boss || pred.damage >= heroMax * 0.05;
     el.bsBlock.style.display = worth ? '' : 'none';
     el.bsBlock.classList.remove('done');
     el.bsBlock.disabled = !canB;
+    el.bsBlock.innerHTML = `<b>🛡 格挡</b><span>本层一次 · 承伤 −${Math.round((1 - scaleWhenBlocked) * 100)}%</span>`;
     el.bsBlock.onclick = (e) => {
       e.stopPropagation();
       if (!canB || blockOn) return;
       blockOn = true;
-      blockScale = 0.6;
+      blockScale = scaleWhenBlocked;
       el.bsBlock.classList.add('done');
       el.bsBlock.disabled = true;
       Sound.play('level');
       vibrate([12, 20, 8]);
-      warn('格挡：这一战的承伤降到 60%');
+      warn(`格挡：这一战的承伤降到 ${Math.round(blockScale * 100)}%`);
     };
 
     function bars() {
@@ -697,7 +748,8 @@
     (async () => {
       const K = Math.min(pred.rounds, m.boss ? 8 : 5);
       // Boss 三阶段：血量跨过 66% / 33% 时插一段短过场（只改表现，不改数值）
-      const PHASES = m.phases || [
+      // 每局从 Boss 台词池抽两段：同一局固定，重开一局会听到另一组
+      const PHASES = info.phases || m.phases || [
         { at: 0.66, n: 2, title: '第二道锁 · 裂', text: '别把我想成一道门。门后面还有东西。' },
         { at: 0.33, n: 3, title: '第三道锁 · 塔心', text: '再近一点，你就看得见她的名字了。' },
       ];
@@ -749,7 +801,8 @@
         }
       }
       foeHp = 0;
-      heroHp = Math.max(1, s.hp - Math.round(pred.damage * blockScale));
+      // 血条落点直接取引擎的「真实承伤」，誓约减伤/锁环减伤/格挡都算在内
+      heroHp = Math.max(1, s.hp - (blockOn && info.dmgBlock ? info.dmgBlock.damage : info.dmgBase.damage));
       bars();
       el.bsFoe.classList.add('ko');
       el.battleScene.classList.add('hero-win');
@@ -813,7 +866,9 @@
           log('塔顶后面像是有一道缝，但你看不出门道。', 'warn');
         }
       }
-      if (res.after) playStory(res.after);
+      // 战后对白读完，再结算这一章：三条规矩 + 锁环三选一
+      if (res.after) playStory(res.after, () => { if (res.echo) openEcho(res.echo); });
+      else if (res.echo) setTimeout(() => openEcho(res.echo), 240);
     }
     if (res.damage > 0 && (!s2.flags.worstHit || res.damage > s2.flags.worstHit)) {
       s2.flags.worstHit = res.damage;
@@ -825,6 +880,98 @@
     }
     Achievements.evaluate('kill', s2, notifyAchievement);
     refreshHud();
+  }
+
+  // ---------- 章末回响：结算三条塔规 + 锁环三选一 ----------
+  let curEcho = null;
+  function openEcho(echo) {
+    if (!echo) return;
+    curEcho = echo;
+    const s = Engine.state();
+    setChapterColor(echo.chapter * 3 - 1); // 该章章末层的索引（2 / 5 / 8 / 11）
+    el.echoKicker.textContent = `${echo.title} · 回响`;
+    el.echoLine.textContent = (S.echoLines && S.echoLines[echo.chapter - 1]) || '';
+    el.echoGoals.innerHTML = echo.list.map((g) => `
+      <div class="echo-goal ${g.done ? 'done' : ''}">
+        <span class="eg-mark">${g.done ? '✓' : '·'}</span>
+        <span class="eg-floor">${g.floor + 1}F</span>
+        <span class="eg-text">${g.text}</span>
+      </div>`).join('');
+    el.echoReward.textContent = echo.pending
+      ? `本章规矩 ${echo.done}/3 · +${echo.bonus} 分 · 挑一枚锁环`
+      : echo.done > 0
+        ? `本章规矩 ${echo.done}/3 · +${echo.bonus} 分 · 再做到 ${2 - echo.done} 条就能挑锁环`
+        : '本章规矩 0/3 · 这一章没有留下回响';
+    el.echoReward.classList.toggle('muted', echo.done === 0);
+    const choices = echo.pending ? (s.flags['ringChoices_' + echo.chapter] || []) : [];
+    el.echoRings.innerHTML = choices.map((id) => {
+      const r = D.rings[id];
+      return `<button class="echo-ring" data-id="${id}">
+        <span class="er-emoji">${r.emoji}</span>
+        <span class="er-name">${r.name}</span>
+        <span class="er-desc">${r.desc}</span>
+      </button>`;
+    }).join('');
+    el.echoRings.querySelectorAll('.echo-ring').forEach((b) => {
+      b.addEventListener('click', () => chooseRing(b.dataset.id));
+    });
+    el.echoHint.textContent = echo.pending ? '点一枚装上 · 也可按 1 / 2 / 3 · 选了不能换' : '';
+    el.echoClose.hidden = !!echo.pending;
+    el.echoOverlay.classList.add('show');
+    Sound.play('relic');
+    vibrate([10, 20, 10]);
+    Tips.show('echo');
+    Achievements.evaluate('echo', s, notifyAchievement);
+    if (!REDUCED()) {
+      Renderer.pulse();
+      Renderer.ring(s.x, s.y, 'rgba(255,225,150,0.8)', TN() * 3, 700);
+    }
+    refreshHud();
+  }
+
+  function chooseRing(id) {
+    if (!curEcho) return;
+    const res = Engine.pickRing(id);
+    if (res.type !== 'ring') { warn(res.msg || '装不上'); return; }
+    const s = Engine.state();
+    el.echoOverlay.classList.remove('show');
+    curEcho = null;
+    Sound.play('relic');
+    vibrate([12, 26, 12]);
+    if (!REDUCED()) {
+      Renderer.ring(s.x, s.y, 'rgba(255,225,150,0.9)', TN() * 2.8, 640);
+      Renderer.burst(s.x * TN() + TN() / 2, s.y * TN() + TN() / 2, {
+        count: 20, colors: ['#ffe6a8', '#ffd27d', '#fff4d6'], speed: 120, life: [450, 900],
+      });
+    }
+    log(res.msg, 'gold');
+    warn(res.msg);
+    Tips.show('ring');
+    Achievements.evaluate('ring', s, notifyAchievement);
+    refreshHud();
+  }
+
+  function closeEcho() {
+    el.echoOverlay.classList.remove('show');
+    curEcho = null;
+    refreshHud();
+  }
+
+  // 刷新/退出回来时，没选完的锁环仍要能选
+  function resumePendingRing() {
+    const ch = Engine.pendingRing();
+    if (!ch) return;
+    const s = Engine.state();
+    const meta = D.chapters[ch - 1];
+    openEcho({
+      chapter: ch, title: meta.title,
+      done: s.flags['echo_' + ch] || 0,
+      bonus: s.flags['echoBonus_' + ch] || 0,
+      pending: true,
+      list: [meta.from - 1, meta.from, meta.to - 1].map((i) => ({
+        floor: i, text: D.floorGoals[i] ? D.floorGoals[i].text : '', done: !!s.flags['goal_' + i],
+      })),
+    });
   }
 
   // ---------- 战斗入口 ----------
@@ -865,7 +1012,12 @@
     }
 
     battleBusy = true;
-    playBattleScene({ monster: m, pred }, (blocked) => {
+    const dmgBase = Engine.fightDamage(ch, false);
+    const dmgBlock = Engine.canBlock() ? Engine.fightDamage(ch, true) : null;
+    playBattleScene({
+      monster: m, pred, dmgBase, dmgBlock,
+      phases: m.boss ? Engine.bossPhases(ch) : null,
+    }, (blocked) => {
       const res = Engine.fight(dx, dy, { block: blocked });
       battleBusy = false;
       if (res.type === 'fight') applyFightResult(res, tx, ty);
@@ -1115,25 +1267,31 @@
 
   // ---------- 评分 ----------
   function scoreOf(s, sum, relicCount, goalDone) {
+    const f = s.flags || {};
     const maxHp = s.maxHp || 1;
     let sc = 300;
     sc += s.ending === 'true' ? 700 : 250;
     sc += Math.round((Math.max(0, s.hp) / maxHp) * 400);
-    sc += (s.flags.killCount || 0) * 20;
+    sc += (f.killCount || 0) * 20;
     sc += relicCount * 80;
     sc += (goalDone || 0) * 60;
-    for (let i = 1; i <= D.chapters.length; i++) if (s.flags['chap_' + i]) sc += 140;
-    if (s.flags.coreClear) sc += 200;
-    sc += s.flags.eventScore || 0;
-    if (s.flags.heart === 'taken') sc += 200;
-    else if (s.flags.heart === 'left') sc += 320;
+    if (Engine.hasRing('ledger')) sc += (goalDone || 0) * 25;
+    sc += f.echoScore || 0;                 // 四章回响奖分
+    sc += Engine.rings().length * 60;       // 构筑回报
+    for (let i = 1; i <= D.chapters.length; i++) if (f['chap_' + i]) sc += 140;
+    if (f.coreClear) sc += 200;
+    sc += f.eventScore || 0;
+    if (f.heart === 'taken') sc += 200;
+    else if (f.heart === 'left') sc += 320 + (Engine.hasRing('heart') ? 120 : 0);
     sc -= Math.round(sum.steps * 0.25);
-    sc -= Math.round(sum.time * 0.15);
-    sc -= (s.flags.retries || 0) * 80;
-    const mul = (D.vows[s.flags.vow] || D.vows.none).mul;
-    return Math.max(0, Math.round(sc * mul));
+    sc -= Math.round(sum.time * (Engine.hasRing('hour') ? 0.075 : 0.15));
+    sc -= (f.retries || 0) * 80;
+    const vowMul = (D.vows[f.vow] || D.vows.none).mul;
+    const ringMul = Engine.hasRing('chisel') ? 1.06 : 1;
+    return Math.max(0, Math.round(sc * ringMul * vowMul));
   }
-  const gradeOf = (sc) => (sc >= 3200 ? 'S' : sc >= 2500 ? 'A' : sc >= 1800 ? 'B' : 'C');
+  // v2.1：章末回响 + 锁环会明显抬高总分，阈值同步上移一档，评级重新有区分度
+  const gradeOf = (sc) => (sc >= 4200 ? 'S' : sc >= 3200 ? 'A' : sc >= 2200 ? 'B' : 'C');
 
   // ---------- 结局 ----------
   function showEnd() {
@@ -1167,16 +1325,19 @@
     sum.vow = s.flags.vow || 'none';
     const vowDef = D.vows[s.flags.vow] || D.vows.none;
     const sc = scoreOf(s, sum, relicIds.length, gs.done);
-    const baseScore = Math.round(sc / vowDef.mul);
-    const emberGain = Math.max(1, Math.floor(sc / 180));
+    const ringMul = Engine.hasRing('chisel') ? 1.06 : 1;
+    const baseScore = Math.round(sc / (vowDef.mul * ringMul));
+    const emberGain = Math.max(1, Math.floor(sc / 180)) + (Engine.hasRing('oath') ? 3 : 0);
     const grade = gradeOf(sc);
+    const ringList = Engine.rings();
+    const echoDone = [1, 2, 3, 4].filter((i) => (s.flags['echo_' + i] || 0) >= 2).length;
     sum.score = sc;
     const hpPct = Math.max(0, Math.round((s.hp / (s.maxHp || 1)) * 100));
     $('endScore').innerHTML = `<span class="es-grade ${grade}">${grade}</span>
-      <span class="es-meta">${s.ending === 'true' ? '真结局' : '普通结局'}${s.flags.heart === 'taken' ? ' · 塔心带走' : s.flags.heart === 'left' ? ' · 塔心留下' : ''} · 残血 ${hpPct}% · 击杀 ${s.flags.killCount || 0} · 遗物 ${relicIds.length}${vowDef.mul !== 1 ? ` · 誓约 ×${vowDef.mul.toFixed(2)}` : ''}</span>
+      <span class="es-meta">${s.ending === 'true' ? '真结局' : '普通结局'}${s.flags.heart === 'taken' ? ' · 塔心带走' : s.flags.heart === 'left' ? ' · 塔心留下' : ''} · 残血 ${hpPct}% · 击杀 ${s.flags.killCount || 0} · 遗物 ${relicIds.length} · 锁环 ${ringList.length}${vowDef.mul !== 1 ? ` · 誓约 ×${vowDef.mul.toFixed(2)}` : ''}</span>
       <span class="es-num">${sc}<small>分</small></span>`;
-    if (vowDef.mul !== 1) {
-      $('endScore').title = `基础 ${baseScore} 分 × ${vowDef.name} ${vowDef.mul.toFixed(2)} = ${sc} 分`;
+    if (vowDef.mul !== 1 || ringMul !== 1) {
+      $('endScore').title = `基础 ${baseScore} 分${ringMul !== 1 ? ` × 刻刀之环 ${ringMul.toFixed(2)}` : ''}${vowDef.mul !== 1 ? ` × ${vowDef.name} ${vowDef.mul.toFixed(2)}` : ''} = ${sc} 分`;
       $('endScore').classList.add('with-vow');
     } else {
       $('endScore').title = '';
@@ -1193,12 +1354,14 @@
     brief.push(`带走 ${relicIds.length} 件遗物 · 击杀 ${s.flags.killCount || 0} 只`);
     if (s.flags.worstHit) brief.push(`最狠的一场：${s.flags.worstName} −${s.flags.worstHit}`);
     brief.push(`塔规 ${gs.done}/${gs.total}`);
+    brief.push(`章回响 ${echoDone}/4 · 锁环 ${ringList.length} 枚 · 回响分 +${s.flags.echoScore || 0}`);
     brief.push(s.flags.retries ? `重来本层 ${s.flags.retries} 次` : '一次没回头');
-    const NEXT = { C: ['B', 1800], B: ['A', 2500], A: ['S', 3200] }[grade];
+    const NEXT = { C: ['B', 2200], B: ['A', 3200], A: ['S', 4200] }[grade];
     if (NEXT) brief.push(`再 ${Math.max(1, NEXT[1] - sc)} 分进 ${NEXT[0]}`);
     Meta.add(emberGain);
     brief.push(`✦ 余烬 +${emberGain}`);
     $('endBrief').innerHTML = brief.map((t) => `<span>${t}</span>`).join('');
+    const ringShorts = ringList.map((id) => D.rings[id].short).join(' ') || '无';
     $('endStats').innerHTML = `
       <div>结局 <b>${endName(s.ending)}</b></div>
       <div>最终等级 <b>Lv.${sum.level}</b></div>
@@ -1206,6 +1369,8 @@
       <div>剩余生命 <b>${Math.round(s.hp)}</b></div>
       <div>击杀 <b>${s.flags.killCount || 0}</b></div>
       <div>遗物 <b>${relics}</b></div>
+      <div>锁环 <b>${ringShorts}</b></div>
+      <div>章回响 <b>${echoDone}/4 章</b></div>
       <div>塔心 <b>${s.flags.heart === 'taken' ? '带走' : s.flags.heart === 'left' ? '留下' : '未至'}</b></div>
       <div>誓约 <b>${(D.vows[s.flags.vow] || D.vows.none).name}</b></div>
       <div>步数 <b>${sum.steps} 步</b></div>
@@ -1243,6 +1408,7 @@
   let floorCardTimer = null;
   function showFloorCard(floor) {
     const f = D.floors[floor];
+    setChapterColor(floor);
     const ch = f.chapter ? D.chapters[f.chapter - 1] : null;
     $('fcNum').textContent = ch
       ? `${ch.title} · ${floor + 1}/${D.floors.length} 层`
@@ -1544,6 +1710,17 @@
         else if (e.key === 'Backspace' || e.key === 'ArrowLeft') { e.preventDefault(); prevDialog(); }
         return;
       }
+      if (el.echoOverlay.classList.contains('show')) {
+        if (e.key >= '1' && e.key <= '3') {
+          e.preventDefault();
+          const b = el.echoRings.children[Number(e.key) - 1];
+          if (b) chooseRing(b.dataset.id);
+        } else if ((e.key === 'Enter' || e.key === ' ') && el.echoClose.hidden === false) {
+          e.preventDefault();
+          closeEcho();
+        }
+        return;
+      }
       if (el.heartOverlay.classList.contains('show')) {
         if (e.key === 'ArrowLeft') { e.preventDefault(); setHeartFocus('take'); }
         else if (e.key === 'ArrowRight') { e.preventDefault(); setHeartFocus('leave'); }
@@ -1611,7 +1788,8 @@
       const s = Engine.state();
       if (!s || shopOpen || endShown || battleBusy) return;
       if (el.dialogOverlay.classList.contains('show') || el.codexOverlay.classList.contains('show') ||
-          el.cfgOverlay.classList.contains('show') || el.choiceOverlay.classList.contains('show')) return;
+          el.cfgOverlay.classList.contains('show') || el.choiceOverlay.classList.contains('show') ||
+          el.echoOverlay.classList.contains('show')) return;
       const rect = el.canvas.getBoundingClientRect();
       const size = rect.width / 11;
       const x = Math.floor((e.clientX - rect.left) / size);
@@ -1627,6 +1805,11 @@
     el.heartLeave.addEventListener('click', () => { setHeartFocus('leave'); chooseHeart('leave'); });
     $('btnBoard').addEventListener('click', openBoard);
     $('btnBoard2').addEventListener('click', openBoard);
+    $('btnBoard3').addEventListener('click', openBoard);
+    $('echoClose').addEventListener('click', closeEcho);
+    el.echoOverlay.addEventListener('click', (e) => {
+      if (e.target === el.echoOverlay && curEcho && !curEcho.pending) closeEcho();
+    });
     $('boardClose').addEventListener('click', closeBoard);
     $('btnCodex').addEventListener('click', openCodex);
     $('codexClose').addEventListener('click', () => el.codexOverlay.classList.remove('show'));
@@ -1688,6 +1871,7 @@
       refreshCfg();
     });
     $('cfgVib').addEventListener('click', () => { Settings.toggleVib(); refreshCfg(); vibrate(12); });
+    $('cfgFast').addEventListener('click', () => { Settings.toggleFast(); refreshCfg(); });
   }
 
   function openCfg() {
@@ -1704,17 +1888,22 @@
     $('cfgMusicVal').className = Settings.music ? '' : 'off';
     $('cfgVibVal').textContent = Settings.vib ? '开' : '关';
     $('cfgVibVal').className = Settings.vib ? '' : 'off';
+    $('cfgFastVal').textContent = Settings.fast ? '开（演出 ×0.42）' : '关';
+    $('cfgFastVal').className = Settings.fast ? '' : 'off';
     const s = Engine.state();
     $('cfgRelics').innerHTML = RELIC_ORDER.map((id) => {
       const r = D.relics[id];
       const on = s && s.flags['relic_' + id];
       return `<div class="cfg-relic ${on ? 'on' : ''}"><i>${on ? r.emoji : '○'}</i>${r.name}<span>${on ? r.desc : '未获得'}</span></div>`;
+    }).join('') + Engine.rings().map((id) => {
+      const r = D.rings[id];
+      return `<div class="cfg-relic on ring"><i>${r.emoji}</i>${r.name}<span>${r.desc}</span></div>`;
     }).join('');
   }
 
   // 遮罩是否完全盖住画布（盖住时暂停重绘）
   const FULL_OVERLAYS = ['startOverlay', 'dialogOverlay', 'shopOverlay', 'boardOverlay',
-    'codexOverlay', 'cfgOverlay', 'choiceOverlay', 'altarOverlay', 'heartOverlay', 'vowOverlay', 'eventOverlay', 'gateOverlay', 'endOverlay'];
+    'codexOverlay', 'cfgOverlay', 'choiceOverlay', 'altarOverlay', 'heartOverlay', 'vowOverlay', 'eventOverlay', 'gateOverlay', 'echoOverlay', 'endOverlay'];
   function covered() {
     for (const id of FULL_OVERLAYS) {
       if (el[id] && el[id].classList.contains('show')) return true;
@@ -1776,6 +1965,7 @@
       if (Engine.vow() !== 'none') log(`你立下了${vs.name}：${vs.desc}`, 'gold');
       log('你踏入了魔塔。塔顶传来极轻的、像铃声一样的声音。', 'gold');
       Tips.show('walk');
+      setTimeout(() => Tips.show('goal'), 5600);
     });
   }
 
@@ -1790,6 +1980,7 @@
     Renderer.fade(400);
     refreshHud();
     if (s.won) showEnd();
+    else resumePendingRing();
     if (floorBossAlive(s)) Sound.startMusic();
   }
 
@@ -1844,6 +2035,7 @@
     playStory, showEnd, openShop, openCodex, openBoard, openCfg, closeCfg,
     showFloorCard, showEndingChoice, completeEnding, setChoiceFocus, openHeart, chooseHeart, setHeartFocus, openVow, chooseVow, openEvent, chooseEvent, openGate, jumpTo: (i) => doJump(i), Meta,
     resolveBattle, act, refreshHud, refreshStartBadges,
+    openEcho, chooseRing, closeEcho, resumePendingRing, setChapterColor, refreshCfg,
   };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);

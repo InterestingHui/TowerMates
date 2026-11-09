@@ -305,19 +305,28 @@
   }
 
   function drawCarpet(map) {
-    if (lastFloor !== 5) return;
+    const isMid = lastFloor === 5;
+    const isTop = lastFloor === 11;
+    if (!isMid && !isTop) return;
     for (let y = 1; y < SIZE; y++) {
       for (let x = 4; x <= 6; x++) {
         if (map[y][x] === '#') continue;
         const edge = x === 4 || x === 6;
         const g = ctx.createLinearGradient(x * TILE, 0, (x + 1) * TILE, 0);
-        g.addColorStop(0, edge ? 'rgba(108,22,28,0.62)' : 'rgba(84,17,23,0.46)');
-        g.addColorStop(0.5, edge ? 'rgba(152,34,40,0.55)' : 'rgba(112,24,30,0.4)');
-        g.addColorStop(1, edge ? 'rgba(108,22,28,0.62)' : 'rgba(84,17,23,0.46)');
+        if (isTop) {
+          // 第四章塔顶：冷灰石道 + 紫色细线，呼应本章主色，不与中点王座的红毯撞语义
+          g.addColorStop(0, edge ? 'rgba(86,76,124,0.34)' : 'rgba(46,42,64,0.30)');
+          g.addColorStop(0.5, edge ? 'rgba(120,104,168,0.30)' : 'rgba(70,62,96,0.26)');
+          g.addColorStop(1, edge ? 'rgba(86,76,124,0.34)' : 'rgba(46,42,64,0.30)');
+        } else {
+          g.addColorStop(0, edge ? 'rgba(108,22,28,0.62)' : 'rgba(84,17,23,0.46)');
+          g.addColorStop(0.5, edge ? 'rgba(152,34,40,0.55)' : 'rgba(112,24,30,0.4)');
+          g.addColorStop(1, edge ? 'rgba(108,22,28,0.62)' : 'rgba(84,17,23,0.46)');
+        }
         ctx.fillStyle = g;
         ctx.fillRect(x * TILE, y * TILE, TILE, TILE);
         if (edge) {
-          ctx.fillStyle = 'rgba(200,160,80,0.26)';
+          ctx.fillStyle = isTop ? 'rgba(185,164,255,0.24)' : 'rgba(200,160,80,0.26)';
           ctx.fillRect(x * TILE + (x === 4 ? 0 : TILE - 1), y * TILE, 1, TILE);
         }
       }
@@ -761,14 +770,19 @@
   }
 
   function drawBeam() {
-    if (lastFloor !== 5) return;
+    // 第 6 层是中点王座，第 12 层才是真正的塔顶：两处都有天光，
+    // 塔顶那束收短一点，只落在公主与石板上，不越过衡所在的门闩行。
+    const isMid = lastFloor === 5;
+    const isTop = lastFloor === 11;
+    if (!isMid && !isTop) return;
     if (!beamCanvas) buildBeam();
     if (!beamCanvas) return;
     const w = TILE * 4;
     const x = TILE * 5 - w / 2 + TILE / 2;
+    const h = isTop ? TILE * 3.6 : TILE * 5;
     const pulse = 0.82 + Math.sin(simT / 5200) * 0.18;
-    ctx.globalAlpha = pulse;
-    ctx.drawImage(beamCanvas, x, -TILE * 0.2, w, TILE * 5);
+    ctx.globalAlpha = (isTop ? 0.78 : 1) * pulse;
+    ctx.drawImage(beamCanvas, x, -TILE * 0.2, w, h);
     ctx.globalAlpha = 1;
   }
 

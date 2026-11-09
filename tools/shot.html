@@ -326,6 +326,38 @@
         T.refreshHud();
         T.act(1, 0);
         await wait(600);
+      } else if (scene === 'echo') {
+        d.getElementById('btnNew').click();
+        await wait(200);
+        const _vc = d.querySelector('#vowCards .vow-card[data-vow="none"]');
+        if (_vc) _vc.click();
+        await wait(260);
+        const dlE = d.getElementById('dialogOverlay');
+        for (let i = 0; i < 8; i++) { dlE.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
+        const sE = E.state();
+        sE.floor = 2;
+        sE.floorEnter = { floor: 2, kills: 0, shop: 0, hp: sE.hp, maxHp: sE.maxHp };
+        sE.flags.goal_0 = true; sE.flags.goal_1 = true; sE.flags.goal_2 = true;
+        const ec = E.settleChapter(1);
+        T.openEcho(ec);
+        await wait(600);
+      } else if (scene === 'goal') {
+        d.getElementById('btnNew').click();
+        await wait(200);
+        const _vc = d.querySelector('#vowCards .vow-card[data-vow="none"]');
+        if (_vc) _vc.click();
+        await wait(260);
+        const dlG = d.getElementById('dialogOverlay');
+        for (let i = 0; i < 8; i++) { dlG.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
+        const sG = E.state();
+        sG.floor = 6;
+        sG.floorEnter = { floor: 6, kills: 0, shop: 0, hp: sG.hp, maxHp: sG.maxHp };
+        sG.flags.rings = ['lamp', 'bell'];
+        sG.flags.relic_ward = true;
+        sG.hp = 2100; sG.maxHp = 3200; sG.atk = 70; sG.def = 42; sG.gold = 460; sG.level = 11;
+        T.refreshHud();
+        T.showFloorCard(6);
+        await wait(600);
       } else if (scene === 'hud') {
         d.getElementById('btnNew').click();
         await wait(200);
@@ -360,9 +392,13 @@
         out.push('floor=' + (E.state().floor + 1) + ' candle2Dialog=' + dl.classList.contains('show')
           + ' portrait=' + (d.getElementById('dlgPortrait').childElementCount ? 'yes' : 'no')
           + ' who=' + d.getElementById('dlgWho').textContent);
-        // 跳过对白
-        d.getElementById('dlgSkip').click();
-        await wait(300);
+        // playSequence 会连播两段（ch2 → candle2），必须清到对白层真正关闭
+        for (let i = 0; i < 24; i++) {
+          if (!dl.classList.contains('show')) break;
+          d.getElementById('dlgSkip').click();
+          await wait(90);
+        }
+        await wait(200);
         out.push('skipDialog=' + !dl.classList.contains('show'));
         // 2) 塔顶 → 公主 → 抉择
         const s4 = E.state();
@@ -370,13 +406,21 @@
         T.act(0, -1);
         await wait(400);
         out.push('princessDialog=' + dl.classList.contains('show') + ' who=' + d.getElementById('dlgWho').textContent);
-        for (let i = 0; i < 10; i++) { dl.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
-        await wait(300);
         const choice = d.getElementById('choiceOverlay');
+        for (let i = 0; i < 24; i++) {
+          if (!dl.classList.contains('show') || choice.classList.contains('show')) break;
+          dl.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+          await wait(70);
+        }
+        await wait(300);
         out.push('choiceShown=' + choice.classList.contains('show'));
         d.getElementById('choiceTrue').click();
         await wait(300);
-        for (let i = 0; i < 10; i++) { dl.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
+        for (let i = 0; i < 24; i++) {
+          if (!dl.classList.contains('show')) break;
+          dl.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+          await wait(60);
+        }
         await wait(500);
         out.push('endShown=' + d.getElementById('endOverlay').classList.contains('show')
           + ' ending=' + E.state().ending

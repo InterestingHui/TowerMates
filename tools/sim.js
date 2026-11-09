@@ -2,6 +2,7 @@
 // 策略：能拿的道具全拿（含遗物）→ 打损失最小的可达怪 → 上楼
 // 用法：node tools/sim.js            正常（含遗物）
 //       node tools/sim.js --no-relic 关闭遗物，用于对比遗物提供了多少强度
+//       node tools/sim.js --rings    上界：四章全拿回血型锁环，检查构筑不会打穿曲线
 global.window = global;
 require('../js/data.js');
 const D = global.GAME_DATA;
@@ -9,6 +10,10 @@ const SIZE = 11;
 const USE_RELIC = !process.argv.includes('--no-relic');
 const USE_BLOCK = !process.argv.includes('--no-block');
 const VOW = (process.argv.find((a) => a.startsWith('--vow=')) || '--vow=none').slice(6);
+// 极限构筑：借灯 5% + 回廊 4% 每上楼、灯油 +240 上限、停钟 Boss 承伤 −8%
+const USE_RINGS = process.argv.includes('--rings');
+const RINGS = USE_RINGS ? ['lamp', 'vitality', 'stair', 'bell'] : [];
+const hasRing = (id) => RINGS.indexOf(id) >= 0;
 
 let s = {
   floor: 0, x: 0, y: 0,
@@ -20,6 +25,7 @@ let s = {
 };
 
 if (VOW === 'mercy') s.atk = Math.max(1, s.atk - 3);
+if (hasRing('vitality')) { s.maxHp += 240; s.hp += 240; }
 const NO_EVENT = false;
 
 (function place() {
@@ -39,6 +45,7 @@ function predict(ch) {
   const per = Math.max(0, m.atk - s.def);
   let damage = (rounds - 1) * per;
   if (damage > 0 && hasRelic('ward')) damage = Math.max(1, Math.floor(damage * 0.88));
+  if (damage > 0 && hasRing('bell') && m.boss) damage = Math.round(damage * 0.92);
   return { win: s.hp > damage, damage, rounds };
 }
 
@@ -250,6 +257,8 @@ function climb() {
     if (r === 'win') { console.log('\n✓ 通关成功'); report(); return; }
     if (VOW === 'mercy') s.hp = Math.min(s.maxHp, s.hp + Math.round(s.maxHp * 0.12));
     if (VOW === 'ascetic' || VOW === 'nameless') s.hp = Math.min(s.maxHp, s.hp + Math.round(s.maxHp * 0.10));
+    const ringPct = (hasRing('lamp') ? 0.05 : 0) + (hasRing('stair') ? 0.04 : 0);
+    if (ringPct > 0) s.hp = Math.min(s.maxHp, s.hp + Math.round(s.maxHp * ringPct));
     const next = s.maps[fi + 1];
     outer: for (let y = 0; y < SIZE; y++) {
       for (let x = 0; x < SIZE; x++) {
@@ -264,6 +273,7 @@ function report() {
   const pct = (s.hp / s.maxHp * 100).toFixed(1);
   console.log(`\n总承伤 ${s.damageTaken}，最终 HP ${s.hp}/${s.maxHp}（${pct}%），Lv.${s.level}，ATK ${s.atk}，DEF ${s.def}，金币剩余 ${s.gold}，击杀 ${s.flags.killCount || 0}`);
   console.log(`遗物：${USE_RELIC ? Object.keys(D.relics).filter((k) => s.flags['relic_' + k]).join(' ') || '无' : '（已关闭）'}`);
+  console.log(`锁环：${RINGS.length ? RINGS.map((k) => D.rings[k].name).join(' / ') : '无'}`);
 }
 
 climb();

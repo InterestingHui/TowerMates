@@ -84,6 +84,37 @@ D.floors.forEach((f, fi) => {
   });
 });
 
+// v2.1：章节主色、Boss 台词池、锁环构筑的数据完整性
+global.STORY = global.STORY || null;
+try { require('../js/story.js'); } catch (e) {}
+D.chapters.forEach((ch) => {
+  if (!ch.color || !ch.accent) err(`章节 ${ch.title} 缺主色 / 柔光色`);
+});
+Object.keys(D.monsters).forEach((ch) => {
+  const m = D.monsters[ch];
+  if (!m.boss) return;
+  if (!m.phasePool || !m.phasePool.p2 || !m.phasePool.p3) err(`Boss ${ch} 缺 phasePool`);
+  else {
+    if (m.phasePool.p2.length < 2 || m.phasePool.p3.length < 2) err(`Boss ${ch} 的台词池不足 2 段`);
+    m.phasePool.p2.concat(m.phasePool.p3).forEach((p) => {
+      if (!p.title || !p.text || !p.n || !p.at) err(`Boss ${ch} 的阶段台词字段不全`);
+    });
+  }
+});
+Object.keys(D.rings).forEach((id) => {
+  const r = D.rings[id];
+  if (!r.name || !r.desc || !r.short || !r.emoji || !r.chapter) err(`锁环 ${id} 字段不全`);
+  if (!D.ringPools[r.chapter] || D.ringPools[r.chapter].indexOf(id) < 0) err(`锁环 ${id} 不在第 ${r.chapter} 章的池子里`);
+});
+D.chapters.forEach((ch) => {
+  const pool = D.ringPools[ch.id] || [];
+  if (pool.length < 3) err(`${ch.title} 的锁环池不足 3 枚`);
+  pool.forEach((id) => { if (D.rings[id] && D.rings[id].chapter !== ch.id) err(`锁环 ${id} 的章节标记错`); });
+});
+if (global.STORY && global.STORY.echoLines && global.STORY.echoLines.length !== D.chapters.length) {
+  err('章末回响的旁白句数与章节数不符');
+}
+
 // 遗物与商店的数据完整性
 Object.keys(D.items).forEach((ch) => {
   const it = D.items[ch];
