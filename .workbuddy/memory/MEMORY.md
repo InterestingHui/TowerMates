@@ -25,7 +25,7 @@
 ## 工程现状（2026-11-09）
 - 线上：https://towermates.app.workbuddy.host/?sharecode=U7XMLC2NKJ （sharecode 是必需凭证，裸域名 403）。每次改动都要 `cp js/*.js publish/js/ && cp css/style.css publish/css/ && cp index.html publish/` 后重新部署。
 - 技术形态：纯前端 HTML5（原生 JS + Canvas，零依赖），13 层（12 主 + 1 隐藏）可通关；`data.js` 数据驱动 11×11 字符串地图；发布目录 publish/ 只含 index.html + css + js。
-- 注意：本地 git **无远端、无 gh CLI、无 GitHub token / 凭据管理器条目**，只能本地 commit，推 GitHub 需用户提供仓库地址或凭据。
+- 远端：已建 `InterestingHui/TowerMates`（public），`master` 跟踪 `origin/master`；本机无 gh CLI，但 Windows 凭据管理器存有 `InterestingHui` 的 GitHub OAuth 令牌（可用它调 API 建仓/推送）。
 
 ## 项目定位
 - 魔塔类小程序游戏（微信小游戏），2026-11-06 时仓库为空，处于立项前调研阶段。
