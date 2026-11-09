@@ -1,7 +1,12 @@
 # TowerMates 长期记忆
 
-## 当前版本：v0.5（2026-11-08，commit c40bbab）
-- 12 项叙事/画面优化点全部闭环，详见 `docs/polish-notes.md`（含实现位置表 + bug 清单 + 验证方式）。
+## 当前版本：v2.1（2026-11-09，commit fee2b25）
+- **12 层主塔 + 隐藏第 13 层「锁芯」**，4 章 × 3 层，Boss 固定在 3/6/9/12 层（砚/炬/铎/衡），都横在上楼唯一通路上。设计见 `docs/tower-12-chapters.md`。
+- v2.1：**章末回响 + 16 枚锁环构筑**（章末 Boss 倒下结算 3 条塔规，≥2 条从 3 枚里选 1；只改规则/资源/信息，不加攻防）；Boss 阶段台词每局从 2×2 池抽；顶栏实时塔规 HUD；快速战斗开关；四章主色单点注入；剧情名册口径统一与去重。详见 `docs/polish-notes.md` §26。
+- 12 项叙事/画面优化点（v0.4）全部闭环并在 v2.1 逐项回归核验；补回 v2.0 扩层后丢失的「塔顶天光光柱」。
+- 评分阈值 S/A/B = 4200/3200/2200；成就 31 项；存档 `ver:5` 不变（新字段读档补默认值，老档不作废）。
+- 平衡：基线全清 21,460 承伤、终局 32.4%、Lv.18；`--rings` 极限回血构筑上界 58.9%；`--no-relic` 仍在第 12 层被拦。
+- 闸门：`node tools/regress.js`（check + sim + 148 项单测 + 24 张截图）；线上 https://towermates.app.workbuddy.host/?sharecode=U7XMLC2NKJ 已重新部署并验证。
 - 系统：角色立绘（`js/portraits.js`）、结局徽章、对白跳过/上一句、**8 件遗物 + 两座祭坛（三选一/二选一）**、结算 S/A/B/C 评分、榜单按分排序。
 - v1.1：隐藏层中央「塔心石」二选一（带走 +300 生命上限 / 放下 +320 分），结局后日谈 2×3 共 6 种组合。
 - v1.2：每层一段 4–5 音旋律动机（叠在低频垫音上）+ 设置拆出「环境音乐」开关；塔心石被带走后原地留空石座。
@@ -14,14 +19,13 @@
 - v1.9：**层阶之钥**（第 1 层 `Q`）——点遗物栏 🗝️ 在走过的楼层间跳转；纯导航不加战力。
 - 数值：升级攻+3/防+2/血+130（灯油再+80）；攻防训练递增定价（每次 +20）；全清+祭坛铁腕承伤 3560、终局剩 17.3%。平衡基准是「拿遗物」，无遗物会在塔顶被拦并提示回第 3 层补给。
 - 工程：静态层离屏预渲染（地板/墙/AO/红毯）、存档节流 + `ver` 版本号、每层入口快照（重来本层）。
-- 开发命令：`node tools/check.js` / `sim.js` / `engine-test.js`；截图/端到端用 `node tools/serve.js 8799 .` + `tools/shot.html?scene=flow`。
+- 开发命令：`node tools/regress.js` 一条命令跑全套（校验/模拟/单测/24 张无头截图）；单项用 `check.js` / `sim.js`（含 `--rings` / `--no-relic`）/ `engine-test.js`；端到端用 `tools/shot.html?scene=flow`。
 - 并发教训：同一仓库被两路会话整文件写会互相清零；正确做法是先复制到临时目录构建、跑通后一次性同步（mtime + git status + md5 三重确认）。
 
-## 当前进度（2026-11-07）
-- 原型 v0.1 已完成并上线：https://towermates.app.workbuddy.host/?sharecode=U7XMLC2NKJ
-- 技术形态：纯前端 HTML5（原生 JS + Canvas，零依赖），6 层塔可通关；data.js 数据驱动（11x11 字符串地图）。
-- 线上发布目录 publish/（只含 index.html + css + js）；源码根目录另有 tools/ 校验与模拟脚本。
-- 注意：本地 git 无远端（无 gh CLI），推 GitHub 需用户提供仓库或凭据。
+## 工程现状（2026-11-09）
+- 线上：https://towermates.app.workbuddy.host/?sharecode=U7XMLC2NKJ （sharecode 是必需凭证，裸域名 403）。每次改动都要 `cp js/*.js publish/js/ && cp css/style.css publish/css/ && cp index.html publish/` 后重新部署。
+- 技术形态：纯前端 HTML5（原生 JS + Canvas，零依赖），13 层（12 主 + 1 隐藏）可通关；`data.js` 数据驱动 11×11 字符串地图；发布目录 publish/ 只含 index.html + css + js。
+- 注意：本地 git **无远端、无 gh CLI、无 GitHub token / 凭据管理器条目**，只能本地 commit，推 GitHub 需用户提供仓库地址或凭据。
 
 ## 项目定位
 - 魔塔类小程序游戏（微信小游戏），2026-11-06 时仓库为空，处于立项前调研阶段。
