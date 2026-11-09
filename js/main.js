@@ -57,6 +57,7 @@
         clearTimeout(guideTimer);
         guideTimer = setTimeout(() => g.classList.remove('show'), 5200);
       },
+      seen(key) { return !!seen[key]; },
       reset() { seen = {}; try { localStorage.removeItem('towermates_tips_v1'); } catch (e) {} },
     };
   })();
@@ -624,7 +625,11 @@
       b.addEventListener('click', () => { boardFilter = b.dataset.f; openBoard(); });
     });
     const rows = boardFilter === 'all' ? all : all.filter((r) => (r.vow || 'none') === boardFilter);
-    $('boardList').innerHTML = (rows.length ? rows.slice(0, 10).map((r, i) => {
+    const mineTop = mine.length ? mine[0].score || 0 : 0;
+    const crushed = mineTop > 0 && all[0] && all[0].mine !== true && all[0].score < mineTop;
+    $('boardList').innerHTML = (rows.length ? (crushed && boardFilter === 'all'
+      ? '<div class="bd-note">塔在等一个更慢的人。影子勇者的分数，是给第一次爬塔的你的。</div>'
+      : '') + rows.slice(0, 10).map((r, i) => {
       const v = D.vows[r.vow] || D.vows.none;
       return `<div class="bd-row ${r.mine ? 'mine' : ''}">
         <span class="bd-rank">${i + 1}</span>
@@ -634,8 +639,7 @@
         <span class="bd-steps">${r.steps}步</span>
         <span class="bd-time">${r.score || 0}分</span>
       </div>`;
-    }).join('') : '<div class="bd-empty">这一档还没有人。去立一条誓约，回来占第一位。</div>');
-    const codeEl = $('myCode');
+    }).join('') : '<div class="bd-empty">这一档还没有人。去立一条誓约，回来占第一位。</div>');    const codeEl = $('myCode');
     codeEl.textContent = mine.length ? encodeChallenge(mine[0]) : '—— 通关后生成 ——';
     $('achCount').textContent = `成就 ${Achievements.count()}/${Achievements.DEFS.length}`;
     el.boardOverlay.classList.add('show');
@@ -643,11 +647,23 @@
   function closeBoard() { el.boardOverlay.classList.remove('show'); }
 
   // ---------- 图鉴 ----------
+  // 自动遍历全部怪物（v0.4 的手抄名单在扩层后丢了 8 只锁梁怪和 4 位 Boss），
+  // 按「首次出现的楼层」排序——那是玩家认识它们的顺序
   function openCodex() {
     const s = Engine.state();
     if (!s || !s.flags.codex) return;
     const maxHp = s.maxHp || Math.max(s.hp, 1000);
-    const order = ['A', 'B', 'C', 'D', 'E', 'W', 'F', 'H', 'V', 'Z'];
+    const firstFloor = {};
+    D.floors.forEach((f, fi) => {
+      f.map.forEach((row) => {
+        for (const ch of row) {
+          const m = D.monsters[ch];
+          if (m && !m.ghost && firstFloor[ch] === undefined) firstFloor[ch] = fi;
+        }
+      });
+    });
+    const order = Object.keys(D.monsters).filter((ch) => D.monsters[ch] && !D.monsters[ch].ghost)
+      .sort((a, b) => (firstFloor[a] ?? 99) - (firstFloor[b] ?? 99));
     $('codexList').innerHTML = order.map((ch) => {
       const m = D.monsters[ch];
       const p = Engine.predict(ch);
@@ -657,9 +673,10 @@
         loss = p.damage === 0 ? '无伤' : `-${p.damage}`;
         cls = p.damage === 0 ? 'safe' : p.damage >= maxHp * 0.25 ? 'danger' : 'warn';
       }
+      const bossTag = m.boss ? `<i class="cx-tag boss">${m.chapter || 0}章</i>` : '';
       return `<div class="cx-row">
         <span class="cx-emoji">${m.emoji}</span>
-        <span class="cx-name">${m.name}<i class="cx-tag">${m.kind}</i></span>
+        <span class="cx-name">${m.name}${bossTag}<i class="cx-tag">${m.kind}</i></span>
         <span class="cx-stat">HP ${m.hp} · 攻 ${m.atk} · 防 ${m.def}</span>
         <span class="cx-loss ${cls}">${loss}</span>
         <span class="cx-reward">${m.gold}💰 ${m.exp}✨</span>
@@ -687,7 +704,8 @@
 
     el.bsHero.textContent = '🧙';
     el.bsFoe.textContent = m.emoji;
-    el.bsName.textContent = m.name + (m.boss ? ' · ' + (m.title || '塔的主人') : '');
+    // 章末 Boss 带「第 N 章」标记：玩家要据此规划"半血以上打赢"这类塔规
+    el.bsName.textContent = m.name + (m.boss ? ' · ' + (m.title || '塔的主人') : (m.chapter ? ` · 第 ${m.chapter} 章` : ''));
     el.bsRounds.textContent = `回合 1 / ${pred.rounds}`;
     el.bsHeroHp.textContent = Math.round(heroHp);
     el.bsFoeHp.textContent = Math.round(foeHp);
@@ -713,6 +731,7 @@
     el.bsBlock.classList.remove('done');
     el.bsBlock.disabled = !canB;
     el.bsBlock.innerHTML = `<b>🛡 格挡</b><span>本层一次 · 承伤 −${Math.round((1 - scaleWhenBlocked) * 100)}%</span>`;
+    if (worth && !Tips.seen('block')) Tips.show('block');
     el.bsBlock.onclick = (e) => {
       e.stopPropagation();
       if (!canB || blockOn) return;
@@ -983,8 +1002,10 @@
     const ty = s.y + dy;
     const ch = Engine.tile(tx, ty);
     const m = D.monsters[ch];
-    const pred = Engine.predict(ch);
-    if (!m || !pred) return;
+    if (!m) return;
+    // 用"带格挡视角"的预测：残血玩家可以用本层的格挡换命，而不是被拦在外面
+    const pred = Engine.predictOpt(ch, true) || Engine.predict(ch);
+    if (!pred) return;
 
     if (!pred.win) {
       Sound.play('lock');
@@ -1002,7 +1023,8 @@
       return;
     }
 
-    Tips.show('fight');
+    // 用格挡才打得过的战斗：先把"格挡"教给玩家，只教一次
+    if (pred.blockSave) Tips.show('blocksave');
 
     if (m.boss && !s.flags['boss_seen_' + ch]) {
       s.flags['boss_seen_' + ch] = true;
@@ -1018,7 +1040,8 @@
       monster: m, pred, dmgBase, dmgBlock,
       phases: m.boss ? Engine.bossPhases(ch) : null,
     }, (blocked) => {
-      const res = Engine.fight(dx, dy, { block: blocked });
+      // 这一战只有格挡才能活：玩家撞上去就是求战，结算时自动带上格挡
+      const res = Engine.fight(dx, dy, { block: blocked || !!pred.blockSave });
       battleBusy = false;
       if (res.type === 'fight') applyFightResult(res, tx, ty);
       else { warn(res.msg || '战斗中断'); refreshHud(); }
@@ -1327,7 +1350,7 @@
     const sc = scoreOf(s, sum, relicIds.length, gs.done);
     const ringMul = Engine.hasRing('chisel') ? 1.06 : 1;
     const baseScore = Math.round(sc / (vowDef.mul * ringMul));
-    const emberGain = Math.max(1, Math.floor(sc / 180)) + (Engine.hasRing('oath') ? 3 : 0);
+    const emberGain = Math.max(1, Math.floor(sc / 120)) + (Engine.hasRing('oath') ? 3 : 0);
     const grade = gradeOf(sc);
     const ringList = Engine.rings();
     const echoDone = [1, 2, 3, 4].filter((i) => (s.flags['echo_' + i] || 0) >= 2).length;
@@ -1491,7 +1514,7 @@
       });
       if (best) { stopWalk(); walkAlong(best, cx, cy); return; }
       const near = Engine.pathToNear(cx, cy);
-      if (near) { stopWalk(); walkAlong(near.path, near.x, near.y); warn('就近靠过去，前面有怪挡路'); return; }
+      if (near) { stopWalk(); walkAlong(near.path, near.x, near.y); warn(`前面是${D.monsters[ch].name}，打不过${D.monsters[ch].boss ? '，回秤那里变强' : '，先变强吧'}`); return; }
       warn('没有能靠近它的路');
       return;
     }
@@ -1814,9 +1837,23 @@
     $('btnCodex').addEventListener('click', openCodex);
     $('codexClose').addEventListener('click', () => el.codexOverlay.classList.remove('show'));
     $('btnCopyCode').addEventListener('click', () => {
-      const code = $('myCode').textContent;
+      const codeEl2 = $('myCode');
+      const code = codeEl2.textContent;
       if (!code || code.startsWith('——')) return;
-      if (navigator.clipboard) navigator.clipboard.writeText(code).then(() => log('挑战码已复制', 'good'));
+      const fallback = () => {
+        // 剪贴板不可用（file://、部分 WebView）：选中文本让用户自己复制
+        try {
+          const range = document.createRange();
+          range.selectNodeContents(codeEl2);
+          const sel = window.getSelection();
+          sel.removeAllRanges();
+          sel.addRange(range);
+          log('已选中挑战码，长按/Ctrl+C 复制', 'good');
+        } catch (e) { log('复制失败，请手动复制', 'warn'); }
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(code).then(() => log('挑战码已复制', 'good'), fallback);
+      } else fallback();
     });
     $('btnCfg').addEventListener('click', openCfg);
     $('cfgClose').addEventListener('click', closeCfg);
@@ -1916,13 +1953,15 @@
     el.vowCards.innerHTML = Object.keys(D.vows).map((id) => {
       const v = D.vows[id];
       const locked = !!v.ember && !Meta.has(id);
+      // 倍率要有语义：新人看到 ×1.10 不知道这意味着"要吃苦"
+      const mulWord = v.mul > 1 ? `<small>吃得了苦才选它</small>` : v.mul < 1 ? `<small>选轻松的路</small>` : '';
       return `<button class="vow-card ${id === 'none' ? 'hero' : ''} ${locked ? 'locked' : ''}" data-vow="${id}">
         <span class="vc-emoji">${v.emoji}</span>
         <span class="vc-name">${v.name}</span>
         <span class="vc-desc">${v.desc}</span>
         ${locked
           ? `<span class="vc-lock">🔒 ${v.ember} 余烬</span>`
-          : `<span class="vc-mul">结算 ×${v.mul.toFixed(2)}</span>`}
+          : `<span class="vc-mul">结算 ×${v.mul.toFixed(2)}${mulWord}</span>`}
       </button>`;
     }).join('');
     el.vowCards.querySelectorAll('.vow-card').forEach((b) => {

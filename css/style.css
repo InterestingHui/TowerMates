@@ -543,6 +543,7 @@ html, body {
   border: 1px solid transparent;
 }
 .bd-row.mine { background: rgba(232, 196, 106, 0.09); border-color: rgba(232, 196, 106, 0.28); }
+.bd-note { font-size: 10.5px; color: #8a93a5; padding: 6px 8px; border-left: 2px solid rgba(232,196,106,0.4); margin-bottom: 4px; line-height: 1.5; }
 .bd-rank { color: var(--dim); font-variant-numeric: tabular-nums; }
 .bd-name { color: #c6cdda; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bd-end { color: var(--dim); font-size: 10.5px; }
@@ -1008,6 +1009,7 @@ html, body {
   margin-left: 4px;
   vertical-align: 1px;
 }
+.cx-tag.boss { border-color: rgba(201, 74, 82, 0.55); color: #e09a9f; }
 
 /* ---------- 楼层卡片：本层规矩 ---------- */
 .fc-goal {
@@ -1184,6 +1186,7 @@ html, body {
 .vow-card .vc-name { font-size: 12.5px; font-weight: 700; color: var(--gold); letter-spacing: 0.5px; }
 .vow-card .vc-desc { font-size: 10px; line-height: 1.55; color: var(--muted); min-height: 31px; }
 .vow-card .vc-mul { font-size: 9.5px; color: #7f8a9c; border: 1px solid rgba(255,255,255,0.12); border-radius: 20px; padding: 1px 7px; }
+.vow-card .vc-mul small { font-size: 9px; color: #9aa4b5; margin-left: 3px; }
 .vow-card.hero { border-color: rgba(232, 196, 106, 0.45); }
 .vow-card.hero .vc-name { color: #ffe6a8; }
 .vow-hint { margin-top: 13px; font-size: 10px; color: #4e5666; letter-spacing: 1px; }

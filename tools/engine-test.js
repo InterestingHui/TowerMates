@@ -329,6 +329,21 @@ const rawDmg2 = E.predict('A').damage;
 const rPlain = E.fight(0, -1);
 ok(rPlain.blocked === false && rPlain.damage === rawDmg2, '不格挡时承伤不变');
 
+// ---------- 9h. 残血格挡换命（predictOpt） ----------
+// 血量撑不到打完，但挡完能活：不能再用"会要你的命"拦住玩家
+E.newGame();
+s = E.state();
+s.x = 2; s.y = 3;
+const batRaw = E.predict('A').damage;
+s.hp = batRaw - 1;                      // 不挡必死
+ok(!E.predict('A').win, '残血时普通预测：必死');
+const pOpt = E.predictOpt('A', true);
+ok(pOpt && pOpt.win === true && pOpt.blockSave === true, '残血但可用格挡：predictOpt 给出活路');
+ok(E.fight(0, -1, { block: true }).damage === Math.round(batRaw * 0.6), '按格挡结算，血量确实撑得住');
+// 格挡用掉后，同样的残血不再有活路
+s.hp = Math.round(batRaw * 0.6) - 1;
+ok(!E.predictOpt('A', true).win, '格挡用尽后残血：无活路');
+
 // ---------- 9f. 塔心石：带走 / 放下 ----------
 E.newGame();
 s = E.state();

@@ -288,6 +288,11 @@
   }
 
   function predict(ch) {
+    return predictBase(ch);
+  }
+
+  // 基础预测（不含格挡视角）
+  function predictBase(ch) {
     const m = D.monsters[ch];
     if (!m || m.ghost) return null;
     const out = s.atk - m.def;
@@ -301,6 +306,20 @@
       reason: s.hp > damage ? '' : '生命不足，这场战斗会要你的命',
       damage, rounds, per, out, m,
     };
+  }
+
+  // 带格挡视角的预测：残血玩家可以用"这一层还没用过的格挡"换命——
+  // 以前 win 判定不含格挡，会被"这场战斗会要你的命"拦住，玩家明明算得出活路
+  function predictOpt(ch, allowBlock) {
+    const p = predictBase(ch);
+    if (!p || p.damage === null || p.win) return p;
+    if (allowBlock && canBlock()) {
+      const b = fightDamage(ch, true);
+      if (b && s.hp > b.damage) {
+        return Object.assign({}, p, { win: true, reason: '', blockSave: true, blockDamage: b.damage });
+      }
+    }
+    return p;
   }
 
   function levelUp() {
@@ -665,7 +684,13 @@
     const m = D.monsters[ch];
     if (!m || m.ghost) return { type: 'idle' };
     const p = predict(ch);
-    if (!p.win) return { type: 'refuse', msg: p.reason || '无法战胜' };
+    // 残血换命：请求格挡、且挡完能活时放行（与 predictOpt 的口径一致）
+    let allowed = p.win;
+    if (!allowed && opt && opt.block && canBlock()) {
+      const b = fightDamage(ch, true);
+      allowed = !!(b && s.hp > b.damage);
+    }
+    if (!allowed) return { type: 'refuse', msg: p.reason || '无法战胜' };
 
     if (m.boss && !s.flags['boss_seen_' + ch]) {
       s.flags['boss_seen_' + ch] = true;
@@ -924,7 +949,7 @@
   }
 
   window.Engine = {
-    setHooks, newGame, load, reset, hasSave, save, state, tile, predict,
+    setHooks, newGame, load, reset, hasSave, save, state, tile, predict, predictOpt,
     predictAt(dx, dy) {
       if (!s) return null;
       const ch = tile(s.x + dx, s.y + dy);
