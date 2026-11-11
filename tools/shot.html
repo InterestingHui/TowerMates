@@ -601,6 +601,25 @@
         await wait(260);
         for (let i = 0; i < 6; i++) { d.getElementById('dialogOverlay').dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(70); }
         await wait(500);
+      } else if (scene === 'bossyan') {
+        // 第 3 层Boss「砚」的地图形象：站在玩家旁边，验证锁匠剪影画法
+        d.getElementById('btnNew').click();
+        await wait(200);
+        const _vcy = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
+        if (_vcy) _vcy.click();
+        await wait(260);
+        const dlY = d.getElementById('dialogOverlay');
+        for (let i = 0; i < 8; i++) { dlY.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
+        const sY = E.state();
+        sY.floor = 2; sY.atk = 60; sY.def = 30; sY.hp = 3000; sY.maxHp = 3000;
+        // 站到砚（N）相邻的空地上，让 Boss 与玩家同框
+        for (let y = 0; y < 11 && sY.floor === 2; y++) {
+          for (let x = 0; x < 11; x++) {
+            if (E.tile(x, y) === 'N') { sY.x = x; sY.y = Math.min(10, y + 1); break; }
+          }
+        }
+        T.refreshHud();
+        await wait(500);
       } else if (scene === 'dpadclosed' || scene === 'dpadopen') {
         // 方向键收起/展开态：设置已在 iframe 加载前预置好
         d.getElementById('btnNew').click();

@@ -104,7 +104,7 @@ window.GAME_DATA = (function () {
       defeat: '钟声停了。整座塔安静得能听见灰尘落下。',
       phases: [
         { at: 0.66, n: 2, title: '第二声 · 钟', text: '铎：钟响第二声，镇上就该点灯了。' },
-        { at: 0.33, n: 3, title: '第三声 · 停', text: '铎：你听——停了。三百年第一次停。' },
+        { at: 0.33, n: 3, title: '第三声 · 停', text: '铎：你听——停了。八十年第一次停。' },
       ],
       phasePool: {
         p2: [
@@ -112,7 +112,7 @@ window.GAME_DATA = (function () {
           { at: 0.66, n: 2, title: '第二声 · 数', text: '铎：我数过。每一次，都比上一次短一点。' },
         ],
         p3: [
-          { at: 0.33, n: 3, title: '第三声 · 停', text: '铎：你听——停了。三百年第一次停。' },
+          { at: 0.33, n: 3, title: '第三声 · 停', text: '铎：你听——停了。八十年第一次停。' },
           { at: 0.33, n: 3, title: '第三声 · 债', text: '铎：钟可以停。欠下的那些年，不会自己回来。' },
         ],
       },
@@ -122,13 +122,13 @@ window.GAME_DATA = (function () {
       title: '第六位工匠 · 无名之锁', story: 'bossHeng', after: 'afterHeng', chapter: 4, finalBoss: true,
       defeat: '刻刀落在桌上。刀刃还是朝着门。',
       phases: [
-        { at: 0.66, n: 2, title: '第二刀 · 深', text: '衡：刻深一点。浅了，三百年就磨平了。' },
+        { at: 0.66, n: 2, title: '第二刀 · 深', text: '衡：刻深一点。八十年就磨平了。' },
         { at: 0.33, n: 3, title: '第三刀 · 名', text: '衡：最后一行，你打算写谁？' },
       ],
       phasePool: {
         p2: [
-          { at: 0.66, n: 2, title: '第二刀 · 深', text: '衡：刻深一点。浅了，三百年就磨平了。' },
-          { at: 0.66, n: 2, title: '第二刀 · 空', text: '衡：那一笔停了三百年。我每天替它擦一次灰。' },
+          { at: 0.66, n: 2, title: '第二刀 · 深', text: '衡：刻深一点。八十年就磨平了。' },
+          { at: 0.66, n: 2, title: '第二刀 · 空', text: '衡：那一笔停了八十年。我每天替它擦一次灰。' },
         ],
         p3: [
           { at: 0.33, n: 3, title: '第三刀 · 名', text: '衡：最后一行，你打算写谁？' },

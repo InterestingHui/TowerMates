@@ -528,7 +528,7 @@
       $('coachCard').hidden = true;
     }
     return {
-      supported(key) { return !!(S.coach && S.coach[key] && typeof S.coach[key].spot === 'function'); },
+      supported(key) { window.__coachSupported = (window.__coachSupported||0)+1; return !!(S.coach && S.coach[key] && typeof S.coach[key].spot === 'function'); },
       show(key, def) {
         const s = Engine.state();
         if (!s) return;
