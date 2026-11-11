@@ -78,7 +78,9 @@
         if (seen[key]) return;
         // 「重点教学」走棋盘标注（高亮格子 + 虚线 + 说明卡，点击才收）；
         // 其余仍是角色台词。标注内容在 S.coach[key]，缺稿时回退台词。
-        if (S.coach && S.coach[key] && Coach.supported(key)) {
+        window.__coachBranch = (window.__coachBranch||0)+1;
+        window.__coachHasObj = !!(S.coach && S.coach[key]);
+        if (S.coach && S.coach[key] && typeof S.coach[key].spot === 'function') {
           seen[key] = 1;
           save();
           Coach.show(key, S.coach[key]);

@@ -562,26 +562,59 @@
 
     groundShadow(px, py, TILE * 0.4, 0.42);
 
-    // 脚下红色威胁环：脉动椭圆，沿用全塔「红 = 危险」的语言
+    // 脚下红色威胁环：脉动双层椭圆，沿用全塔「红 = 危险」的语言
     const ringP = 0.86 + Math.sin(t / 430) * 0.14;
-    ctx.strokeStyle = 'rgba(255,80,70,' + (0.3 + Math.sin(t / 430) * 0.13).toFixed(2) + ')';
-    ctx.lineWidth = 1.6;
+    ctx.strokeStyle = 'rgba(255,80,70,' + (0.42 + Math.sin(t / 430) * 0.16).toFixed(2) + ')';
+    ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.ellipse(cx, py + TILE * 0.8, TILE * 0.42 * ringP, TILE * 0.16 * ringP, 0, 0, Math.PI * 2);
     ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,120,90,' + (0.18 + Math.sin(t / 430 + 1) * 0.1).toFixed(2) + ')';
+    ctx.lineWidth = 3.5;
+    ctx.beginPath();
+    ctx.ellipse(cx, py + TILE * 0.8, TILE * 0.5 * ringP, TILE * 0.2 * ringP, 0, 0, Math.PI * 2);
+    ctx.stroke();
 
-    // 身后光晕：该锁匠的立绘光色
-    const halo = ctx.createRadialGradient(cx, baseY - TILE * 0.3, 1, cx, baseY - TILE * 0.3, TILE * 0.64);
-    halo.addColorStop(0, light[1] + '0.24)');
+    // 身后光晕：该锁匠的立绘光色，两层渐变把剪影从暗墙上衬出来
+    const haloY = baseY - TILE * 0.3;
+    let halo = ctx.createRadialGradient(cx, haloY, 1, cx, haloY, TILE * 0.66);
+    halo.addColorStop(0, light[1] + '0.4)');
+    halo.addColorStop(0.55, light[1] + '0.14)');
     halo.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = halo;
-    ctx.fillRect(px - TILE * 0.2, py - TILE * 0.28, TILE * 1.4, TILE * 1.45);
+    ctx.fillRect(px - TILE * 0.2, py - TILE * 0.3, TILE * 1.4, TILE * 1.5);
+    // 剪影脚下的「座光」：像烛照着底部，别让下半身融进墙里
+    halo = ctx.createRadialGradient(cx, py + TILE * 0.72, 1, cx, py + TILE * 0.72, TILE * 0.5);
+    halo.addColorStop(0, light[1] + '0.22)');
+    halo.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = halo;
+    ctx.fillRect(px - TILE * 0.1, py + TILE * 0.3, TILE * 1.2, TILE * 0.72);
 
-    // 剪影：宽肩坐姿 + 双角（同立绘「炬」的构图）
+    // 剪影：宽肩坐姿 + 双角（同立绘「炬」的构图），勾亮边保证暗墙上也可读
     ctx.save();
     ctx.translate(cx, baseY);
     ctx.scale(s, s);
-    const ink = '#0a0d14';
+    const ink = '#070a12';
+    // 亮边底版：先画一圈比剪影大 1px 的光色轮廓，再把黑影盖上去
+    ctx.fillStyle = light[1] + '0.85)';
+    ctx.beginPath();
+    ctx.moveTo(-17.2, 2);
+    ctx.bezierCurveTo(-18.2, -8.5, -16.2, -18, -11.8, -22.2);
+    ctx.bezierCurveTo(-7.6, -25.9, 7.6, -25.9, 11.8, -22.2);
+    ctx.bezierCurveTo(16.2, -18, 18.2, -8.5, 17.2, 2);
+    ctx.closePath();
+    ctx.fill();
+    // 角的亮边底版
+    ctx.strokeStyle = light[1] + '0.85)';
+    ctx.lineWidth = 5.6;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(-5, -30);
+    ctx.quadraticCurveTo(-9.5, -36, -8.5, -41);
+    ctx.moveTo(5, -30);
+    ctx.quadraticCurveTo(9.5, -36, 8.5, -41);
+    ctx.stroke();
+    // 黑色剪影本体
     ctx.fillStyle = ink;
     ctx.beginPath();
     ctx.moveTo(-16, 2);
@@ -597,33 +630,25 @@
     // 双角
     ctx.strokeStyle = ink;
     ctx.lineWidth = 3.2;
-    ctx.lineCap = 'round';
     ctx.beginPath();
     ctx.moveTo(-5, -30);
     ctx.quadraticCurveTo(-9.5, -36, -8.5, -41);
     ctx.moveTo(5, -30);
     ctx.quadraticCurveTo(9.5, -36, 8.5, -41);
     ctx.stroke();
-    // 边缘受光：肩线一道细亮边
-    ctx.strokeStyle = light[1] + '0.5)';
-    ctx.lineWidth = 1.3;
+    // 亮瞳：加大加亮，随呼吸明灭——远处也要看得到「有人在看你」
+    ctx.fillStyle = light[1] + (0.85 + breathe * 0.15).toFixed(2) + ')';
     ctx.beginPath();
-    ctx.moveTo(-11, -21);
-    ctx.bezierCurveTo(-7, -24.5, 7, -24.5, 11, -21);
-    ctx.stroke();
-    // 亮瞳：随呼吸明灭
-    ctx.fillStyle = light[1] + (0.72 + breathe * 0.26).toFixed(2) + ')';
-    ctx.beginPath();
-    ctx.ellipse(-2.6, -26.5, 1.5, 1.15, 0, 0, Math.PI * 2);
-    ctx.ellipse(2.6, -26.5, 1.5, 1.15, 0, 0, Math.PI * 2);
+    ctx.ellipse(-2.7, -26.5, 1.9, 1.5, 0, 0, Math.PI * 2);
+    ctx.ellipse(2.7, -26.5, 1.9, 1.5, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
 
     // 膝上锁物：缩小后的 emoji 悬在膝前，读作「他守着的东西」，不再是整格大图标
     ctx.save();
-    glow(light[1] + '0.5)', TILE * 0.3);
-    ctx.globalAlpha = 0.95;
-    drawEmoji(m.emoji, px, py + TILE * 0.08, 0.34);
+    glow(light[1] + '0.6)', TILE * 0.34);
+    ctx.globalAlpha = 0.96;
+    drawEmoji(m.emoji, px, py + TILE * 0.08, 0.36);
     ctx.globalAlpha = 1;
     noGlow();
     ctx.restore();

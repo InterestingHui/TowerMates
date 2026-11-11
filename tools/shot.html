@@ -421,7 +421,10 @@
         d.getElementById('coachOk').click();
         await wait(700);
         out.push('coachClosed=' + card.hidden);
-        out.push('dbg=supported:' + (w.__coachSupported||0) + ' show:' + (w.__coachShow||0) + ' noState:' + (w.__coachNoState||0) + ' seenOpening=' + (w.__tm.Tips.seen('opening') ? 1 : 0));
+        out.push('dbg=branch:' + (w.__coachBranch||0) + ' seenOpening=' + (w.__tm.Tips.seen('opening') ? 1 : 0)
+          + ' storyCoach=' + !!(w.STORY && w.STORY.coach)
+          + ' mainNew=' + (typeof w.__coachBranch !== 'undefined')
+          + ' tipsShowSrc=' + String(w.__tm.Tips.show).slice(0, 60).replace(/s+/g, ' '));
         out.push('allClosed=' + card.hidden + ' dlgClosed=' + !dl.classList.contains('show'));
         errBox.textContent = out.join('\n') + '\nerr=' + (errs.length ? errs.join('|') : 'none');
         return;
