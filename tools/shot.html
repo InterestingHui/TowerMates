@@ -64,6 +64,8 @@
       if (scene === 'start' || scene === 'floor5' || scene === 'battle' || scene === 'battleblock' || scene === 'shop' || scene === 'tower' || scene === 'core') {
         if (scene === 'battleblock') {
           await wait(200);
+          // demo 开局不带格挡：先授予，截图才有盾按钮可点
+          E.state().flags.hasBlock = true;
           w.__battleSpeed = 4;
           w.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'ArrowUp' }));
           await wait(420);

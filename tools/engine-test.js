@@ -69,6 +69,44 @@ ok(E.priceOf(D.shop.find((x) => x.id === 'atk')) === 80, '同一件商品第二�
 const poor = E.buy('atk');
 ok(poor.type === 'refuse', '金币不足时拒绝购买');
 
+// ---------- 6b. 半部盾谱：商店购买 / 地图拾取 ----------
+E.newGame();
+s = E.state();
+ok(!s.flags.hasBlock && !E.canBlock(), '开局不会格挡');
+s.gold = 200;
+const bb1 = E.buy('blockbook');
+ok(bb1.type === 'buy' && s.flags.hasBlock === true && E.canBlock(), '商店买盾谱 → 学会格挡');
+const bb2 = E.buy('blockbook');
+ok(bb2.type === 'refuse', '已学会时商店拒绝再卖');
+s.gold = 100;
+ok(E.priceOf(D.shop.find((x) => x.id === 'blockbook')) === 150, '盾谱标价 150 金');
+// 拾取：踩到第 2 层的 j
+E.newGame();
+s = E.state();
+const gPos = (() => {
+  const m = s.maps[1];
+  for (let y = 0; y < 11; y++) for (let x = 0; x < 11; x++) if (m[y][x] === 'j') return { x, y };
+  return null;
+})();
+ok(!!gPos, '第 2 层地图上有半部盾谱 j');
+s.floor = 1; s.x = gPos.x - 1; s.y = gPos.y;
+const gEv = E.tryMove(1, 0);
+ok(gEv.type === 'pickup' && s.flags.hasBlock === true, '拾取盾谱 → 学会格挡');
+ok(gEv.blockLearned === true, '首次拾取带教学标记');
+// 铁壁之誓不能格挡：商店不卖，拾取也学不会
+E.newGame('guard');
+s = E.state();
+s.gold = 300;
+ok(E.buy('blockbook').type === 'refuse', '铁壁之誓：买盾谱被拒');
+const gjPos = (() => {
+  const m = s.maps[1];
+  for (let y = 0; y < 11; y++) for (let x = 0; x < 11; x++) if (m[y][x] === 'j') return { x, y };
+  return null;
+})();
+s.floor = 1; s.x = gjPos.x - 1; s.y = gjPos.y;
+const gjEv = E.tryMove(1, 0);
+ok(gjEv.good === false && !s.flags.hasBlock, '铁壁之誓：拾取盾谱也学不会');
+
 // ---------- 7. 战斗结算 ----------
 E.newGame();
 s = E.state();
@@ -185,14 +223,16 @@ ok(E.visitedMax() === 0, '旧存档没有 maxFloor 时按当前层算');
 // ---------- 9k. 余烬誓约（苦行 / 无名） ----------
 E.newGame('ascetic');
 s = E.state();
-ok(E.vow() === 'ascetic' && !E.canBlock(), '苦行之誓：没有格挡');
+E.grantBlock();
+ok(E.vow() === 'ascetic' && !E.canBlock(), '苦行之誓：学了也不给格挡');
 s.hp = 400; s.x = 8; s.y = 8;
 ev = E.tryMove(0, 1);
 ok(ev.type === 'floor' && ev.at.heal === Math.round(s.maxHp * 0.10), '苦行之誓：每上一层回 10% 生命');
 
 E.newGame('nameless');
 s = E.state();
-ok(!E.canBlock(), '无名之誓：没有格挡');
+E.grantBlock();
+ok(!E.canBlock(), '无名之誓：学了也不给格挡');
 ok(E.priceOf(D.shop.find((x) => x.id === 'atk')) === 84, '无名之誓：物价 +40%（60 → 84）');
 
 // ---------- 9j. 路遇：按层分池 / 深层事件 / 钥匙门槛 ----------
@@ -288,7 +328,8 @@ ok(s.hp === hpAfterUp, '下楼不回血（不能来回刷）');
 
 E.newGame('guard');
 s = E.state();
-ok(!E.canBlock(), '铁壁之誓：没有格挡');
+E.grantBlock();
+ok(!E.canBlock(), '铁壁之誓：学了也不给格挡');
 s.hp = 5000; s.x = 2; s.y = 3;
 const guardRaw = E.predict('A').damage;
 const gRes = E.fight(0, -1);
@@ -303,9 +344,22 @@ const greedRes = E.fight(0, -1);
 ok(greedRes.gold === Math.round(D.monsters.A.gold * 1.7), '贪婪之誓：击杀金币 +70%');
 ok(s.gold === goldBefore + Math.round(D.monsters.A.gold * 1.7), '金币真的进了口袋');
 
-// ---------- 9g. 每层一次的格挡 ----------
+// ---------- 9i. 格挡要学：没学时不可用，授予后恢复 ----------
 E.newGame();
 s = E.state();
+ok(!s.flags.hasBlock, '开局没有格挡（不再白送）');
+ok(!E.canBlock(), '没学格挡时不可用');
+s.hp = 5000; s.x = 2; s.y = 3;
+const rawNoBlock = E.predict('A').damage;
+const rNoBlock = E.fight(0, -1, { block: true });
+ok(rNoBlock.blocked === false && rNoBlock.damage === rawNoBlock, '没学时即便请求格挡也按全额承伤');
+ok(E.grantBlock() === true && E.grantBlock() === false, '授予一次，重复授予被拒绝');
+ok(s.flags.hasBlock === true, '授予后标记在档');
+
+// ---------- 9g. 每层一次的格挡（已学会） ----------
+E.newGame();
+s = E.state();
+s.flags.hasBlock = true;
 s.hp = 5000; s.x = 2; s.y = 3;
 ok(E.canBlock(), '新的一层可以格挡');
 const rawDmg = E.predict('A').damage;
@@ -318,6 +372,7 @@ ok(E.canBlock(), '进入下一层后格挡恢复');
 
 E.newGame();
 s = E.state();
+s.flags.hasBlock = true;
 s.hp = 5000; s.x = 2; s.y = 3;
 const rawDmg2 = E.predict('A').damage;
 const rPlain = E.fight(0, -1);
@@ -327,6 +382,7 @@ ok(rPlain.blocked === false && rPlain.damage === rawDmg2, '不格挡时承伤不
 // 血量撑不到打完，但挡完能活：不能再用"会要你的命"拦住玩家
 E.newGame();
 s = E.state();
+s.flags.hasBlock = true;
 s.x = 2; s.y = 3;
 const batRaw = E.predict('A').damage;
 s.hp = batRaw - 1;                      // 不挡必死

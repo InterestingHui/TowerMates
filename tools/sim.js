@@ -79,6 +79,7 @@ function applyItem(ch) {
   if (it.type === 'def') s.def += it.value;
   if (it.type === 'both') { s.atk += it.value; s.def += it.value; }
   if (it.type === 'key') s.keys[it.key]++;
+  if (it.type === 'block') { s.flags.hasBlock = true; console.log(`  ◈ ${it.name} → 学会格挡`); }
   if (it.type === 'relic' && USE_RELIC) {
     s.flags['relic_' + it.relic] = true;
     if (it.relic === 'edge') s.atk += 6;
@@ -124,6 +125,12 @@ function healAtShop() {
 
 function shop() {
   let bought = 0;
+  // 半部盾谱：没学过格挡时优先买（150 金，一次性）——能力优先于数值
+  if (USE_BLOCK && !s.flags.hasBlock && s.gold >= 150) {
+    s.gold -= 150;
+    s.flags.hasBlock = true;
+    console.log('  在秤那里买了半部盾谱 → 学会格挡');
+  }
   for (;;) {
     const atk = D.shop.find((x) => x.id === 'atk');
     const price = priceOf(atk);
@@ -153,7 +160,7 @@ function bfs() {
       if (ch === '#') continue;
       if (D.monsters[ch] && !D.monsters[ch].ghost && !predict(ch).win) {
         const mb = D.monsters[ch];
-        const canBlockBoss = mb.boss && !s.flags['block_f' + s.floor] && Math.round(predict(ch).damage * 0.6) < s.hp;
+        const canBlockBoss = mb.boss && s.flags.hasBlock && !s.flags['block_f' + s.floor] && Math.round(predict(ch).damage * 0.6) < s.hp;
         if (!canBlockBoss) continue;
       }
       if ((ch === 'y' || ch === 'r') && s.keys[ch] <= 0) continue;
@@ -219,7 +226,7 @@ function floorLoop(fi) {
     // 格挡：Boss 层留给 Boss，普通层用在本层第一场"够疼"的战斗上
     let take = t.damage;
     if (VOW === 'guard') take = Math.round(take * 0.82);
-    if (USE_BLOCK && VOW !== 'guard' && VOW !== 'ascetic' && VOW !== 'nameless' && (isBoss || !D.floors[fi].boss) && !s.flags['block_f' + s.floor] && take >= s.maxHp * 0.08) {
+    if (USE_BLOCK && s.flags.hasBlock && VOW !== 'guard' && VOW !== 'ascetic' && VOW !== 'nameless' && (isBoss || !D.floors[fi].boss) && !s.flags['block_f' + s.floor] && take >= s.maxHp * 0.08) {
       s.flags['block_f' + s.floor] = true;
       take = Math.round(take * 0.6);
       console.log(`  ▣ 格挡：${m.name} 承伤 ${t.damage} → ${take}`);

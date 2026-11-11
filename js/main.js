@@ -821,9 +821,13 @@
       el.vowTag.title = `${v.name}：${v.desc}（通关余烬 +${v.reward || 0}）`;
     }
     if (el.blockPip) {
-      const used = !Engine.canBlock();
-      el.blockPip.classList.toggle('used', used);
-      el.blockPip.title = used ? '本层格挡已用完（进下一层恢复）' : '本层还有一次格挡：战斗中可把承伤降到 60%';
+      const owned = !!(s.flags.hasBlock);
+      el.blockPip.style.display = owned ? '' : 'none';
+      if (owned) {
+        const used = !Engine.canBlock();
+        el.blockPip.classList.toggle('used', used);
+        el.blockPip.title = used ? '本层格挡已用完（进下一层恢复）' : '本层还有一次格挡：战斗中可把承伤降到 60%';
+      }
     }
 
     ['statAtk', 'statDef', 'statGold'].forEach((id) => {
@@ -1120,7 +1124,8 @@
       ? Math.max(0.05, info.dmgBlock.damage / info.dmgBase.damage)
       : Engine.ringBlockScale();
     // 小架不值得给选项：伤害不到 5% 上限的杂兵战不显示格挡，免得每次都弹
-    const worth = m.boss || pred.damage >= heroMax * 0.05;
+    // 没学会格挡时也整个不显示——它不再是开局白送的能力
+    const worth = s.flags.hasBlock && (m.boss || pred.damage >= heroMax * 0.05);
     el.bsBlock.style.display = worth ? '' : 'none';
     el.bsBlock.classList.remove('done');
     el.bsBlock.disabled = !canB;
@@ -1476,10 +1481,13 @@
     const list = $('shopList');
     list.innerHTML = '';
     D.shop.forEach((item) => {
-      const owned = (item.codex && s.flags.codex) || (item.relic && Engine.hasRelic(item.relic));
+      const owned = (item.codex && s.flags.codex) || (item.relic && Engine.hasRelic(item.relic)) || (item.block && s.flags.hasBlock);
+      // 铁壁/苦行/无名三条誓约不能格挡：盾谱置灰，别让人白花钱
+      const forbidden = item.block && Engine.vowForbidsBlock();
       const price = Engine.priceOf(item);
       const afford = s.gold >= price;
-      let tip = item.relic ? D.relics[item.relic].desc : item.key ? (item.key === 'y' ? '开黄门' : '开红门') : item.hp ? `回复 ${item.hp} 生命` : item.atk ? '攻击 +2' : item.def ? '防御 +2' : '怪物情报';
+      let tip = item.relic ? D.relics[item.relic].desc : item.key ? (item.key === 'y' ? '开黄门' : '开红门') : item.hp ? `回复 ${item.hp} 生命` : item.atk ? '攻击 +2' : item.def ? '防御 +2' : item.block ? '学会格挡：每层一次，战斗中点盾把承伤降到 60%' : '怪物情报';
+      if (forbidden) tip = '**这条誓约不能格挡**，买了也用不上';
       if (item.atk && needAtk) {
         const gap = needAtk.def + 1 - s.atk;
         const times = Math.max(1, Math.ceil(gap / item.atk));
@@ -1495,7 +1503,7 @@
         <span class="si-emoji">${item.emoji}</span>
         <span class="si-name"><b>${item.name}${item.once ? '<small class="si-tag">唯一</small>' : ''}</b><small>${tip}</small></span>
         <span class="si-price">${price}</span>
-        <button class="si-buy" data-id="${item.id}" ${owned || !afford ? 'disabled' : ''}>${owned ? '已拥有' : '购买'}</button>
+        <button class="si-buy" data-id="${item.id}" ${owned || forbidden || !afford ? 'disabled' : ''}>${owned ? '已拥有' : forbidden ? '不适用' : '购买'}</button>
       `;
       list.appendChild(row);
     });
@@ -1510,6 +1518,11 @@
           if (res.item.codex) {
             Renderer.ring(before.x, before.y, 'rgba(180,160,255,0.9)', TN() * 2.4, 600);
             sayHint('codex');
+          }
+          if (res.item.block) {
+            Renderer.ring(before.x, before.y, 'rgba(159,216,255,0.9)', TN() * 2.4, 600);
+            Tips.show('block');
+            warn('**格挡已学会**：每层一次，战斗中点盾。');
           }
           if (res.item.relic) {
             Renderer.ring(before.x, before.y, 'rgba(255,225,150,0.9)', TN() * 2.6, 620);
@@ -1646,6 +1659,12 @@
     vibrate(14);
     log(`${res.label} · ${res.msg}`, 'gold');
     warn(res.msg);
+    // 这次选择教会了格挡：让烛把用法说完（老玩家读过的不再复读）
+    if (Engine.state().flags.hasBlock && !Engine.state().flags.evBlockTaught) {
+      Engine.state().flags.evBlockTaught = true;
+      Engine.save();
+      Tips.show('block');
+    }
     refreshHud();
   }
 
@@ -2244,7 +2263,9 @@
       case 'pickup':
         Sound.play('pick');
         Renderer.addFloat(ev.short || ev.msg, Engine.state().x * T + T / 2, Engine.state().y * T, '#9fe8b0');
-        log(ev.msg, 'good');
+        log(ev.msg, ev.good === false ? 'warn' : 'good');
+        // 学会格挡的第一次：让烛把用法说完（老玩家读过的不再复读）
+        if (ev.blockLearned) Tips.show('block');
         break;
       case 'altar':
         openAltar();

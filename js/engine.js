@@ -24,7 +24,7 @@
       keys: { y: 1, r: 0 },
       maps: floorMaps(),
       over: false, won: false, ending: null,
-      flags: { vow: v, rings: [], phaseSeed: (Math.random() * 1e9) | 0 },
+      flags: { vow: v, rings: [], phaseSeed: (Math.random() * 1e9) | 0, hasBlock: false },
       ver: 5,
       steps: 0,
       startedAt: Date.now(),
@@ -79,6 +79,8 @@
       // v2.1 新增字段：老存档补齐默认值即可继续玩，不需要作废
       if (!Array.isArray(s.flags.rings)) s.flags.rings = [];
       if (typeof s.flags.phaseSeed !== 'number') s.flags.phaseSeed = (Math.random() * 1e9) | 0;
+      // 格挡改为「要学」的能力：老档也按新规，缺字段即未学会（回第 2 层捡盾谱 / 第 3 层买）
+      if (typeof s.flags.hasBlock !== 'boolean') s.flags.hasBlock = false;
       if (typeof s.flags.eventEmber !== 'number') s.flags.eventEmber = 0;
       if (!s.ending) s.ending = null;
       if (s.keys && s.keys.b !== undefined) { s.keys.r = (s.keys.r || 0) + (s.keys.b || 0); delete s.keys.b; }
@@ -353,6 +355,13 @@
     if (it.type === 'def') { s.def += it.value; return { type: 'pickup', msg: `拾取${it.name}，防御 +${it.value}`, short: `+${it.value}🛡`, good: true }; }
     if (it.type === 'both') { s.atk += it.value; s.def += it.value; return { type: 'pickup', msg: `拾取${it.name}，攻击/防御 +${it.value}`, short: `+${it.value}/+${it.value}`, good: true }; }
     if (it.type === 'key') { s.keys[it.key]++; return { type: 'pickup', msg: `拾取${it.name}`, short: '+钥匙', good: true }; }
+    if (it.type === 'block') {
+      // 禁格挡的三条誓约：读了也学不会，东西不消失，留个明确说法
+      if (vowForbidsBlock()) return { type: 'pickup', msg: '盾谱上的招式，这条誓约不许你用', short: '不能格挡', good: false };
+      const first = grantBlock();
+      if (!first) return { type: 'pickup', msg: `盾谱的残页你早就读过了`, short: '已学', good: false };
+      return { type: 'pickup', msg: `拾取${it.name}，你学会了格挡`, short: '+🛡格挡', good: true, blockLearned: true };
+    }
     return null;
   }
 
@@ -599,6 +608,8 @@
     if (eff.keys) Object.keys(eff.keys).forEach((k) => { s.keys[k] = (s.keys[k] || 0) + eff.keys[k]; });
     // 路遇里「刻个名字 / 放回去」这类选择，留下的是通关时的余烬，不是结算分
     if (eff.ember) s.flags.eventEmber = (s.flags.eventEmber || 0) + eff.ember;
+    // 路遇里「跟老兵讨教」：授予格挡（已学过则什么都不发生）
+    if (eff.block) grantBlock();
   }
 
   // 选项的"付不起"判定：金币或钥匙不足时返回原因
@@ -676,10 +687,27 @@
   }
 
   // 每层一次「格挡」：这一战的承伤降到 60%（铁壁之誓放弃它）
+  // 格挡不再是开局白送：要先学到「半部盾谱」（地图拾取 / 商店购买 / 老兵讨教）才会
   function canBlock() {
     if (!s || s.over || s.won) return false;
+    if (!s.flags.hasBlock) return false;
     if (vow() === 'guard' || vow() === 'ascetic' || vow() === 'nameless') return false;
     return !s.flags['block_f' + s.floor];
+  }
+
+  // 授予格挡（三路获取的统一出口）：已学过时安静返回，不重复发
+  function grantBlock() {
+    if (!s) return false;
+    if (s.flags.hasBlock) return false;
+    s.flags.hasBlock = true;
+    save();
+    return true;
+  }
+
+  // 铁壁 / 苦行 / 无名三条誓约写明「不能格挡」：给它们一个共用的判定，
+  // 商店和拾取都靠它，免得玩家花钱买了用不上的盾谱
+  function vowForbidsBlock() {
+    return vow() === 'guard' || vow() === 'ascetic' || vow() === 'nameless';
   }
 
   function fight(dx, dy, opt) {
@@ -767,6 +795,8 @@
     if (!item) return { type: 'refuse', msg: '商品不存在' };
     if (item.codex && s.flags.codex) return { type: 'refuse', msg: '已经拥有窥探之镜' };
     if (item.relic && hasRelic(item.relic)) return { type: 'refuse', msg: '这条灯芯已经在你胸口了' };
+    if (item.block && s.flags.hasBlock) return { type: 'refuse', msg: '你已经学过格挡了' };
+    if (item.block && vowForbidsBlock()) return { type: 'refuse', msg: '这条誓约不能格挡，买它没用' };
     const price = priceOf(item);
     if (s.gold < price) return { type: 'refuse', msg: '金币不够' };
     s.gold -= price;
@@ -780,13 +810,16 @@
     if (item.def) s.def += item.def;
     if (item.relic) s.flags['relic_' + item.relic] = true;
     if (item.codex) s.flags.codex = true;
+    if (item.block) grantBlock();
     s.flags.shopCount = (s.flags.shopCount || 0) + 1;
     save();
     const msg = item.codex
       ? '获得「窥探之镜」：怪物情报已解锁'
       : item.relic
         ? `获得遗物「${item.name}」· ${D.relics[item.relic].desc}`
-        : `购买了${item.name}`;
+        : item.block
+          ? '秤把盾谱后半卷摊开：「学不会就再来。」——你学会了**格挡**'
+          : `购买了${item.name}`;
     return { type: 'buy', item, price, msg };
   }
 
@@ -1048,7 +1081,7 @@
       const ch = tile(s.x + dx, s.y + dy);
       return D.monsters[ch] ? predict(ch) : null;
     },
-    tryMove, fight, canBlock, buy, priceOf, finish, altarChoices, pickRelic, pathTo, pathThrough, pathToNear, pathsTo,
+    tryMove, fight, canBlock, grantBlock, vowForbidsBlock, buy, priceOf, finish, altarChoices, pickRelic, pathTo, pathThrough, pathToNear, pathsTo,
     nextLevelExp, keyName, summary, hasRelic, ownedRelics, beginFloor, restoreFloor, revealCore, heartState, heartTake, heartLeave, vow, pickEvent, eventPool, eventCost, resolveEvent, applyEffect, jumpTo, visitedMax, gateForth, sealPlan,
     rings, hasRing, ringBlockScale, fightDamage, bossPhases, settleChapter, ringChoices, pendingRing, pickRing,
   };
