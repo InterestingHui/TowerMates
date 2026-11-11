@@ -169,7 +169,7 @@ window.GAME_DATA = (function () {
     vigor: { name: '磐的灯油', emoji: '🏺', short: '油', desc: '每次升级额外 +80 生命' },
     scout: { name: '无名之镜', emoji: '🔍', short: '镜', desc: '直接获得窥探之镜' },
     heart: { name: '塔心石', emoji: '💗', short: '心', desc: '生命上限 +300（带走时结算）' },
-    gate: { name: '层阶之钥', emoji: '🗝️', short: '钥', desc: '点遗物栏的它，就能跳到走过的楼层' },
+    gate: { name: '层阶之钥', emoji: '🗝️', short: '钥', desc: '在走过的楼层间跳；头一次还能往前开一层，代价是那层两件最好的东西被封住' },
   };
 
   // 祭坛的可选池（不含剧情固定的守誓之盾/断刃之锋）

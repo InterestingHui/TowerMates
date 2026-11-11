@@ -527,13 +527,68 @@
     return Math.max(s.flags.maxFloor || 0, s.floor);
   }
 
+  // 往前开一层的代价：封掉目标层最值钱的两件消耗品/装备。
+  // 只挑普通道具，剧情物、遗物、商人、楼梯、Boss 门闩一律不动。
+  const SEAL_ORDER = ['h', 'c', 'a', 'b', 'm', 'P', 's', 'd', 'L', 'p', 'k'];
+  const SEALABLE = ['hp', 'atk', 'def', 'both', 'key'];
+  function sealPlan(target) {
+    if (!s || !s.maps[target]) return [];
+    const map = s.maps[target];
+    const found = [];
+    for (let y = 0; y < SIZE; y++) {
+      for (let x = 0; x < SIZE; x++) {
+        const ch = map[y][x];
+        const it = D.items[ch];
+        if (!it || SEALABLE.indexOf(it.type) < 0) continue;
+        const rank = SEAL_ORDER.indexOf(ch);
+        found.push({ x, y, ch, name: it.name, rank: rank < 0 ? 99 : rank });
+      }
+    }
+    found.sort((a, b) => a.rank - b.rank || a.y - b.y || a.x - b.x);
+    return found.slice(0, 2);
+  }
+
+  // 一次性「往前开一层」：明码取舍，UI 用这个对象把代价写在按钮上
+  function gateForth() {
+    if (!s) return { ok: false, msg: '没有进行游戏' };
+    if (!hasRelic('gate')) return { ok: false, msg: '你没有层阶之钥' };
+    if (s.flags.gateForth) return { ok: false, msg: '钥匙只能往前开一次' };
+    const target = visitedMax() + 1;
+    if (target >= D.floors.length) return { ok: false, msg: '前面已经没有楼层了' };
+    if (s.floor !== visitedMax()) return { ok: false, msg: '先回到你走过的最高层' };
+    // 锁匠守着的章末层不能绕过去，否则四个 Boss 与章节叙事会被一脚跨掉
+    if (D.floors[target].boss) return { ok: false, msg: '锁匠守着那一层，钥匙绕不过去' };
+    return { ok: true, target, seals: sealPlan(target), msg: '' };
+  }
+
+  function sealTiles(target, plan) {
+    const sealed = [];
+    plan.forEach((p) => {
+      if (s.maps[target][p.y][p.x] !== p.ch) return;
+      s.maps[target][p.y][p.x] = '.';
+      sealed.push({ floor: target, x: p.x, y: p.y, name: p.name });
+    });
+    s.flags.gateSeals = (s.flags.gateSeals || []).concat(sealed);
+    return sealed;
+  }
+
   function jumpTo(target) {
     if (!s) return { type: 'refuse', msg: '没有进行游戏' };
     if (!hasRelic('gate')) return { type: 'refuse', msg: '你没有层阶之钥' };
     if (target < 0 || target >= D.floors.length) return { type: 'refuse', msg: '没有那一层' };
-    if (target > visitedMax()) return { type: 'refuse', msg: '你还没走到那一层' };
     if (target === s.floor) return { type: 'refuse', msg: '你就在这一层' };
+    const max = visitedMax();
+    const forth = target > max ? gateForth() : null;
+    if (forth) {
+      if (!forth.ok) return { type: 'refuse', msg: forth.msg };
+      if (target !== forth.target) return { type: 'refuse', msg: '钥匙一次只能往前开一层' };
+    }
     settleFloor();
+    const sealed = forth ? sealTiles(target, forth.seals) : [];
+    if (forth) {
+      s.flags.gateForth = true;
+      s.flags.maxFloor = Math.max(s.flags.maxFloor || 0, target);
+    }
     s.floor = target;
     const map = s.maps[target];
     let pos = null;
@@ -547,9 +602,13 @@
     }
     if (pos) { s.x = pos.x; s.y = pos.y; }
     save();
+    const sealMsg = sealed.length
+      ? ` · 封住了${sealed.map((x) => x.name).join('、')}`
+      : '';
     return {
-      type: 'floor', dir: 0, jump: true,
-      msg: `层阶之钥：第 ${target + 1} 层 · ${D.floors[target].name}`,
+      type: 'floor', dir: 0, jump: true, forth: !!forth,
+      sealed: sealed.map((x) => x.name),
+      msg: `层阶之钥：第 ${target + 1} 层 · ${D.floors[target].name}${sealMsg}`,
       at: { floor: target, x: s.x, y: s.y, heal: 0 },
     };
   }
@@ -956,7 +1015,7 @@
       return D.monsters[ch] ? predict(ch) : null;
     },
     tryMove, fight, canBlock, buy, priceOf, finish, altarChoices, pickRelic, pathTo, pathThrough, pathToNear,
-    nextLevelExp, keyName, summary, hasRelic, ownedRelics, beginFloor, restoreFloor, goalStatus, settleFloor, goalPreview, revealCore, heartState, heartTake, heartLeave, vow, pickEvent, eventPool, eventCost, resolveEvent, applyEffect, jumpTo, visitedMax,
+    nextLevelExp, keyName, summary, hasRelic, ownedRelics, beginFloor, restoreFloor, goalStatus, settleFloor, goalPreview, revealCore, heartState, heartTake, heartLeave, vow, pickEvent, eventPool, eventCost, resolveEvent, applyEffect, jumpTo, visitedMax, gateForth, sealPlan,
     rings, hasRing, ringBlockScale, fightDamage, bossPhases, settleChapter, ringChoices, pendingRing, pickRing,
   };
 })();

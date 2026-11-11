@@ -11,8 +11,6 @@
   let typing = null;
   let warnTimer = null;
   let battleBusy = false;
-  let resetArmed = false;
-  let resetTimer = null;
   let guideTimer = null;
   let choiceFocus = null;
   let heartFocus = null;
@@ -68,13 +66,15 @@
   // 塔的记忆：跨局保存的「余烬」，只用来解锁誓约，不卖战力
   const Meta = (() => {
     const KEY = 'towermates_meta';
-    let data = { ember: 0, unlocked: [] };
+    let data = { ember: 0, unlocked: [], resets: 0 };
     try { data = Object.assign(data, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) {}
     const save = () => { try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) {} };
     return {
       get ember() { return data.ember || 0; },
+      get resets() { return data.resets || 0; },
       has(id) { return (data.unlocked || []).indexOf(id) >= 0; },
       add(n) { data.ember = Math.max(0, (data.ember || 0) + n); save(); },
+      incReset() { data.resets = (data.resets || 0) + 1; save(); return data.resets; },
       buy(id, cost) {
         if (this.has(id)) return 'owned';
         if ((data.ember || 0) < cost) return 'poor';
@@ -306,6 +306,7 @@
     echoOverlay: $('echoOverlay'), echoKicker: $('echoKicker'), echoLine: $('echoLine'),
     echoGoals: $('echoGoals'), echoReward: $('echoReward'), echoRings: $('echoRings'),
     echoHint: $('echoHint'), echoClose: $('echoClose'),
+    resetConfirmOverlay: $('resetConfirmOverlay'),
   };
 
   // ---------- 顶部提示 ----------
@@ -595,12 +596,40 @@
 
   // ---------- 挑战码 / 榜单 ----------
   function encodeChallenge(sum) {
-    const raw = [sum.ending === 'true' ? 1 : 0, sum.floor, sum.level, sum.steps, sum.time].join('.');
+    // 码里带上分数与誓约：贴码进来才能还原出完整的对手行
+    const raw = [sum.ending === 'true' ? 1 : 0, sum.floor, sum.level, sum.steps, sum.time, sum.score || 0, sum.vow || 'none'].join('.');
     try {
       return btoa(unescape(encodeURIComponent('TM' + raw))).replace(/=+$/, '');
     } catch (e) {
       return 'TM' + raw;
     }
+  }
+  function decodeChallenge(code) {
+    try {
+      const raw = decodeURIComponent(escape(atob(String(code).trim()))).replace(/^TM/, '');
+      const p = raw.split('.');
+      if (p.length < 5) return null;
+      const rec = {
+        ending: p[0] === '1' ? 'true' : 'plain',
+        floor: +p[1] || 0,
+        level: +p[2] || 0,
+        steps: +p[3] || 0,
+        time: +p[4] || 0,
+        score: +p[5] || Math.round((+p[3] || 0) * 1.8 + (+p[4] || 0) * 0.4),
+        vow: D.vows[p[6]] ? p[6] : 'none',
+      };
+      if (!rec.floor || rec.floor > D.floors.length) return null;
+      return rec;
+    } catch (e) { return null; }
+  }
+  // 贴进来的码去重：同一个码只留一条幽灵行
+  function loadRivals() {
+    try { return JSON.parse(localStorage.getItem('towermates_rivals') || '[]'); } catch (e) { return []; }
+  }
+  function saveRival(code, rec) {
+    const list = loadRivals().filter((x) => x.code !== code);
+    list.push(Object.assign({ code, name: '挑战·朋友', rival: true }, rec));
+    try { localStorage.setItem('towermates_rivals', JSON.stringify(list.slice(0, 12))); } catch (e) {}
   }
   function loadBoard() {
     try { return JSON.parse(localStorage.getItem('towermates_board') || '[]'); } catch (e) { return []; }
@@ -619,7 +648,9 @@
 
   function openBoard() {
     const mine = loadBoard().map((x) => Object.assign({ mine: true, vow: x.vow || 'none' }, x));
-    const all = S.shadowRivals.map((x) => Object.assign({ vow: 'none' }, x)).concat(mine);
+    const all = S.shadowRivals.map((x) => Object.assign({ vow: 'none' }, x))
+      .concat(loadRivals())
+      .concat(mine);
     all.sort((a, b) => (b.score || 0) - (a.score || 0) || (b.ending === 'true') - (a.ending === 'true'));
     $('boardTabs').innerHTML = VOW_TABS.map(([id, label]) =>
       `<button class="btab ${boardFilter === id ? 'on' : ''}" data-f="${id}">${label}</button>`).join('');
@@ -633,9 +664,10 @@
       ? '<div class="bd-note">塔在等一个更慢的人。影子勇者的分数，是给第一次爬塔的你的。</div>'
       : '') + rows.slice(0, 10).map((r, i) => {
       const v = D.vows[r.vow] || D.vows.none;
-      return `<div class="bd-row ${r.mine ? 'mine' : ''}">
+      const name = r.mine ? '你' : r.rival ? `挑战·朋友 ${r.score} 分` : r.name;
+      return `<div class="bd-row ${r.mine ? 'mine' : ''} ${r.rival ? 'rival' : ''}">
         <span class="bd-rank">${i + 1}</span>
-        <span class="bd-name">${r.mine ? '你' : r.name}${v.name === '不立誓' ? '' : `<i class="bd-vowtag">${v.tag[0]}</i>`}</span>
+        <span class="bd-name">${name}${v.name === '不立誓' ? '' : `<i class="bd-vowtag">${v.tag[0]}</i>`}</span>
         <span class="bd-end ${r.ending === 'true' ? 't' : ''}">${endName(r.ending)}</span>
         <span class="bd-floor">${r.floor}层</span>
         <span class="bd-steps">${r.steps}步</span>
@@ -645,6 +677,27 @@
     codeEl.textContent = mine.length ? encodeChallenge(mine[0]) : '—— 通关后生成 ——';
     $('achCount').textContent = `成就 ${Achievements.count()}/${Achievements.DEFS.length}`;
     el.boardOverlay.classList.add('show');
+  }
+  // 贴码：解码 → 查重 → 以幽灵行进榜
+  function pasteChallenge() {
+    const input = $('pasteCode');
+    const code = (input.value || '').trim();
+    const hint = $('pasteCode') && input.closest('.board-panel').querySelector('.code-hint');
+    if (!code) { warn('先贴进一个挑战码'); return; }
+    const rec = decodeChallenge(code);
+    if (!rec) { warn('这个码读不出来——让朋友复制完整的挑战码'); return; }
+    const myCode = loadBoard().length ? encodeChallenge(Object.assign({ vow: 'none' }, loadBoard()[0])) : '';
+    if (code === myCode) { warn('这是你自己的码'); return; }
+    const dup = loadRivals().some((x) => x.code === code);
+    saveRival(code, rec);
+    input.value = '';
+    if (hint) hint.textContent = dup
+      ? `已更新「挑战·朋友」：最新成绩 ${rec.score} 分（${rec.floor} 层）`
+      : `「挑战·朋友」进榜：${rec.score} 分（${rec.floor} 层）。超过他。`;
+    warn(dup ? '朋友的最新成绩已更新' : `挑战·朋友 ${rec.score} 分，进榜了`);
+    Sound.play('ach');
+    boardFilter = 'all';
+    openBoard();
   }
   function closeBoard() { el.boardOverlay.classList.remove('show'); }
 
@@ -1385,6 +1438,9 @@
     if (NEXT) brief.push(`再 ${Math.max(1, NEXT[1] - sc)} 分进 ${NEXT[0]}`);
     Meta.add(emberGain);
     brief.push(`✦ 余烬 +${emberGain}`);
+    const vowTotal = Object.keys(D.vows).length;
+    const vowUnlocked = Object.keys(D.vows).filter((id) => !D.vows[id].ember || Meta.has(id)).length;
+    brief.push(`🗘 塔的记忆 · 重来 ${Meta.resets} 次 · 誓约 ${vowUnlocked}/${vowTotal} 解锁`);
     $('endBrief').innerHTML = brief.map((t) => `<span>${t}</span>`).join('');
     const ringShorts = ringList.map((id) => D.rings[id].short).join(' ') || '无';
     $('endStats').innerHTML = `
@@ -1876,34 +1932,25 @@
       refreshCfg();
       warn('已清空存档、成就与榜单');
     });
-    // 重置游戏：放弃当前这一局并从头开始（保留成就、余烬与解锁），两步确认防误触
-    $('cfgReset').addEventListener('click', () => {
-      const b = $('cfgReset');
-      if (!resetArmed) {
-        resetArmed = true;
-        b.classList.add('armed');
-        b.textContent = '确认重置这一局？';
-        clearTimeout(resetTimer);
-        resetTimer = setTimeout(() => {
-          resetArmed = false;
-          b.classList.remove('armed');
-          b.textContent = '🗘 重置游戏';
-        }, 3500);
-        return;
-      }
-      clearTimeout(resetTimer);
-      resetArmed = false;
-      b.classList.remove('armed');
-      b.textContent = '🗘 重置游戏';
+    // 重置游戏：放弃当前这一局并从头开始（保留成就、余烬与解锁）。统一走二次确认弹层
+    function doResetRun() {
       Sound.stopMotif();
       Sound.setPad(-1);
+      Sound.stopMusic();
+      const n = Meta.incReset();
       Engine.reset();
       $('btnContinue').style.display = 'none';
       closeCfg();
-      el.startOverlay.classList.add('show');
-      refreshStartBadges();
+      openVow();
       log('已重置本局 · 从头开始', 'gold');
-      warn('本局已重置（成就、余烬与解锁保留）');
+      warn(`本局已重置（成就、余烬与解锁保留）· 第 ${n} 次重来`);
+    }
+    $('cfgReset').addEventListener('click', () => { el.resetConfirmOverlay.classList.add('show'); });
+    $('btnResetRun').addEventListener('click', () => { el.resetConfirmOverlay.classList.add('show'); });
+    $('resetCancel').addEventListener('click', () => { el.resetConfirmOverlay.classList.remove('show'); });
+    $('resetConfirm').addEventListener('click', () => {
+      el.resetConfirmOverlay.classList.remove('show');
+      doResetRun();
     });
     $('gateClose').addEventListener('click', () => el.gateOverlay.classList.remove('show'));
     $('btnAgain').addEventListener('click', () => {
@@ -1971,7 +2018,7 @@
 
   // 遮罩是否完全盖住画布（盖住时暂停重绘）
   const FULL_OVERLAYS = ['startOverlay', 'dialogOverlay', 'shopOverlay', 'boardOverlay',
-    'codexOverlay', 'cfgOverlay', 'choiceOverlay', 'altarOverlay', 'heartOverlay', 'vowOverlay', 'eventOverlay', 'gateOverlay', 'echoOverlay', 'endOverlay'];
+    'codexOverlay', 'cfgOverlay', 'choiceOverlay', 'altarOverlay', 'heartOverlay', 'vowOverlay', 'eventOverlay', 'gateOverlay', 'echoOverlay', 'endOverlay', 'resetConfirmOverlay'];
   function covered() {
     for (const id of FULL_OVERLAYS) {
       if (el[id] && el[id].classList.contains('show')) return true;

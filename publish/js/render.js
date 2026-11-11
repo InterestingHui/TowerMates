@@ -22,7 +22,7 @@
   let lastFloor = -1;
   let face = 1;
 
-  let ambient = { mode: 'torch', embers: [], spawnAcc: 0 };
+  let ambient = { mode: 'torch', critters: [], spawnAcc: 0 };
   let torchList = [];
   let bgCanvas = null, bgKey = '';
   let dirty = true; // 画布尺寸/楼层变化后需要补一帧
@@ -119,7 +119,7 @@
   function setAmbient(floorIndex, map) {
     const fdef = window.GAME_DATA && window.GAME_DATA.floors[floorIndex];
     const mode = (fdef && fdef.ambient) || 'torch';
-    ambient = { mode, embers: [], spawnAcc: 0 };
+    ambient = { mode, critters: [], spawnAcc: 0 };
     lastFloor = floorIndex;
     torchList = [];
     if (!map && window.Engine && window.Engine.state()) {
@@ -592,37 +592,198 @@
     ctx.restore();
   }
 
-  // ---------- 氛围 ----------
+  // ---------- 氛围：低频小生物（萤火虫/飞蛾/蝙蝠） ----------
+  // 取代旧「余烬粒子」：那是每 0.5s 一颗的静止黄点，看着像屏幕脏了。
+  // 现在：同屏最多 3 只、十几秒才来一只，平时悬停漫游，玩家走近 1.7 格内受惊飞走。
+  // 画法：萤火虫=光点+尾迹；飞蛾=小翅膀扑动；蝙蝠=快速掠过（不停留）。
+  function spawnCritter() {
+    const S = TILE * SIZE;
+    const mode = ambient.mode;
+    let kind = 'firefly';
+    if (mode === 'mist') kind = 'moth';
+    else if (mode === 'boss') kind = Math.random() < 0.55 ? 'bat' : 'ember';
+    else if (Math.random() < 0.18) kind = 'ember'; // 火把层偶尔一颗真火星，压低频
+    const edge = (Math.random() * 4) | 0;
+    const m = TILE * 0.4;
+    const c = {
+      kind,
+      x: edge === 0 ? -m : edge === 1 ? S + m : Math.random() * S,
+      y: edge === 0 || edge === 1 ? Math.random() * S : (edge === 2 ? -m : S + m),
+      vx: 0, vy: 0,
+      born: simT,
+      seed: Math.random() * 100,
+      state: 'fly', // fly（进场）→ hover（悬停漫游）→ scare（受惊离场）
+      hoverT: 0,
+      hoverDur: kind === 'bat' ? 0 : 6 + Math.random() * 7,
+      wing: Math.random() * Math.PI * 2,
+      glowT: Math.random() * 3, // 萤火虫的呼吸明灭
+    };
+    // 朝屏幕内一个随机点飞
+    const tx = S * (0.2 + Math.random() * 0.6), ty = S * (0.2 + Math.random() * 0.6);
+    const d = Math.max(1, Math.hypot(tx - c.x, ty - c.y));
+    c.vx = (tx - c.x) / d; c.vy = (ty - c.y) / d;
+    ambient.critters.push(c);
+  }
+
   function updateAmbient(dt) {
-    const rate = ambient.mode === 'boss' ? 340 : ambient.mode === 'mist' ? 620 : 480;
+    // 出生节奏：比旧余烬慢一个量级——萤火虫层约 11s 一只，雾层 13s，Boss 层 15s
+    const rate = ambient.mode === 'boss' ? 15000 : ambient.mode === 'mist' ? 13000 : 11000;
     ambient.spawnAcc += dt;
-    if (ambient.spawnAcc > rate && ambient.embers.length < 16) {
+    const cap = ambient.mode === 'boss' ? 2 : 3;
+    if (ambient.spawnAcc > rate && ambient.critters.length < cap) {
       ambient.spawnAcc = 0;
-      ambient.embers.push({
-        x: Math.random() * TILE * SIZE,
-        y: TILE * SIZE + 6,
-        vy: -(14 + Math.random() * 20),
-        vx: (Math.random() - 0.5) * 8,
-        size: ambient.mode === 'mist' ? 2.5 + Math.random() * 3 : 1.5 + Math.random() * 2,
-        start: simT,
-        life: 5200 + Math.random() * 3000,
-        flick: Math.random() * 10,
-      });
+      spawnCritter();
     }
-    const colors = ambient.mode === 'boss' ? ['255,90,70'] : ambient.mode === 'mist' ? ['170,140,255'] : ['255,180,90', '255,200,120'];
-    for (let i = ambient.embers.length - 1; i >= 0; i--) {
-      const e = ambient.embers[i];
-      const age = simT - e.start;
-      if (age > e.life || e.y < -8) { ambient.embers.splice(i, 1); continue; }
-      e.y += e.vy * dt / 1000;
-      e.x += (e.vx + Math.sin(simT / 700 + e.flick) * 6) * dt / 1000;
-      const p = age / e.life;
-      const alpha = p < 0.15 ? p / 0.15 : 1 - (p - 0.15) / 0.85;
-      const c = colors[(e.flick | 0) % colors.length];
-      ctx.fillStyle = `rgba(${c},${(alpha * 0.55).toFixed(3)})`;
-      ctx.beginPath();
-      ctx.arc(e.x, e.y, e.size, 0, Math.PI * 2);
-      ctx.fill();
+    const S = TILE * SIZE;
+    const px = (disp._tx != null ? disp._tx : disp.x) * TILE + TILE / 2;
+    const py = (disp._ty != null ? disp._ty : disp.y) * TILE + TILE / 2;
+    const s = dt / 1000;
+    for (let i = ambient.critters.length - 1; i >= 0; i--) {
+      const c = ambient.critters[i];
+      c.wing += dt * (c.kind === 'bat' ? 0.052 : c.kind === 'moth' ? 0.028 : 0.012) * Math.PI * 2 / 16;
+
+      // 玩家靠近 1.7 格 → 受惊飞走（蝙蝠不停留所以不受惊）
+      if (c.state !== 'scare' && c.kind !== 'bat') {
+        const dd = Math.hypot(px - c.x, py - c.y);
+        if (dd < TILE * 1.7) {
+          const d = Math.max(1, dd);
+          c.vx = (c.x - px) / d; c.vy = (c.y - py) / d;
+          c.state = 'scare';
+          c.scareBoost = 1;
+        }
+      }
+      let speed = c.kind === 'bat' ? 150 : c.kind === 'moth' ? 42 : 26;
+      if (c.state === 'fly') {
+        // 进场：朝目标点，接近后转悬停
+        speed *= 1.6;
+        if (Math.hypot(px - c.x, py - c.y) < TILE * 0.4 === false && Math.random() < 0.01) { /* noop */ }
+        const tx = c._tx, ty = c._ty;
+        c.x += c.vx * speed * s;
+        c.y += c.vy * speed * s;
+        const distIn = Math.hypot((c._ix || 0) - c.x, (c._iy || 0) - c.y);
+        if (c.x < -TILE || c.x > S + TILE || c.y < -TILE || c.y > S + TILE) { ambient.critters.splice(i, 1); continue; }
+        if (distIn > TILE * 2.2 || (c._ix == null && c.x > TILE && c.x < S - TILE && c.y > TILE && c.y < S - TILE)) {
+          c._ix = c.x; c._iy = c.y;
+          c.state = c.hoverDur > 0 ? 'hover' : 'leave';
+          if (c.state === 'leave') {
+            const edge = (Math.random() * 4) | 0;
+            const tx2 = edge === 0 ? -TILE : edge === 1 ? S + TILE : c.x;
+            const ty2 = edge === 2 ? -TILE : edge === 3 ? S + TILE : c.y;
+            const d = Math.max(1, Math.hypot(tx2 - c.x, ty2 - c.y));
+            c.vx = (tx2 - c.x) / d; c.vy = (ty2 - c.y) / d;
+          }
+        }
+      } else if (c.state === 'hover') {
+        // 悬停漫游：缓慢蛇形 + 微小随机转向，像生物在打转
+        c.hoverT += dt;
+        const wa = Math.atan2(c.vy, c.vx) + Math.sin(simT / 900 + c.seed) * 0.045 * (dt / 16.7);
+        const sp = speed * (0.55 + 0.45 * Math.sin(simT / 1300 + c.seed * 2));
+        c.vx = Math.cos(wa) * Math.cos(wa) >= 0 ? Math.cos(wa) : Math.cos(wa);
+        c.vx = Math.cos(wa); c.vy = Math.sin(wa);
+        c.x += c.vx * sp * s;
+        c.y += c.vy * sp * s;
+        // 漫游出界 → 离场
+        if (c.x < TILE * 0.3 || c.x > S - TILE * 0.3 || c.y < TILE * 0.3 || c.y > S - TILE * 0.3) {
+          c.state = 'leave';
+          const edge = (Math.random() * 4) | 0;
+          const tx2 = edge === 0 ? -TILE : edge === 1 ? S + TILE : c.x;
+          const ty2 = edge === 2 ? -TILE : edge === 3 ? S + TILE : c.y;
+          const d = Math.max(1, Math.hypot(tx2 - c.x, ty2 - c.y));
+          c.vx = (tx2 - c.x) / d; c.vy = (ty2 - c.y) / d;
+        }
+        if (c.hoverT > c.hoverDur * 1000) {
+          c.state = 'leave';
+          const edge = (Math.random() * 4) | 0;
+          const tx2 = edge === 0 ? -TILE : 1 === 1 ? (edge === 1 ? S + TILE : c.x) : c.x;
+          const ty2 = edge === 2 ? -TILE : edge === 3 ? S + TILE : c.y;
+          const d = Math.max(1, Math.hypot(tx2 - c.x, ty2 - c.y));
+          c.vx = (tx2 - c.x) / d; c.vy = (ty2 - c.y) / d;
+        }
+      } else { // scare / leave：径直飞出屏幕，越飞越快
+        c.scareBoost = Math.min(2.4, (c.scareBoost || 1) + s * 0.9);
+        c.x += c.vx * speed * (c.kind === 'bat' ? 1.4 : 1.9) * c.scareBoost * s;
+        c.y += c.vy * speed * (c.kind === 'bat' ? 1.4 : 1.9) * c.scareBoost * s;
+        if (c.x < -TILE * 1.2 || c.x > S + TILE * 1.2 || c.y < -TILE * 1.2 || c.y > S + TILE * 1.2) {
+          ambient.critters.splice(i, 1); continue;
+        }
+      }
+
+      // ---- 绘制 ----
+      ctx.save();
+      if (c.kind === 'firefly') {
+        // 呼吸明灭的光点 + 一小段尾迹
+        c.glowT += dt / 1000;
+        const pulse = 0.5 + 0.5 * Math.sin(c.glowT * 2.1 + c.seed);
+        const a = (0.35 + pulse * 0.65) * (c.state === 'scare' ? 0.9 : 1);
+        ctx.globalCompositeOperation = 'lighter';
+        const g = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, TILE * 0.34);
+        g.addColorStop(0, 'rgba(255,238,150,' + (a * 0.5).toFixed(3) + ')');
+        g.addColorStop(1, 'rgba(255,238,150,0)');
+        ctx.fillStyle = g;
+        ctx.fillRect(c.x - TILE * 0.34, c.y - TILE * 0.34, TILE * 0.68, TILE * 0.68);
+        const tr = 0.55 + 0.45 * Math.sin(c.glowT * 2.1 + c.seed);
+        ctx.fillStyle = 'rgba(255,246,190,' + (a * tr).toFixed(3) + ')';
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, Math.max(1, TILE * 0.035), 0, Math.PI * 2);
+        ctx.fill();
+        // 尾迹
+        const bx = c.x - c.vx * TILE * 0.22, by = c.y - c.vy * TILE * 0.22;
+        ctx.fillStyle = 'rgba(255,240,160,' + (a * 0.35).toFixed(3) + ')';
+        ctx.beginPath();
+        ctx.arc(bx, by, Math.max(0.5, TILE * 0.02), 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalCompositeOperation = 'source-over';
+      } else if (c.kind === 'moth') {
+        // 雾层飞蛾：两只扑动的小翅膀，淡紫
+        const fl = Math.sin(c.wing * 9);
+        const wingA = 0.55 + fl * 0.45;
+        ctx.translate(c.x, c.y);
+        const ang = Math.atan2(c.vy, c.vx);
+        ctx.rotate(ang + Math.PI / 2);
+        ctx.fillStyle = 'rgba(190,168,255,' + (0.5 + fl * 0.2).toFixed(2) + ')';
+        for (const sgn of [-1, 1]) {
+          ctx.save();
+          ctx.scale(sgn, 1);
+          ctx.rotate(wingA * 0.9);
+          ctx.beginPath();
+          ctx.ellipse(TILE * 0.09, -TILE * 0.02, TILE * 0.11, TILE * 0.055, 0.5, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+        ctx.fillStyle = 'rgba(210,196,255,0.85)';
+        ctx.beginPath();
+        ctx.ellipse(0, 0, TILE * 0.032, TILE * 0.052, 0, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (c.kind === 'bat') {
+        // Boss 层蝙蝠：纯剪影快速掠过，绝不悬停
+        const fl = Math.sin(c.wing * 14);
+        const ws = TILE * 0.16;
+        ctx.translate(c.x, c.y);
+        ctx.rotate(Math.atan2(c.vy, c.vx) + Math.PI / 2);
+        ctx.fillStyle = 'rgba(22,16,26,0.88)';
+        ctx.beginPath();
+        ctx.moveTo(0, TILE * 0.05);
+        ctx.quadraticCurveTo(-ws * 0.5, -TILE * 0.02 - fl * ws * 0.8, -ws, fl * ws * 0.5);
+        ctx.quadraticCurveTo(-ws * 0.4, TILE * 0.02, 0, TILE * 0.02);
+        ctx.quadraticCurveTo(ws * 0.4, TILE * 0.02, ws, fl * ws * 0.5);
+        ctx.quadraticCurveTo(ws * 0.5, -TILE * 0.02 - fl * ws * 0.8, 0, TILE * 0.05);
+        ctx.fill();
+        ctx.fillStyle = 'rgba(255,120,90,0.5)';
+        ctx.beginPath();
+        ctx.arc(-TILE * 0.022, -TILE * 0.008, TILE * 0.014, 0, Math.PI * 2);
+        ctx.arc(TILE * 0.022, -TILE * 0.008, TILE * 0.014, 0, Math.PI * 2);
+        ctx.fill();
+      } else { // ember：压低频的真火星，偶尔一颗
+        const age = simT - c.born;
+        const p = Math.min(1, age / 4200);
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.fillStyle = 'rgba(255,180,90,' + (0.42 * (1 - p)).toFixed(3) + ')';
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, 1.6 + TILE * 0.012, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalCompositeOperation = 'source-over';
+      }
+      ctx.restore();
     }
   }
 
@@ -1015,6 +1176,26 @@
           noGlow();
         } else if (D.monsters[ch]) drawMonster(ch, px, py, simT);
         else if (D.items[ch] || ch === '$') drawItem(ch, px, py, simT);
+      }
+    }
+
+    // 层阶之钥往前开一层留下的封印：物件已被拿走，原地只余一道锁印
+    const seals = state.flags && state.flags.gateSeals;
+    if (seals && seals.length) {
+      for (const q of seals) {
+        if (q.floor !== state.floor) continue;
+        const px = q.x * TILE;
+        const py = q.y * TILE;
+        groundShadow(px, py, TILE * 0.26, 0.42);
+        ctx.save();
+        ctx.strokeStyle = 'rgba(201,74,82,0.55)';
+        ctx.lineWidth = Math.max(1, TILE * 0.035);
+        ctx.setLineDash([TILE * 0.09, TILE * 0.07]);
+        ctx.beginPath();
+        ctx.arc(px + TILE / 2, py + TILE / 2, TILE * 0.31, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+        drawEmoji('🔒', px, py, 0.42);
       }
     }
 
