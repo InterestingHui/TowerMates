@@ -1,5 +1,11 @@
 # TowerMates 长期记忆
 
+## Boss 地图标改锁匠剪影（2026-11-12，commit 315a50b）
+- 用户反馈「第 3 层拦路的是一本书，很奇怪」：砚的 emoji 📖 整格画出，跟可拾取道具一模一样。
+- render.js 新增 `drawBossFigure`：四位章节 Boss（砚紫/炬红/铎金/衡蓝）统一画成「坐姿剪影+双角+亮瞳+膝上锁物(小号 emoji)+脚下红色脉动威胁环」，光色与 portraits.js 同源；剪影勾 1px 光色亮边保证暗墙上可读。普通小怪仍走 emoji。
+- 截图验证场景 `tools/shot.html?scene=bossyan`（第 3 层砚同框），已加入 regress SCENES（28 张）。
+- 测试工具曾因另一路会话拆塔规而红：check.js/engine-test.js/ui-check.html 已对齐「回响必得三选一、锁芯门击败衡即开、emberOf 三参」新口径；main.js 清掉残留 gs.done。
+
 ## 塔规系统已移除（2026-11-12 凌晨，commit 0ee89e3）
 - 用户裁定「本层规矩/塔规」没有意义，整套拆除：顶栏规矩行、楼层卡规矩、 Coach goal 教案、settleFloor/goalPreview/goalStatus、floorGoals 数据表、章印（echoMarks）、echo_perfect/echo_master 成就（31→29 项）全删。
 - 连带改口径：**章末回响 = 击败 Boss 必得锁环三选一**（不再要求 ≥2 条塔规）；**锁芯门槛 = 四个锁匠全倒**；塔印 sealOf 按「真结局 + 回响章数 + 不回头」判；余烬删塔规/章印项、新增「每击败 10 只怪 +1」；ledger/ash/ledger2 锁环描述改击杀口径；seventh 改通关 +3 余烬；挑战码 goals 字段改存回响章数。

@@ -421,10 +421,20 @@
         d.getElementById('coachOk').click();
         await wait(700);
         out.push('coachClosed=' + card.hidden);
+        // 深挖：清 seen 再手动触发，捕捉异常
+        try {
+          w.__tm.Tips.reset ? w.__tm.Tips.reset() : null;
+          w.__tm.Tips.show('opening');
+          await wait(300);
+          out.push('manual=' + !card.hidden + ' circle=' + !!svg.querySelector('.coach-spot')
+            + ' rectW=' + Math.round(d.getElementById('stage').getBoundingClientRect().width)
+            + ' tile=' + w.Renderer.getTile());
+        } catch (e3) { out.push('manualErr=' + (e3 && e3.stack || e3).slice(0, 220)); }
         out.push('dbg=branch:' + (w.__coachBranch||0) + ' seenOpening=' + (w.__tm.Tips.seen('opening') ? 1 : 0)
           + ' storyCoach=' + !!(w.STORY && w.STORY.coach)
           + ' mainNew=' + (typeof w.__coachBranch !== 'undefined')
-          + ' tipsShowSrc=' + String(w.__tm.Tips.show).slice(0, 60).replace(/s+/g, ' '));
+          + ' iframeSrc=' + f.src
+          + ' mainUrl=' + (d.querySelector('script[src*="main.js"]') || {}).src);
         out.push('allClosed=' + card.hidden + ' dlgClosed=' + !dl.classList.contains('show'));
         errBox.textContent = out.join('\n') + '\nerr=' + (errs.length ? errs.join('|') : 'none');
         return;
