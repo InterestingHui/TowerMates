@@ -2049,6 +2049,14 @@
       RefreshFloorDirect();
     }
 
+    // 分享直达：?play=1 自动开局并跳过序章，落地即是可操作的地图
+    // 不带此参数时仍走正常流程（开始界面 → 四选一誓约 → 序章）
+    const qs = new URLSearchParams(location.search);
+    if (!demo && qs.get('play') === '1') {
+      startGame('none');
+      skipDialog();
+    }
+
     function RefreshFloorDirect() {
       const s = Engine.state();
       Renderer.setAmbient(s.floor);

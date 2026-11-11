@@ -2,7 +2,9 @@
 
 一个可直接在浏览器里玩的魔塔（固定数值 RPG）：**12 层主塔 + 1 层隐藏「锁芯」**，四章剧情、四位锁匠 Boss、双结局、八件常规遗物、三座祭坛，以及 v2.1 的**章末回响与 16 枚锁环构筑**。纯前端、零依赖、数据驱动。
 
-**线上版**：发布目录 `publish/`，用应用发布能力部署即可（只含 index.html + css + js）。
+**线上版**：<https://towermates.app.workbuddy.host/?sharecode=U7XMLC2NKJ&play=1> —— 点击直接落到第 1 层可操作地图；去掉 `&play=1` 则走开始界面与四选一誓约。`sharecode` 是访问凭证，不能省略。
+
+发布目录 `publish/`。每次改完代码先跑 `node tools/sync-publish.js`（把源码同步到 publish/，并把静态资源版本号换成内容指纹 `?v=<build>`），再用应用发布能力部署 `publish/`。入口链接永久不变，代码一更新资源 URL 自动变化，浏览器必然加载新版本。
 
 ## 运行
 
