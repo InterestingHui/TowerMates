@@ -79,6 +79,10 @@
   function ring(tx, ty, color, maxR, dur) {
     rings.push({ tx, ty, start: simT, dur: dur || 420, color, maxR: maxR || TILE * 2.2 });
   }
+  // 像素坐标版（小生物受惊用）：不落在格心，直接给屏幕坐标
+  function ringPx(px, py, color, maxR, dur) {
+    rings.push({ px, py, start: simT, dur: dur || 380, color, maxR: maxR || TILE * 0.6 });
+  }
   // 遗物高光：十字星芒 + 三重冲击环。竖光柱从拾取点冲出画面顶，横光带扫过全屏
   function relicBeamFx(tx, ty) {
     relicBeam = { tx, ty, start: performance.now() };
@@ -681,7 +685,8 @@
           const d = Math.max(1, dd);
           c.vx = (c.x - px) / d; c.vy = (c.y - py) / d;
           c.state = 'scare';
-          if (scareHook) scareHook();
+          // 受惊瞬间一圈同色涟漪：让「飞走」有可见的起跳点
+          ringPx(c.x, c.y, c.kind === 'moth' ? 'rgba(198,176,255,0.75)' : c.kind === 'wisp' ? 'rgba(160,232,220,0.75)' : 'rgba(255,232,150,0.8)');
           if (scareCb) scareCb();
         }
       }
@@ -865,7 +870,9 @@
       ctx.strokeStyle = r.color;
       ctx.lineWidth = 3 * (1 - p) + 1;
       ctx.beginPath();
-      ctx.arc(r.tx * TILE + TILE / 2, r.ty * TILE + TILE / 2, 6 + ease * r.maxR, 0, Math.PI * 2);
+      const cx = r.px != null ? r.px : r.tx * TILE + TILE / 2;
+      const cy = r.py != null ? r.py : r.ty * TILE + TILE / 2;
+      ctx.arc(cx, cy, (r.px != null ? 2 : 6) + ease * r.maxR, 0, Math.PI * 2);
       ctx.stroke();
     }
     for (const f of flashes) {
@@ -1421,14 +1428,11 @@
     ctx.restore();
   }
 
-  // 小生物受惊时通知外部（音效），由 main.js 在 boot 里注入
-  let scareHook = null;
   window.Renderer = {
-    onScare(fn) { scareHook = typeof fn === 'function' ? fn : null; },
-    init, layout, draw, snapshot,
-    addFloat, shake, fade, freeze, pulse, flashTile, ring, burst, relicBeamFx,
-    setAmbient, setTarget, setRoutePreview,
     onScare(fn) { scareCb = typeof fn === 'function' ? fn : null; },
+    init, layout, draw, snapshot,
+    addFloat, shake, fade, freeze, pulse, flashTile, ring, ringPx, burst, relicBeamFx,
+    setAmbient, setTarget, setRoutePreview,
     needsDraw: () => dirty,
     getTile: () => TILE,
     __debugRoute: () => routePreview,

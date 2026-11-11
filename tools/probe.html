@@ -1,0 +1,15 @@
+<!DOCTYPE html><html><head><meta charset="UTF-8"><title>probe</title></head>
+<body style="margin:0;background:#05070c">
+<iframe id="f" src="/tools/shot.html?scene=play" style="width:440px;height:820px;border:0"></iframe>
+<script>
+document.getElementById('f').addEventListener('load', function () {
+  setTimeout(function () {
+    var w = document.getElementById('f').contentWindow;
+    var d = w.document;
+    d.querySelectorAll('.overlay.show').forEach(function (o) { o.classList.remove('show'); });
+    w.Renderer.ringPx(120, 320, 'rgba(255,232,150,0.95)', 60, 6000);
+    w.Renderer.ringPx(300, 420, 'rgba(198,176,255,0.95)', 60, 6000);
+    w.Renderer.ringPx(210, 540, 'rgba(160,232,220,0.95)', 60, 6000);
+  }, 1200);
+});
+</script></body></html>

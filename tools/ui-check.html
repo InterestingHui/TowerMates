@@ -12,10 +12,24 @@ try { localStorage.setItem('towermates_tips_v2', JSON.stringify({
 <iframe id="f" src="../index.html?play=1" style="width:430px;height:900px;border:0"></iframe>
 <pre id="out">pending</pre>
 <script>
-// iframe 被缓存时 load 可能早于本脚本执行：补一次就绪兜底，避免 run 永不触发
+// iframe 被缓存时 load 可能早于本脚本执行：补一次就绪兜底，避免 run 永不触发。
+// 环境慢或多会话并发时 boot 会超过固定延迟 → 改为轮询 Engine.state()，最多等 12s；
+// 真起不来（脚本报错）也照样交给 run，让 out.booted=false 如实暴露问题。
 (function () {
   var fr = document.getElementById('f'), kicked = false;
-  function kick() { if (kicked) return; kicked = true; setTimeout(run, 600); }
+  function ready() {
+    try { return !!(fr.contentWindow && fr.contentWindow.Engine && fr.contentWindow.Engine.state()); }
+    catch (e) { return false; }
+  }
+  function kick() {
+    if (kicked) return;
+    kicked = true;
+    var t0 = Date.now();
+    (function poll() {
+      if (ready() || Date.now() - t0 > 12000) { setTimeout(run, 80); return; }
+      setTimeout(poll, 50);
+    })();
+  }
   fr.addEventListener('load', kick);
   if (fr.contentDocument && fr.contentDocument.readyState === 'complete') kick();
 })();
