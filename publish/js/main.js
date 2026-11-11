@@ -1662,7 +1662,7 @@
       const v = D.vows[lockedVow];
       const need = Math.max(0, v.ember - Meta.ember);
       goals.push(need > 0
-        ? `再攒 ${need} ✦ 解锁「${v.name}」（现在 ${Meta.ember}）`
+        ? `再攒 ${need} ✦ 解锁「${v.name}」（本局 +${emberGain}，约 ${Math.ceil(need / Math.max(1, emberGain))} 局）`
         : `「${v.name}」已可解锁——下一局开局选它`);
     }
     // 2) 没通关过的誓约
@@ -1705,17 +1705,11 @@
     art.classList.toggle('true', tru);
     const em = $('startEmber');
     if (em) {
-      // 标题页也讲「塔的记忆」：第 N 次进塔 + 离下一局目标最近的一条
+      // 标题页只讲履历与余额；「还差多少解锁」放到立誓面板和结局页才有意义
       const mem = Meta.memory;
-      const lockedVow = Object.keys(D.vows).find((id) => D.vows[id].ember && !Meta.has(id));
       const parts = [];
       if ((mem.runs || 0) > 0) parts.push(`第 ${mem.runs + 1} 次进塔 · 最远第 ${mem.deepest || 0} 层`);
-      if (lockedVow) {
-        const need = Math.max(0, D.vows[lockedVow].ember - Meta.ember);
-        parts.push(need > 0 ? `再 ${need} ✦ 解锁「${D.vows[lockedVow].name}」` : `「${D.vows[lockedVow].name}」已可解锁`);
-      } else if (Meta.ember > 0 || (mem.runs || 0) > 0) {
-        parts.push(Meta.ember > 0 ? `✦ 余烬 ${Meta.ember} · 誓约已全解锁` : '✦ 誓约已全解锁');
-      }
+      if (Meta.ember > 0) parts.push(`✦ 余烬 ${Meta.ember}`);
       em.textContent = parts.length ? parts.join(' · ') : '';
     }
   }
@@ -2317,29 +2311,28 @@
 
   // ---------- 立誓 ----------
   function openVow() {
-    // 面板上明示当前余烬：锁着的誓约要花它，不写数量玩家只能瞎猜
+    // 面板上写明：卡上的 +N 是「额外」，每局本身还有基础 + 塔规/章印/结局/路遇
     const emberLine = $('vowEmber');
     if (emberLine) {
       const locked = Object.keys(D.vows).filter((id) => D.vows[id].ember && !Meta.has(id));
       emberLine.textContent = locked.length
-        ? `✦ 余烬 ${Meta.ember}${locked.length ? ` · 解锁下一条誓约还差 ${Math.max(0, D.vows[locked[0]].ember - Meta.ember)}` : ''}`
+        ? `✦ 余烬 ${Meta.ember} · 每局基础 5+，卡上是额外 · 「${D.vows[locked[0]].tag}」还差 ${Math.max(0, D.vows[locked[0]].ember - Meta.ember)}`
         : Meta.ember > 0 ? `✦ 余烬 ${Meta.ember} · 誓约已全解锁` : '';
       emberLine.hidden = !emberLine.textContent;
     }
     el.vowCards.innerHTML = Object.keys(D.vows).map((id) => {
       const v = D.vows[id];
       const locked = !!v.ember && !Meta.has(id);
-      // 回报写成「通关余烬 +N」：看得见能拿什么，不用先懂倍率
-      const rewardWord = v.reward >= 5 ? `<small>吃苦的那条，留下的最多</small>` : v.reward === 0 ? `<small>不加余烬</small>` : '';
-      // 锁着的卡写明「有多少 / 要多少 / 还差多少」，和面板顶部的余烬数对得上
-      const lockText = locked ? `🔒 ${v.ember} 余烬（有 ${Meta.ember} · 还差 ${Math.max(0, v.ember - Meta.ember)}）` : '';
+      const rewardWord = v.reward >= 12 ? `<small>吃苦的那条，留下的最多</small>` : v.reward === 0 ? `<small>基线，不额外加</small>` : '';
+      // 锁着的卡也写明解锁后的回报，别只看到一个成本数字
+      const line = locked
+        ? `🔒 ${v.ember} 余烬（有 ${Meta.ember} · 还差 ${Math.max(0, v.ember - Meta.ember)}）<br><small>解锁后每局额外 +${v.reward}</small>`
+        : `每局额外 +${v.reward || 0} 余烬${rewardWord}`;
       return `<button class="vow-card ${id === 'none' ? 'hero' : ''} ${locked ? 'locked' : ''}" data-vow="${id}">
         <span class="vc-emoji">${v.emoji}</span>
         <span class="vc-name">${v.name}</span>
         <span class="vc-desc">${v.desc}</span>
-        ${locked
-          ? `<span class="vc-lock">${lockText}</span>`
-          : `<span class="vc-mul">通关余烬 +${v.reward || 0}${rewardWord}</span>`}
+        <span class="${locked ? 'vc-lock' : 'vc-mul'}">${line}</span>
       </button>`;
     }).join('');
     el.vowCards.querySelectorAll('.vow-card').forEach((b) => {

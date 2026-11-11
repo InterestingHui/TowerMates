@@ -173,6 +173,19 @@ D.shop.forEach((it) => {
   if (!it.id || !it.name || typeof it.price !== 'number') err(`商店商品异常：${JSON.stringify(it)}`);
 });
 
-// 每层至少 1 个可拾取强化（避免某层纯空跑）
+// ---------- 跨局余烬经济：解锁线不能掐断循环 ----------
+// 一局常规通关约 18 余烬（基础 5 + 塔规/章印/结局/路遇），最贵的解锁应在 3 局内够得着。
+// 老分数制时代留的 60/120 要 7~20 局，PROGRESS P-1 记过这个断头问题。
+const RUN_EMBER = 18;
+const vowIds = Object.keys(D.vows);
+const freeMax = Math.max(...vowIds.filter((id) => !D.vows[id].ember).map((id) => D.vows[id].reward || 0));
+vowIds.forEach((id) => {
+  const v = D.vows[id];
+  if (typeof v.reward !== 'number' || v.reward < 0) err(`誓约 ${id} 缺通关额外余烬`);
+  if (!v.ember) return;
+  if (v.ember > RUN_EMBER * 3) err(`「${v.name}」解锁成本 ${v.ember} 超过 3 局常规通关（${RUN_EMBER}×3）`);
+  if (v.reward <= freeMax) err(`「${v.name}」回报 ${v.reward} 不该低于免费誓约上限 ${freeMax}`);
+});
+
 console.log(bad === 0 ? '\n✓ 地图校验通过' : `\n✗ 共 ${bad} 个问题`);
 process.exit(bad === 0 ? 0 : 1);

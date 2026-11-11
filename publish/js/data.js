@@ -492,7 +492,9 @@ window.GAME_DATA = (function () {
   ];
 
   // 开局六誓：给整局换一套规则。越难走的那条，通关时留下的余烬越多
-  // reward = 通关额外余烬（跨局解锁用，不加战力）；ember = 解锁这条誓约要花的余烬
+  // reward = 每局通关「额外」余烬（跨局解锁用，不加战力）；ember = 解锁这条誓约要花的余烬
+  // 解锁线按单局实测量级定：常规一局约 18~30 余烬，两条解锁分别约 1~2 局 / 再 2 局，
+  // 不再是老分数制时代遗留的 60/120（那条线要 7~20 局，等于把跨局循环掐断）。
   const vows = {
     none: {
       name: '不立誓', emoji: '○', tag: '如常',
@@ -500,24 +502,24 @@ window.GAME_DATA = (function () {
     },
     mercy: {
       name: '慈悲之誓', emoji: '🕊️', tag: '手软',
-      desc: '攻击 −3；每上一层回复 12% 生命', reward: 0,
+      desc: '攻击 −3；每上一层回复 12% 生命', reward: 3,
     },
     greed: {
       name: '贪婪之誓', emoji: '🪙', tag: '贪财',
-      desc: '击杀金币 +70%；秤的价目 +30%', reward: 2,
+      desc: '击杀金币 +70%；秤的价目 +30%', reward: 4,
     },
     guard: {
       name: '铁壁之誓', emoji: '🛡️', tag: '死守',
-      desc: '不能格挡；每场战斗承伤 −18%', reward: 1,
+      desc: '不能格挡；每场战斗承伤 −18%', reward: 5,
     },
     // 以下两条要用余烬解锁（塔的记忆）
     ascetic: {
       name: '苦行之誓', emoji: '🪵', tag: '苦行',
-      desc: '不能格挡；每上一层回复 10% 生命', reward: 5, ember: 60,
+      desc: '不能格挡；每上一层回复 10% 生命', reward: 8, ember: 24,
     },
     nameless: {
       name: '无名之誓', emoji: '🕳️', tag: '无名',
-      desc: '不能格挡、物价 +40%；每上一层回复 10% 生命', reward: 9, ember: 120,
+      desc: '不能格挡、物价 +40%；每上一层回复 10% 生命', reward: 14, ember: 48,
     },
   };
 
