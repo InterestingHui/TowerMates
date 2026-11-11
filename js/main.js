@@ -477,7 +477,7 @@
     if (!msg) return;
     const div = document.createElement('div');
     div.className = 'line' + (cls ? ' ' + cls : '');
-    div.textContent = msg;
+    renderRich(div, msg);
     el.log.appendChild(div);
     while (el.log.children.length > 7) el.log.removeChild(el.log.firstChild);
   }
@@ -1002,7 +1002,7 @@
     Renderer.addFloat(`+${res.gold}💰`, tx * T + T / 2 - 14, ty * T + 16, '#e8c46a');
     if (res.exp > 0) Renderer.addFloat(`+${res.exp}✨`, tx * T + T / 2 + 14, ty * T + 16, '#9fd8ff');
     if (res.heal > 0) Renderer.addFloat(`+${res.heal}❤`, tx * T + T / 2, ty * T + 26, '#6fe3a0');
-    log(`击败${res.monster.name}，损失 ${res.damage} 生命，获得 ${res.gold} 金币 / ${res.exp} 经验`, 'good');
+    log(`击败${res.monster.name}，损失 **${res.damage}** 生命，获得 ${res.gold} 金币 / ${res.exp} 经验`, 'good');
     if (res.heal > 0) log(`余烬灯芯亮了一下，回复 ${res.heal} 生命`, 'good');
 
     if (res.levelUps > 0) {
@@ -1010,7 +1010,7 @@
       Renderer.ring(s2.x, s2.y, 'rgba(255,224,138,0.9)', TN() * 2.6, 560);
       Renderer.addFloat('LEVEL UP', s2.x * TN() + TN() / 2, s2.y * TN() - 8, '#ffe08a', true);
       const gain = 130 + (Engine.hasRelic('vigor') ? 80 : 0);
-      log(`升级！Lv.${s2.level}　攻击+${3 * res.levelUps}　防御+${2 * res.levelUps}　生命+${gain * res.levelUps}`, 'gold');
+      log(`**升级！Lv.${s2.level}**　攻击+${3 * res.levelUps}　防御+${2 * res.levelUps}　生命+${gain * res.levelUps}`, 'gold');
     }
     if (res.boss) {
       const m = res.monster;
@@ -1020,13 +1020,13 @@
       if (res.chapter) {
         const ch = D.chapters[res.chapter - 1];
         if (ch) {
-          log(`${ch.title} 完成 · ${ch.theme}`, 'gold');
+          log(`**${ch.title} 完成** · ${ch.theme}`, 'gold');
           warn(`**${ch.title} · 完**`);
         }
       }
       if (res.finalBoss) {
         if (Engine.revealCore()) {
-          log('塔顶后面露出一段窄梯，往上还有一层。', 'gold');
+          log('塔顶后面**露出一段窄梯**，往上还有一层。', 'gold');
           sayHint('coreReveal');
           Renderer.ring(9, 2, 'rgba(255,225,150,0.9)', TN() * 2.4, 720);
           Renderer.burst(9 * TN() + TN() / 2, 2 * TN() + TN() / 2, {

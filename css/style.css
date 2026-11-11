@@ -249,6 +249,7 @@ html, body {
   padding: 2px 2px;
 }
 #log .line { opacity: 0.42; animation: logIn 0.24s ease-out; }
+#log strong, #log b { color: var(--gold); font-weight: 800; }
 #log .line:nth-last-child(1) { opacity: 1; color: var(--text); }
 #log .line.good { color: var(--green); }
 #log .line.warn { color: var(--red); }
