@@ -1137,7 +1137,11 @@
         el.bsHero.classList.add('lunge-r');
         await wait(130);
         el.bsHero.classList.remove('lunge-r');
-        const cut = pred.out;
+        // 真实回合数比演出回合多时，把总伤害按比例摊到每一刀上：
+        // 否则血条在演出里减不到 0，循环结束后直接跳 0，看起来像「血突然掉光」
+        const strikesLeft = K - i;                       // 这一刀之后还剩几刀（含本次）
+        const hpLeft = foeHp;                            // 怪还剩多少血
+        const cut = strikesLeft > 1 ? Math.max(1, Math.round(hpLeft / strikesLeft)) : hpLeft;
         foeHp = Math.max(0, foeHp - cut);
         bars();
         dmgNum(el.bsFoe, '-' + cut, '#ffd27d');
@@ -1154,7 +1158,12 @@
           el.bsFoe.classList.add('lunge-l');
           await wait(130);
           el.bsFoe.classList.remove('lunge-l');
-          const take = Math.round(pred.per * blockScale);
+          // 承伤同样按比例摊：总承伤 = 引擎真实值，演出里逐刀扣，血条不会中途归零再回弹
+          const hitsLeft = K - 1 - i;                     // 本次之后还会挨几下
+          const totalTake = Math.max(0, Math.round(pred.per * blockScale));
+          const dmgRemain = Math.max(0, heroDamageLeft - totalTake);
+          const take = hitsLeft > 0 ? Math.max(0, Math.round((heroDamageLeft - dmgRemain) / (hitsLeft + 1))) : totalTake;
+          heroDamageLeft = dmgRemain;
           heroHp = Math.max(1, heroHp - take);
           bars();
           if (take > 0) dmgNum(el.bsHero, '-' + take, blockOn ? '#9fd8ff' : '#ff8f8f');
