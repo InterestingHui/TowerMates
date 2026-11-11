@@ -13,6 +13,9 @@
   let battleBusy = false;
   let guideTimer = null;
   let hintPump = null;
+  let hintAuto = null;
+  let hintSeq = 0;
+  const HINT_AUTO_MS = 7000; // 角色提示悬挂时长：够读完，也像成就吐司一样自己收起
   const hintQueue = [];
   let choiceFocus = null;
   let heartFocus = null;
@@ -285,7 +288,13 @@
       hit: () => { beep(180, 0.09, 'sawtooth', 0.045, 80); beep(90, 0.12, 'square', 0.035, 60); },
       hitBig: () => { beep(140, 0.17, 'sawtooth', 0.055, 50); beep(70, 0.22, 'square', 0.045, 40); beep(460, 0.09, 'triangle', 0.035, 180); },
       pick: () => { beep(660, 0.06, 'triangle', 0.04); beep(990, 0.1, 'triangle', 0.032, null, 0.05); },
-      relic: () => { beep(523, 0.12, 'sine', 0.045); beep(784, 0.14, 'sine', 0.04, null, 0.09); beep(1047, 0.22, 'triangle', 0.035, null, 0.19); },
+      relic: () => {
+        // 三层上行动机：C5 → G5 → C6，尾音带一点亮泽（triangle），像塔在应答
+        beep(523, 0.14, 'sine', 0.05);
+        beep(784, 0.16, 'sine', 0.045, null, 0.09);
+        beep(1047, 0.26, 'triangle', 0.04, null, 0.2);
+        beep(1568, 0.3, 'sine', 0.02, null, 0.34); // 高泛音闪光
+      },
       door: () => beep(320, 0.16, 'sine', 0.045, 520),
       level: () => { beep(523, 0.1, 'triangle', 0.045); beep(659, 0.1, 'triangle', 0.045, null, 0.1); beep(784, 0.2, 'triangle', 0.045, null, 0.2); },
       buy: () => beep(880, 0.06, 'triangle', 0.035),
@@ -309,6 +318,43 @@
     flashTimer = setTimeout(() => f.classList.remove('on'), 190);
   }
 
+  // 遗物拾取的高光时刻：星芒光柱 → 金色全景闪 → 顶栏金晕 → 冲击环+金尘+freeze。
+  // 一局只有两三次，值得给它一整秒的舞台。
+  let relicGlowTimer = null;
+  let relicFadeTimer = null;
+  function relicShowcase(x, y) {
+    const T = TN();
+    Renderer.freeze(90);
+    Renderer.relicBeamFx(x, y);
+    if (!REDUCED()) {
+      Renderer.shake(160, 3);
+      Renderer.pulse();
+      const f = el.relicFlash;
+      if (f) {
+        clearTimeout(relicGlowTimer);
+        clearTimeout(relicFadeTimer);
+        f.classList.remove('fade');
+        f.classList.add('on');
+        relicGlowTimer = setTimeout(() => {
+          f.classList.remove('on');
+          f.classList.add('fade');
+          relicFadeTimer = setTimeout(() => f.classList.remove('fade'), 650);
+        }, 160);
+      }
+      if (el.topbar) {
+        el.topbar.classList.remove('relic-hit');
+        void el.topbar.offsetWidth; // 重置动画
+        el.topbar.classList.add('relic-hit');
+        setTimeout(() => el.topbar.classList.remove('relic-hit'), 1150);
+      }
+    }
+    Renderer.ring(x, y, 'rgba(255,236,180,0.95)', T * 3.1, 620);
+    Renderer.burst(x * T + T / 2, y * T + T / 2, {
+      count: REDUCED() ? 14 : 34, colors: ['#fff4d6', '#ffe6a8', '#ffd27d', '#e8c46a'], speed: 170, life: [600, 1250], size: [2, 5.5], grav: 130,
+    });
+    vibrate([14, 30, 14]);
+  }
+
   function vibrate(ms) {
     if (!Settings.vib) return;
     if (navigator.vibrate) { try { navigator.vibrate(ms); } catch (e) {} }
@@ -330,7 +376,7 @@
     eventOverlay: $('eventOverlay'), evEmoji: $('evEmoji'), evName: $('evName'), evText: $('evText'), evOpts: $('evOpts'),
     gateOverlay: $('gateOverlay'), gateList: $('gateList'),
     altarOverlay: $('altarOverlay'), altarCards: $('altarCards'),
-    hitFlash: $('hitFlash'), hpGhost: $('hpGhost'), endScore: $('endScore'),
+    hitFlash: $('hitFlash'), relicFlash: $('relicFlash'), topbar: $('topbar'), hpGhost: $('hpGhost'), endScore: $('endScore'),
     toast: $('toast'), warnPill: $('warnPill'),
     battleScene: $('battleScene'),
     bsHero: $('bsHero'), bsFoe: $('bsFoe'),
@@ -377,8 +423,9 @@
     warnTimer = setTimeout(() => p.classList.remove('show'), dur);
   }
 
-  // ---------- 角色提示：关键消息走对白，玩家自己点掉 ----------
+  // ---------- 角色提示：关键消息走对白，悬挂数秒后自己收起 ----------
   // 排队 + 等空闲：剧情对白、战斗、商店/抉择面板开着时不硬插，避免盖住正在做的事
+  // 自动收起是兜底：玩家没点也不会一直挂着；想提前关，点一下或按「跳过」即可
   function canSay() {
     return !!(Engine.state && Engine.state()) && !typing && !battleBusy && !shopOpen && !covered();
   }
@@ -391,18 +438,28 @@
       const h = hintQueue.shift();
       clearInterval(hintPump);
       hintPump = null;
+      const id = ++hintSeq;
       playStory(h.script, () => {
         el.dialogOverlay.classList.remove('hint-mode');
         if (hintQueue.length) scheduleHint();
       }, h.cue);
       el.dialogOverlay.classList.add('hint-mode');
+      if (typing) typing.hintId = id;
+      // 到点只关这一条：hintId 对不上说明已经换了对白，绝不误关剧情台词
+      if (h.autoMs > 0) {
+        clearTimeout(hintAuto);
+        hintAuto = setTimeout(() => {
+          if (typing && typing.hintId === id && el.dialogOverlay.classList.contains('hint-mode')) closeDialog();
+        }, h.autoMs);
+      }
     }, 180);
   }
 
   function say(lines, opts) {
     const script = (Array.isArray(lines) ? lines : [lines]).map((row) =>
       Array.isArray(row) ? row : ['', String(row), '']);
-    hintQueue.push({ script, cue: (opts && opts.cue) || '知道了 · 点击收起' });
+    const autoMs = opts && opts.autoMs != null ? opts.autoMs : HINT_AUTO_MS;
+    hintQueue.push({ script, autoMs, cue: (opts && opts.cue) || '点击收起 · 稍后自动关闭' });
     scheduleHint();
   }
 
@@ -477,7 +534,7 @@
     if (!msg) return;
     const div = document.createElement('div');
     div.className = 'line' + (cls ? ' ' + cls : '');
-    renderRich(div, msg);
+    div.textContent = msg;
     el.log.appendChild(div);
     while (el.log.children.length > 7) el.log.removeChild(el.log.firstChild);
   }
@@ -1002,7 +1059,7 @@
     Renderer.addFloat(`+${res.gold}💰`, tx * T + T / 2 - 14, ty * T + 16, '#e8c46a');
     if (res.exp > 0) Renderer.addFloat(`+${res.exp}✨`, tx * T + T / 2 + 14, ty * T + 16, '#9fd8ff');
     if (res.heal > 0) Renderer.addFloat(`+${res.heal}❤`, tx * T + T / 2, ty * T + 26, '#6fe3a0');
-    log(`击败${res.monster.name}，损失 **${res.damage}** 生命，获得 ${res.gold} 金币 / ${res.exp} 经验`, 'good');
+    log(`击败${res.monster.name}，损失 ${res.damage} 生命，获得 ${res.gold} 金币 / ${res.exp} 经验`, 'good');
     if (res.heal > 0) log(`余烬灯芯亮了一下，回复 ${res.heal} 生命`, 'good');
 
     if (res.levelUps > 0) {
@@ -1010,7 +1067,7 @@
       Renderer.ring(s2.x, s2.y, 'rgba(255,224,138,0.9)', TN() * 2.6, 560);
       Renderer.addFloat('LEVEL UP', s2.x * TN() + TN() / 2, s2.y * TN() - 8, '#ffe08a', true);
       const gain = 130 + (Engine.hasRelic('vigor') ? 80 : 0);
-      log(`**升级！Lv.${s2.level}**　攻击+${3 * res.levelUps}　防御+${2 * res.levelUps}　生命+${gain * res.levelUps}`, 'gold');
+      log(`升级！Lv.${s2.level}　攻击+${3 * res.levelUps}　防御+${2 * res.levelUps}　生命+${gain * res.levelUps}`, 'gold');
     }
     if (res.boss) {
       const m = res.monster;
@@ -1020,13 +1077,13 @@
       if (res.chapter) {
         const ch = D.chapters[res.chapter - 1];
         if (ch) {
-          log(`**${ch.title} 完成** · ${ch.theme}`, 'gold');
+          log(`${ch.title} 完成 · ${ch.theme}`, 'gold');
           warn(`**${ch.title} · 完**`);
         }
       }
       if (res.finalBoss) {
         if (Engine.revealCore()) {
-          log('塔顶后面**露出一段窄梯**，往上还有一层。', 'gold');
+          log('塔顶后面露出一段窄梯，往上还有一层。', 'gold');
           sayHint('coreReveal');
           Renderer.ring(9, 2, 'rgba(255,225,150,0.9)', TN() * 2.4, 720);
           Renderer.burst(9 * TN() + TN() / 2, 2 * TN() + TN() / 2, {
@@ -1307,20 +1364,15 @@
     const res = Engine.pickRelic(id);
     if (res.type !== 'relic') { warn(res.msg || '拿不了'); return; }
     el.altarOverlay.classList.remove('show');
+    relicShowcase(s.x, s.y);
     Sound.play('relic');
-    vibrate(20);
-    const T = TN();
-    Renderer.ring(s.x, s.y, 'rgba(255,225,150,0.9)', T * 2.6, 640);
-    Renderer.burst(s.x * T + T / 2, s.y * T + T / 2, {
-      count: 18, colors: ['#ffe6a8', '#ffd27d', '#fff4d6'], speed: 120, life: [450, 900],
-    });
     log(res.msg, 'gold');
     warn(res.msg);
     Tips.show('relic');
     Achievements.evaluate('relic', s, notifyAchievement);
     refreshHud();
     const lore = S.relicLore && S.relicLore[id];
-    if (lore) setTimeout(() => { if (!typing) playStory(lore); }, 260);
+    if (lore) setTimeout(() => { if (!typing) playStory(lore); }, 700);
   }
 
   // ---------- 层阶之钥：跳层 ----------
@@ -1887,12 +1939,8 @@
         playStory(ev.story);
         break;
       case 'relic':
+        relicShowcase(Engine.state().x, Engine.state().y);
         Sound.play('relic');
-        vibrate(18);
-        Renderer.ring(Engine.state().x, Engine.state().y, 'rgba(255,225,150,0.9)', T * 2.6, 600);
-        Renderer.burst(Engine.state().x * T + T / 2, Engine.state().y * T + T / 2, {
-          count: 16, colors: ['#ffe6a8', '#ffd27d', '#fff4d6'], speed: 120, life: [450, 900],
-        });
         log(ev.msg, 'gold');
         warn(ev.msg);
         Tips.show('relic');
@@ -2354,6 +2402,7 @@
     playStory, showEnd, openShop, openCodex, openBoard, openCfg, closeCfg,
     showFloorCard, showEndingChoice, completeEnding, setChoiceFocus, openHeart, chooseHeart, setHeartFocus, openVow, chooseVow, openEvent, chooseEvent, openGate, jumpTo: (i) => doJump(i), Meta,
     resolveBattle, act, clickMove, refreshHud, refreshStartBadges,
+    testRelicShowcase: () => { const st = Engine.state(); if (st) relicShowcase(st.x, st.y); },
     openEcho, chooseRing, closeEcho, resumePendingRing, setChapterColor, refreshCfg,
     // 提示系统：自动化可验证「加粗渲染 + 角色提示对白」
     richInto: renderRich, say, sayHint, warn, Tips,

@@ -17,6 +17,8 @@
   let shakeUntil = 0, shakeMag = 6, shakeDur = 200;
   let fadeUntil = 0;
   let pulseStart = -9999;
+  // 遗物拾取高光：一道从拾取点冲天的十字星芒（竖轴冲出画面顶、横轴扫过全屏）
+  let relicBeam = null;
 
   const disp = { x: 1, y: 1 };
   let lastFloor = -1;
@@ -75,6 +77,13 @@
   }
   function ring(tx, ty, color, maxR, dur) {
     rings.push({ tx, ty, start: simT, dur: dur || 420, color, maxR: maxR || TILE * 2.2 });
+  }
+  // 遗物高光：十字星芒 + 三重冲击环。竖光柱从拾取点冲出画面顶，横光带扫过全屏
+  function relicBeamFx(tx, ty) {
+    relicBeam = { tx, ty, start: performance.now() };
+    rings.push({ tx, ty, start: simT, dur: 520, color: 'rgba(255,236,180,0.95)', maxR: TILE * 3.2 });
+    rings.push({ tx, ty, start: simT + 140, dur: 620, color: 'rgba(255,215,130,0.7)', maxR: TILE * 4.6 });
+    rings.push({ tx, ty, start: simT + 300, dur: 720, color: 'rgba(232,196,106,0.5)', maxR: TILE * 6 });
   }
   function burst(px, py, opts) {
     const o = Object.assign({ count: 10, colors: ['#ffd27d', '#ff9f6b'], speed: 90, life: [400, 750], grav: 220, size: [2, 4], spread: Math.PI * 2, angle: -Math.PI / 2 }, opts);
@@ -1256,6 +1265,52 @@
       ctx.fillRect(-TILE, -TILE, TILE * (SIZE + 2), TILE * (SIZE + 2));
     }
 
+    // 遗物拾取高光：十字星芒（竖光柱冲天 + 横光带扫屏 + 收束光斑），1.15 秒
+    if (relicBeam) {
+      const rp = (now - relicBeam.start) / 1150;
+      if (rp >= 1) {
+        relicBeam = null;
+      } else {
+        const bx = relicBeam.tx * TILE + TILE / 2;
+        const by = relicBeam.ty * TILE + TILE / 2;
+        const H = TILE * SIZE;
+        const fadeIn = Math.min(1, rp / 0.12);
+        const fadeOut = rp < 0.55 ? 1 : 1 - (rp - 0.55) / 0.45;
+        const a = fadeIn * fadeOut;
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        // 竖光柱：中段最亮、上下端羽化，顶部直接冲出画面
+        const vw = TILE * (0.34 + 0.5 * Math.sin(Math.min(1, rp * 1.25) * Math.PI));
+        const gv = ctx.createLinearGradient(0, 0, 0, by);
+        gv.addColorStop(0, 'rgba(255,240,200,0)');
+        gv.addColorStop(0.55, `rgba(255,236,180,${(0.5 * a).toFixed(3)})`);
+        gv.addColorStop(1, `rgba(255,246,214,${(0.9 * a).toFixed(3)})`);
+        ctx.fillStyle = gv;
+        ctx.fillRect(bx - vw / 2, -TILE, vw, by + TILE);
+        // 横光带：沿拾取点高度向两侧展开
+        const hw = TILE * SIZE * Math.min(1, rp * 2.1);
+        const hh = TILE * (0.2 + 0.32 * Math.sin(Math.min(1, rp * 1.2) * Math.PI));
+        const gh = ctx.createRadialGradient(bx, by, 1, bx, by, Math.max(1, hw / 2));
+        gh.addColorStop(0, `rgba(255,244,210,${(0.85 * a).toFixed(3)})`);
+        gh.addColorStop(0.5, `rgba(255,220,140,${(0.34 * a).toFixed(3)})`);
+        gh.addColorStop(1, 'rgba(255,210,120,0)');
+        ctx.fillStyle = gh;
+        ctx.fillRect(bx - hw / 2, by - hh / 2, hw, hh);
+        ctx.restore();
+        // 收束光斑：拾取点上一颗先胀后缩的亮核
+        const coreT = Math.sin(rp * Math.PI);
+        const coreR = TILE * (0.28 + coreT * 0.62);
+        const gc = ctx.createRadialGradient(bx, by, 1, bx, by, coreR);
+        gc.addColorStop(0, `rgba(255,250,230,${(0.95 * a).toFixed(3)})`);
+        gc.addColorStop(0.6, `rgba(255,224,150,${(0.5 * a).toFixed(3)})`);
+        gc.addColorStop(1, 'rgba(255,210,120,0)');
+        ctx.fillStyle = gc;
+        ctx.beginPath();
+        ctx.arc(bx, by, coreR, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
     // 换层淡入
     if (now < fadeUntil) {
       const p = (fadeUntil - now) / 280;
@@ -1268,7 +1323,7 @@
 
   window.Renderer = {
     init, layout, draw, snapshot,
-    addFloat, shake, fade, freeze, pulse, flashTile, ring, burst,
+    addFloat, shake, fade, freeze, pulse, flashTile, ring, burst, relicBeamFx,
     setAmbient, setTarget,
     needsDraw: () => dirty,
     getTile: () => TILE,
