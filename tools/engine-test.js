@@ -259,6 +259,36 @@ s = E.state();
 s.x = 4; s.y = 4;
 ev = E.tryMove(0, -1);
 ok(ev.type === 'event' && !!ev.eventId, '踩到路遇点弹出事件');
+
+// ---------- 9m. 第一层的碑文 ----------
+// 石碑立在第 1 层 (3,3)：撞它读一遍，读过再撞只是blocked；寻路把它当墙绕开
+E.newGame();
+s = E.state();
+const steleTile = (() => {
+  const m = s.maps[0];
+  for (let y = 0; y < 11; y++) for (let x = 0; x < 11; x++) if (m[y][x] === '!') return { x, y };
+  return null;
+})();
+ok(!!steleTile, '第一层有碑文石碑');
+if (steleTile) {
+  // 找一个与石碑相邻的可达格站上去，朝石碑方向撞
+  let from = null;
+  for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+    const fx = steleTile.x + dx, fy = steleTile.y + dy;
+    const p = E.pathTo(fx, fy);
+    if (p) { from = { x: fx, y: fy, dx: -dx, dy: -dy }; break; }
+  }
+  ok(!!from, '石碑旁有可达的立足格');
+  if (from) {
+    s.x = from.x; s.y = from.y;
+    const rd = E.tryMove(from.dx, from.dy);
+    ok(rd.type === 'story' && rd.story === 'stele', '第一次撞碑读出碑文');
+    ok(s.flags.steleRead === true, '读过标记写进存档');
+    const again = E.tryMove(from.dx, from.dy);
+    ok(again.type === 'blocked', '读过再撞只是blocked');
+    ok(E.pathTo(steleTile.x, steleTile.y) === null, '石碑本身不可作为寻路目标');
+  }
+}
 ok(!!D.events.find((x) => x.id === ev.eventId), '事件来自数据池');
 // 用固定事件，避免随机导致用例飘
 s.gold = 500;
@@ -469,7 +499,7 @@ ok(chainOk, '十三层塔每一层都能正常上楼（含隐藏门）');
 
 // ---------- 17. 剧情文本完整性 ----------
 const S = global.STORY;
-const need = ['intro', 'candle1', 'candle2', 'candle3', 'candle4', 'candle5', 'journal', 'merchant', 'merchant2', 'eighthSword', 'solitude', 'ch2', 'ch3', 'ch4', 'bossYan', 'afterYan', 'bossJu', 'afterJu', 'bossDuo', 'afterDuo', 'bossHeng', 'afterHeng', 'core', 'princessPlain', 'princessTrue', 'afterChoicePlain', 'afterChoiceTrue'];
+const need = ['intro', 'candle1', 'candle2', 'candle3', 'candle4', 'candle5', 'journal', 'merchant', 'merchant2', 'eighthSword', 'solitude', 'ch2', 'ch3', 'ch4', 'bossYan', 'afterYan', 'bossJu', 'afterJu', 'bossDuo', 'afterDuo', 'bossHeng', 'afterHeng', 'core', 'princessPlain', 'princessTrue', 'afterChoicePlain', 'afterChoiceTrue', 'stele'];
 ok(need.every((k) => Array.isArray(S[k]) && S[k].length), '所有剧情段都存在且非空');
 ok(S.intro.length === 5, '序章 5 句（失踪与信物 → 独自进塔救人）');
 const introAll = S.intro.join('');

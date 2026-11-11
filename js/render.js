@@ -84,11 +84,12 @@
     rings.push({ px, py, start: simT, dur: dur || 380, color, maxR: maxR || TILE * 0.6 });
   }
   // 遗物高光：十字星芒 + 三重冲击环。竖光柱从拾取点冲出画面顶，横光带扫过全屏
-  function relicBeamFx(tx, ty) {
-    relicBeam = { tx, ty, start: performance.now() };
-    rings.push({ tx, ty, start: simT, dur: 520, color: 'rgba(255,236,180,0.95)', maxR: TILE * 3.2 });
-    rings.push({ tx, ty, start: simT + 140, dur: 620, color: 'rgba(255,215,130,0.7)', maxR: TILE * 4.6 });
-    rings.push({ tx, ty, start: simT + 300, dur: 720, color: 'rgba(232,196,106,0.5)', maxR: TILE * 6 });
+  function relicBeamFx(tx, ty, mood) {
+    const red = mood === 'boss';
+    relicBeam = { tx, ty, start: performance.now(), red };
+    rings.push({ tx, ty, start: simT, dur: 520, color: red ? 'rgba(255,160,140,0.95)' : 'rgba(255,236,180,0.95)', maxR: TILE * 3.2 });
+    rings.push({ tx, ty, start: simT + 140, dur: 620, color: red ? 'rgba(255,140,120,0.7)' : 'rgba(255,215,130,0.7)', maxR: TILE * 4.6 });
+    rings.push({ tx, ty, start: simT + 300, dur: 720, color: red ? 'rgba(201,74,82,0.55)' : 'rgba(232,196,106,0.5)', maxR: TILE * 6 });
   }
   function burst(px, py, opts) {
     const o = Object.assign({ count: 10, colors: ['#ffd27d', '#ff9f6b'], speed: 90, life: [400, 750], grav: 220, size: [2, 4], spread: Math.PI * 2, angle: -Math.PI / 2 }, opts);
@@ -1318,6 +1319,29 @@
           glow('rgba(200,160,255,0.42)', TILE * 0.42);
           drawEmoji('📜', px, py + Math.sin(simT / 500) * TILE * 0.03, 0.56);
           noGlow();
+        } else if (ch === '!') {
+          // 塔的碑文：立在路边的矮石碑，字面泛着极轻的光，读过之后光熄
+          const read = state.flags && state.flags.steleRead;
+          groundShadow(px, py, TILE * 0.3, 0.42);
+          // 碑身
+          ctx.fillStyle = 'rgba(40, 46, 58, 0.96)';
+          roundRect(px + TILE * 0.24, py + TILE * 0.3, TILE * 0.52, TILE * 0.56, TILE * 0.07);
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(159, 216, 255, ' + (read ? 0.14 : 0.32) + ')';
+          ctx.lineWidth = 1;
+          roundRect(px + TILE * 0.24, py + TILE * 0.3, TILE * 0.52, TILE * 0.56, TILE * 0.07);
+          ctx.stroke();
+          // 碑顶
+          ctx.fillStyle = 'rgba(52, 60, 74, 0.96)';
+          roundRect(px + TILE * 0.2, py + TILE * 0.24, TILE * 0.6, TILE * 0.12, TILE * 0.05);
+          ctx.fill();
+          // 刻痕：三行短横，未读时微微发亮
+          ctx.fillStyle = 'rgba(159, 216, 255, ' + (read ? 0.16 : 0.3 + Math.sin(simT / 700) * 0.1) + ')';
+          for (let ln = 0; ln < 3; ln++) {
+            const lw = TILE * (ln === 1 ? 0.3 : 0.36);
+            ctx.fillRect(px + TILE * 0.32, py + TILE * (0.42 + ln * 0.11), lw, TILE * 0.032);
+          }
+          if (!read) glow('rgba(159, 216, 255, 0.16)', TILE * 0.5);
         } else if (D.monsters[ch]) drawMonster(ch, px, py, simT);
         else if (D.items[ch] || ch === '$') drawItem(ch, px, py, simT);
       }
@@ -1377,12 +1401,14 @@
       ctx.fillRect(-TILE, -TILE, TILE * (SIZE + 2), TILE * (SIZE + 2));
     }
 
-    // 遗物拾取高光：十字星芒（竖光柱冲天 + 横光带扫屏 + 收束光斑），1.15 秒
+    // 高光星芒：十字光束（竖光柱冲天 + 横光带扫屏 + 收束光斑），1.15 秒
+    // 金色 = 拾取遗物；红色 = 章末 Boss 倒下
     if (relicBeam) {
       const rp = (now - relicBeam.start) / 1150;
       if (rp >= 1) {
         relicBeam = null;
       } else {
+        const red = !!relicBeam.red;
         const bx = relicBeam.tx * TILE + TILE / 2;
         const by = relicBeam.ty * TILE + TILE / 2;
         const H = TILE * SIZE;
@@ -1394,18 +1420,30 @@
         // 竖光柱：中段最亮、上下端羽化，顶部直接冲出画面
         const vw = TILE * (0.34 + 0.5 * Math.sin(Math.min(1, rp * 1.25) * Math.PI));
         const gv = ctx.createLinearGradient(0, 0, 0, by);
-        gv.addColorStop(0, 'rgba(255,240,200,0)');
-        gv.addColorStop(0.55, `rgba(255,236,180,${(0.5 * a).toFixed(3)})`);
-        gv.addColorStop(1, `rgba(255,246,214,${(0.9 * a).toFixed(3)})`);
+        if (red) {
+          gv.addColorStop(0, 'rgba(255,200,180,0)');
+          gv.addColorStop(0.55, `rgba(255,150,125,${(0.5 * a).toFixed(3)})`);
+          gv.addColorStop(1, `rgba(255,215,195,${(0.9 * a).toFixed(3)})`);
+        } else {
+          gv.addColorStop(0, 'rgba(255,240,200,0)');
+          gv.addColorStop(0.55, `rgba(255,236,180,${(0.5 * a).toFixed(3)})`);
+          gv.addColorStop(1, `rgba(255,246,214,${(0.9 * a).toFixed(3)})`);
+        }
         ctx.fillStyle = gv;
         ctx.fillRect(bx - vw / 2, -TILE, vw, by + TILE);
         // 横光带：沿拾取点高度向两侧展开
         const hw = TILE * SIZE * Math.min(1, rp * 2.1);
         const hh = TILE * (0.2 + 0.32 * Math.sin(Math.min(1, rp * 1.2) * Math.PI));
         const gh = ctx.createRadialGradient(bx, by, 1, bx, by, Math.max(1, hw / 2));
-        gh.addColorStop(0, `rgba(255,244,210,${(0.85 * a).toFixed(3)})`);
-        gh.addColorStop(0.5, `rgba(255,220,140,${(0.34 * a).toFixed(3)})`);
-        gh.addColorStop(1, 'rgba(255,210,120,0)');
+        if (red) {
+          gh.addColorStop(0, `rgba(255,205,185,${(0.85 * a).toFixed(3)})`);
+          gh.addColorStop(0.5, `rgba(232,110,95,${(0.34 * a).toFixed(3)})`);
+          gh.addColorStop(1, 'rgba(201,74,82,0)');
+        } else {
+          gh.addColorStop(0, `rgba(255,244,210,${(0.85 * a).toFixed(3)})`);
+          gh.addColorStop(0.5, `rgba(255,220,140,${(0.34 * a).toFixed(3)})`);
+          gh.addColorStop(1, 'rgba(255,210,120,0)');
+        }
         ctx.fillStyle = gh;
         ctx.fillRect(bx - hw / 2, by - hh / 2, hw, hh);
         ctx.restore();
@@ -1413,9 +1451,15 @@
         const coreT = Math.sin(rp * Math.PI);
         const coreR = TILE * (0.28 + coreT * 0.62);
         const gc = ctx.createRadialGradient(bx, by, 1, bx, by, coreR);
-        gc.addColorStop(0, `rgba(255,250,230,${(0.95 * a).toFixed(3)})`);
-        gc.addColorStop(0.6, `rgba(255,224,150,${(0.5 * a).toFixed(3)})`);
-        gc.addColorStop(1, 'rgba(255,210,120,0)');
+        if (red) {
+          gc.addColorStop(0, `rgba(255,235,220,${(0.95 * a).toFixed(3)})`);
+          gc.addColorStop(0.6, `rgba(255,150,130,${(0.5 * a).toFixed(3)})`);
+          gc.addColorStop(1, 'rgba(201,74,82,0)');
+        } else {
+          gc.addColorStop(0, `rgba(255,250,230,${(0.95 * a).toFixed(3)})`);
+          gc.addColorStop(0.6, `rgba(255,224,150,${(0.5 * a).toFixed(3)})`);
+          gc.addColorStop(1, 'rgba(255,210,120,0)');
+        }
         ctx.fillStyle = gc;
         ctx.beginPath();
         ctx.arc(bx, by, coreR, 0, Math.PI * 2);

@@ -371,41 +371,45 @@
     flashTimer = setTimeout(() => f.classList.remove('on'), 190);
   }
 
-  // 遗物拾取的高光时刻：星芒光柱 → 金色全景闪 → 顶栏金晕 → 冲击环+金尘+freeze。
-  // 一局只有两三次，值得给它一整秒的舞台。
+  // 高光时刻编排：拾取遗物（金）与 Boss 倒下（红）共用一套舞台，
+  // 只换色调——星芒光柱 → 全景闪 → 顶栏金晕 → 冲击环+尘粒+freeze。
   let relicGlowTimer = null;
   let relicFadeTimer = null;
-  function relicShowcase(x, y) {
+  function relicShowcase(x, y, mood) {
     const T = TN();
+    const red = mood === 'boss';
+    const beam = red ? ['#ff9f8f', '#ffd2c2', '#ffb09f'] : ['#fff4d6', '#ffe6a8', '#ffd27d'];
+    const flash = red ? 'relicFlash red' : 'relicFlash';
     Renderer.freeze(90);
-    Renderer.relicBeamFx(x, y);
+    Renderer.relicBeamFx(x, y, red ? 'boss' : 'relic');
     if (!REDUCED()) {
-      Renderer.shake(160, 3);
+      Renderer.shake(red ? 220 : 160, red ? 4 : 3);
       Renderer.pulse();
       const f = el.relicFlash;
       if (f) {
         clearTimeout(relicGlowTimer);
         clearTimeout(relicFadeTimer);
-        f.classList.remove('fade');
-        f.classList.add('on');
+        f.className = flash;
         relicGlowTimer = setTimeout(() => {
           f.classList.remove('on');
           f.classList.add('fade');
-          relicFadeTimer = setTimeout(() => f.classList.remove('fade'), 650);
-        }, 160);
+          relicFadeTimer = setTimeout(() => { f.classList.remove('fade'); f.className = 'relicFlash'; }, 650);
+        }, red ? 220 : 160);
       }
       if (el.topbar) {
         el.topbar.classList.remove('relic-hit');
         void el.topbar.offsetWidth; // 重置动画
-        el.topbar.classList.add('relic-hit');
-        setTimeout(() => el.topbar.classList.remove('relic-hit'), 1150);
+        el.topbar.classList.add(red ? 'boss-hit' : 'relic-hit');
+        setTimeout(() => el.topbar.classList.remove('relic-hit', 'boss-hit'), 1150);
       }
     }
-    Renderer.ring(x, y, 'rgba(255,236,180,0.95)', T * 3.1, 620);
+    Renderer.ring(x, y, red ? 'rgba(255,150,130,0.95)' : 'rgba(255,236,180,0.95)', T * (red ? 3.6 : 3.1), red ? 700 : 620);
     Renderer.burst(x * T + T / 2, y * T + T / 2, {
-      count: REDUCED() ? 14 : 34, colors: ['#fff4d6', '#ffe6a8', '#ffd27d', '#e8c46a'], speed: 170, life: [600, 1250], size: [2, 5.5], grav: 130,
+      count: REDUCED() ? 14 : red ? 42 : 34,
+      colors: red ? ['#ffd8cc', '#ff9f8f', '#e87060', '#c94a52'] : beam.concat('#e8c46a'),
+      speed: red ? 200 : 170, life: [600, red ? 1400 : 1250], size: [2, 5.5], grav: 130,
     });
-    vibrate([14, 30, 14]);
+    vibrate(red ? [18, 40, 18] : [14, 30, 14]);
   }
 
   function vibrate(ms) {
@@ -1178,6 +1182,8 @@
     }
     if (res.boss) {
       const m = res.monster;
+      // 章末锁匠倒下：与拾取遗物同级别的舞台，红色调
+      relicShowcase(s2.x, s2.y, 'boss');
       log(m.defeat || `${m.name}倒下了。`, 'gold');
       Engine.save();
       Sound.stopMusic();
@@ -1473,16 +1479,24 @@
     const s = Engine.state();
     const res = Engine.pickRelic(id);
     if (res.type !== 'relic') { warn(res.msg || '拿不了'); return; }
-    el.altarOverlay.classList.remove('show');
-    relicShowcase(s.x, s.y);
-    Sound.play('relic');
-    log(res.msg, 'gold');
-    warn(res.msg);
-    Tips.show('relic');
-    Achievements.evaluate('relic', s, notifyAchievement);
-    refreshHud();
-    const lore = S.relicLore && S.relicLore[id];
-    if (lore) setTimeout(() => { if (!typing) playStory(lore); }, 700);
+    // 拿起过渡：选中的卡上提发光，其余两张沉暗退后，260ms 后再收面板放高光
+    const cards = el.altarCards.querySelectorAll('.altar-card');
+    cards.forEach((c) => {
+      c.classList.add(c.dataset.id === id ? 'picking' : 'sinking');
+    });
+    Sound.play('pick');
+    setTimeout(() => {
+      el.altarOverlay.classList.remove('show');
+      relicShowcase(s.x, s.y);
+      Sound.play('relic');
+      log(res.msg, 'gold');
+      warn(res.msg);
+      Tips.show('relic');
+      Achievements.evaluate('relic', s, notifyAchievement);
+      refreshHud();
+      const lore = S.relicLore && S.relicLore[id];
+      if (lore) setTimeout(() => { if (!typing) playStory(lore); }, 700);
+    }, 260);
   }
 
   // ---------- 层阶之钥：跳层 ----------

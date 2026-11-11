@@ -394,6 +394,16 @@
     const ch = tile(nx, ny);
     if (ch === '#') return { type: 'blocked', msg: '石墙挡住了去路' };
 
+    // 塔的碑文：立在路边的石碑，不可通行；走到旁边（撞它）读一遍
+    if (ch === '!') {
+      if (!s.flags.steleRead) {
+        s.flags.steleRead = true;
+        save();
+        return { type: 'story', story: 'stele', good: true };
+      }
+      return { type: 'blocked', msg: '碑上的字你已经读过了' };
+    }
+
     if (D.monsters[ch]) {
       const m = D.monsters[ch];
       if (m.ghost) {
@@ -888,7 +898,7 @@
   // ---------- 寻路 ----------
   function passableForPath(x, y) {
     const ch = tile(x, y);
-    if (ch === '#') return false;
+    if (ch === '#' || ch === '!') return false;
     if (D.monsters[ch]) return false;
     // 商店会弹全屏遮罩并打断自动寻路：只许玩家主动点它，路过一律绕开
     if (ch === 'M') return false;
@@ -902,7 +912,7 @@
     if (tx < 0 || ty < 0 || tx >= SIZE || ty >= SIZE) return null;
     if (tx === s.x && ty === s.y) return [];
     const targetCh = tile(tx, ty);
-    if (targetCh === '#' || D.monsters[targetCh]) return null;
+    if (targetCh === '#' || targetCh === '!' || D.monsters[targetCh]) return null;
     if ((targetCh === 'y' || targetCh === 'r') && s.keys[targetCh] <= 0) return null;
 
     const prev = new Map();
@@ -957,6 +967,7 @@
         const ch = tile(nx, ny);
         if (ch === '#') continue;
         if (ch === 'M') continue; // 同上：不把商店塞进自动寻路的途经格
+        if (ch === '!') continue; // 石碑不可通行，寻路绕开
         if (ch === 'y' || ch === 'r') { if (s.keys[ch] <= 0) continue; }
         if ((ch === 'u' || ch === 'n') && !(nx === tx && ny === ty)) continue;
         prev.set(key, [x, y]);
@@ -1021,7 +1032,7 @@
     if (tx < 0 || ty < 0 || tx >= SIZE || ty >= SIZE) return null;
     if (tx === s.x && ty === s.y) return { junction: null, up: null, down: null, left: null, right: null };
     const targetCh = tile(tx, ty);
-    if (targetCh === '#' || D.monsters[targetCh]) return null;
+    if (targetCh === '#' || targetCh === '!' || D.monsters[targetCh]) return null;
     if ((targetCh === 'y' || targetCh === 'r') && s.keys[targetCh] <= 0) return null;
 
     // BFS 距离场：从玩家出发
