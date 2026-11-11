@@ -421,6 +421,7 @@
         d.getElementById('coachOk').click();
         await wait(700);
         out.push('coachClosed=' + card.hidden);
+        out.push('dbg=supported:' + (w.__coachSupported||0) + ' show:' + (w.__coachShow||0) + ' noState:' + (w.__coachNoState||0) + ' seenOpening=' + (w.__tm.Tips.seen('opening') ? 1 : 0));
         out.push('allClosed=' + card.hidden + ' dlgClosed=' + !dl.classList.contains('show'));
         errBox.textContent = out.join('\n') + '\nerr=' + (errs.length ? errs.join('|') : 'none');
         return;
