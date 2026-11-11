@@ -19,20 +19,21 @@
   const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, Number(n) || 0));
   const text = (v, n) => String(v == null ? '' : v).replace(/[<>&"']/g, '').slice(0, n);
 
+  // 紧凑点分格式，码长约 50 字符：面板放得下、输入框也不会截断
   function encode(sum) {
     const s = sum || {};
-    const payload = {
-      v: 2,
-      e: s.ending === 'true' ? 't' : s.ending === 'plain' ? 'p' : '',
-      w: text(s.vow || 'none', 16),
-      f: clamp(s.floor, 0, 99),
-      l: clamp(s.level, 0, 99),
-      k: clamp(s.steps, 0, 999999),
-      t: clamp(s.time, 0, 999999),
-      s: clamp(s.score, 0, 999999),
-      g: text(s.grade || '', 1),
-    };
-    return PREFIX + b64encode(JSON.stringify(payload))
+    const raw = [
+      2,
+      s.ending === 'true' ? 't' : 'p',
+      text(s.vow || 'none', 16).replace(/\./g, ''),
+      clamp(s.floor, 0, 99),
+      clamp(s.level, 0, 99),
+      clamp(s.steps, 0, 999999),
+      clamp(s.time, 0, 999999),
+      clamp(s.score, 0, 999999),
+      text(s.grade || '', 1).replace(/\./g, ''),
+    ].join('.');
+    return PREFIX + b64encode(raw)
       .replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_');
   }
 
@@ -43,15 +44,15 @@
       try {
         let b = raw.slice(PREFIX.length).replace(/-/g, '+').replace(/_/g, '/');
         while (b.length % 4) b += '=';
-        const o = JSON.parse(b64decode(b));
-        if (!o || o.v !== 2) return null;
+        const p = b64decode(b).split('.');
+        if (p.length !== 9 || Number(p[0]) !== 2) return null;
         return {
           version: 2, legacy: false,
-          ending: o.e === 't' ? 'true' : 'plain',
-          vow: text(o.w || 'none', 16) || 'none',
-          floor: clamp(o.f, 0, 99), level: clamp(o.l, 0, 99),
-          steps: clamp(o.k, 0, 999999), time: clamp(o.t, 0, 999999),
-          score: clamp(o.s, 0, 999999), grade: text(o.g || '', 1),
+          ending: p[1] === 't' ? 'true' : 'plain',
+          vow: text(p[2], 16) || 'none',
+          floor: clamp(p[3], 0, 99), level: clamp(p[4], 0, 99),
+          steps: clamp(p[5], 0, 999999), time: clamp(p[6], 0, 999999),
+          score: clamp(p[7], 0, 999999), grade: text(p[8], 1),
         };
       } catch (e) { return null; }
     }

@@ -64,17 +64,34 @@
 
   // ---------- 音效 ----------
   // 塔的记忆：跨局保存的「余烬」，只用来解锁誓约，不卖战力
+  // memory 记跨局履历（结局数/誓约通关/塔规满章/塔心取舍），结局页用它生成「下一局目标」
   const Meta = (() => {
     const KEY = 'towermates_meta';
-    let data = { ember: 0, unlocked: [], resets: 0 };
+    let data = { ember: 0, unlocked: [], resets: 0, memory: { runs: 0, endings: {}, vowWins: {}, fullChapters: 0, heartTaken: 0, heartLeft: 0, best: 0 } };
     try { data = Object.assign(data, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) {}
+    if (!data.memory) data.memory = { runs: 0, endings: {}, vowWins: {}, fullChapters: 0, heartTaken: 0, heartLeft: 0, best: 0 };
     const save = () => { try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) {} };
+    const mem = data.memory;
     return {
       get ember() { return data.ember || 0; },
       get resets() { return data.resets || 0; },
+      get memory() { return mem; },
       has(id) { return (data.unlocked || []).indexOf(id) >= 0; },
       add(n) { data.ember = Math.max(0, (data.ember || 0) + n); save(); },
       incReset() { data.resets = (data.resets || 0) + 1; save(); return data.resets; },
+      // 结算一次跨局履历：score/ending/vow 由 showEnd 喂进来
+      recordRun(rec) {
+        mem.runs = (mem.runs || 0) + 1;
+        mem.endings = mem.endings || {};
+        mem.endings[rec.ending] = (mem.endings[rec.ending] || 0) + 1;
+        mem.vowWins = mem.vowWins || {};
+        if (rec.won) mem.vowWins[rec.vow] = (mem.vowWins[rec.vow] || 0) + 1;
+        mem.fullChapters = Math.max(mem.fullChapters || 0, rec.fullChapters || 0);
+        if (rec.heart === 'taken') mem.heartTaken = (mem.heartTaken || 0) + 1;
+        if (rec.heart === 'left') mem.heartLeft = (mem.heartLeft || 0) + 1;
+        mem.best = Math.max(mem.best || 0, rec.score || 0);
+        save();
+      },
       buy(id, cost) {
         if (this.has(id)) return 'owned';
         if ((data.ember || 0) < cost) return 'poor';
@@ -595,32 +612,26 @@
   }
 
   // ---------- 挑战码 / 榜单 ----------
+  // 编解码在 challenge.js 里：纯函数、可单测，v1 旧码也能贴进来
   function encodeChallenge(sum) {
-    // 码里带上分数与誓约：贴码进来才能还原出完整的对手行
-    const raw = [sum.ending === 'true' ? 1 : 0, sum.floor, sum.level, sum.steps, sum.time, sum.score || 0, sum.vow || 'none'].join('.');
-    try {
-      return btoa(unescape(encodeURIComponent('TM' + raw))).replace(/=+$/, '');
-    } catch (e) {
-      return 'TM' + raw;
-    }
+    return window.Challenge.encode(sum);
   }
   function decodeChallenge(code) {
-    try {
-      const raw = decodeURIComponent(escape(atob(String(code).trim()))).replace(/^TM/, '');
-      const p = raw.split('.');
-      if (p.length < 5) return null;
-      const rec = {
-        ending: p[0] === '1' ? 'true' : 'plain',
-        floor: +p[1] || 0,
-        level: +p[2] || 0,
-        steps: +p[3] || 0,
-        time: +p[4] || 0,
-        score: +p[5] || Math.round((+p[3] || 0) * 1.8 + (+p[4] || 0) * 0.4),
-        vow: D.vows[p[6]] ? p[6] : 'none',
-      };
-      if (!rec.floor || rec.floor > D.floors.length) return null;
-      return rec;
-    } catch (e) { return null; }
+    const d = window.Challenge.decode(code);
+    if (!d) return null;
+    const rec = {
+      ending: d.ending,
+      floor: d.floor,
+      level: d.level,
+      steps: d.steps,
+      time: d.time,
+      // v1 旧码没有分：按步数与用时估一个，照样能进榜对比
+      score: d.score == null ? Math.round(d.steps * 1.8 + d.time * 0.4) : d.score,
+      vow: D.vows[d.vow] ? d.vow : 'none',
+      grade: d.grade || '',
+    };
+    if (!rec.floor || rec.floor > D.floors.length) return null;
+    return rec;
   }
   // 贴进来的码去重：同一个码只留一条幽灵行
   function loadRivals() {
@@ -1354,6 +1365,8 @@
     sc += relicCount * 80;
     sc += (goalDone || 0) * 60;
     if (Engine.hasRing('ledger')) sc += (goalDone || 0) * 25;
+    if (Engine.hasRing('ash')) sc += (goalDone || 0) * 20;
+    if (Engine.hasRing('ledger2')) sc += (goalDone || 0) * 20;
     sc += f.echoScore || 0;                 // 四章回响奖分
     sc += Engine.rings().length * 60;       // 构筑回报
     for (let i = 1; i <= D.chapters.length; i++) if (f['chap_' + i]) sc += 140;
@@ -1362,7 +1375,7 @@
     if (f.heart === 'taken') sc += 200;
     else if (f.heart === 'left') sc += 320 + (Engine.hasRing('heart') ? 120 : 0);
     sc -= Math.round(sum.steps * 0.25);
-    sc -= Math.round(sum.time * (Engine.hasRing('hour') ? 0.075 : 0.15));
+    sc -= Math.round(sum.time * (Engine.hasRing('hour') || Engine.hasRing('pace') ? 0.075 : 0.15));
     sc -= (f.retries || 0) * 80;
     const vowMul = (D.vows[f.vow] || D.vows.none).mul;
     const ringMul = Engine.hasRing('chisel') ? 1.06 : 1;
@@ -1410,6 +1423,12 @@
     const ringList = Engine.rings();
     const echoDone = [1, 2, 3, 4].filter((i) => (s.flags['echo_' + i] || 0) >= 2).length;
     sum.score = sc;
+    sum.grade = grade;
+    // 跨局履历：这局结束了，塔替你记一笔（P-4）
+    Meta.recordRun({
+      ending: s.ending, won: true, vow: sum.vow,
+      fullChapters: echoDone, heart: s.flags.heart || null, score: sc,
+    });
     const hpPct = Math.max(0, Math.round((s.hp / (s.maxHp || 1)) * 100));
     $('endScore').innerHTML = `<span class="es-grade ${grade}">${grade}</span>
       <span class="es-meta">${s.ending === 'true' ? '真结局' : '普通结局'}${s.flags.heart === 'taken' ? ' · 塔心带走' : s.flags.heart === 'left' ? ' · 塔心留下' : ''} · 残血 ${hpPct}% · 击杀 ${s.flags.killCount || 0} · 遗物 ${relicIds.length} · 锁环 ${ringList.length}${vowDef.mul !== 1 ? ` · 誓约 ×${vowDef.mul.toFixed(2)}` : ''}</span>
@@ -1440,7 +1459,7 @@
     brief.push(`✦ 余烬 +${emberGain}`);
     const vowTotal = Object.keys(D.vows).length;
     const vowUnlocked = Object.keys(D.vows).filter((id) => !D.vows[id].ember || Meta.has(id)).length;
-    brief.push(`🗘 塔的记忆 · 重来 ${Meta.resets} 次 · 誓约 ${vowUnlocked}/${vowTotal} 解锁`);
+    brief.push(`刷新 塔的记忆 · 重来 ${Meta.resets} 次 · 誓约 ${vowUnlocked}/${vowTotal} 解锁`);
     $('endBrief').innerHTML = brief.map((t) => `<span>${t}</span>`).join('');
     const ringShorts = ringList.map((id) => D.rings[id].short).join(' ') || '无';
     $('endStats').innerHTML = `
@@ -1457,6 +1476,36 @@
       <div>步数 <b>${sum.steps} 步</b></div>
       <div>用时 <b>${fmtTime(sum.time)}</b></div>
     `;
+    // 「塔的记忆」：跨局履历 + 下一局目标（P-4）——把"再来一局"变成"再来一局是为了 X"
+    const mem = Meta.memory;
+    const memItems = [];
+    memItems.push(`进塔 ${mem.runs || 1} 次 · 最好成绩 ${Math.max(mem.best || 0, sc)} 分`);
+    memItems.push(`结局：铁与霜 ×${mem.endings.plain || 0} · 第六个名字 ×${mem.endings.true || 0}`);
+    memItems.push(`满回响 ${mem.fullChapters || 0}/4 章 · 塔心 带走×${mem.heartTaken || 0} 留下×${mem.heartLeft || 0}`);
+    const goals = [];
+    // 1) 还没解锁的誓约：差多少余烬
+    const lockedVow = Object.keys(D.vows).find((id) => D.vows[id].ember && !Meta.has(id));
+    if (lockedVow) {
+      const v = D.vows[lockedVow];
+      const need = Math.max(0, v.ember - Meta.ember);
+      goals.push(need > 0
+        ? `再攒 ${need} ✦ 解锁「${v.name}」（现在 ${Meta.ember}）`
+        : `「${v.name}」已可解锁——下一局开局选它`);
+    }
+    // 2) 没通关过的誓约
+    const unWon = Object.keys(D.vows).filter((id) => id !== 'none' && !D.vows[id].ember && !(mem.vowWins || {})[id]);
+    if (unWon.length) goals.push(`带着「${D.vows[unWon[0]].name}」走到一次结局`);
+    // 3) 没满过的章回响
+    if ((mem.fullChapters || 0) < 4) goals.push(`把回响打满的章推进到 ${(mem.fullChapters || 0) + 1}/4`);
+    // 4) 双结局收集
+    if (!(mem.endings.true || 0)) goals.push('去念出第六个名字');
+    else if (!(mem.endings.plain || 0)) goals.push('试试另一条路：铁与霜');
+    // 5) 塔心还没做过另一个选择
+    if (!mem.heartTaken || !mem.heartLeft) goals.push(!mem.heartTaken ? '把塔心石带走一次' : '把塔心石留下一次');
+    const memHtml = `<div class="mem-grid">${memItems.map((t) => `<div>${t}</div>`).join('')}</div>`
+      + (goals.length ? `<div class="mem-goals">${goals.slice(0, 3).map((g) => `<span>▸ ${g}</span>`).join('')}</div><p class="mem-note">塔在等你回来——为了上面这些。</p>` : '');
+    const memWrap = $('endMemory');
+    if (memWrap) memWrap.innerHTML = memHtml;
     saveBoard(sum);
     $('endCode').textContent = encodeChallenge(sum);
     Achievements.evaluate('finish', s, notifyAchievement);
@@ -1478,10 +1527,18 @@
     art.classList.toggle('true', tru);
     const em = $('startEmber');
     if (em) {
-      const lockedCount = Object.keys(D.vows).filter((id) => D.vows[id].ember && !Meta.has(id)).length;
-      em.textContent = Meta.ember > 0
-        ? `✦ 余烬 ${Meta.ember}${lockedCount ? ` · 还有 ${lockedCount} 条誓约未解锁` : ' · 誓约已全解锁'}`
-        : '';
+      // 标题页也讲「塔的记忆」：第 N 次进塔 + 离下一局目标最近的一条
+      const mem = Meta.memory;
+      const lockedVow = Object.keys(D.vows).find((id) => D.vows[id].ember && !Meta.has(id));
+      const parts = [];
+      if ((mem.runs || 0) > 0) parts.push(`第 ${mem.runs + 1} 次进塔 · 最好 ${Math.max(mem.best || 0, 0)} 分`);
+      if (lockedVow) {
+        const need = Math.max(0, D.vows[lockedVow].ember - Meta.ember);
+        parts.push(need > 0 ? `再 ${need} ✦ 解锁「${D.vows[lockedVow].name}」` : `「${D.vows[lockedVow].name}」已可解锁`);
+      } else if (Meta.ember > 0 || (mem.runs || 0) > 0) {
+        parts.push(Meta.ember > 0 ? `✦ 余烬 ${Meta.ember} · 誓约已全解锁` : '✦ 誓约已全解锁');
+      }
+      em.textContent = parts.length ? parts.join(' · ') : '';
     }
   }
 
@@ -1892,6 +1949,10 @@
       if (e.target === el.echoOverlay && curEcho && !curEcho.pending) closeEcho();
     });
     $('boardClose').addEventListener('click', closeBoard);
+    $('btnPasteCode').addEventListener('click', pasteChallenge);
+    $('pasteCode').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.stopPropagation(); pasteChallenge(); }
+    });
     $('btnCodex').addEventListener('click', openCodex);
     $('codexClose').addEventListener('click', () => el.codexOverlay.classList.remove('show'));
     $('btnCopyCode').addEventListener('click', () => {

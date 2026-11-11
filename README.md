@@ -21,6 +21,9 @@ node tools/serve.js 8799 .     # 或 python -m http.server 8799
 - 撞上怪物即战斗（自动演出，可点击跳过）；打不过会被拦住，不会送死。设置里可开「快速战斗」把演出压到 42% 时长。
 - 对白：点击 / 空格 / Enter 继续，`←` 上一句，`Esc` 跳过本段。
 - 章末锁环三选一：点卡片，或按 `1` / `2` / `3`。
+- 触屏：在地图上滑动走一格，连续滑动可连走；底部虚拟方向键长按连走。
+- 层阶之钥：第 1 层可得，点遗物栏的钥匙跳到走过的楼层；**头一次**还能往前开一层，代价是那一层两件最好的东西被封印（锁匠守着的章末层不能绕）。
+- 挑战码：结算生成，含分数 / 评级 / 誓约；榜单里贴朋友的码，会在同一张榜上出现他的幽灵行。
 - 右上角：🔮 图鉴（买镜后）、🏆 榜单、⚙ 设置（特效/音效/音乐/震动/快速战斗/重来本层）。
 
 ## 四章与四位 Boss
@@ -88,13 +91,21 @@ js/achievements.js  成就定义与判定（31 项）
 js/engine.js        核心规则（无 DOM 依赖，可在 Node 跑）；章末回响/锁环/真实承伤
 js/render.js        Canvas 渲染（静态层离屏 + 光照/火把/光柱/特效）
 js/main.js          输入、UI、对白、战斗演出、章末回响、实时塔规 HUD、引导
+js/challenge.js     挑战码编解码（纯函数，v1 旧码兼容，可单测）
+js/touch.js         触屏滑动手势（独立模块，自己判断遮罩）
+js/gate-forth.js    层阶之钥「往前开一层」的明码取舍 UI
+js/wxbridge.js      微信小游戏关系链桥接（H5 下自动降级为空实现）
+js/wxwire.js        桥接挂到结算 / 榜单的接线
 docs/tower-12-chapters.md  十二章与四章叙事设计
 tools/check.js      地图、章节与数据校验
 tools/sim.js        贪心通关模拟（--no-relic 对照）
 tools/engine-test.js 引擎单测
+tools/code-test.js  挑战码与触控单测
+tools/ui-check.html / ui-test.js  无头浏览器 UI 自检（跳层 + 贴码闭环）
 tools/serve.js      极简静态服务器
 tools/shot.html     无头截图/端到端脚本（?scene=start|dialog|choice|flow|auto…）
-tools/regress.js    质量闸门：校验+模拟+单测+19 张截图，一条命令
+tools/sync-publish.js 同步 publish/ 并注入内容指纹
+tools/regress.js    质量闸门：校验+模拟+单测+截图+浏览器 UI 自检，一条命令
 ```
 
 ## 核心规则
@@ -122,7 +133,9 @@ p红药 P蓝药 h圣水 s铁剑 d铁盾 a精钢剑 b秘银甲 m宝石 c魂晶
 改完跑：
 
 ```bash
-node tools/regress.js        # 全套：校验 + 模拟 + 单测 + 24 张截图
+node tools/regress.js        # 全套：校验 + 模拟 + 单测 + 截图 + 浏览器 UI 自检
+node tools/regress.js --no-shot  # 只跑代码层闸门
+node tools/ui-test.js        # 只跑浏览器 UI 自检（跳层明码取舍 / 贴码进榜）
 node tools/check.js          # 只跑地图/章节/锁环/台词池校验
 node tools/sim.js            # 基线全清：32.4%
 node tools/sim.js --rings    # 极限回血构筑上界：58.9%（不会打穿曲线）

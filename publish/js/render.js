@@ -594,15 +594,26 @@
 
   // ---------- 氛围：低频小生物（萤火虫/飞蛾/蝙蝠） ----------
   // 取代旧「余烬粒子」：那是每 0.5s 一颗的静止黄点，看着像屏幕脏了。
-  // 现在：同屏最多 3 只、十几秒才来一只，平时悬停漫游，玩家走近 1.7 格内受惊飞走。
-  // 画法：萤火虫=光点+尾迹；飞蛾=小翅膀扑动；蝙蝠=快速掠过（不停留）。
-  function spawnCritter() {
+  // 现在：同屏最多 2~3 只、十几秒才来一只；进场 → 悬停漫游 → 离场；
+  // 玩家走近 1.7 格内会受惊加速飞走（蝙蝠是快速掠过的剪影，不停留、不受惊）。
+  function pickEdgeTarget(x, y) {
+    // 选一个屏幕外的离场点，返回归一化方向
+    const S = TILE * SIZE;
+    const edge = (Math.random() * 4) | 0;
+    const tx = edge === 0 ? -TILE : edge === 1 ? S + TILE : x;
+    const ty = edge === 2 ? -TILE : edge === 3 ? S + TILE : y;
+    const d = Math.max(1, Math.hypot(tx - x, ty - y));
+    return [(tx - x) / d, (ty - y) / d];
+  }
+
+  function spawnCritter(kindForce) {
     const S = TILE * SIZE;
     const mode = ambient.mode;
     let kind = 'firefly';
     if (mode === 'mist') kind = 'moth';
-    else if (mode === 'boss') kind = Math.random() < 0.55 ? 'bat' : 'ember';
-    else if (Math.random() < 0.18) kind = 'ember'; // 火把层偶尔一颗真火星，压低频
+    else if (mode === 'boss') kind = Math.random() < 0.6 ? 'bat' : 'ember';
+    else if (Math.random() < 0.2) kind = 'ember'; // 火把层偶尔一颗真火星，压低频
+    if (kindForce) kind = kindForce;
     const edge = (Math.random() * 4) | 0;
     const m = TILE * 0.4;
     const c = {
@@ -612,11 +623,12 @@
       vx: 0, vy: 0,
       born: simT,
       seed: Math.random() * 100,
-      state: 'fly', // fly（进场）→ hover（悬停漫游）→ scare（受惊离场）
+      state: 'fly', // fly（进场）→ hover（悬停漫游）→ leave（离场）/ scare（受惊离场）
       hoverT: 0,
-      hoverDur: kind === 'bat' ? 0 : 6 + Math.random() * 7,
+      hoverDur: kind === 'bat' || kind === 'ember' ? 0 : 6 + Math.random() * 7,
       wing: Math.random() * Math.PI * 2,
       glowT: Math.random() * 3, // 萤火虫的呼吸明灭
+      speed: kind === 'bat' ? 150 : kind === 'moth' ? 40 : 24,
     };
     // 朝屏幕内一个随机点飞
     const tx = S * (0.2 + Math.random() * 0.6), ty = S * (0.2 + Math.random() * 0.6);
@@ -626,7 +638,7 @@
   }
 
   function updateAmbient(dt) {
-    // 出生节奏：比旧余烬慢一个量级——萤火虫层约 11s 一只，雾层 13s，Boss 层 15s
+    // 出生节奏：比旧余烬慢一个量级——约 11~15s 一只，同屏上限 2~3
     const rate = ambient.mode === 'boss' ? 15000 : ambient.mode === 'mist' ? 13000 : 11000;
     ambient.spawnAcc += dt;
     const cap = ambient.mode === 'boss' ? 2 : 3;
@@ -640,70 +652,53 @@
     const s = dt / 1000;
     for (let i = ambient.critters.length - 1; i >= 0; i--) {
       const c = ambient.critters[i];
-      c.wing += dt * (c.kind === 'bat' ? 0.052 : c.kind === 'moth' ? 0.028 : 0.012) * Math.PI * 2 / 16;
+      // 翅膀频率：蝙蝠约 12Hz、飞蛾约 5Hz（firefly 不用翅膀，靠 glowT 呼吸）
+      c.wing += dt * (c.kind === 'bat' ? 0.012 : c.kind === 'moth' ? 0.01 : 0.004);
 
-      // 玩家靠近 1.7 格 → 受惊飞走（蝙蝠不停留所以不受惊）
-      if (c.state !== 'scare' && c.kind !== 'bat') {
+      // 玩家靠近 1.7 格 → 受惊飞走（蝙蝠/火星不停留，不受惊）
+      if (c.state === 'fly' || c.state === 'hover') {
         const dd = Math.hypot(px - c.x, py - c.y);
-        if (dd < TILE * 1.7) {
+        if (dd < TILE * 1.7 && (c.state === 'hover' || c.hoverDur > 0)) {
           const d = Math.max(1, dd);
           c.vx = (c.x - px) / d; c.vy = (c.y - py) / d;
           c.state = 'scare';
-          c.scareBoost = 1;
         }
       }
-      let speed = c.kind === 'bat' ? 150 : c.kind === 'moth' ? 42 : 26;
+
       if (c.state === 'fly') {
-        // 进场：朝目标点，接近后转悬停
-        speed *= 1.6;
-        if (Math.hypot(px - c.x, py - c.y) < TILE * 0.4 === false && Math.random() < 0.01) { /* noop */ }
-        const tx = c._tx, ty = c._ty;
-        c.x += c.vx * speed * s;
-        c.y += c.vy * speed * s;
-        const distIn = Math.hypot((c._ix || 0) - c.x, (c._iy || 0) - c.y);
-        if (c.x < -TILE || c.x > S + TILE || c.y < -TILE || c.y > S + TILE) { ambient.critters.splice(i, 1); continue; }
-        if (distIn > TILE * 2.2 || (c._ix == null && c.x > TILE && c.x < S - TILE && c.y > TILE && c.y < S - TILE)) {
-          c._ix = c.x; c._iy = c.y;
-          c.state = c.hoverDur > 0 ? 'hover' : 'leave';
-          if (c.state === 'leave') {
-            const edge = (Math.random() * 4) | 0;
-            const tx2 = edge === 0 ? -TILE : edge === 1 ? S + TILE : c.x;
-            const ty2 = edge === 2 ? -TILE : edge === 3 ? S + TILE : c.y;
-            const d = Math.max(1, Math.hypot(tx2 - c.x, ty2 - c.y));
-            c.vx = (tx2 - c.x) / d; c.vy = (ty2 - c.y) / d;
-          }
+        // 进场：朝目标点飞，速度略快；进入屏幕腹地后转悬停（蝙蝠/火星直接转离场）
+        const sp = c.speed * 1.6;
+        c.x += c.vx * sp * s;
+        c.y += c.vy * sp * s;
+        const inner = c.x > TILE && c.x < S - TILE && c.y > TILE && c.y < S - TILE;
+        if (inner) {
+          if (c.hoverDur > 0) { c.state = 'hover'; c.hoverT = 0; }
+          else { const [dx2, dy2] = pickEdgeTarget(c.x, c.y); c.vx = dx2; c.vy = dy2; c.state = 'leave'; }
+        }
+        if (c.x < -TILE * 1.5 || c.x > S + TILE * 1.5 || c.y < -TILE * 1.5 || c.y > S + TILE * 1.5) {
+          ambient.critters.splice(i, 1); continue;
         }
       } else if (c.state === 'hover') {
-        // 悬停漫游：缓慢蛇形 + 微小随机转向，像生物在打转
+        // 悬停漫游：缓慢蛇形转向，像生物在原地打转
         c.hoverT += dt;
-        const wa = Math.atan2(c.vy, c.vx) + Math.sin(simT / 900 + c.seed) * 0.045 * (dt / 16.7);
-        const sp = speed * (0.55 + 0.45 * Math.sin(simT / 1300 + c.seed * 2));
-        c.vx = Math.cos(wa) * Math.cos(wa) >= 0 ? Math.cos(wa) : Math.cos(wa);
+        const baseA = Math.atan2(c.vy, c.vx);
+        const wa = baseA + Math.sin(simT / 800 + c.seed) * 0.02 * (dt / 16.7);
+        const sp = c.speed * (0.6 + 0.4 * Math.sin(simT / 1300 + c.seed * 2));
         c.vx = Math.cos(wa); c.vy = Math.sin(wa);
         c.x += c.vx * sp * s;
         c.y += c.vy * sp * s;
-        // 漫游出界 → 离场
-        if (c.x < TILE * 0.3 || c.x > S - TILE * 0.3 || c.y < TILE * 0.3 || c.y > S - TILE * 0.3) {
-          c.state = 'leave';
-          const edge = (Math.random() * 4) | 0;
-          const tx2 = edge === 0 ? -TILE : edge === 1 ? S + TILE : c.x;
-          const ty2 = edge === 2 ? -TILE : edge === 3 ? S + TILE : c.y;
-          const d = Math.max(1, Math.hypot(tx2 - c.x, ty2 - c.y));
-          c.vx = (tx2 - c.x) / d; c.vy = (ty2 - c.y) / d;
+        // 停留时间到或漂到屏幕边缘 → 离场
+        if (c.hoverT > c.hoverDur * 1000 || c.x < TILE * 0.4 || c.x > S - TILE * 0.4 || c.y < TILE * 0.4 || c.y > S - TILE * 0.4) {
+          const [dx2, dy2] = pickEdgeTarget(c.x, c.y);
+          c.vx = dx2; c.vy = dy2; c.state = 'leave';
         }
-        if (c.hoverT > c.hoverDur * 1000) {
-          c.state = 'leave';
-          const edge = (Math.random() * 4) | 0;
-          const tx2 = edge === 0 ? -TILE : 1 === 1 ? (edge === 1 ? S + TILE : c.x) : c.x;
-          const ty2 = edge === 2 ? -TILE : edge === 3 ? S + TILE : c.y;
-          const d = Math.max(1, Math.hypot(tx2 - c.x, ty2 - c.y));
-          c.vx = (tx2 - c.x) / d; c.vy = (ty2 - c.y) / d;
-        }
-      } else { // scare / leave：径直飞出屏幕，越飞越快
-        c.scareBoost = Math.min(2.4, (c.scareBoost || 1) + s * 0.9);
-        c.x += c.vx * speed * (c.kind === 'bat' ? 1.4 : 1.9) * c.scareBoost * s;
-        c.y += c.vy * speed * (c.kind === 'bat' ? 1.4 : 1.9) * c.scareBoost * s;
-        if (c.x < -TILE * 1.2 || c.x > S + TILE * 1.2 || c.y < -TILE * 1.2 || c.y > S + TILE * 1.2) {
+      } else { // leave / scare：径直飞出屏幕，scare 会加速，像被惊到
+        const boost = c.state === 'scare' ? Math.min(2.6, 1 + (simT - (c.scareAt || simT)) / 600) : 1;
+        if (c.state === 'scare' && !c.scareAt) c.scareAt = simT;
+        const sp = c.speed * (c.kind === 'bat' ? 1.4 : 2.2) * boost;
+        c.x += c.vx * sp * s;
+        c.y += c.vy * sp * s;
+        if (c.x < -TILE * 1.5 || c.x > S + TILE * 1.5 || c.y < -TILE * 1.5 || c.y > S + TILE * 1.5) {
           ambient.critters.splice(i, 1); continue;
         }
       }
@@ -714,7 +709,7 @@
         // 呼吸明灭的光点 + 一小段尾迹
         c.glowT += dt / 1000;
         const pulse = 0.5 + 0.5 * Math.sin(c.glowT * 2.1 + c.seed);
-        const a = (0.35 + pulse * 0.65) * (c.state === 'scare' ? 0.9 : 1);
+        const a = 0.35 + pulse * 0.65;
         ctx.globalCompositeOperation = 'lighter';
         const g = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, TILE * 0.34);
         g.addColorStop(0, 'rgba(255,238,150,' + (a * 0.5).toFixed(3) + ')');
@@ -726,7 +721,6 @@
         ctx.beginPath();
         ctx.arc(c.x, c.y, Math.max(1, TILE * 0.035), 0, Math.PI * 2);
         ctx.fill();
-        // 尾迹
         const bx = c.x - c.vx * TILE * 0.22, by = c.y - c.vy * TILE * 0.22;
         ctx.fillStyle = 'rgba(255,240,160,' + (a * 0.35).toFixed(3) + ')';
         ctx.beginPath();
@@ -734,48 +728,47 @@
         ctx.fill();
         ctx.globalCompositeOperation = 'source-over';
       } else if (c.kind === 'moth') {
-        // 雾层飞蛾：两只扑动的小翅膀，淡紫
-        const fl = Math.sin(c.wing * 9);
+        // 雾层飞蛾：两只扑动的小翅膀，淡紫，头朝移动方向
+        const fl = Math.sin(c.wing * Math.PI);
         const wingA = 0.55 + fl * 0.45;
         ctx.translate(c.x, c.y);
-        const ang = Math.atan2(c.vy, c.vx);
-        ctx.rotate(ang + Math.PI / 2);
-        ctx.fillStyle = 'rgba(190,168,255,' + (0.5 + fl * 0.2).toFixed(2) + ')';
+        ctx.rotate(Math.atan2(c.vy, c.vx) + Math.PI / 2);
+        ctx.fillStyle = 'rgba(196,176,255,' + (0.62 + fl * 0.2).toFixed(2) + ')';
         for (const sgn of [-1, 1]) {
           ctx.save();
           ctx.scale(sgn, 1);
           ctx.rotate(wingA * 0.9);
           ctx.beginPath();
-          ctx.ellipse(TILE * 0.09, -TILE * 0.02, TILE * 0.11, TILE * 0.055, 0.5, 0, Math.PI * 2);
+          ctx.ellipse(TILE * 0.13, -TILE * 0.02, TILE * 0.14, TILE * 0.068, 0.5, 0, Math.PI * 2);
           ctx.fill();
           ctx.restore();
         }
-        ctx.fillStyle = 'rgba(210,196,255,0.85)';
+        ctx.fillStyle = 'rgba(222,210,255,0.9)';
         ctx.beginPath();
-        ctx.ellipse(0, 0, TILE * 0.032, TILE * 0.052, 0, 0, Math.PI * 2);
+        ctx.ellipse(0, 0, TILE * 0.038, TILE * 0.062, 0, 0, Math.PI * 2);
         ctx.fill();
       } else if (c.kind === 'bat') {
-        // Boss 层蝙蝠：纯剪影快速掠过，绝不悬停
-        const fl = Math.sin(c.wing * 14);
-        const ws = TILE * 0.16;
+        // Boss 层蝙蝠：灰紫剪影快速掠过，红眼两点（比地板亮半档才看得见）
+        const fl = Math.sin(c.wing * Math.PI * 2);
+        const ws = TILE * 0.19;
         ctx.translate(c.x, c.y);
         ctx.rotate(Math.atan2(c.vy, c.vx) + Math.PI / 2);
-        ctx.fillStyle = 'rgba(22,16,26,0.88)';
+        ctx.fillStyle = 'rgba(74,62,98,0.95)';
         ctx.beginPath();
-        ctx.moveTo(0, TILE * 0.05);
-        ctx.quadraticCurveTo(-ws * 0.5, -TILE * 0.02 - fl * ws * 0.8, -ws, fl * ws * 0.5);
+        ctx.moveTo(0, TILE * 0.06);
+        ctx.quadraticCurveTo(-ws * 0.5, -TILE * 0.02 - fl * ws * 0.8, -ws, fl * ws * 0.55);
         ctx.quadraticCurveTo(-ws * 0.4, TILE * 0.02, 0, TILE * 0.02);
-        ctx.quadraticCurveTo(ws * 0.4, TILE * 0.02, ws, fl * ws * 0.5);
-        ctx.quadraticCurveTo(ws * 0.5, -TILE * 0.02 - fl * ws * 0.8, 0, TILE * 0.05);
+        ctx.quadraticCurveTo(ws * 0.4, TILE * 0.02, ws, fl * ws * 0.55);
+        ctx.quadraticCurveTo(ws * 0.5, -TILE * 0.02 - fl * ws * 0.8, 0, TILE * 0.06);
         ctx.fill();
-        ctx.fillStyle = 'rgba(255,120,90,0.5)';
+        ctx.fillStyle = 'rgba(255,110,80,0.6)';
         ctx.beginPath();
-        ctx.arc(-TILE * 0.022, -TILE * 0.008, TILE * 0.014, 0, Math.PI * 2);
-        ctx.arc(TILE * 0.022, -TILE * 0.008, TILE * 0.014, 0, Math.PI * 2);
+        ctx.arc(-TILE * 0.026, -TILE * 0.006, TILE * 0.016, 0, Math.PI * 2);
+        ctx.arc(TILE * 0.026, -TILE * 0.006, TILE * 0.016, 0, Math.PI * 2);
         ctx.fill();
-      } else { // ember：压低频的真火星，偶尔一颗
+      } else { // ember：压低频的真火星，偶尔一颗，微升微灭
         const age = simT - c.born;
-        const p = Math.min(1, age / 4200);
+        const p = Math.min(1, age / 5000);
         ctx.globalCompositeOperation = 'lighter';
         ctx.fillStyle = 'rgba(255,180,90,' + (0.42 * (1 - p)).toFixed(3) + ')';
         ctx.beginPath();
@@ -1247,5 +1240,30 @@
     setAmbient, setTarget,
     needsDraw: () => dirty,
     getTile: () => TILE,
+    // 调试/测试：强制生成一只指定种类的小生物并放慢出生节奏
+    __spawnCritter(kind) {
+      if (kind === 'slow') { ambient.spawnAcc = -99999; return 'spawn slowed'; }
+      return spawnCritter(kind);
+    },
+    __critters: () => ambient.critters.map((c) => ({ kind: c.kind, state: c.state, x: Math.round(c.x), y: Math.round(c.y) })),
+    // 调试/截图：清场后把三只小生物固定摆在画面中部（悬停态），便于确定性验证
+    __placeCritters() {
+      ambient.critters.length = 0;
+      ambient.spawnAcc = -99999;
+      const S = TILE * SIZE;
+      const mk = (kind, fx, fy) => {
+        const c = {
+          kind, x: S * fx, y: S * fy,
+          vx: 0.7, vy: -0.3,
+          born: simT, seed: 42, state: 'hover', hoverT: 0,
+          hoverDur: 999, wing: 1.2, glowT: 0.8, speed: kind === 'bat' ? 150 : kind === 'moth' ? 40 : 24,
+        };
+        ambient.critters.push(c);
+      };
+      mk('firefly', 0.3, 0.3);
+      mk('moth', 0.62, 0.42);
+      mk('bat', 0.42, 0.68);
+      return 'placed 3';
+    },
   };
 })();

@@ -199,14 +199,27 @@ window.GAME_DATA = (function () {
     chisel:   { name: '刻刀之环', emoji: '🪶', short: '刀', chapter: 4, desc: '最终评分 ×1.06' },
     heart:    { name: '塔心之环', emoji: '💗', short: '心', chapter: 4, desc: '带走塔心石多 +100 上限；放下多 +120 分' },
     oath:     { name: '守誓之环', emoji: '🕊️', short: '誓', chapter: 4, desc: '结算余烬 +3' },
+
+    // ---- 扩容池（P-3）：每章 4→6 枚，每局抽 3，同一条锁配出不同的构筑 ----
+    pace:     { name: '更漏之环', emoji: '⏱️', short: '漏', chapter: 1, desc: '结算的用时扣分减半' },
+    ward2:    { name: '旧誓之环', emoji: '💫', short: '誓', chapter: 1, desc: '每场战斗承伤 −6%' },
+
+    ash:      { name: '拾薪之环', emoji: '🪵', short: '薪', chapter: 2, desc: '每条塔规额外 +20 分' },
+    scout2:   { name: '窥探之环', emoji: '👁️', short: '窥', chapter: 2, desc: '立刻获得窥探之镜' },
+
+    ledger2:  { name: '墨账之环', emoji: '🖋️', short: '墨', chapter: 3, desc: '每条塔规额外 +20 分' },
+    vitality2:{ name: '深井之环', emoji: '🫗', short: '井', chapter: 3, desc: '生命上限 +200，并回复 200' },
+
+    coin2:    { name: '夜市之环', emoji: '🪙', short: '市', chapter: 4, desc: '立刻获得 300 金币' },
+    lamp2:    { name: '长明之环', emoji: '🕯️', short: '明', chapter: 4, desc: '每上一层回复 4% 生命' },
   };
 
-  // 每章抽 3 个给玩家选（池 4 个 → 每局的构筑起点不同）
+  // 每章抽 3 个给玩家选（池 6 个 → 每局的构筑起点不同）
   const ringPools = {
-    1: ['ledger', 'lamp', 'coin', 'keyring'],
-    2: ['parry', 'cinder', 'thrift2', 'vitality'],
-    3: ['bell', 'stair', 'scope', 'hour'],
-    4: ['seventh', 'chisel', 'heart', 'oath'],
+    1: ['ledger', 'lamp', 'coin', 'keyring', 'pace', 'ward2'],
+    2: ['parry', 'cinder', 'thrift2', 'vitality', 'ash', 'scout2'],
+    3: ['bell', 'stair', 'scope', 'hour', 'ledger2', 'vitality2'],
+    4: ['seventh', 'chisel', 'heart', 'oath', 'coin2', 'lamp2'],
   };
 
   // 升到下一级所需经验（索引 = 当前等级-1）
@@ -647,6 +660,30 @@ window.GAME_DATA = (function () {
       options: [
         { label: '拿起来', tip: '攻击 +4，防御 −2', effect: { atk: 4, def: -2 }, msg: '刀比看上去重。你握住它时，六圈布同时松了一点。' },
         { label: '放回原处', tip: '结算 +260 分', effect: { score: 260 }, msg: '你把刀摆正，刀刃仍然朝着门。' },
+      ],
+    },
+    {
+      id: 'ledger2', tier: 'c', name: '名册的残页', emoji: '📄',
+      text: '一页名册卡在锁梁的砖缝里，纸很白。上面列着九个名字，最后一个被墨涂掉了。',
+      options: [
+        { label: '读出声', tip: '结算 +280 分，生命 −60', effect: { score: 280, hp: -60 }, msg: '读到第八个，风停了一拍。第九个你没敢念。' },
+        { label: '把残页叠好收起', tip: '金币 +300', effect: { gold: 300 }, msg: '纸很轻，比三百枚金币还轻。' },
+      ],
+    },
+    {
+      id: 'clockwork', tier: 'c', name: '钟的心脏', emoji: '⚙️',
+      text: '一整箱齿轮堆在墙角，每只都停在同一格。箱子上写着：余弦十年，勿动。',
+      options: [
+        { label: '拨快一格', tip: '攻击 +2，防御 +2，生命 −10%', effect: { atk: 2, def: 2, hpPct: -0.1 }, msg: '齿轮咬合的声音从脚底传上来。塔比刚才年轻了一点。' },
+        { label: '依着字条放下', tip: '回复 25% 生命', effect: { healPct: 0.25 }, msg: '你松开手。箱盖合上时，有一只齿轮自己转了半圈。' },
+      ],
+    },
+    {
+      id: 'mirror2', tier: 'c', name: '第六面镜子', emoji: '🪞',
+      text: '六面镜子靠墙立着，前五面都蒙着布。第六面干净得能照出你身后的楼梯。',
+      options: [
+        { label: '掀开第一面', tip: '攻击 +3，生命上限 −180', effect: { atk: 3, maxHp: -180 }, msg: '镜子里的你不肯跟你一起抬手。你们对视了一会儿。' },
+        { label: '把布重新盖好', tip: '防御 +3', effect: { def: 3 }, msg: '布落下的声音很轻。玻璃后面有人松了口气。' },
       ],
     },
   ];

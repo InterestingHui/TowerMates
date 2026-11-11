@@ -117,6 +117,7 @@
     const m = D.monsters[ch];
     let dmg = p.damage;
     if (vow() === 'guard') dmg = Math.round(dmg * 0.82);
+    if (hasRing('ward2')) dmg = Math.round(dmg * 0.94);
     if (hasRing('bell') && m && m.boss) dmg = Math.round(dmg * 0.92);
     if (blocked) dmg = Math.round(dmg * ringBlockScale());
     return { damage: dmg, raw: p.damage, per: p.per, rounds: p.rounds, out: p.out, blockScale: blocked ? ringBlockScale() : 1 };
@@ -202,9 +203,11 @@
     if (hasRing(id)) return { type: 'refuse', msg: '已经装上了' };
     s.flags.rings = rings().concat(id);
     if (id === 'coin') s.gold += 200;
+    if (id === 'coin2') s.gold += 300;
     if (id === 'keyring') { s.keys.y += 2; s.keys.r += 1; }
     if (id === 'vitality') { s.maxHp += 240; s.hp += 240; }
-    if (id === 'scope') s.flags.codex = true;
+    if (id === 'vitality2') { s.maxHp += 200; s.hp += 200; }
+    if (id === 'scope' || id === 'scout2') s.flags.codex = true;
     delete s.flags['ringPending_' + ch];
     s.flags['ringDone_' + ch] = true;
     save();
@@ -279,9 +282,9 @@
     if (dir > 0 && vow() === 'mercy') gain(0.12);
     // 苦行 / 无名：没有格挡，但每上一层塔会补给你 10% 生命
     if (dir > 0 && (vow() === 'ascetic' || vow() === 'nameless')) gain(0.10);
-    // 锁环「借灯 / 回廊」：只在往上走时生效，跳层不回血，防止来回刷
+    // 锁环「借灯 / 回廊 / 长明」：只在往上走时生效，跳层不回血，防止来回刷
     if (dir > 0) {
-      const pct = (hasRing('lamp') ? 0.05 : 0) + (hasRing('stair') ? 0.04 : 0);
+      const pct = (hasRing('lamp') ? 0.05 : 0) + (hasRing('stair') ? 0.04 : 0) + (hasRing('lamp2') ? 0.04 : 0);
       if (pct > 0) gain(pct);
     }
     return { floor: target, x: nx, y: ny, heal };

@@ -15,6 +15,13 @@
   const errs = [];
   const base = q.get('page') || '/index.html';
   const VOWPICK = q.get('vow') || 'none';
+  // ?zoom=2：把游戏画布放大 N 倍再截（验证画布内细节用）
+  const ZOOM = Number(q.get('zoom')) || 1;
+  if (ZOOM !== 1) {
+    const st2 = document.createElement('style');
+    st2.textContent = '#f{transform-origin:top left;transform:scale(' + ZOOM + ')}body{width:' + (430 * ZOOM) + 'px;height:' + (900 * ZOOM) + 'px}';
+    document.head.appendChild(st2);
+  }
   const src = {
     floor5: base + '?dev=1#demo=4,2,8',
     battle: base + '?dev=1#demo=0,2,3',
@@ -427,6 +434,19 @@
           + ' title=' + d.getElementById('endTitle').textContent);
         errBox.textContent = out.join('\n') + '\nerr=' + (errs.length ? errs.join('|') : 'none');
         return;
+      } else if (scene === 'critters') {
+        d.getElementById('btnNew').click();
+        await wait(200);
+        const _vc = d.querySelector('#vowCards .vow-card[data-vow="none"]');
+        if (_vc) _vc.click();
+        await wait(260);
+        const dlC = d.getElementById('dialogOverlay');
+        for (let i = 0; i < 8; i++) { dlC.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
+        // 三只小生物固定摆在画面中部：萤火虫 / 飞蛾 / 蝙蝠（悬停态）
+        w.Renderer.__placeCritters();
+        await wait(150);
+        errBox.textContent = 'critters=' + JSON.stringify(w.Renderer.__critters()) + ' err=' + (errs.length ? errs.join('|') : 'none');
+        await wait(600);
       } else if (scene === 'auto') {
         const cv = d.getElementById('game');
         const clickTile = (tx, ty) => {

@@ -14,29 +14,35 @@ const CHROME_CANDIDATES = [
   'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
   'C:/Program Files/Microsoft/Edge/Application/msedge.exe',
 ];
-const SCENES = ['start', 'play', 'dialog', 'battle', 'battleblock', 'bossphase', 'altar', 'choice', 'end', 'board', 'codex', 'cfg', 'hud', 'tower', 'core', 'heart', 'stoneidle', 'vow', 'event', 'eventdeep', 'gate', 'echo', 'goal', 'flow'];
+const SCENES = ['start', 'play', 'critters', 'dialog', 'battle', 'battleblock', 'bossphase', 'altar', 'choice', 'end', 'board', 'codex', 'cfg', 'hud', 'tower', 'core', 'heart', 'stoneidle', 'vow', 'event', 'eventdeep', 'gate', 'echo', 'goal', 'flow'];
 
 function run(cmd, args) {
   const r = spawnSync(cmd, args, { cwd: ROOT, encoding: 'utf8' });
   return { code: r.status, out: (r.stdout || '') + (r.stderr || '') };
 }
 
-console.log('== 1/3 地图与数据校验 ==');
+console.log('== 1/4 地图与数据校验 ==');
 const check = run(process.execPath, ['tools/check.js']);
 const okCheck = check.code === 0;
 console.log((okCheck ? '✓' : '✗') + ' check.js' + (okCheck ? '' : '\n' + check.out));
 
-console.log('== 2/3 平衡模拟 ==');
+console.log('== 2/4 平衡模拟 ==');
 const sim = run(process.execPath, ['tools/sim.js']);
 const simLine = sim.out.split('\n').filter((l) => l.includes('总承伤')).pop() || '';
 const okSim = sim.code === 0 && sim.out.includes('通关成功');
 console.log((okSim ? '✓' : '✗') + ' sim.js ' + simLine.trim());
 
-console.log('== 3/3 引擎单测 ==');
+console.log('== 3/4 引擎单测 ==');
 const test = run(process.execPath, ['tools/engine-test.js']);
 const passed = (test.out.match(/^✓/gm) || []).length;
 const okTest = test.code === 0;
 console.log((okTest ? '✓' : '✗') + ` engine-test.js ${passed} 项`);
+
+console.log('== 4/4 挑战码与触控单测 ==');
+const code = run(process.execPath, ['tools/code-test.js']);
+const codePassed = (code.out.match(/(\d+) 项通过/) || [])[1] || 0;
+const okCode = code.code === 0;
+console.log((okCode ? '✓' : '✗') + ` code-test.js ${codePassed} 项` + (okCode ? '' : '\n' + code.out));
 
 let okShots = true;
 if (!process.argv.includes('--no-shot')) {
@@ -70,12 +76,17 @@ if (!process.argv.includes('--no-shot')) {
       }
       server.kill();
       console.log(bad === 0 ? `\n✓ 截图全部生成（${SCENES.length} 张，见 tools/out/）` : `\n✗ ${bad} 张截图异常`);
-      const all = okCheck && okSim && okTest && bad === 0;
+
+      console.log('== 浏览器 UI 自检 ==');
+      const ui = run(process.execPath, ['tools/ui-test.js']);
+      const okUi = ui.code === 0;
+      console.log((okUi ? '✓' : '✗') + ' ui-test.js' + (okUi ? '' : '\n' + ui.out));
+      const all = okCheck && okSim && okTest && okCode && okUi && bad === 0;
       console.log(all ? '✓ 质量闸门通过' : '✗ 质量闸门有失败项');
-      process.exit(okCheck && okSim && okTest && bad === 0 ? 0 : 1);
+      process.exit(all ? 0 : 1);
     })();
     return;
   }
 }
-console.log(okCheck && okSim && okTest ? '\n✓ 质量闸门通过' : '\n✗ 有失败项');
-process.exit(okCheck && okSim && okTest ? 0 : 1);
+console.log(okCheck && okSim && okTest && okCode ? '\n✓ 质量闸门通过' : '\n✗ 有失败项');
+process.exit(okCheck && okSim && okTest && okCode ? 0 : 1);

@@ -9,7 +9,10 @@ const crypto = require('crypto');
 
 const ROOT = path.resolve(__dirname, '..');
 const OUT = path.join(ROOT, 'publish');
-const JS_FILES = ['data', 'story', 'portraits', 'achievements', 'engine', 'render', 'main'].map((n) => n + '.js');
+// 自动收齐 js/ 下所有模块：新增独立模块（手势、挑战码、平台桥接等）不用再改这张清单
+const JS_FILES = fs.readdirSync(path.join(ROOT, 'js'))
+  .filter((f) => f.endsWith('.js'))
+  .sort();
 
 const js = Object.fromEntries(JS_FILES.map((f) => [f, fs.readFileSync(path.join(ROOT, 'js', f))]));
 const css = fs.readFileSync(path.join(ROOT, 'css', 'style.css'));

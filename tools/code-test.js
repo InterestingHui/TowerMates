@@ -30,11 +30,21 @@ ok(C.decode('') === null, '空串拒绝');
 ok(C.decode('TM2.@@@@') === null, '非法 base64 拒绝');
 ok(C.decode('随便一串汉字') === null, '乱码拒绝');
 ok(C.decode('TM2.' + 'A'.repeat(500)) === null, '超长拒绝');
-ok(C.decode(C.PREFIX + Buffer.from(JSON.stringify({ v: 3, s: 999 })).toString('base64')) === null, '未知版本拒绝');
+ok(C.decode(C.PREFIX + Buffer.from('3.t.none.1.1.1.1.1.S').toString('base64')) === null, '未知版本拒绝');
+ok(code.length <= 80, '新码保持短小，面板与输入框放得下');
 const injected = C.encode({ vow: '<img src=x>', grade: 'S', score: -10, floor: 999, steps: -3 });
 const di = C.decode(injected);
 ok(di.vow.indexOf('<') < 0 && di.grade === 'S', '标签字符被剔除');
 ok(di.score === 0 && di.floor === 99 && di.steps === 0, '数值被钳到合法区间');
 
-console.log(`挑战码单测：${pass} 项通过${bad ? `，${bad} 项失败` : ''}`);
+// 触屏手势的方向判定（纯逻辑，不依赖 DOM）
+const T = require('../js/touch.js');
+ok(T.direction(0, 0, 26) === null, '未达阈值不触发移动');
+ok(T.direction(30, 4, 26)[1] === 0 && T.direction(30, 4, 26)[0] === 1, '右滑走右');
+ok(T.direction(-40, 12, 26)[0] === -1, '左滑走左');
+ok(T.direction(5, -50, 26)[1] === -1, '上滑走上');
+ok(T.direction(9, 45, 26)[1] === 1, '下滑走下');
+ok(T.direction(40, -39, 26)[0] === 1, '位移相近时取较大轴');
+
+console.log(`挑战码与触控单测：${pass} 项通过${bad ? `，${bad} 项失败` : ''}`);
 process.exit(bad ? 1 : 0);

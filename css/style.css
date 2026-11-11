@@ -579,6 +579,20 @@ html, body {
   line-height: 1.4;
 }
 .code-hint { font-size: 10.5px; color: #555d6d; line-height: 1.6; margin: 7px 0 0; }
+.code-input {
+  flex: 1;
+  min-width: 0;
+  font-size: 11px;
+  font-family: Consolas, monospace;
+  color: var(--gold);
+  background: transparent;
+  border: none;
+  outline: none;
+  padding: 2px 0;
+}
+.code-input::placeholder { color: #555d6d; }
+.bd-row.rival .bd-name { color: #9fd8ff; }
+.bd-row.rival { background: rgba(159, 216, 255, 0.06); }
 
 /* ================= 战斗演出 ================= */
 .overlay.battle-scene { background: rgba(3, 5, 9, 0.84); padding: 0; overflow: hidden; }
@@ -1005,6 +1019,21 @@ html, body {
   padding: 3px 8px;
   white-space: nowrap;
 }
+
+/* 塔的记忆：跨局履历 + 下一局目标 */
+.end-memory {
+  margin: 2px 0 11px;
+  padding: 9px 11px 10px;
+  border: 1px solid rgba(232, 196, 106, 0.16);
+  background: linear-gradient(180deg, rgba(232, 196, 106, 0.05), rgba(232, 196, 106, 0.015));
+  border-radius: 11px;
+  text-align: left;
+}
+.mem-grid { display: grid; grid-template-columns: 1fr; gap: 3px; }
+.mem-grid div { font-size: 10.5px; color: var(--muted); line-height: 1.55; }
+.mem-goals { display: flex; flex-direction: column; gap: 3px; margin-top: 7px; padding-top: 7px; border-top: 1px dashed rgba(232, 196, 106, 0.18); }
+.mem-goals span { font-size: 11px; color: var(--gold); line-height: 1.5; }
+.mem-note { font-size: 10px; color: #555d6d; margin: 6px 0 0; }
 
 /* ---------- 图鉴：族群标签 ---------- */
 .cx-tag {

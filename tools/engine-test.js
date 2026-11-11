@@ -238,8 +238,11 @@ ok(E.priceOf(D.shop.find((x) => x.id === 'atk')) === 84, '无名之誓：物价 
 ok(E.eventPool(0).every((e) => (e.tier || 'a') === 'a'), '浅层只出温和事件');
 ok(E.eventPool(5).every((e) => e.tier === 'b'), '第 6 层只出深层事件');
 ok(E.eventPool(6).every((e) => e.tier === 'c'), '第 7 层只出锁梁事件');
-ok(E.eventPool(0).length === 6 && E.eventPool(5).length === 6 && E.eventPool(6).length === 5, '三个池子分别有 6 / 6 / 5 个事件');
-ok(D.events.length === 17, '事件池共 17 个');
+// 数量从数据表算，别写死：以后往任何一层加路遇都不会把这条测试弄飘
+const tierCount = (t) => D.events.filter((e) => (e.tier || 'a') === t).length;
+ok(E.eventPool(0).length === tierCount('a') && E.eventPool(5).length === tierCount('b') && E.eventPool(6).length === tierCount('c'), '三个池子的数量与数据表一致');
+ok(D.events.length === tierCount('a') + tierCount('b') + tierCount('c'), '事件池总数等于分池之和');
+ok(new Set(D.events.map((e) => e.id)).size === D.events.length, '路遇 id 不重复');
 
 E.newGame();
 s = E.state();
@@ -527,6 +530,35 @@ ok(bossRes.echo && bossRes.echo.chapter === 1, 'Boss 击败会返回本章回响
 ok(bossRes.echo.done === 3 && bossRes.echo.pending === true, '章末层在 Boss 倒下时提前结算并开三选一');
 ok(s.flags.goalLocked_2 === true, '章末层塔规已锁定，之后吃药不会改判');
 ok(s.flags.echoScore === 300, '章回响奖分写进存档');
+
+// ---------- 层阶之钥：一次性「往前开一层」的明码取舍 ----------
+E.newGame();
+s = E.state();
+ok(!E.gateForth().ok, '没拿钥匙时不能往前开层');
+s.flags['relic_gate'] = true;
+const forth0 = E.gateForth();
+ok(forth0.ok && forth0.target === 1, '首层拿到钥匙后可往前开一层');
+ok(forth0.seals.length === 2 && forth0.seals.every((p) => !!p.name), '代价预览明码列出两件宝物');
+const j1 = E.jumpTo(1);
+ok(j1.type === 'floor' && j1.forth === true, '前向跳层成功并标记 forth');
+ok(j1.sealed.length === forth0.seals.length, '实际封印数量与预览一致');
+ok(s.flags.gateForth === true && s.flags.maxFloor === 1, '一次性标记与最高层已写入存档');
+forth0.seals.forEach((p) => ok(s.maps[1][p.y][p.x] === '.', `封印「${p.name}」已从地图移除`));
+ok((s.flags.gateSeals || []).length === forth0.seals.length, '封印位置留在存档供渲染');
+ok(!E.gateForth().ok, '一次性机会用完后不能再用');
+const j2 = E.jumpTo(0);
+ok(j2.type === 'floor' && !j2.forth, '回跳走过的楼层不受一次性限制影响');
+E.newGame();
+s = E.state();
+s.flags['relic_gate'] = true;
+s.floor = 1; s.flags.maxFloor = 1;
+const fb = E.gateForth();
+ok(!fb.ok && /锁匠/.test(fb.msg), '章末锁匠层不能被钥匙绕过');
+ok(E.jumpTo(2).type === 'refuse', '直接跳到没走过的锁匠层被拒');
+E.newGame();
+s = E.state();
+s.flags['relic_gate'] = true;
+ok(E.gateForth().ok && E.gateForth().seals.length > 0, '新的一局重新获得一次机会');
 
 console.log(fail === 0 ? '\n✓ 全部通过' : `\n✗ ${fail} 项失败`);
 process.exit(fail ? 1 : 0);
