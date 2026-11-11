@@ -479,6 +479,81 @@
     }
   }
 
+  // ---------- 新手标注：高亮一块真格子，虚线拉到说明卡，点击「知道了」才收 ----------
+  // 不用对白、不自动消失——玩家得先看见游戏画面，才谈得上学会操作。
+  const Coach = (() => {
+    let active = false;
+    let onResize = null;
+    function layout(def) {
+      const s = Engine.state();
+      if (!s) return;
+      const stage = el.stage;
+      const rect = stage.getBoundingClientRect();
+      const T = Renderer.getTile();
+      const board = T * 11;
+      const ox = (rect.width - board) / 2;   // 棋盘在 stage 里的横向起点
+      const oy = (rect.height - board) / 2;
+      const spot = def.spot(s);               // {x, y} 格子坐标
+      const cx = ox + spot.x * T + T / 2;
+      const cy = oy + spot.y * T + T / 2;
+      const svg = $('coachSvg');
+      const card = $('coachCard');
+      svg.setAttribute('viewBox', `0 0 ${rect.width} ${rect.height}`);
+      // 高亮圈
+      svg.innerHTML = `<circle class="coach-spot" cx="${cx}" cy="${cy}" r="${T * 0.62}"></circle>`;
+      // 卡片摆位：目标在左半→卡片放右侧；在上半→卡片放下方；反之亦然
+      card.hidden = false;
+      card.style.left = 'auto';
+      card.style.top = 'auto';
+      card.style.right = 'auto';
+      card.style.bottom = 'auto';
+      const cw = card.offsetWidth, chh = card.offsetHeight;
+      const margin = 10;
+      const onLeft = cx > rect.width / 2;
+      const onTop = cy > rect.height / 2;
+      const cardX = onLeft ? Math.max(margin, cx - T - cw - margin) : Math.min(rect.width - cw - margin, cx + T + margin);
+      const cardY = onTop ? Math.max(margin, cy - T - chh - margin) : Math.min(rect.height - chh - margin, cy + T + margin);
+      card.style.left = `${Math.round(cardX)}px`;
+      card.style.top = `${Math.round(cardY)}px`;
+      // 虚线：从高亮圈边缘连到卡片最近的角
+      const nearX = Math.max(cardX, Math.min(cx, cardX + cw));
+      const nearY = Math.max(cardY, Math.min(cy, cardY + chh));
+      const ang = Math.atan2(nearY - cy, nearX - cx);
+      const sx = cx + Math.cos(ang) * T * 0.66;
+      const sy = cy + Math.sin(ang) * T * 0.66;
+      svg.innerHTML += `<line class="coach-line" x1="${sx}" y1="${sy}" x2="${nearX}" y2="${nearY}"></line>`;
+    }
+    function close() {
+      active = false;
+      window.removeEventListener('resize', onResize);
+      $('coachSvg').hidden = true;
+      $('coachSvg').innerHTML = '';
+      $('coachCard').hidden = true;
+    }
+    return {
+      supported(key) { return !!(S.coach && S.coach[key] && typeof S.coach[key].spot === 'function'); },
+      show(key, def) {
+        const s = Engine.state();
+        if (!s) return;
+        active = true;
+        $('coachTitle').textContent = def.title || '指引';
+        renderRich($('coachText'), def.text || '');
+        $('coachOk').textContent = def.okText || '知道了';
+        layout(def);
+        onResize = () => { if (active) layout(def); };
+        window.addEventListener('resize', onResize);
+        $('coachOk').onclick = () => {
+          if (!active) return;
+          Sound.play('buy');
+          close();
+          if (def.after) def.after();
+        };
+      },
+      closeNow: close,
+      get active() { return active; },
+    };
+  })();
+
   // ---------- 顶部提示（纯操作反馈；长句给足阅读时间） ----------
   function warn(msg, ms) {
     const p = el.warnPill;
