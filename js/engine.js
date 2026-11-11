@@ -1013,6 +1013,64 @@
     return { path: path.reverse(), x: best.x, y: best.y };
   }
 
+  // 枚举到目标格的多条最短路线，按首步方向分组（每方向留一条）。
+  // 拖动选路用：目标非法（墙/怪/没钥匙的门）返回 null，可达时四个方向里至少一个非空。
+  function pathsTo(tx, ty) {
+    if (!s || s.over || s.won) return null;
+    if (tx < 0 || ty < 0 || tx >= SIZE || ty >= SIZE) return null;
+    if (tx === s.x && ty === s.y) return { up: null, down: null, left: null, right: null };
+    const targetCh = tile(tx, ty);
+    if (targetCh === '#' || D.monsters[targetCh]) return null;
+    if ((targetCh === 'y' || targetCh === 'r') && s.keys[targetCh] <= 0) return null;
+
+    // BFS 距离场：从玩家出发
+    const dist = new Map();
+    dist.set(s.x + ',' + s.y, 0);
+    const q = [[s.x, s.y]];
+    while (q.length) {
+      const [x, y] = q.shift();
+      const d = dist.get(x + ',' + y);
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = x + dx;
+        const ny = y + dy;
+        const key = nx + ',' + ny;
+        if (dist.has(key)) continue;
+        if (nx < 0 || ny < 0 || nx >= SIZE || ny >= SIZE) continue;
+        if (!passableForPath(nx, ny)) continue;
+        dist.set(key, d + 1);
+        q.push([nx, ny]);
+      }
+    }
+    const dTarget = dist.get(tx + ',' + ty);
+    if (dTarget === undefined) return null;
+
+    // 从目标反向走回起点，距离严格递减的每条分支都是一条最短路
+    const out = { up: null, down: null, left: null, right: null };
+    let budget = 240; // 防御性上限：11x11 地图远远用不到
+    const nameOf = (dx, dy) => dx === 1 ? 'right' : dx === -1 ? 'left' : dy === 1 ? 'down' : 'up';
+    (function back(x, y, cells) {
+      if (budget-- <= 0) return;
+      cells.push([x, y]);
+      if (x === s.x && y === s.y) {
+        const rev = cells.slice().reverse(); // 正向格子序列（含起点与目标）
+        const path = [];
+        for (let i = 1; i < rev.length; i++) path.push([rev[i][0] - rev[i - 1][0], rev[i][1] - rev[i - 1][1]]);
+        const first = nameOf(path[0][0], path[0][1]);
+        if (!out[first]) out[first] = { path, cells: rev };
+        return;
+      }
+      const d = dist.get(x + ',' + y);
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = x + dx;
+        const ny = y + dy;
+        const key = nx + ',' + ny;
+        if (dist.get(key) !== d - 1) continue;
+        back(nx, ny, cells);
+      }
+    })(tx, ty, []);
+    return out;
+  }
+
   function summary() {
     if (!s) return null;
     // 系统时间被往回调整时可能为负：钳到 0，否则会出现「-360 秒」并把通关用时写坏
@@ -1027,7 +1085,7 @@
       const ch = tile(s.x + dx, s.y + dy);
       return D.monsters[ch] ? predict(ch) : null;
     },
-    tryMove, fight, canBlock, buy, priceOf, finish, altarChoices, pickRelic, pathTo, pathThrough, pathToNear,
+    tryMove, fight, canBlock, buy, priceOf, finish, altarChoices, pickRelic, pathTo, pathThrough, pathToNear, pathsTo,
     nextLevelExp, keyName, summary, hasRelic, ownedRelics, beginFloor, restoreFloor, goalStatus, settleFloor, goalPreview, revealCore, heartState, heartTake, heartLeave, vow, pickEvent, eventPool, eventCost, resolveEvent, applyEffect, jumpTo, visitedMax, gateForth, sealPlan,
     rings, hasRing, ringBlockScale, fightDamage, bossPhases, settleChapter, ringChoices, pendingRing, pickRing,
   };

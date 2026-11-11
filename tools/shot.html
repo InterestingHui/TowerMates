@@ -34,7 +34,7 @@
   // 截图场景不触发新手提示对白，保持被测画面干净
   try {
     localStorage.setItem('towermates_tips_v2', JSON.stringify({
-      walk: 1, fight: 1, block: 1, blocksave: 1, low: 1, relic: 1, goal: 1, echo: 1, ring: 1, tooStrong: 1
+      walk: 1, fight: 1, block: 1, blocksave: 1, low: 1, relic: 1, goal: 1, echo: 1, ring: 1, tooStrong: 1, opening: 1
     }));
   } catch (e) {}
   f.src = src;
@@ -488,7 +488,7 @@
           d.getElementById('dialogOverlay').dispatchEvent(new MouseEvent('click', { bubbles: true }));
           await wait(50);
         }
-        w.__tm.say([['烛', '塔顶后面**露出一段窄梯**——往上还有一层。镇上从来没人说过。', 'firm']]);
+        w.__tm.say([['烛', '塔顶后面**露出一段窄梯**——往上还有一层。镇上从来没人说过。', 'firm']], { autoMs: 0 });
         await wait(400);
       } else if (scene === 'play') {
         d.getElementById('btnNew').click();

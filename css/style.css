@@ -1461,7 +1461,7 @@ html, body {
 
 /* ================= v2.1 · 实时塔规 / 锁环 / 章末回响 ================= */
 
-/* 顶栏：本层规矩常驻，达成即变绿 —— 玩家不用等到离开楼层才知道做没做到 */
+/* 顶栏：本层规矩展开一会儿后收成小徽标，达成即变绿；点一下可再展开 */
 .goal-row {
   display: flex;
   align-items: center;
@@ -1472,9 +1472,18 @@ html, body {
   background: linear-gradient(90deg, rgba(var(--gold-rgb), 0.07), rgba(255, 255, 255, 0.012));
   font-size: 10.5px;
   line-height: 1.4;
-  transition: border-color 0.3s, background 0.3s;
+  cursor: pointer;
+  transition: border-color 0.3s, background 0.3s, opacity 0.3s;
 }
 .goal-row[hidden] { display: none; }
+/* 挂够时间收成小徽标：只留标签与状态，点一下重新展开 */
+.goal-row.collapsed {
+  width: fit-content;
+  max-width: 100%;
+  opacity: 0.7;
+}
+.goal-row.collapsed:hover { opacity: 1; }
+.goal-row.collapsed .goal-text { display: none; }
 .goal-label {
   flex: none;
   font-size: 9.5px;

@@ -79,7 +79,9 @@ const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-ui-'));
   ok(out.richBold === true && out.richNoHtml === true, '提示加粗生效且文案不会被当 HTML 执行');
   ok(out.hintScripts === true, '九条角色提示台词就位（含加粗重点）');
   ok(out.warnBold === true, '操作反馈里的重点也加粗');
-  ok(out.hintDialog === true, '关键提示改走角色对白，需玩家点掉才收起');
+  ok(out.hintDialog === true, '关键提示改走角色对白，点击可提前收起');
+  ok(out.hintAutoClose === true, '角色提示悬挂到时自己收起，不会一直占着画面');
+  ok(out.goalCollapsed === true && out.goalReopen === true, '顶栏「本层规矩」挂够时间收起，点一下可再展开');
 
   if (bad) console.log('  诊断：' + JSON.stringify(out).slice(0, 700));
   console.log(bad === 0 ? '✓ UI 自检通过' : `✗ UI 自检 ${bad} 项失败`);

@@ -4,7 +4,7 @@
 <script>
 // 自动化场景不触发新手提示，保持被测画面干净
 try { localStorage.setItem('towermates_tips_v2', JSON.stringify({
-  walk:1, fight:1, block:1, blocksave:1, low:1, relic:1, goal:1, echo:1, ring:1, tooStrong:1
+  walk:1, fight:1, block:1, blocksave:1, low:1, relic:1, goal:1, echo:1, ring:1, tooStrong:1, opening:1
 })); } catch (e) {}
 </script>
 </head>
@@ -107,7 +107,7 @@ async function run() {
     out.f3ShopOnPath = hitShop;
     out.f3UpPath = !!E.pathThrough(1, 1);
 
-    // 提示系统自检：加粗渲染、角色台词、关键提示走对白（需玩家点掉）
+    // 提示系统自检：加粗渲染、角色台词、挂够时间自己收起
     var probe = d.createElement('div');
     w.__tm.richInto(probe, '先看**加粗**再走 <b>不是标签</b>');
     out.richBold = probe.querySelectorAll('strong').length === 1
@@ -118,13 +118,26 @@ async function run() {
     w.__tm.warn('测试**加粗**');
     out.warnBold = d.getElementById('warnPill').querySelectorAll('strong').length === 1;
     d.querySelectorAll('.overlay.show').forEach(function (o) { o.classList.remove('show'); });
-    w.__tm.say([['烛', '这条**测试提示**不会一闪而过', 'calm']]);
+    w.__tm.say([['烛', '这条**测试提示**不会一闪而过', 'calm']], { autoMs: 5000 });
     setTimeout(function () {
       var dl = d.getElementById('dialogOverlay');
       out.hintDialog = dl.classList.contains('show') && dl.classList.contains('hint-mode')
         && d.getElementById('dlgText').querySelectorAll('strong').length === 1
         && d.getElementById('dlgCue').textContent.indexOf('点击收起') >= 0;
       document.getElementById('out').textContent = JSON.stringify(out);
+      // 用短时长验证自动收起，不用真等 7 秒；顶栏规矩同理
+      d.getElementById('dlgSkip').click();
+      w.__tm.say([['烛', '**自动收起**测试', 'calm']], { autoMs: 300 });
+      w.__goalHintMs = 300;
+      w.__tm.expandGoal();
+      setTimeout(function () {
+        out.hintAutoClose = !dl.classList.contains('show');
+        var gr = d.getElementById('goalRow');
+        out.goalCollapsed = gr.classList.contains('collapsed');
+        gr.click();
+        out.goalReopen = !gr.classList.contains('collapsed');
+        document.getElementById('out').textContent = JSON.stringify(out);
+      }, 1000);
     }, 600);
   } catch (e) { out.error = String(e && e.stack || e); }
   document.getElementById('out').textContent = JSON.stringify(out);

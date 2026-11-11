@@ -16,6 +16,9 @@
   let hintAuto = null;
   let hintSeq = 0;
   const HINT_AUTO_MS = 7000; // 角色提示悬挂时长：够读完，也像成就吐司一样自己收起
+  const GOAL_SHOW_MS = 8000; // 顶栏「本层规矩」完整展开的时长，之后收成小徽标
+  let goalSig = null;
+  let goalTimer = null;
   const hintQueue = [];
   let choiceFocus = null;
   let heartFocus = null;
@@ -585,6 +588,16 @@
     el.floorDots.innerHTML = D.floors.map((f, i) => `<i data-ch="${f.chapter || 0}" title="第 ${i + 1} 层"></i>`).join('');
   }
 
+  // 顶栏「本层规矩」：内容或状态变了才重新展开，避免走一步就重置计时、永远不收起
+  function expandGoalRow() {
+    if (!el.goalRow) return;
+    el.goalRow.classList.remove('collapsed');
+    clearTimeout(goalTimer);
+    goalTimer = setTimeout(() => {
+      if (el.goalRow && !el.goalRow.hidden) el.goalRow.classList.add('collapsed');
+    }, window.__goalHintMs || GOAL_SHOW_MS);
+  }
+
   function refreshHud() {
     const s = Engine.state();
     if (!s) return;
@@ -630,7 +643,11 @@
         el.goalState.textContent = gp.locked ? (gp.ok ? '已结算' : '未达成') : (gp.ok ? '已达成' : '进行中');
         el.goalRow.classList.toggle('ok', !!gp.ok);
         el.goalRow.classList.toggle('locked', !!gp.locked);
-        el.goalRow.title = `第 ${s.floor + 1} 层的额外目标 · 离开本层时结算，达成后计入塔印与通关余烬${gp.locked ? '（本章已结算）' : ''}`;
+        el.goalRow.title = `第 ${s.floor + 1} 层的额外目标 · 离开本层时结算，达成后计入塔印与通关余烬${gp.locked ? '（本章已结算）' : ''} · 点一下可展开／收起`;
+        const sig = `${s.floor}|${gp.text}|${!!gp.ok}|${!!gp.locked}`;
+        if (sig !== goalSig) { goalSig = sig; expandGoalRow(); }
+      } else {
+        goalSig = null;
       }
     }
     if (el.vowTag) {
@@ -742,6 +759,8 @@
 
   function closeDialog() {
     el.dialogOverlay.classList.remove('show', 'hint-mode');
+    clearTimeout(hintAuto);
+    hintAuto = null;
     const cb = typing && typing.cb;
     typing = null;
     $('dlgPortrait').innerHTML = '';
@@ -1996,6 +2015,7 @@
     el.dialogOverlay.addEventListener('click', advanceDialog);
     $('dlgSkip').addEventListener('click', (e) => { e.stopPropagation(); skipDialog(); });
     $('dlgPrev').addEventListener('click', (e) => { e.stopPropagation(); prevDialog(); });
+    if (el.goalRow) el.goalRow.addEventListener('click', expandGoalRow);
 
     // 切回标签页时音频上下文可能被系统挂起：恢复并重排一次音乐
     document.addEventListener('visibilitychange', () => {
@@ -2323,8 +2343,10 @@
       enterFloor(true);
       if (Engine.vow() !== 'none') log(`你立下了${vs.name}：${vs.desc}`, 'gold');
       log('你踏入了魔塔。塔顶传来极轻的、像铃声一样的声音。', 'gold');
-      Tips.show('walk');
-      setTimeout(() => Tips.show('goal'), 5600);
+      // 开局只留一条合并提示，挂够时间自己收起；两个 key 一并标记，之后不再重复弹
+      Tips.mark('walk');
+      Tips.mark('goal');
+      if (Tips.mark('opening')) say(S.hints.opening || S.hints.walk);
     });
   }
 
@@ -2405,7 +2427,7 @@
     testRelicShowcase: () => { const st = Engine.state(); if (st) relicShowcase(st.x, st.y); },
     openEcho, chooseRing, closeEcho, resumePendingRing, setChapterColor, refreshCfg,
     // 提示系统：自动化可验证「加粗渲染 + 角色提示对白」
-    richInto: renderRich, say, sayHint, warn, Tips,
+    richInto: renderRich, say, sayHint, warn, Tips, expandGoal: expandGoalRow,
   };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
