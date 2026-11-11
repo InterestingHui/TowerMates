@@ -78,6 +78,10 @@
   function ring(tx, ty, color, maxR, dur) {
     rings.push({ tx, ty, start: simT, dur: dur || 420, color, maxR: maxR || TILE * 2.2 });
   }
+  // 像素坐标版：给自由飞行的小生物用（rings 数组里 px 标记走像素分支）
+  function ringPx(x, y, color, maxR, dur) {
+    rings.push({ px: true, x, y, start: simT, dur: dur || 380, color, maxR: maxR || TILE * 0.7 });
+  }
   // 遗物高光：十字星芒 + 三重冲击环。竖光柱从拾取点冲出画面顶，横光带扫过全屏
   function relicBeamFx(tx, ty) {
     relicBeam = { tx, ty, start: performance.now() };
@@ -851,18 +855,21 @@
       p.x += p.vx * lastDt / 1000;
       p.y += p.vy * lastDt / 1000;
     }
+    for (let i = rings.length - 1; i >= 0; i--) if (simT - rings[i].start > rings[i].dur) rings.splice(i, 1);
     for (let i = floats.length - 1; i >= 0; i--) if (simT - floats[i].start > floats[i].dur) floats.splice(i, 1);
   }
 
   function drawFx() {
     for (const r of rings) {
       const p = (simT - r.start) / r.dur;
+      if (p < 0 || p > 1) continue;
       const ease = 1 - Math.pow(1 - p, 2.2);
       ctx.globalAlpha = 1 - p;
       ctx.strokeStyle = r.color;
       ctx.lineWidth = 3 * (1 - p) + 1;
       ctx.beginPath();
-      ctx.arc(r.tx * TILE + TILE / 2, r.ty * TILE + TILE / 2, 6 + ease * r.maxR, 0, Math.PI * 2);
+      if (r.px) ctx.arc(r.x, r.y, 3 + ease * r.maxR, 0, Math.PI * 2);
+      else ctx.arc(r.tx * TILE + TILE / 2, r.ty * TILE + TILE / 2, 6 + ease * r.maxR, 0, Math.PI * 2);
       ctx.stroke();
     }
     for (const f of flashes) {

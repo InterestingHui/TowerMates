@@ -24,8 +24,11 @@
   let heartFocus = null;
 
   // ---------- 设置 ----------
+  // 提示停留：快 / 标准 / 慢，统一乘到对白、顶栏、药丸、成就吐司的时长上
+  const HINT_SCALE = { fast: 0.6, normal: 1, slow: 1.7 };
+  const HINT_SPEED_NAME = { fast: '快', normal: '标准', slow: '慢' };
   const Settings = (() => {
-    let data = { fx: 'full', sfx: true, music: true, vib: true, fast: false, critters: true };
+    let data = { fx: 'full', sfx: true, music: true, vib: true, fast: false, critters: true, dpad: false, hintSpeed: 'normal' };
     try {
       const old = JSON.parse(localStorage.getItem('towermates_cfg') || 'null');
       const cur = JSON.parse(localStorage.getItem('towermates_cfg_v2') || 'null');
@@ -44,12 +47,21 @@
       get vib() { return data.vib; },
       get fast() { return !!data.fast; },
       get critters() { return data.critters !== false; },
+      get dpad() { return data.dpad === true; },
+      get hintSpeed() { return HINT_SCALE[data.hintSpeed] ? data.hintSpeed : 'normal'; },
+      cycleHintSpeed() {
+        const order = ['normal', 'fast', 'slow'];
+        data.hintSpeed = order[(order.indexOf(this.hintSpeed) + 1) % order.length];
+        save();
+        return data.hintSpeed;
+      },
       cycleFx() { data.fx = data.fx === 'full' ? 'low' : 'full'; save(); return data.fx; },
       toggleFast() { data.fast = !data.fast; save(); return data.fast; },
       toggleSfx() { data.sfx = !data.sfx; save(); return data.sfx; },
       toggleMusic() { data.music = !data.music; save(); return data.music; },
       toggleVib() { data.vib = !data.vib; save(); return data.vib; },
       toggleCritters() { data.critters = data.critters === false; save(); return data.critters !== false; },
+      toggleDpad() { data.dpad = !(data.dpad === true); save(); return data.dpad; },
     };
   })();
   const REDUCED = () => Settings.fx === 'low';
@@ -89,28 +101,57 @@
   })();
 
   // ---------- 音效 ----------
-  // 塔的记忆：跨局保存的「余烬」，只用来解锁誓约，不卖战力
-  // memory 记跨局履历（结局数/誓约通关/塔规满章/塔心取舍），结局页用它生成「下一局目标」
+  // 塔的记忆：跨局保存的「余烬」，用来解锁誓约 / 点亮层灯，都只影响外观与收藏，不卖战力
+  // memory 记跨局履历（结局数/誓约通关/塔规满章/塔心取舍/近几局余烬/首通/层灯）
+  const LAMP_COST = 20;   // 点亮一盏灯要花的余烬
+  const LAMP_MAX = 13;    // 一层一盏，纯收藏，全解锁后的余烬出口
   const Meta = (() => {
     const KEY = 'towermates_meta';
-    let data = { ember: 0, unlocked: [], resets: 0, memory: { runs: 0, endings: {}, vowWins: {}, fullChapters: 0, heartTaken: 0, heartLeft: 0, deepest: 0, fastest: 0, bestSeal: '' } };
+    const blank = () => ({ runs: 0, endings: {}, vowWins: {}, fullChapters: 0, heartTaken: 0, heartLeft: 0, deepest: 0, fastest: 0, bestSeal: '', emberRuns: [], firstVowWin: {}, lamps: 0 });
+    let data = { ember: 0, unlocked: [], resets: 0, memory: blank() };
     try { data = Object.assign(data, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) {}
-    if (!data.memory) data.memory = { runs: 0, endings: {}, vowWins: {}, fullChapters: 0, heartTaken: 0, heartLeft: 0, deepest: 0, fastest: 0, bestSeal: '' };
+    if (!data.memory) data.memory = blank();
     const save = () => { try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) {} };
     const mem = data.memory;
+    // 老档补默认值，不作废
+    mem.emberRuns = Array.isArray(mem.emberRuns) ? mem.emberRuns : [];
+    mem.firstVowWin = mem.firstVowWin || {};
+    mem.endings = mem.endings || {};
+    mem.vowWins = mem.vowWins || {};
+    mem.lamps = mem.lamps || 0;
     return {
       get ember() { return data.ember || 0; },
       get resets() { return data.resets || 0; },
       get memory() { return mem; },
+      get lamps() { return mem.lamps || 0; },
+      get emberRuns() { return mem.emberRuns; },
+      // 近 3 局平均，没记录时用常规通关的保守值 18
+      avgEmber() {
+        if (!mem.emberRuns.length) return 18;
+        return Math.max(1, Math.round(mem.emberRuns.reduce((a, b) => a + b, 0) / mem.emberRuns.length));
+      },
+      hasFirstWin(id) { return !!mem.firstVowWin[id]; },
+      claimFirstWin(id) {
+        if (mem.firstVowWin[id]) return false;
+        mem.firstVowWin[id] = true;
+        save();
+        return true;
+      },
+      lightLamp(cost) {
+        if (mem.lamps >= LAMP_MAX) return 'full';
+        if ((data.ember || 0) < cost) return 'poor';
+        data.ember -= cost;
+        mem.lamps += 1;
+        save();
+        return 'ok';
+      },
       has(id) { return (data.unlocked || []).indexOf(id) >= 0; },
       add(n) { data.ember = Math.max(0, (data.ember || 0) + n); save(); },
       incReset() { data.resets = (data.resets || 0) + 1; save(); return data.resets; },
-      // 结算一次跨局履历：记走了多远、用了多久、刻下哪枚塔印
+      // 结算一次跨局履历：记走了多远、用了多久、刻下哪枚塔印、这局拿了多少余烬
       recordRun(rec) {
         mem.runs = (mem.runs || 0) + 1;
-        mem.endings = mem.endings || {};
         mem.endings[rec.ending] = (mem.endings[rec.ending] || 0) + 1;
-        mem.vowWins = mem.vowWins || {};
         if (rec.won) mem.vowWins[rec.vow] = (mem.vowWins[rec.vow] || 0) + 1;
         mem.fullChapters = Math.max(mem.fullChapters || 0, rec.fullChapters || 0);
         if (rec.heart === 'taken') mem.heartTaken = (mem.heartTaken || 0) + 1;
@@ -119,6 +160,10 @@
         if (rec.time > 0) mem.fastest = mem.fastest ? Math.min(mem.fastest, rec.time) : rec.time;
         const rank = ['', 'rough', 'name', 'ward', 'clear'];
         if (rank.indexOf(rec.seal) > rank.indexOf(mem.bestSeal || '')) mem.bestSeal = rec.seal;
+        if (typeof rec.ember === 'number') {
+          mem.emberRuns.push(rec.ember);
+          if (mem.emberRuns.length > 3) mem.emberRuns.shift();
+        }
         save();
       },
       buy(id, cost) {
@@ -307,6 +352,8 @@
       lock: () => beep(130, 0.12, 'square', 0.035),
       skip: () => beep(500, 0.08, 'sine', 0.03, 240),
       heal: () => { beep(440, 0.1, 'sine', 0.035); beep(660, 0.16, 'sine', 0.03, null, 0.08); },
+      // 小生物受惊：一声很轻的上滑啾鸣，像虫子惊飞的动静
+      flit: () => { beep(720, 0.1, 'sine', 0.02, 1500); beep(1080, 0.07, 'sine', 0.012, 1900, 0.03); },
     };
     return { play(n) { if (map[n]) map[n](); }, startMusic, stopMusic, setPad, setMotif, stopMotif };
   })();
@@ -1554,22 +1601,26 @@
       : '念出第六个名字，塔印才会再往上走';
     return `塔规 ${goals}/${total} · 章印 ${echoDone}/4 · 回头 ${s.flags.retries || 0} 次——全满且一次不回头可换「无痕」`;
   }
-  // 余烬：直接按这一局留下的东西累加，不再绕一层分数换算
+  // 余烬：按这一局留下的东西逐项累加，返回明细供结局页展示（不再绕分数换算）
   function emberOf(s, gs, echoDone, vowDef) {
-    let n = 5;                              // 走到结局本身
-    if (s.ending === 'true') n += 4;        // 念出第六个名字
-    n += gs.done || 0;                     // 每条塔规
-    n += echoDone * 2;                     // 每枚章印
-    if (s.flags.heart === 'left') n += 3;   // 把塔心留在原处
-    n += s.flags.eventEmber || 0;           // 路遇里刻下的选择
-    n += vowDef.reward || 0;                // 誓约：越难走得越多
+    const parts = [{ label: '走到结局', n: 5 }];
+    if (s.ending === 'true') parts.push({ label: '念出第六个名字', n: 4 });
+    if (gs.done) parts.push({ label: `塔规 ${gs.done} 条`, n: gs.done });
+    if (echoDone) parts.push({ label: `章印 ${echoDone} 枚`, n: echoDone * 2 });
+    if (s.flags.heart === 'left') parts.push({ label: '塔心留在原处', n: 3 });
+    if (s.flags.eventEmber) parts.push({ label: '路遇里的选择', n: s.flags.eventEmber });
+    if (vowDef.reward) parts.push({ label: `「${vowDef.name}」`, n: vowDef.reward });
+    // 解锁誓约第一次通关：额外给解锁成本的一半，让「解锁 → 真的用它」当场回本一半
+    if (vowDef.ember && !Meta.hasFirstWin(s.flags.vow)) {
+      parts.push({ label: `首通「${vowDef.name}」`, n: Math.round(vowDef.ember / 2) });
+    }
     const has = (id) => Engine.hasRing(id);
-    if (has('ledger') || has('ash') || has('ledger2')) n += gs.done || 0;
-    if (has('hour') || has('pace')) n += 2;
-    if (has('chisel')) n += 4;
-    if (has('oath')) n += 3;
-    if (has('heart') && s.flags.heart === 'left') n += 3;
-    return Math.max(1, n);
+    if (has('ledger') || has('ash') || has('ledger2')) parts.push({ label: '锁环·塔规翻倍', n: gs.done || 0 });
+    const ringFlat = (has('hour') || has('pace') ? 2 : 0) + (has('chisel') ? 4 : 0)
+      + (has('oath') ? 3 : 0) + (has('heart') && s.flags.heart === 'left' ? 3 : 0);
+    if (ringFlat) parts.push({ label: '锁环加成', n: ringFlat });
+    const list = parts.filter((p) => p.n > 0);
+    return { total: Math.max(1, list.reduce((a, p) => a + p.n, 0)), parts: list };
   }
 
   // ---------- 结局 ----------
@@ -1607,19 +1658,24 @@
     const echoDone = [1, 2, 3, 4].filter((i) => (s.flags['echo_' + i] || 0) >= 2).length;
     const seal = sealOf(s, gs, echoDone);
     const sealDef = SEALS[seal];
-    const emberGain = emberOf(s, gs, echoDone, vowDef);
+    const ember = emberOf(s, gs, echoDone, vowDef);
+    const emberGain = ember.total;
     sum.seal = seal;
     sum.goals = gs.done;
-    // 跨局履历：这局结束了，塔替你记一笔（P-4）
+    // 跨局履历：这局结束了，塔替你记一笔（P-4），余烬进近 3 局滑动平均
     Meta.recordRun({
       ending: s.ending, won: true, vow: sum.vow,
       fullChapters: echoDone, heart: s.flags.heart || null,
-      floor: sum.floor, time: sum.time, seal,
+      floor: sum.floor, time: sum.time, seal, ember: emberGain,
     });
     $('endScore').innerHTML = `<span class="es-grade ${seal}" data-seal="${seal}">${sealDef.name}</span>
       <span class="es-meta">${s.ending === 'true' ? '真结局' : '普通结局'}${s.flags.heart === 'taken' ? ' · 塔心带走' : s.flags.heart === 'left' ? ' · 塔心留下' : ''} · 塔规 ${gs.done}/${gs.total} · 章印 ${echoDone}/4 · 遗物 ${relicIds.length} · 锁环 ${ringList.length}</span>
       <span class="es-num">✦ ${emberGain}<small>余烬</small></span>`;
     $('endScore').title = `塔印「${sealDef.name}」：${sealDef.desc}`;
+    const ed = $('endEmberDetail');
+    if (ed) ed.innerHTML = `<span class="eed-title">本局余烬</span>`
+      + ember.parts.map((p) => `<span>${p.label} <b>+${p.n}</b></span>`).join('')
+      + `<span class="eed-sum">合计 <b>${emberGain}</b></span>`;
     $('endTag').textContent = sealDef.desc;
     const brief = [];
     brief.push(`带走 ${relicIds.length} 件遗物 · 击杀 ${s.flags.killCount || 0} 只`);
@@ -1629,6 +1685,8 @@
     const hint = nextSealHint(seal, s, gs, echoDone);
     if (hint) brief.push(`下一枚塔印：${hint}`);
     Meta.add(emberGain);
+    // 首通奖励只发一次：结算落袋后才标记，刷新页面也不会重发
+    if (vowDef.ember) Meta.claimFirstWin(sum.vow);
     brief.push(`✦ 余烬 +${emberGain}`);
     const vowTotal = Object.keys(D.vows).length;
     const vowUnlocked = Object.keys(D.vows).filter((id) => !D.vows[id].ember || Meta.has(id)).length;
@@ -1843,71 +1901,6 @@
     if (near) { stopWalk(); walkAlong(near.path, near.x, near.y); return; }
     warn('走不过去');
   }
-
-  // ---------- 拖动选路（触屏按住拖动 → 方向圆盘） ----------
-  // open：算出到目标格的全部最短路线分组；pick：走选中的那条。
-  // 路线以「第一个分岔口」为界拼好完整格子序列，渲染层直接拿来画预览。
-  function routeOpen(cx, cy) {
-    const s = Engine.state();
-    if (!s) return null;
-    if (cx === s.x && cy === s.y) return null;
-    const ch = Engine.tile(cx, cy);
-    if (D.monsters[ch]) return null; // 点怪走 clickMonster 那套，不进选路
-    const groups = Engine.pathsTo(cx, cy);
-    if (!groups) return null;
-    const names = ['up', 'down', 'left', 'right'];
-    const avail = names.filter((d) => groups[d]);
-    if (!avail.length) return null;
-    // 默认路线 = 默认寻路（pathTo）的首步方向，与轻触行为一致
-    const defPath = Engine.pathTo(cx, cy);
-    let defaultDir = null;
-    if (defPath && defPath.length) {
-      const [dx, dy] = defPath[0];
-      defaultDir = dx === 1 ? 'right' : dx === -1 ? 'left' : dy === 1 ? 'down' : 'up';
-    }
-    if (!defaultDir || !groups[defaultDir]) defaultDir = avail[0];
-    // 分岔前的公共段：pathsTo 已给出默认路线的格子序列（defaultCells），截到分岔口为止
-    const jx = groups.junction ? groups.junction[0] : null;
-    const jy = groups.junction ? groups.junction[1] : null;
-    let defCells = null;
-    let defCut = 0;
-    if (jx != null && groups.defaultCells) {
-      defCells = [];
-      for (const c of groups.defaultCells) {
-        defCells.push(c);
-        if (c[0] === jx && c[1] === jy) { defCut = defCells.length; break; }
-      }
-      if (!defCut) { defCells = null; defCut = 0; }
-    }
-    const out = { tx: cx, ty: cy, junction: groups.junction, defaultDir };
-    for (const d of names) {
-      if (!groups[d]) continue;
-      const cells = (defCells && defCut > 1)
-        ? defCells.concat(groups[d].cells.slice(1))
-        : groups[d].cells.slice();
-      const path = (defCells && defCut > 1 && defPath)
-        ? defPath.slice(0, defCut - 1).concat(groups[d].path)
-        : groups[d].path;
-      out[d] = { path, cells };
-    }
-    return out;
-  }
-
-  function routePick(cx, cy, routes, dir) {
-    const s = Engine.state();
-    if (!s || !routes || !routes[dir]) return;
-    // 拖动途中局面变了（比如路线被挡）：路线走不下去时 walkAlong 会自己停下，这里只挡明显失效的
-    const r = routes[dir];
-    if (!r || !r.path || !r.path.length) return;
-    Tips.show('walk');
-    stopWalk();
-    walkAlong(r.path, cx, cy);
-  }
-
-  window.__tmRouteHooks = {
-    open: routeOpen,
-    pick: routePick,
-  };
 
   // ---------- 行动 ----------
   const dirs = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
@@ -2141,7 +2134,47 @@
       }
     });
 
-    // 虚拟方向键已移除：触屏用快滑/拖动选路，键盘 ↑↓←→ / WASD 走一格
+    // 方向键：长按连走（320ms 后每 135ms 一格）；整体可收起/展开，状态存设置里（默认收起）
+    const dpadWrap = $('dpadWrap');
+    const dpadToggle = $('dpadToggle');
+    function refreshDpad() {
+      const collapsed = !Settings.dpad;
+      if (dpadWrap) dpadWrap.classList.toggle('dpad-hidden', collapsed);
+      if (dpadToggle) {
+        dpadToggle.textContent = collapsed ? '▲' : '▼';
+        dpadToggle.title = collapsed ? '展开方向键' : '收起方向键';
+        dpadToggle.setAttribute('aria-label', dpadToggle.title);
+      }
+    }
+    if (dpadToggle) dpadToggle.addEventListener('click', () => { Settings.toggleDpad(); refreshDpad(); vibrate(12); });
+    refreshDpad();
+    document.querySelectorAll('#dpad button').forEach((b) => {
+      let holdDelay = null, holdTimer = null;
+      const start = (e) => {
+        e.preventDefault();
+        if (holdDelay || holdTimer) return;
+        const d = dirs[b.dataset.dir];
+        if (!d) return;
+        stopWalk();
+        act(d[0], d[1]);
+        holdDelay = setTimeout(() => {
+          holdDelay = null;
+          holdTimer = setInterval(() => {
+            const d2 = dirs[b.dataset.dir];
+            if (d2) act(d2[0], d2[1]);
+          }, 135);
+        }, 320);
+      };
+      const end = () => {
+        clearTimeout(holdDelay); holdDelay = null;
+        clearInterval(holdTimer); holdTimer = null;
+      };
+      b.addEventListener('pointerdown', start);
+      b.addEventListener('pointerup', end);
+      b.addEventListener('pointerleave', end);
+      b.addEventListener('pointercancel', end);
+      b.addEventListener('contextmenu', (e) => e.preventDefault());
+    });
 
     el.canvas.addEventListener('click', (e) => {
       const s = Engine.state();
@@ -2403,6 +2436,14 @@
     Renderer.layout(el.stage);
     window.addEventListener('resize', () => Renderer.layout(el.stage));
     if (window.ResizeObserver) new ResizeObserver(() => Renderer.layout(el.stage)).observe(el.stage);
+    // 小生物受惊：一声轻啾（冷却 3.5s，避免连环惊飞时吵）
+    let lastFlit = 0;
+    Renderer.onScare(() => {
+      const now = performance.now();
+      if (now - lastFlit < 3500) return;
+      lastFlit = now;
+      Sound.play('flit');
+    });
     renderRelicRow(null);
     buildFloorDots();
     bindInput();

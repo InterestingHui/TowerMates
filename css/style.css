@@ -233,11 +233,10 @@ html, body {
 @keyframes twinkle { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
 
 /* ================= 底部 ================= */
-#bottom { display: flex; align-items: flex-end; min-height: 92px; }
+#bottom { display: flex; align-items: flex-end; gap: 10px; min-height: 92px; }
 
 #log {
   flex: 1;
-  width: 100%;
   height: 92px;
   overflow: hidden;
   display: flex;
@@ -256,6 +255,59 @@ html, body {
 #log .line.gold { color: var(--gold); }
 @keyframes logIn { from { opacity: 0; transform: translateY(4px); } }
 
+/* 方向键区：可整体收起（默认收起，避免挡画面），点小箭头展开 */
+#dpadWrap {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+#dpadToggle {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(180deg, #1b2230, #111726);
+  color: #a9b3c7;
+  border-radius: 9px;
+  width: 34px;
+  height: 22px;
+  font-size: 10px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: transform 0.07s, background 0.15s, color 0.15s;
+  touch-action: none;
+}
+#dpadToggle:active { transform: scale(0.93); background: #26303f; color: var(--gold); }
+
+#dpad {
+  display: grid;
+  grid-template-columns: repeat(3, 38px);
+  grid-template-rows: repeat(3, 38px);
+  gap: 4px;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+#dpadWrap.dpad-hidden #dpad {
+  opacity: 0;
+  transform: translateY(8px) scale(0.9);
+  pointer-events: none;
+  height: 0;
+  overflow: hidden;
+}
+#dpad button {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(180deg, #1b2230, #111726);
+  color: #a9b3c7;
+  border-radius: 10px;
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: transform 0.07s, background 0.15s, border-color 0.15s;
+  touch-action: none;
+}
+#dpad button:active { transform: scale(0.93); background: #26303f; border-color: rgba(232, 196, 106, 0.35); }
+#dpad button[data-dir="up"] { grid-area: 1 / 2; }
+#dpad button[data-dir="left"] { grid-area: 2 / 1; }
+#dpad button[data-dir="down"] { grid-area: 3 / 2; }
+#dpad button[data-dir="right"] { grid-area: 2 / 3; }
 /* ================= 通用弹层 ================= */
 .overlay {
   position: fixed;
@@ -872,6 +924,7 @@ html, body {
   .chip { font-size: 11px; }
   #log { height: 80px; font-size: 10.5px; }
   #bottom { min-height: 80px; }
+  #dpad { grid-template-columns: repeat(3, 34px); grid-template-rows: repeat(3, 34px); }
   .bd-row { grid-template-columns: 18px 1fr 58px 30px 38px 52px; font-size: 10.5px; }
   .dlg-portrait { width: 68px; }
   .dlg-text { font-size: 13px; }
@@ -1498,6 +1551,43 @@ html, body {
 }
 .goal-row.ok .goal-state::before { content: '✓ '; }
 .goal-row.locked { opacity: 0.66; }
+/* 规矩达成时闪一下：收成小徽标后也不会漏看 */
+@keyframes goalFlash {
+  0%, 100% { box-shadow: 0 0 0 rgba(111, 227, 160, 0); }
+  50% { box-shadow: 0 0 0 3px rgba(111, 227, 160, 0.3); }
+}
+.goal-row.flash { animation: goalFlash 0.85s ease-out 2; }
+
+/* 卡关指引：打不过时一直挂着，直到能打过或离开本层 */
+.stuck-bar {
+  display: flex; align-items: center; gap: 7px;
+  margin-top: 5px; padding: 4px 9px;
+  border-radius: 9px;
+  border: 1px solid rgba(255, 138, 128, 0.34);
+  background: linear-gradient(90deg, rgba(255, 107, 107, 0.11), rgba(255, 255, 255, 0.012));
+  font-size: 10.5px; line-height: 1.4; color: #ffc4bd;
+  cursor: pointer;
+}
+.stuck-bar[hidden] { display: none; }
+.stuck-bar .sb-ico { flex: none; color: #ff9a8f; }
+.stuck-bar .sb-text { flex: 1; min-width: 0; }
+.stuck-bar .sb-text strong, .stuck-bar .sb-text b { color: #fff; font-weight: 800; }
+.stuck-bar .sb-more { flex: none; font-size: 9.5px; color: var(--dim); }
+
+/* 重看提示 */
+.hint-book { max-width: 380px; }
+.hb-list { max-height: 56vh; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; margin: 10px 0; }
+.hb-group { font-size: 10px; letter-spacing: 2px; color: var(--dim); margin: 6px 0 2px; }
+.hb-item {
+  display: flex; gap: 8px; align-items: flex-start; text-align: left;
+  padding: 8px 10px; border: 1px solid var(--line); border-radius: 9px;
+  background: rgba(255, 255, 255, 0.028); color: var(--text);
+  font-size: 11.5px; line-height: 1.6; font-family: inherit; cursor: pointer;
+}
+.hb-item:hover { border-color: rgba(var(--gold-rgb), 0.4); }
+.hb-who { flex: none; color: var(--gold); font-weight: 700; }
+.hb-item.unseen { opacity: 0.62; }
+.hb-item strong, .hb-item b { color: var(--gold); font-weight: 800; }
 
 /* 锁环：圆形，与方形遗物一眼分开 */
 .rings { display: flex; gap: 3px; align-items: center; }

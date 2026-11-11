@@ -46,6 +46,11 @@
       <span class="goal-text" id="goalText"></span>
       <span class="goal-state" id="goalState"></span>
     </div>
+    <div class="stuck-bar" id="stuckBar" hidden>
+      <span class="sb-ico">⚠</span>
+      <span class="sb-text" id="stuckText"></span>
+      <span class="sb-more">点开看办法 ›</span>
+    </div>
   </header>
 
   <main id="stage">
@@ -61,6 +66,15 @@
 
   <footer id="bottom">
     <div id="log"></div>
+    <div id="dpadWrap">
+      <button id="dpadToggle" aria-label="展开方向键" title="展开方向键">▲</button>
+      <div id="dpad">
+        <button data-dir="up" aria-label="上">▲</button>
+        <button data-dir="left" aria-label="左">◀</button>
+        <button data-dir="down" aria-label="下">▼</button>
+        <button data-dir="right" aria-label="右">▶</button>
+      </div>
+    </div>
   </footer>
 </div>
 
@@ -108,7 +122,7 @@
       <button class="btn ghost" id="btnReset">清空存档</button>
       <button class="btn ghost" id="btnResetRun">🗘 重置游戏</button>
     </div>
-    <p class="hint">轻点格子寻路 · 按住拖动挑路线 · 快滑走一格 · 对白点击继续</p>
+    <p class="hint">↑↓←→ / WASD 移动 · 点击格子移动 · 对白点击继续</p>
   </div>
 </div>
 
@@ -237,6 +251,8 @@
       <button class="cfg-row" id="cfgVib"><span>震动反馈</span><b id="cfgVibVal">开</b></button>
       <button class="cfg-row" id="cfgCritters"><span>氛围小生物</span><b id="cfgCrittersVal">开</b></button>
       <button class="cfg-row" id="cfgFast"><span>快速战斗</span><b id="cfgFastVal">关</b></button>
+      <button class="cfg-row" id="cfgHintSpeed"><span>提示停留</span><b id="cfgHintSpeedVal">标准</b></button>
+      <button class="cfg-row" id="cfgHintBook"><span>重看提示</span><b id="cfgHintBookVal">全部台词 ›</b></button>
     </div>
     <div class="cfg-help">
       <div class="cfg-help-title">遗物</div>
@@ -244,7 +260,7 @@
     </div>
     <div class="cfg-help">
       <div class="cfg-help-title">玩法</div>
-      <p>轻点格子自动寻路（尽量走空地）。多条路走同一步会撞运？按住目标格往一边拖，浮出的方向圆盘里四个方向各是一条最短路线，拖着能实时预览，松手就走那条；快滑一下走一格，连续快滑连走（电脑上用方向键 / WASD）。撞上怪物即战斗，打不过会被拦住。钥匙开对应的门，商人在第 3 层和第 8 层。塔共 12 层，分四章，每章三层、章末一位锁匠 Boss；塔规攒够的话，塔顶后面还有一段窄梯通向隐藏层「锁芯」。每层有一次「格挡」，战斗中点一下能把这一场的承伤降到 60%。开局可以立一条誓约改变整局规则，越难走的誓约通关留下的余烬越多。每层有一条「本层规矩」，顶栏实时显示是否达成；打完每章的锁匠会结算该章三条规矩，达成两条以上可以从三枚锁环里挑一枚，锁环改写的是整局规则。</p>
+      <p>方向键 / WASD 走一格，点远处自动寻路。触屏上也可以在地图上滑动走一格（连续滑动连走）；右下角的方向键可以点小箭头收起或展开。撞上怪物即战斗，打不过会被拦住。钥匙开对应的门，商人在第 3 层和第 8 层。塔共 12 层，分四章，每章三层、章末一位锁匠 Boss；塔规攒够的话，塔顶后面还有一段窄梯通向隐藏层「锁芯」。每层有一次「格挡」，战斗中点一下能把这一场的承伤降到 60%。开局可以立一条誓约改变整局规则，越难走的誓约通关留下的余烬越多。每层有一条「本层规矩」，顶栏实时显示是否达成；打完每章的锁匠会结算该章三条规矩，达成两条以上可以从三枚锁环里挑一枚，锁环改写的是整局规则。</p>
     </div>
     <div class="actions">
       <button class="btn" id="cfgRetry">↺ 重来本层</button>
@@ -252,6 +268,20 @@
       <button class="btn primary" id="cfgClose">关闭</button>
     </div>
     <button class="btn ghost" id="cfgWipe">清空存档与成就</button>
+  </div>
+</div>
+
+<!-- 重看提示：所有角色台词，点一条重播 -->
+<div class="overlay" id="hintBookOverlay">
+  <div class="panel hint-book">
+    <div class="shop-head">
+      <div class="shop-title">✦ 重看提示</div>
+      <div class="shop-gold">点一条重播</div>
+    </div>
+    <div class="hb-list" id="hbList"></div>
+    <div class="actions">
+      <button class="btn primary" id="hbClose">关闭</button>
+    </div>
   </div>
 </div>
 
