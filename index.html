@@ -110,7 +110,10 @@
       <button class="btn" id="btnBoard2">🏆 塔友榜</button>
       <button class="btn" id="btnHelp">❔ 玩法</button>
     </div>
-    <button class="btn ghost" id="btnReset">清空存档</button>
+    <div class="start-ghost-row">
+      <button class="btn ghost" id="btnReset">清空存档</button>
+      <button class="btn ghost" id="btnResetRun">🗘 重置游戏</button>
+    </div>
     <p class="hint">↑↓←→ / WASD 移动 · 点击格子移动 · 对白点击继续</p>
   </div>
 </div>
@@ -249,6 +252,19 @@
       <button class="btn primary" id="cfgClose">关闭</button>
     </div>
     <button class="btn ghost" id="cfgWipe">清空存档与成就</button>
+  </div>
+</div>
+
+<!-- 重置游戏二次确认 -->
+<div class="overlay" id="resetConfirmOverlay">
+  <div class="panel reset-confirm">
+    <div class="rc-emoji">🗘</div>
+    <h2 class="rc-title">重置这一局？</h2>
+    <p class="rc-text">放弃当前进度，从立誓重新开始。<br>成就、余烬与誓约解锁都会保留。</p>
+    <div class="actions">
+      <button class="btn" id="resetCancel">取消</button>
+      <button class="btn danger" id="resetConfirm">确认重置</button>
+    </div>
   </div>
 </div>
 

@@ -7,9 +7,9 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="build" content="2c1042de7d">
+<meta name="build" content="b27bf1730f">
 <title>TowerMates · 魔塔</title>
-<link rel="stylesheet" href="css/style.css?v=2c1042de7d">
+<link rel="stylesheet" href="css/style.css?v=b27bf1730f">
 </head>
 <body>
 <div id="app">
@@ -110,7 +110,10 @@
       <button class="btn" id="btnBoard2">🏆 塔友榜</button>
       <button class="btn" id="btnHelp">❔ 玩法</button>
     </div>
-    <button class="btn ghost" id="btnReset">清空存档</button>
+    <div class="start-ghost-row">
+      <button class="btn ghost" id="btnReset">清空存档</button>
+      <button class="btn ghost" id="btnResetRun">🗘 重置游戏</button>
+    </div>
     <p class="hint">↑↓←→ / WASD 移动 · 点击格子移动 · 对白点击继续</p>
   </div>
 </div>
@@ -252,6 +255,19 @@
   </div>
 </div>
 
+<!-- 重置游戏二次确认 -->
+<div class="overlay" id="resetConfirmOverlay">
+  <div class="panel reset-confirm">
+    <div class="rc-emoji">🗘</div>
+    <h2 class="rc-title">重置这一局？</h2>
+    <p class="rc-text">放弃当前进度，从立誓重新开始。<br>成就、余烬与誓约解锁都会保留。</p>
+    <div class="actions">
+      <button class="btn" id="resetCancel">取消</button>
+      <button class="btn danger" id="resetConfirm">确认重置</button>
+    </div>
+  </div>
+</div>
+
 <!-- 重击边缘闪 -->
 <div id="hitFlash"></div>
 
@@ -386,12 +402,12 @@
   </div>
 </div>
 
-<script src="js/data.js?v=2c1042de7d"></script>
-<script src="js/story.js?v=2c1042de7d"></script>
-<script src="js/portraits.js?v=2c1042de7d"></script>
-<script src="js/achievements.js?v=2c1042de7d"></script>
-<script src="js/engine.js?v=2c1042de7d"></script>
-<script src="js/render.js?v=2c1042de7d"></script>
-<script src="js/main.js?v=2c1042de7d"></script>
+<script src="js/data.js?v=b27bf1730f"></script>
+<script src="js/story.js?v=b27bf1730f"></script>
+<script src="js/portraits.js?v=b27bf1730f"></script>
+<script src="js/achievements.js?v=b27bf1730f"></script>
+<script src="js/engine.js?v=b27bf1730f"></script>
+<script src="js/render.js?v=b27bf1730f"></script>
+<script src="js/main.js?v=b27bf1730f"></script>
 </body>
 </html>
