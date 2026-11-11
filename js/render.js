@@ -9,6 +9,7 @@
 
   let simT = 0;
   let freezeUntil = 0;
+  let scareCb = null;   // 小生物受惊时通知表现层（播一声轻啾）
 
   const floats = [];
   const particles = [];
@@ -25,7 +26,6 @@
   let face = 1;
 
   let ambient = { mode: 'torch', critters: [], spawnAcc: 0 };
-  let onScare = null; // 小生物受惊回调（main.js 挂音效进来）
   let torchList = [];
   let bgCanvas = null, bgKey = '';
   let dirty = true; // 画布尺寸/楼层变化后需要补一帧
@@ -78,10 +78,6 @@
   }
   function ring(tx, ty, color, maxR, dur) {
     rings.push({ tx, ty, start: simT, dur: dur || 420, color, maxR: maxR || TILE * 2.2 });
-  }
-  // 像素坐标版：给自由飞行的小生物用（rings 数组里 px 标记走像素分支）
-  function ringPx(x, y, color, maxR, dur) {
-    rings.push({ px: true, x, y, start: simT, dur: dur || 380, color, maxR: maxR || TILE * 0.7 });
   }
   // 遗物高光：十字星芒 + 三重冲击环。竖光柱从拾取点冲出画面顶，横光带扫过全屏
   function relicBeamFx(tx, ty) {
@@ -685,12 +681,8 @@
           const d = Math.max(1, dd);
           c.vx = (c.x - px) / d; c.vy = (c.y - py) / d;
           c.state = 'scare';
-          // 受惊涟漪：按生物配色，一圈从它身上荡开
-          const rc = c.kind === 'firefly' ? 'rgba(255,240,170,0.75)'
-            : c.kind === 'moth' ? 'rgba(196,176,255,0.7)'
-              : c.kind === 'wisp' ? 'rgba(178,232,255,0.7)' : 'rgba(220,200,255,0.5)';
-          ringPx(c.x, c.y, rc, TILE * 0.9, 420);
-          if (onScare) onScare(c.kind);
+          if (scareHook) scareHook();
+          if (scareCb) scareCb();
         }
       }
 
@@ -868,14 +860,12 @@
   function drawFx() {
     for (const r of rings) {
       const p = (simT - r.start) / r.dur;
-      if (p < 0 || p > 1) continue;
       const ease = 1 - Math.pow(1 - p, 2.2);
       ctx.globalAlpha = 1 - p;
       ctx.strokeStyle = r.color;
       ctx.lineWidth = 3 * (1 - p) + 1;
       ctx.beginPath();
-      if (r.px) ctx.arc(r.x, r.y, 3 + ease * r.maxR, 0, Math.PI * 2);
-      else ctx.arc(r.tx * TILE + TILE / 2, r.ty * TILE + TILE / 2, 6 + ease * r.maxR, 0, Math.PI * 2);
+      ctx.arc(r.tx * TILE + TILE / 2, r.ty * TILE + TILE / 2, 6 + ease * r.maxR, 0, Math.PI * 2);
       ctx.stroke();
     }
     for (const f of flashes) {
@@ -923,6 +913,102 @@
     const inset = 3 + p * 2;
     roundRect(targetMarker.tx * TILE + inset, targetMarker.ty * TILE + inset, TILE - inset * 2, TILE - inset * 2, 5);
     ctx.stroke();
+    ctx.restore();
+  }
+
+  // ---------- 拖动选路：路线预览 + 方向圆盘 ----------
+  // 路线预览：touch.js 在拖动时把「候选路线集合 + 当前高亮」推进来，逐帧画
+  let routePreview = null;
+  function setRoutePreview(preview) {
+    routePreview = preview; // null = 收起；{ pad, cx, cy, dirs, hot, cells, hotIdx, radius }
+    dirty = true;
+  }
+  function drawRoutePreview() {
+    if (!routePreview) return;
+    const now = performance.now();
+    // 1) 候选路线点串：高亮那条最亮，其余候选暗铺
+    const cells = routePreview.cells || [];
+    const hotIdx = routePreview.hotIdx;
+    for (let gi = 0; gi < cells.length; gi++) {
+      const grp = cells[gi];
+      const isHot = gi === hotIdx;
+      const pts = grp.pts || [];
+      const t0 = grp.start || 0;
+      const phase = ((now - t0) % 1000) / 1000;
+      for (let i = 0; i < pts.length; i++) {
+        const k = phase + i * 0.14;
+        const tw = k - Math.floor(k);
+        const a = isHot ? 0.32 + 0.55 * (1 - tw) : 0.16;
+        const r = isHot ? TILE * (0.07 + 0.055 * (1 - tw)) : TILE * 0.05;
+        ctx.fillStyle = isHot ? `rgba(159,216,255,${a.toFixed(2)})` : 'rgba(159,216,255,0.16)';
+        ctx.beginPath();
+        ctx.arc(pts[i][0] * TILE + TILE / 2, pts[i][1] * TILE + TILE / 2, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    // 2) 方向圆盘：以手指落点为圆心，四个可用方向画扇面 + 箭头
+    if (!routePreview.pad) return;
+    const cx = routePreview.cx;
+    const cy = routePreview.cy;
+    const R = routePreview.radius || TILE * 1.5;
+    const ANG = { up: -Math.PI / 2, down: Math.PI / 2, left: Math.PI, right: 0 };
+    ctx.save();
+    // 底盘
+    ctx.fillStyle = 'rgba(8,11,18,0.62)';
+    ctx.beginPath();
+    ctx.arc(cx, cy, R, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(159,216,255,0.4)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(cx, cy, R, 0, Math.PI * 2);
+    ctx.stroke();
+    // 中心：当前锁定的目标格
+    ctx.fillStyle = 'rgba(232,196,106,0.22)';
+    ctx.beginPath();
+    ctx.arc(cx, cy, TILE * 0.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(232,196,106,0.55)';
+    ctx.beginPath();
+    ctx.arc(cx, cy, TILE * 0.2, 0, Math.PI * 2);
+    ctx.stroke();
+    // 四个方向的可用扇面 + 箭头；选中的方向整块提亮
+    for (const name of ['up', 'down', 'left', 'right']) {
+      if (!routePreview.dirs || !routePreview.dirs[name]) continue;
+      const active = routePreview.hot === name;
+      const a0 = ANG[name] - Math.PI / 4;
+      const a1 = ANG[name] + Math.PI / 4;
+      const r0 = TILE * 0.3;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(a0) * r0, cy + Math.sin(a0) * r0);
+      ctx.arc(cx, cy, R * 0.92, a0, a1);
+      ctx.lineTo(cx + Math.cos(a1) * r0, cy + Math.sin(a1) * r0);
+      ctx.arc(cx, cy, r0, a1, a0, true);
+      ctx.closePath();
+      ctx.fillStyle = active ? 'rgba(159,216,255,0.35)' : 'rgba(159,216,255,0.1)';
+      ctx.fill();
+      if (active) {
+        ctx.strokeStyle = 'rgba(200,232,255,0.9)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+      const ang = ANG[name];
+      const tipR = R * 0.72;
+      const bx = cx + Math.cos(ang) * tipR;
+      const by = cy + Math.sin(ang) * tipR;
+      const s = TILE * (active ? 0.2 : 0.14);
+      ctx.save();
+      ctx.translate(bx, by);
+      ctx.rotate(ang);
+      ctx.fillStyle = active ? 'rgba(214,238,255,0.95)' : 'rgba(159,216,255,0.42)';
+      ctx.beginPath();
+      ctx.moveTo(s, 0);
+      ctx.lineTo(-s * 0.6, s * 0.7);
+      ctx.lineTo(-s * 0.6, -s * 0.7);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
     ctx.restore();
   }
 
@@ -1248,6 +1334,7 @@
     updateAmbient(lastDt);
     drawAmbientOverlay();
     drawTargetMarker();
+    drawRoutePreview();
 
     // 玩家（disp._moving 给小生物的受惊判定用：目标格与显示格没重合 = 正在走）
     const k = 1 - Math.pow(0.0008, lastDt / 1000);
@@ -1334,19 +1421,22 @@
     ctx.restore();
   }
 
+  // 小生物受惊时通知外部（音效），由 main.js 在 boot 里注入
+  let scareHook = null;
   window.Renderer = {
+    onScare(fn) { scareHook = typeof fn === 'function' ? fn : null; },
     init, layout, draw, snapshot,
     addFloat, shake, fade, freeze, pulse, flashTile, ring, burst, relicBeamFx,
-    setAmbient, setTarget,
+    setAmbient, setTarget, setRoutePreview,
+    onScare(fn) { scareCb = typeof fn === 'function' ? fn : null; },
     needsDraw: () => dirty,
     getTile: () => TILE,
+    __debugRoute: () => routePreview,
     // 调试/测试：强制生成一只指定种类的小生物并放慢出生节奏
     __spawnCritter(kind) {
       if (kind === 'slow') { ambient.spawnAcc = -99999; return 'spawn slowed'; }
       return spawnCritter(kind);
     },
-    // 小生物受惊回调：main.js 挂音效用（受惊涟漪在 render 内部已画）
-    onScare(fn) { onScare = typeof fn === 'function' ? fn : null; },
     __critters: () => ambient.critters.map((c) => ({ kind: c.kind, state: c.state, x: Math.round(c.x), y: Math.round(c.y) })),
     // 调试/截图：清场后把三只小生物固定摆在画面中部（悬停态），便于确定性验证
     __placeCritters() {

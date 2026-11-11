@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>dpad interact check</title>
+<script>
+try {
+  localStorage.setItem('towermates_tips_v2', JSON.stringify({ walk: 1, fight: 1, block: 1, blocksave: 1, low: 1, relic: 1, goal: 1, echo: 1, ring: 1, tooStrong: 1, opening: 1 }));
+  localStorage.removeItem('towermates_cfg_v2'); // 用默认设置（dpad 默认收起）
+} catch (e) {}
+</script>
+</head>
+<body style="margin:0;background:#05070c">
+<iframe id="f" src="../index.html?dev=1" style="width:430px;height:900px;border:0;display:block"></iframe>
+<pre id="out" style="position:fixed;left:0;top:0;color:#00ff88;font:14px/1.4 monospace;background:#000;padding:6px;z-index:9;margin:0;white-space:pre-wrap"></pre>
+<script>
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  document.getElementById('f').addEventListener('load', () => setTimeout(run, 800));
+  async function run() {
+    const log = [];
+    try {
+      const d = document.getElementById('f').contentDocument;
+      const w = document.getElementById('f').contentWindow;
+      const E = w.Engine, T = w.__tm;
+      // 进游戏
+      d.getElementById('btnNew').click(); await wait(300);
+      d.querySelector('#vowCards .vow-card[data-vow="none"]').click(); await wait(400);
+      const dl = d.getElementById('dialogOverlay');
+      for (let i = 0; i < 10; i++) { dl.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(60); }
+      const wrap = d.getElementById('dpadWrap');
+      const dpad = d.getElementById('dpad');
+      const tg = d.getElementById('dpadToggle');
+      const s0 = E.state();
+      // 1) 默认收起
+      log.push('defaultHidden=' + wrap.classList.contains('dpad-hidden') + ' toggle=' + tg.textContent + ' visible=' + (dpad.offsetHeight > 0));
+      // 2) 点小箭头展开
+      tg.click(); await wait(250);
+      log.push('afterToggleHidden=' + wrap.classList.contains('dpad-hidden') + ' toggle=' + tg.textContent + ' visible=' + (dpad.offsetHeight > 0));
+      // 3) 展开态点「上」方向键走一步
+      const x0 = s0.x, y0 = s0.y;
+      d.querySelector('#dpad button[data-dir="up"]').dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }));
+      d.querySelector('#dpad button[data-dir="up"]').dispatchEvent(new MouseEvent('pointerup', { bubbles: true }));
+      await wait(250);
+      const s1 = E.state();
+      log.push('movedUp=' + (s1.y === y0 - 1 && s1.x === x0) + ' pos=' + s1.x + ',' + s1.y + ' (from ' + x0 + ',' + y0 + ')');
+      // 4) 长按连走：pointerdown 不放，等 600ms 应走多步（撞到 (2,2) 蝙蝠会停下开打）
+      const btn = d.querySelector('#dpad button[data-dir="up"]');
+      btn.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }));
+      await wait(620);
+      btn.dispatchEvent(new MouseEvent('pointerup', { bubbles: true }));
+      await wait(1500); // 等 interval 停止 + 撞蝙蝠的战斗演出彻底结束
+      const s2 = E.state();
+      log.push('holdSteps=' + (y0 - s2.y) + ' finalPos=' + s2.x + ',' + s2.y);
+      // 5) 再点小箭头收起
+      tg.click(); await wait(250);
+      log.push('reHidden=' + wrap.classList.contains('dpad-hidden') + ' toggle=' + tg.textContent + ' visible=' + (dpad.offsetHeight > 0));
+      // 6) 状态持久化（收起后再展开一次，确保开关双向有效）
+      tg.click(); await wait(250);
+      tg.click(); await wait(250);
+      const cfg = JSON.parse(w.localStorage.getItem('towermates_cfg_v2') || '{}');
+      log.push('persistDpad=' + cfg.dpad + ' finalHidden=' + wrap.classList.contains('dpad-hidden'));
+      // 7) 点击寻路仍正常（从长按后的任意位置走到 (5,5)）
+      const from = s2.x + ',' + s2.y;
+      T.clickMove(5, 5); await wait(3000);
+      const s3 = E.state();
+      log.push('clickWalk from=' + from + ' arrived=' + (s3.x === 5 && s3.y === 5) + ' pos=' + s3.x + ',' + s3.y);
+    } catch (e) { log.push('E:' + (e && e.stack || e)); }
+    document.getElementById('out').textContent = log.join('\n');
+  }
+</script>
+</body>
+</html>

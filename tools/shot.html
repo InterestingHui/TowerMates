@@ -36,6 +36,12 @@
     localStorage.setItem('towermates_tips_v2', JSON.stringify({
       walk: 1, fight: 1, block: 1, blocksave: 1, low: 1, relic: 1, goal: 1, echo: 1, ring: 1, tooStrong: 1, opening: 1
     }));
+    // dpadopen 场景需要在 iframe 引擎启动前预置「展开方向键」设置（dpadclosed 用默认的收起态）
+    if (scene === 'dpadopen') {
+      const cfg0 = JSON.parse(localStorage.getItem('towermates_cfg_v2') || '{}');
+      cfg0.dpad = true;
+      localStorage.setItem('towermates_cfg_v2', JSON.stringify(cfg0));
+    }
   } catch (e) {}
   f.src = src;
 
@@ -385,7 +391,7 @@
         s5.hp = 180; s5.maxHp = 1200;
         s5.flags.codex = true;
         T.refreshHud();
-        try { d.getElementById('guide').classList.add('show'); d.getElementById('guideText').textContent = '轻点格子自动寻路；按住拖动挑路线。'; } catch (e) {}
+        try { d.getElementById('guide').classList.add('show'); d.getElementById('guideText').textContent = '点你想去的格子，会自动寻路过去；方向键走一格。'; } catch (e) {}
         await wait(300);
       } else if (scene === 'flow') {
         const out = [];
@@ -546,6 +552,26 @@
         await wait(260);
         for (let i = 0; i < 6; i++) { d.getElementById('dialogOverlay').dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(70); }
         await wait(500);
+      } else if (scene === 'dpadclosed' || scene === 'dpadopen') {
+        // 方向键收起/展开态：设置已在 iframe 加载前预置好
+        d.getElementById('btnNew').click();
+        await wait(200);
+        const _vc = d.querySelector('#vowCards .vow-card[data-vow="none"]');
+        if (_vc) _vc.click();
+        await wait(260);
+        const dlD = d.getElementById('dialogOverlay');
+        for (let i = 0; i < 8; i++) { dlD.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
+        await wait(400);
+        const wrapD = d.getElementById('dpadWrap');
+        const dpadState = 'DPAD scene=' + scene
+          + ' hidden=' + wrapD.classList.contains('dpad-hidden')
+          + ' toggle=' + d.getElementById('dpadToggle').textContent
+          + ' visible=' + (d.getElementById('dpad').offsetHeight > 0)
+          + ' err=' + (errs.length ? errs.join('|') : 'none');
+        document.title = dpadState;
+        errBox.textContent = dpadState;
+        window.__dpadState = dpadState;
+        await wait(600);
       }
       await wait(600);
       const q2 = [];

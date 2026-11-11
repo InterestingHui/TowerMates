@@ -1041,6 +1041,48 @@ html, body {
 .es-num { font-size: 18px; font-weight: 700; color: #fff; font-variant-numeric: tabular-nums; }
 .es-num small { font-size: 10px; color: var(--dim); margin-left: 2px; font-weight: 400; }
 
+/* 本局余烬逐项明细：让「一局到底拿多少」看得见 */
+.end-ember-detail {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px 9px;
+  margin: -4px 0 9px;
+  padding: 0 2px;
+  font-size: 10px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+.end-ember-detail span { white-space: nowrap; }
+.end-ember-detail b { color: var(--gold); font-variant-numeric: tabular-nums; }
+.end-ember-detail .eed-title { color: var(--dim); }
+.end-ember-detail .eed-sum { margin-left: auto; color: #d9cba6; }
+
+/* 全解锁后的余烬出口：一层一盏灯，纯收藏 */
+.mem-lamps {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(232, 196, 106, 0.18);
+  font-size: 10.5px;
+  color: var(--muted);
+}
+.lamp-btn {
+  font: inherit;
+  font-size: 10px;
+  color: var(--gold);
+  background: rgba(232, 196, 106, 0.1);
+  border: 1px solid rgba(232, 196, 106, 0.35);
+  border-radius: 20px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+.lamp-btn:disabled { opacity: 0.38; cursor: default; }
+
 @media (max-width: 380px) {
   .altar-cards { gap: 6px; }
   .altar-card { min-height: 158px; padding: 12px 5px; }

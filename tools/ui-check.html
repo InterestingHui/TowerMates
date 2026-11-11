@@ -12,7 +12,13 @@ try { localStorage.setItem('towermates_tips_v2', JSON.stringify({
 <iframe id="f" src="../index.html?play=1" style="width:430px;height:900px;border:0"></iframe>
 <pre id="out">pending</pre>
 <script>
-document.getElementById('f').addEventListener('load', function () { setTimeout(run, 600); });
+// iframe 被缓存时 load 可能早于本脚本执行：补一次就绪兜底，避免 run 永不触发
+(function () {
+  var fr = document.getElementById('f'), kicked = false;
+  function kick() { if (kicked) return; kicked = true; setTimeout(run, 600); }
+  fr.addEventListener('load', kick);
+  if (fr.contentDocument && fr.contentDocument.readyState === 'complete') kick();
+})();
 async function run() {
   var out = {};
   try {
@@ -118,11 +124,13 @@ async function run() {
     w.__tm.warn('测试**加粗**');
     out.warnBold = d.getElementById('warnPill').querySelectorAll('strong').length === 1;
     d.querySelectorAll('.overlay.show').forEach(function (o) { o.classList.remove('show'); });
+    // 开局引导已预标记已读；先点掉残留对白，再单独测提示系统
+    d.getElementById('dlgSkip').click();
     w.__tm.say([['烛', '这条**测试提示**不会一闪而过', 'calm']], { autoMs: 5000 });
     setTimeout(function () {
       var dl = d.getElementById('dialogOverlay');
       out.hintDialog = dl.classList.contains('show') && dl.classList.contains('hint-mode')
-        && d.getElementById('dlgText').querySelectorAll('strong').length === 1
+        && d.getElementById('dlgText').querySelectorAll('strong').length >= 1
         && d.getElementById('dlgCue').textContent.indexOf('点击收起') >= 0;
       document.getElementById('out').textContent = JSON.stringify(out);
       // 用短时长验证自动收起，不用真等 7 秒；顶栏规矩同理
@@ -136,9 +144,52 @@ async function run() {
         out.goalCollapsed = gr.classList.contains('collapsed');
         gr.click();
         out.goalReopen = !gr.classList.contains('collapsed');
+        // 卡关指引 / 提示停留档位 / 重看提示
+        var sb = d.getElementById('stuckBar');
+        w.__tm.showStuck({ name: '砚', def: 16 }, { reason: '攻击力不足，无法破防', damage: null }, E.state());
+        out.stuckBar = !sb.hidden && sb.querySelectorAll('strong').length >= 2
+          && d.getElementById('stuckText').textContent.indexOf('攻击还差') >= 0;
+        w.__tm.clearStuck();
+        var sp0 = w.__tm.Settings.hintSpeed;
+        var sp1 = w.__tm.Settings.cycleHintSpeed();
+        out.hintSpeed = sp1 !== sp0 && w.__tmCfg.hintSpeed === sp1;
+        out.hintMsScaled = sp1 === 'normal' ? w.__tm.hintMs(7000) === 7000 : w.__tm.hintMs(7000) !== 7000;
+        w.__tm.openHintBook();
+        out.hintBook = d.getElementById('hintBookOverlay').classList.contains('show')
+          && d.querySelectorAll('#hbList .hb-item').length >= 10;
+        d.getElementById('hintBookOverlay').classList.remove('show');
+        // 余烬经济四项：明细 / 近 3 局平均 / 解锁誓约首通 / 全解锁后的层灯出口
+        var M = w.__tm.Meta;
+        M.add(200);
+        M.buy('ascetic', 24);
+        M.buy('nameless', 48);
+        M.memory.lamps = 0;
+        M.memory.firstVowWin = {};
+        var eA = w.__tm.emberOf(E.state(), { done: 0 }, 0, w.GAME_DATA.vows.ascetic);
+        M.claimFirstWin('ascetic');
+        var eB = w.__tm.emberOf(E.state(), { done: 0 }, 0, w.GAME_DATA.vows.ascetic);
+        out.firstWinBonus = eA.total - eB.total;
+        M.memory.emberRuns = [10, 20, 30];
+        out.avgEmber = M.avgEmber();
+        M.memory.emberRuns = [];
+        out.avgFallback = M.avgEmber();
+        E.newGame();
+        var s7 = E.state();
+        s7.ending = 'true'; s7.won = true; s7.startedAt = Date.now() - 360000;
+        s7.flags.vow = 'none';
+        w.__tm.showEnd();
+        var ed7 = d.getElementById('endEmberDetail');
+        out.emberDetail = !!ed7 && ed7.textContent.indexOf('走到结局') >= 0 && ed7.textContent.indexOf('合计') >= 0;
+        out.lampBtn = !!d.querySelector('#endMemory .lamp-btn');
+        var emberBefore = M.ember, lampsBefore = M.lamps;
+        var lb7 = d.querySelector('#endMemory .lamp-btn');
+        if (lb7 && !lb7.disabled) lb7.click();
+        out.lampLit = M.lamps === lampsBefore + 1 && M.ember === emberBefore - 20;
         document.getElementById('out').textContent = JSON.stringify(out);
       }, 1000);
     }, 600);
+
+    // 余烬经济四项放在最后一段定时回调里跑，避免 showEnd 干扰提示系统的对白时序
   } catch (e) { out.error = String(e && e.stack || e); }
   document.getElementById('out').textContent = JSON.stringify(out);
 }

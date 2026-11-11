@@ -19,6 +19,8 @@
   const GOAL_SHOW_MS = 8000; // 顶栏「本层规矩」完整展开的时长，之后收成小徽标
   let goalSig = null;
   let goalTimer = null;
+  let stuckInfo = null;   // 当前卡关指引 { key, vars, floor, monster }
+  let stuckSayAt = 0;     // 同一卡点重复弹对白的节流
   const hintQueue = [];
   let choiceFocus = null;
   let heartFocus = null;
@@ -65,6 +67,7 @@
     };
   })();
   const REDUCED = () => Settings.fx === 'low';
+  const hintMs = (base) => Math.round(base * (HINT_SCALE[Settings.hintSpeed] || 1));
 
   // ---------- 引导：关键提示改由角色对白播放 ----------
   const Tips = (() => {
@@ -92,7 +95,7 @@
         renderRich($('guideText'), Array.isArray(lines[0]) ? lines[0][1] : lines[0]);
         g.classList.add('show');
         clearTimeout(guideTimer);
-        guideTimer = setTimeout(() => g.classList.remove('show'), 6500);
+        guideTimer = setTimeout(() => g.classList.remove('show'), hintMs(6500));
       },
       mark(key) { if (seen[key]) return false; seen[key] = 1; save(); return true; },
       seen(key) { return !!seen[key]; },
@@ -438,6 +441,8 @@
     bsPanel: document.querySelector('.bs-panel'),
     guide: $('guide'),
     goalRow: $('goalRow'), goalText: $('goalText'), goalState: $('goalState'),
+    stuckBar: $('stuckBar'), stuckText: $('stuckText'),
+    hintBookOverlay: $('hintBookOverlay'),
     ringRow: $('ringRow'),
     echoOverlay: $('echoOverlay'), echoKicker: $('echoKicker'), echoLine: $('echoLine'),
     echoGoals: $('echoGoals'), echoReward: $('echoReward'), echoRings: $('echoRings'),
@@ -469,7 +474,7 @@
     renderRich(p, msg);
     p.classList.add('show');
     clearTimeout(warnTimer);
-    const dur = ms || (p.textContent.length > 26 ? 4800 : 3200);
+    const dur = hintMs(ms || (p.textContent.length > 26 ? 4800 : 3200));
     warnTimer = setTimeout(() => p.classList.remove('show'), dur);
   }
 
@@ -508,7 +513,7 @@
   function say(lines, opts) {
     const script = (Array.isArray(lines) ? lines : [lines]).map((row) =>
       Array.isArray(row) ? row : ['', String(row), '']);
-    const autoMs = opts && opts.autoMs != null ? opts.autoMs : HINT_AUTO_MS;
+    const autoMs = opts && opts.autoMs != null ? opts.autoMs : hintMs(HINT_AUTO_MS);
     hintQueue.push({ script, autoMs, cue: (opts && opts.cue) || '点击收起 · 稍后自动关闭' });
     scheduleHint();
   }
@@ -543,7 +548,7 @@
     setTimeout(() => {
       el.toast.classList.remove('show');
       setTimeout(() => { toastBusy = false; pumpToast(); }, 340);
-    }, 2400);
+    }, hintMs((def.desc || '').length > 18 ? 3200 : 2400));
   }
 
   // ---------- 打击感分级 ----------
@@ -635,6 +640,31 @@
     el.floorDots.innerHTML = D.floors.map((f, i) => `<i data-ch="${f.chapter || 0}" title="第 ${i + 1} 层"></i>`).join('');
   }
 
+  // ---------- 卡关指引：打不过时不让提示一闪而过 ----------
+  // 条子一直挂到「攻击达标 / 离开本层 / 打赢」为止，随时点开听秤把办法说完
+  function showStuck(m, pred, s) {
+    if (!el.stuckBar || !m) return;
+    const defBreak = pred.reason === '攻击力不足，无法破防';
+    const need = (m.def || 0) + 1;
+    const gap = Math.max(1, need - s.atk);
+    const vars = { need, atk: s.atk, gap, dmg: pred.damage || 0, hp: s.hp };
+    const key = defBreak ? 'stuckDef' : 'stuckHp';
+    renderRich(el.stuckText, defBreak
+      ? `卡在${m.name}这儿？攻击还差 **${gap}** 点（要 ≥ **${need}**）`
+      : `这一战预计掉 **${vars.dmg}** 血，你只有 **${vars.hp}**`);
+    el.stuckBar.hidden = false;
+    stuckInfo = { key, vars, floor: s.floor, monster: m.name };
+    const now = Date.now();
+    if (now - stuckSayAt > 12000) {
+      stuckSayAt = now;
+      sayHint(key, vars);
+    }
+  }
+  function clearStuck() {
+    if (el.stuckBar) el.stuckBar.hidden = true;
+    stuckInfo = null;
+  }
+
   // 顶栏「本层规矩」：内容或状态变了才重新展开，避免走一步就重置计时、永远不收起
   function expandGoalRow() {
     if (!el.goalRow) return;
@@ -642,12 +672,15 @@
     clearTimeout(goalTimer);
     goalTimer = setTimeout(() => {
       if (el.goalRow && !el.goalRow.hidden) el.goalRow.classList.add('collapsed');
-    }, window.__goalHintMs || GOAL_SHOW_MS);
+    }, window.__goalHintMs || hintMs(GOAL_SHOW_MS));
   }
 
   function refreshHud() {
     const s = Engine.state();
     if (!s) return;
+    // 卡关指引到点就撤：换了层，或攻击已经补到破防线
+    if (stuckInfo && (stuckInfo.floor !== s.floor ||
+        (stuckInfo.key === 'stuckDef' && s.atk >= stuckInfo.vars.need))) clearStuck();
     const next = Engine.nextLevelExp();
     const maxHp = s.maxHp || Math.max(s.hp, 1000);
     const pct = Math.max(0, Math.min(100, (s.hp / maxHp) * 100));
@@ -688,8 +721,14 @@
       if (gp) {
         el.goalText.textContent = gp.text;
         el.goalState.textContent = gp.locked ? (gp.ok ? '已结算' : '未达成') : (gp.ok ? '已达成' : '进行中');
+        const wasOk = el.goalRow.classList.contains('ok');
         el.goalRow.classList.toggle('ok', !!gp.ok);
         el.goalRow.classList.toggle('locked', !!gp.locked);
+        if (gp.ok && !wasOk) {
+          el.goalRow.classList.remove('flash');
+          void el.goalRow.offsetWidth;
+          el.goalRow.classList.add('flash');
+        }
         el.goalRow.title = `第 ${s.floor + 1} 层的额外目标 · 离开本层时结算，达成后计入塔印与通关余烬${gp.locked ? '（本章已结算）' : ''} · 点一下可展开／收起`;
         const sig = `${s.floor}|${gp.text}|${!!gp.ok}|${!!gp.locked}`;
         if (sig !== goalSig) { goalSig = sig; expandGoalRow(); }
@@ -1305,6 +1344,8 @@
       if (pred.reason === '攻击力不足，无法破防') {
         log(`破防要攻击 ≥ ${m.def + 1}（当前 ${s.atk}，还差 ${m.def + 1 - s.atk}）：去这一层/第 ${nearestShopFloor(s.floor)} 层的货摊买力量训练，或先拿遗物。`, 'warn');
       }
+      // 关键：把「差多少 + 去哪儿补」钉在顶栏，别让提示一闪而过、看着像卡死
+      showStuck(m, pred, s);
       return;
     }
 
@@ -1323,6 +1364,7 @@
       return;
     }
 
+    clearStuck();
     battleBusy = true;
     const dmgBase = Engine.fightDamage(ch, false);
     const dmgBlock = Engine.canBlock() ? Engine.fightDamage(ch, true) : null;
@@ -1611,7 +1653,9 @@
     if (s.flags.eventEmber) parts.push({ label: '路遇里的选择', n: s.flags.eventEmber });
     if (vowDef.reward) parts.push({ label: `「${vowDef.name}」`, n: vowDef.reward });
     // 解锁誓约第一次通关：额外给解锁成本的一半，让「解锁 → 真的用它」当场回本一半
-    if (vowDef.ember && !Meta.hasFirstWin(s.flags.vow)) {
+    // 按 vowDef 反查 id，不用 s.flags.vow，避免结算与自动化取到不同口径
+    const vowId = Object.keys(D.vows).find((k) => D.vows[k] === vowDef) || s.flags.vow;
+    if (vowDef.ember && !Meta.hasFirstWin(vowId)) {
       parts.push({ label: `首通「${vowDef.name}」`, n: Math.round(vowDef.ember / 2) });
     }
     const has = (id) => Engine.hasRing(id);
@@ -1722,7 +1766,7 @@
       const v = D.vows[lockedVow];
       const need = Math.max(0, v.ember - Meta.ember);
       goals.push(need > 0
-        ? `再攒 ${need} ✦ 解锁「${v.name}」（本局 +${emberGain}，约 ${Math.ceil(need / Math.max(1, emberGain))} 局）`
+        ? `再攒 ${need} ✦ 解锁「${v.name}」（近 ${Meta.emberRuns.length} 局平均 ${Meta.avgEmber()}/局，约 ${Math.ceil(need / Meta.avgEmber())} 局）`
         : `「${v.name}」已可解锁——下一局开局选它`);
     }
     // 2) 没通关过的誓约
@@ -1735,10 +1779,31 @@
     else if (!(mem.endings.plain || 0)) goals.push('试试另一条路：铁与霜');
     // 5) 塔心还没做过另一个选择
     if (!mem.heartTaken || !mem.heartLeft) goals.push(!mem.heartTaken ? '把塔心石带走一次' : '把塔心石留下一次');
-    const memHtml = `<div class="mem-grid">${memItems.map((t) => `<div>${t}</div>`).join('')}</div>`
-      + (goals.length ? `<div class="mem-goals">${goals.slice(0, 3).map((g) => `<span>▸ ${g}</span>`).join('')}</div><p class="mem-note">塔在等你回来——为了上面这些。</p>` : '');
+    const goalsHtml = goals.length
+      ? `<div class="mem-goals">${goals.slice(0, 3).map((g) => `<span>▸ ${g}</span>`).join('')}</div><p class="mem-note">塔在等你回来——为了上面这些。</p>`
+      : '';
     const memWrap = $('endMemory');
-    if (memWrap) memWrap.innerHTML = memHtml;
+    if (memWrap) {
+      const paint = () => {
+        // 誓约全解锁后，余烬改去点亮层灯：一层一盏，纯收藏，不加战力
+        const lampRow = !lockedVow
+          ? `<div class="mem-lamps"><span>✦ 余烬 ${Meta.ember} · 层灯 ${Meta.lamps}/${LAMP_MAX}</span>
+              <button class="lamp-btn" data-lamp="1" ${Meta.ember < LAMP_COST || Meta.lamps >= LAMP_MAX ? 'disabled' : ''}>点亮一盏（${LAMP_COST} ✦）</button></div>`
+          : '';
+        memWrap.innerHTML = `<div class="mem-grid">${memItems.map((t) => `<div>${t}</div>`).join('')}</div>`
+          + lampRow + goalsHtml;
+      };
+      paint();
+      memWrap.onclick = (e) => {
+        if (!e.target || !e.target.dataset || !e.target.dataset.lamp) return;
+        const r = Meta.lightLamp(LAMP_COST);
+        if (r !== 'ok') { warn(r === 'full' ? '十三盏灯都亮了' : `余烬不够，还差 ${LAMP_COST - Meta.ember} ✦`); return; }
+        Sound.play('relic');
+        vibrate(12);
+        paint();
+        refreshStartBadges();
+      };
+    }
     saveBoard(sum);
     $('endCode').textContent = encodeChallenge(sum);
     // 平台桥接读这份摘要上报，不用再从 DOM 里抠数字
@@ -1770,6 +1835,7 @@
       const parts = [];
       if ((mem.runs || 0) > 0) parts.push(`第 ${mem.runs + 1} 次进塔 · 最远第 ${mem.deepest || 0} 层`);
       if (Meta.ember > 0) parts.push(`✦ 余烬 ${Meta.ember}`);
+      if (Meta.lamps > 0) parts.push(`层灯 ${Meta.lamps}/${LAMP_MAX}`);
       em.textContent = parts.length ? parts.join(' · ') : '';
     }
   }
@@ -1837,6 +1903,68 @@
     };
     step();
   }
+
+  // ---------- 拖动选路（touch v2）：按住格子拖向一边，方向圆盘挑最短路线 ----------
+  function routeOpen(cx, cy) {
+    if (!s) return null;
+    if (cx === s.x && cy === s.y) return null;
+    const ch = Engine.tile(cx, cy);
+    if (D.monsters[ch]) return null; // 点怪走 clickMonster 那套，不进选路
+    const groups = Engine.pathsTo(cx, cy);
+    if (!groups) return null;
+    const names = ['up', 'down', 'left', 'right'];
+    const avail = names.filter((d) => groups[d]);
+    if (!avail.length) return null;
+    // 默认路线 = 默认寻路（pathTo）的首步方向，与轻触行为一致
+    const defPath = Engine.pathTo(cx, cy);
+    let defaultDir = null;
+    if (defPath && defPath.length) {
+      const [dx, dy] = defPath[0];
+      defaultDir = dx === 1 ? 'right' : dx === -1 ? 'left' : dy === 1 ? 'down' : 'up';
+    }
+    if (!defaultDir || !groups[defaultDir]) defaultDir = avail[0];
+    // 分岔前的公共段：pathsTo 已给出默认路线的格子序列（defaultCells），截到分岔口为止
+    const jx = groups.junction ? groups.junction[0] : null;
+    const jy = groups.junction ? groups.junction[1] : null;
+    let defCells = null;
+    let defCut = 0;
+    if (jx != null && groups.defaultCells) {
+      defCells = [];
+      for (const c of groups.defaultCells) {
+        defCells.push(c);
+        if (c[0] === jx && c[1] === jy) { defCut = defCells.length; break; }
+      }
+      if (!defCut) { defCells = null; defCut = 0; }
+    }
+    const out = { tx: cx, ty: cy, junction: groups.junction, defaultDir };
+    for (const d of names) {
+      if (!groups[d]) continue;
+      const cells = (defCells && defCut > 1)
+        ? defCells.concat(groups[d].cells.slice(1))
+        : groups[d].cells.slice();
+      const path = (defCells && defCut > 1 && defPath)
+        ? defPath.slice(0, defCut - 1).concat(groups[d].path)
+        : groups[d].path;
+      out[d] = { path, cells };
+    }
+    return out;
+  }
+
+  function routePick(cx, cy, routes, dir) {
+    const s = Engine.state();
+    if (!s || !routes || !routes[dir]) return;
+    // 拖动途中局面变了（比如路线被挡）：路线走不下去时 walkAlong 会自己停下，这里只挡明显失效的
+    const r = routes[dir];
+    if (!r || !r.path || !r.path.length) return;
+    Tips.show('walk');
+    stopWalk();
+    walkAlong(r.path, cx, cy);
+  }
+
+  window.__tmRouteHooks = {
+    open: routeOpen,
+    pick: routePick,
+  };
 
   // 点怪物：一次点击走到它跟前并直接开打，不用再点第二下
   function clickMonster(cx, cy) {
@@ -1922,6 +2050,7 @@
   function enterFloor(first) {
     const s = Engine.state();
     const f = D.floors[s.floor];
+    clearStuck();
     Renderer.fade(first ? 420 : 320);
     Renderer.setAmbient(s.floor);
     if (floorBossAlive(s)) Sound.startMusic();
@@ -2303,12 +2432,60 @@
     $('cfgVib').addEventListener('click', () => { Settings.toggleVib(); refreshCfg(); vibrate(12); });
     $('cfgCritters').addEventListener('click', () => { Settings.toggleCritters(); refreshCfg(); });
     $('cfgFast').addEventListener('click', () => { Settings.toggleFast(); refreshCfg(); });
+    $('cfgHintSpeed').addEventListener('click', () => { Settings.cycleHintSpeed(); refreshCfg(); });
+    $('cfgHintBook').addEventListener('click', () => { el.cfgOverlay.classList.remove('show'); openHintBook(); });
+    $('hbClose').addEventListener('click', () => el.hintBookOverlay.classList.remove('show'));
+    if (el.stuckBar) el.stuckBar.addEventListener('click', () => {
+      if (stuckInfo) sayHint(stuckInfo.key, stuckInfo.vars);
+    });
   }
 
   function openCfg() {
     refreshCfg();
     el.cfgOverlay.classList.add('show');
   }
+  // ---------- 重看提示：设置里列出全部角色台词，点一条重播 ----------
+  const BOOK_VARS = { n: '3', name: '新的誓约', need: '17', atk: '11', gap: '6', dmg: '2482', hp: '1450' };
+  const bookText = (t) => String(t).replace(/\{(\w+)\}/g,
+    (m, k) => (BOOK_VARS[k] != null ? BOOK_VARS[k] : k));
+  function richHtml(str) {
+    return String(str)
+      .replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c])
+      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  }
+  function openHintBook() {
+    const list = $('hbList');
+    if (!list) return;
+    const groups = [
+      { title: '常规提示', src: S.hints, seenFlag: true },
+      { title: '关键提示', src: S.keyHints, seenFlag: false },
+    ];
+    let html = '';
+    for (const g of groups) {
+      html += `<div class="hb-group">${g.title}</div>`;
+      Object.keys(g.src || {}).forEach((key) => {
+        const row = (g.src[key] || [])[0];
+        const who = Array.isArray(row) ? (row[0] || '旁白') : '旁白';
+        const txt = bookText(Array.isArray(row) ? row[1] : String(row || ''));
+        const unseen = g.seenFlag && !Tips.seen(key);
+        html += `<button class="hb-item${unseen ? ' unseen' : ''}" data-key="${key}" data-group="${g.title}"><span class="hb-who">${who}</span><span>${richHtml(txt)}</span></button>`;
+      });
+    }
+    list.innerHTML = html;
+    list.querySelectorAll('.hb-item').forEach((b) => {
+      b.addEventListener('click', () => {
+        const src = b.dataset.group === '常规提示' ? S.hints : S.keyHints;
+        const lines = src[b.dataset.key];
+        el.hintBookOverlay.classList.remove('show');
+        if (!lines) return;
+        say(lines.map((row) => Array.isArray(row)
+          ? [row[0], bookText(row[1]), row[2] || '']
+          : bookText(row)));
+      });
+    });
+    el.hintBookOverlay.classList.add('show');
+  }
+
   function closeCfg() { el.cfgOverlay.classList.remove('show'); }
   function refreshCfg() {
     $('cfgFxVal').textContent = Settings.fx === 'low' ? '减弱' : '全开';
@@ -2323,6 +2500,8 @@
     $('cfgCrittersVal').className = Settings.critters ? '' : 'off';
     $('cfgFastVal').textContent = Settings.fast ? '开（演出 ×0.42）' : '关';
     $('cfgFastVal').className = Settings.fast ? '' : 'off';
+    $('cfgHintSpeedVal').textContent = HINT_SPEED_NAME[Settings.hintSpeed];
+    $('cfgHintBookVal').textContent = `全部 ${Object.keys(S.hints || {}).length + Object.keys(S.keyHints || {}).length} 条 ›`;
     const s = Engine.state();
     $('cfgRelics').innerHTML = RELIC_ORDER.map((id) => {
       const r = D.relics[id];
@@ -2336,7 +2515,7 @@
 
   // 遮罩是否完全盖住画布（盖住时暂停重绘）
   const FULL_OVERLAYS = ['startOverlay', 'dialogOverlay', 'shopOverlay', 'boardOverlay',
-    'codexOverlay', 'cfgOverlay', 'choiceOverlay', 'altarOverlay', 'heartOverlay', 'vowOverlay', 'eventOverlay', 'gateOverlay', 'echoOverlay', 'endOverlay', 'resetConfirmOverlay'];
+    'codexOverlay', 'cfgOverlay', 'hintBookOverlay', 'choiceOverlay', 'altarOverlay', 'heartOverlay', 'vowOverlay', 'eventOverlay', 'gateOverlay', 'echoOverlay', 'endOverlay', 'resetConfirmOverlay'];
   function covered() {
     for (const id of FULL_OVERLAYS) {
       if (el[id] && el[id].classList.contains('show')) return true;
@@ -2351,7 +2530,7 @@
     if (emberLine) {
       const locked = Object.keys(D.vows).filter((id) => D.vows[id].ember && !Meta.has(id));
       emberLine.textContent = locked.length
-        ? `✦ 余烬 ${Meta.ember} · 每局基础 5+，卡上是额外 · 「${D.vows[locked[0]].tag}」还差 ${Math.max(0, D.vows[locked[0]].ember - Meta.ember)}`
+        ? `✦ 余烬 ${Meta.ember} · 卡上是额外，每局基础 5+ · 「${D.vows[locked[0]].tag}」还差 ${Math.max(0, D.vows[locked[0]].ember - Meta.ember)}（约 ${Math.ceil(Math.max(0, D.vows[locked[0]].ember - Meta.ember) / Meta.avgEmber())} 局）`
         : Meta.ember > 0 ? `✦ 余烬 ${Meta.ember} · 誓约已全解锁` : '';
       emberLine.hidden = !emberLine.textContent;
     }
@@ -2360,9 +2539,10 @@
       const locked = !!v.ember && !Meta.has(id);
       const rewardWord = v.reward >= 12 ? `<small>吃苦的那条，留下的最多</small>` : v.reward === 0 ? `<small>基线，不额外加</small>` : '';
       // 锁着的卡也写明解锁后的回报，别只看到一个成本数字
+      const firstWin = v.ember && !Meta.hasFirstWin(id) ? `<small>首通再 +${Math.round(v.ember / 2)}</small>` : '';
       const line = locked
-        ? `🔒 ${v.ember} 余烬（有 ${Meta.ember} · 还差 ${Math.max(0, v.ember - Meta.ember)}）<br><small>解锁后每局额外 +${v.reward}</small>`
-        : `每局额外 +${v.reward || 0} 余烬${rewardWord}`;
+        ? `🔒 ${v.ember} 余烬（有 ${Meta.ember} · 还差 ${Math.max(0, v.ember - Meta.ember)}）<br><small>解锁后每局额外 +${v.reward} · 首通再 +${Math.round(v.ember / 2)}</small>`
+        : `每局额外 +${v.reward || 0} 余烬${rewardWord}${firstWin}`;
       return `<button class="vow-card ${id === 'none' ? 'hero' : ''} ${locked ? 'locked' : ''}" data-vow="${id}">
         <span class="vc-emoji">${v.emoji}</span>
         <span class="vc-name">${v.name}</span>
@@ -2437,8 +2617,9 @@
     window.addEventListener('resize', () => Renderer.layout(el.stage));
     if (window.ResizeObserver) new ResizeObserver(() => Renderer.layout(el.stage)).observe(el.stage);
     // 小生物受惊：一声轻啾（冷却 3.5s，避免连环惊飞时吵）
+    // 钩子是可选能力：渲染器没带上它时静默降级，绝不让 boot 在这里中断
     let lastFlit = 0;
-    Renderer.onScare(() => {
+    if (typeof Renderer.onScare === 'function') Renderer.onScare(() => {
       const now = performance.now();
       if (now - lastFlit < 3500) return;
       lastFlit = now;
@@ -2497,11 +2678,12 @@
   window.__tm = {
     playStory, showEnd, openShop, openCodex, openBoard, openCfg, closeCfg,
     showFloorCard, showEndingChoice, completeEnding, setChoiceFocus, openHeart, chooseHeart, setHeartFocus, openVow, chooseVow, openEvent, chooseEvent, openGate, jumpTo: (i) => doJump(i), Meta,
-    resolveBattle, act, clickMove, refreshHud, refreshStartBadges,
+    resolveBattle, act, clickMove, emberOf, refreshHud, refreshStartBadges,
     testRelicShowcase: () => { const st = Engine.state(); if (st) relicShowcase(st.x, st.y); },
     openEcho, chooseRing, closeEcho, resumePendingRing, setChapterColor, refreshCfg,
     // 提示系统：自动化可验证「加粗渲染 + 角色提示对白」
     richInto: renderRich, say, sayHint, warn, Tips, expandGoal: expandGoalRow,
+    Settings, hintMs, openHintBook, showStuck, clearStuck,
   };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);

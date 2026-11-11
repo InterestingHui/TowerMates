@@ -31,7 +31,7 @@ const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-ui-'));
     });
   });
   const server = spawn(process.execPath, ['tools/serve.js', String(PORT), ROOT], { cwd: ROOT, stdio: 'ignore' });
-  await new Promise((r) => setTimeout(r, 800));
+  await new Promise((r) => setTimeout(r, 1500));
   const args = [
     '--headless=new', '--disable-gpu', '--no-first-run',
     '--user-data-dir=' + profile,
@@ -76,12 +76,19 @@ const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-ui-'));
   ok(out.f3Ledge === '.' && out.f3ReachLedge === true, '第 3 层打砚的立足格可直达');
   ok(out.f3ShopOnPath === false, '通往砚的自动寻路不再踩到商店');
   ok(out.f3UpPath === true, '砚倒下后入口到上楼有通路');
+  ok(out.firstWinBonus === 12, '解锁誓约首通额外 +12，第二次不再给');
+  ok(out.avgEmber === 20 && out.avgFallback === 18, '余烬估算走近 3 局平均，无记录回退 18');
+  ok(out.emberDetail === true, '结局页逐项展示本局余烬来源');
+  ok(out.lampBtn === true && out.lampLit === true, '全解锁后余烬可点亮层灯（扣 20、灯 +1）');
   ok(out.richBold === true && out.richNoHtml === true, '提示加粗生效且文案不会被当 HTML 执行');
   ok(out.hintScripts === true, '九条角色提示台词就位（含加粗重点）');
   ok(out.warnBold === true, '操作反馈里的重点也加粗');
   ok(out.hintDialog === true, '关键提示改走角色对白，点击可提前收起');
   ok(out.hintAutoClose === true, '角色提示悬挂到时自己收起，不会一直占着画面');
   ok(out.goalCollapsed === true && out.goalReopen === true, '顶栏「本层规矩」挂够时间收起，点一下可再展开');
+  ok(out.stuckBar === true, '打不过时顶栏钉住「还差多少攻击」的指引且重点加粗');
+  ok(out.hintSpeed === true && out.hintMsScaled === true, '提示停留档位可切换且时长跟着变');
+  ok(out.hintBook === true, '设置里可重看全部角色提示台词');
 
   if (bad) console.log('  诊断：' + JSON.stringify(out).slice(0, 700));
   console.log(bad === 0 ? '✓ UI 自检通过' : `✗ UI 自检 ${bad} 项失败`);
