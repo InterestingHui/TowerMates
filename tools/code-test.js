@@ -46,5 +46,20 @@ ok(T.direction(5, -50, 26)[1] === -1, '上滑走上');
 ok(T.direction(9, 45, 26)[1] === 1, '下滑走下');
 ok(T.direction(40, -39, 26)[0] === 1, '位移相近时取较大轴');
 
-console.log(`挑战码与触控单测：${pass} 项通过${bad ? `，${bad} 项失败` : ''}`);
+// 微信关系链桥接：H5 下必须静默降级，好友数据要洗干净才能进榜
+const W = require('../js/wxbridge.js');
+ok(W.available() === false, '非微信环境桥接自动降级');
+const friends = W.normalize([
+  { name: '<b>好友</b>', score: 999, vow: 'mercy', ending: 'true', floor: 13, steps: 100, grade: 'S' },
+  { name: '负数', score: -5 },
+]);
+ok(friends.length === 1 && friends[0].name.indexOf('<') < 0, '非法标签被剔除、无效行被丢弃');
+ok(friends[0].score === 999 && friends[0].vow === 'mercy' && friends[0].grade === 'S', '好友有效字段完整');
+ok(W.normalize('不是数组').length === 0, '非数组输入不炸');
+let stored = null;
+global.localStorage = { getItem: () => null, setItem: (k, v) => { stored = v; } };
+const merged = W.merge([{ name: 'A', score: 100 }, { name: 'A', score: 100 }]);
+ok(merged.length === 1 && !!stored, '同名同分只留一条并写入存储');
+
+console.log(`挑战码 / 触控 / 桥接单测：${pass} 项通过${bad ? `，${bad} 项失败` : ''}`);
 process.exit(bad ? 1 : 0);
