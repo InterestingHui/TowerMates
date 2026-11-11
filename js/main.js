@@ -2145,34 +2145,7 @@
       }
     });
 
-    // 方向键：长按连走（320ms 后每 135ms 一格）
-    document.querySelectorAll('#dpad button').forEach((b) => {
-      let holdDelay = null, holdTimer = null;
-      const start = (e) => {
-        e.preventDefault();
-        if (holdDelay || holdTimer) return;
-        const d = dirs[b.dataset.dir];
-        if (!d) return;
-        stopWalk();
-        act(d[0], d[1]);
-        holdDelay = setTimeout(() => {
-          holdDelay = null;
-          holdTimer = setInterval(() => {
-            const d2 = dirs[b.dataset.dir];
-            if (d2) act(d2[0], d2[1]);
-          }, 135);
-        }, 320);
-      };
-      const end = () => {
-        clearTimeout(holdDelay); holdDelay = null;
-        clearInterval(holdTimer); holdTimer = null;
-      };
-      b.addEventListener('pointerdown', start);
-      b.addEventListener('pointerup', end);
-      b.addEventListener('pointerleave', end);
-      b.addEventListener('pointercancel', end);
-      b.addEventListener('contextmenu', (e) => e.preventDefault());
-    });
+    // 虚拟方向键已移除：触屏用快滑/拖动选路，键盘 ↑↓←→ / WASD 走一格
 
     el.canvas.addEventListener('click', (e) => {
       const s = Engine.state();

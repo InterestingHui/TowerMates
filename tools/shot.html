@@ -385,7 +385,7 @@
         s5.hp = 180; s5.maxHp = 1200;
         s5.flags.codex = true;
         T.refreshHud();
-        try { d.getElementById('guide').classList.add('show'); d.getElementById('guideText').textContent = '点你想去的格子，会自动寻路过去；方向键走一格。'; } catch (e) {}
+        try { d.getElementById('guide').classList.add('show'); d.getElementById('guideText').textContent = '轻点格子自动寻路；按住拖动挑路线。'; } catch (e) {}
         await wait(300);
       } else if (scene === 'flow') {
         const out = [];

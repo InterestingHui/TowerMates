@@ -233,10 +233,11 @@ html, body {
 @keyframes twinkle { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
 
 /* ================= 底部 ================= */
-#bottom { display: flex; align-items: flex-end; gap: 10px; min-height: 92px; }
+#bottom { display: flex; align-items: flex-end; min-height: 92px; }
 
 #log {
   flex: 1;
+  width: 100%;
   height: 92px;
   overflow: hidden;
   display: flex;
@@ -254,30 +255,6 @@ html, body {
 #log .line.warn { color: var(--red); }
 #log .line.gold { color: var(--gold); }
 @keyframes logIn { from { opacity: 0; transform: translateY(4px); } }
-
-#dpad {
-  display: grid;
-  grid-template-columns: repeat(3, 38px);
-  grid-template-rows: repeat(3, 38px);
-  gap: 4px;
-  flex: none;
-}
-#dpad button {
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: linear-gradient(180deg, #1b2230, #111726);
-  color: #a9b3c7;
-  border-radius: 10px;
-  font-size: 13px;
-  cursor: pointer;
-  font-family: inherit;
-  transition: transform 0.07s, background 0.15s, border-color 0.15s;
-  touch-action: none;
-}
-#dpad button:active { transform: scale(0.93); background: #26303f; border-color: rgba(232, 196, 106, 0.35); }
-#dpad button[data-dir="up"] { grid-area: 1 / 2; }
-#dpad button[data-dir="left"] { grid-area: 2 / 1; }
-#dpad button[data-dir="down"] { grid-area: 3 / 2; }
-#dpad button[data-dir="right"] { grid-area: 2 / 3; }
 
 /* ================= 通用弹层 ================= */
 .overlay {
@@ -895,7 +872,6 @@ html, body {
   .chip { font-size: 11px; }
   #log { height: 80px; font-size: 10.5px; }
   #bottom { min-height: 80px; }
-  #dpad { grid-template-columns: repeat(3, 34px); grid-template-rows: repeat(3, 34px); }
   .bd-row { grid-template-columns: 18px 1fr 58px 30px 38px 52px; font-size: 10.5px; }
   .dlg-portrait { width: 68px; }
   .dlg-text { font-size: 13px; }
