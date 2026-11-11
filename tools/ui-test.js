@@ -35,13 +35,19 @@ const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-ui-'));
   const args = [
     '--headless=new', '--disable-gpu', '--no-first-run',
     '--user-data-dir=' + profile,
-    '--virtual-time-budget=10000', '--dump-dom',
+    '--virtual-time-budget=16000', '--dump-dom',
     `http://127.0.0.1:${PORT}/tools/ui-check.html`,
   ];
-  const r = spawnSync(chrome, args, { encoding: 'utf8', maxBuffer: 20 * 1024 * 1024 });
+  const dump = () => spawnSync(chrome, args, { encoding: 'utf8', maxBuffer: 20 * 1024 * 1024 });
+  const preOf = (txt) => /<pre[^>]*id="out"[^>]*>([\s\S]*?)<\/pre>/.exec(txt || '');
+  let r = dump();
+  let m = preOf(r.stdout);
+  // 无头 Chrome 偶发拿到空 DOM、或 iframe 的 run 还没跑完（多会话并发时更常见），重试一次
+  if (r.status !== 0 || !m || m[1] === 'pending') {
+    r = dump();
+    m = preOf(r.stdout);
+  }
   server.kill();
-
-  const m = /<pre[^>]*id="out"[^>]*>([\s\S]*?)<\/pre>/.exec(r.stdout || '');
   if (!m) {
     console.log('✗ 没拿到 UI 检查输出');
     process.exit(1);
