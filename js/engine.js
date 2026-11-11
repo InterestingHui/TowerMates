@@ -1013,12 +1013,13 @@
     return { path: path.reverse(), x: best.x, y: best.y };
   }
 
-  // 枚举到目标格的多条最短路线，按首步方向分组（每方向留一条）。
-  // 拖动选路用：目标非法（墙/怪/没钥匙的门）返回 null，可达时四个方向里至少一个非空。
+  // 枚举到目标格的多条最短路线，按「第一个分岔口的走向」分组（拖动选路用）。
+  // 返回 { junction:[x,y]|null, up/down/left/right: {path, cells}|null }。
+  // 目标非法（墙/怪/没钥匙的门）返回 null；最短路唯一时四个方向里恰有一个非空。
   function pathsTo(tx, ty) {
     if (!s || s.over || s.won) return null;
     if (tx < 0 || ty < 0 || tx >= SIZE || ty >= SIZE) return null;
-    if (tx === s.x && ty === s.y) return { up: null, down: null, left: null, right: null };
+    if (tx === s.x && ty === s.y) return { junction: null, up: null, down: null, left: null, right: null };
     const targetCh = tile(tx, ty);
     if (targetCh === '#' || D.monsters[targetCh]) return null;
     if ((targetCh === 'y' || targetCh === 'r') && s.keys[targetCh] <= 0) return null;
@@ -1036,38 +1037,62 @@
         const key = nx + ',' + ny;
         if (dist.has(key)) continue;
         if (nx < 0 || ny < 0 || nx >= SIZE || ny >= SIZE) continue;
-        if (!passableForPath(nx, ny)) continue;
+        // 楼梯不能当中间格，但可以当目标（与 pathTo 口径一致）
+        if (!passableForPath(nx, ny) && !(nx === tx && ny === ty)) continue;
         dist.set(key, d + 1);
         q.push([nx, ny]);
       }
     }
-    const dTarget = dist.get(tx + ',' + ty);
-    if (dTarget === undefined) return null;
+    if (dist.get(tx + ',' + ty) === undefined) return null;
 
-    // 从目标反向走回起点，距离严格递减的每条分支都是一条最短路
-    const out = { up: null, down: null, left: null, right: null };
-    let budget = 240; // 防御性上限：11x11 地图远远用不到
+    const ORDER = [[1, 0], [-1, 0], [0, 1], [0, -1]];
     const nameOf = (dx, dy) => dx === 1 ? 'right' : dx === -1 ? 'left' : dy === 1 ? 'down' : 'up';
-    (function back(x, y, cells) {
-      if (budget-- <= 0) return;
-      cells.push([x, y]);
-      if (x === s.x && y === s.y) {
-        const rev = cells.slice().reverse(); // 正向格子序列（含起点与目标）
-        const path = [];
-        for (let i = 1; i < rev.length; i++) path.push([rev[i][0] - rev[i - 1][0], rev[i][1] - rev[i - 1][1]]);
-        const first = nameOf(path[0][0], path[0][1]);
-        if (!out[first]) out[first] = { path, cells: rev };
-        return;
+
+    // 沿最短路 DAG 贪心下降走默认路线，顺路记下第一个分岔（≥2 个等长续路）
+    let junction = null;
+    const defaultCells = [[s.x, s.y]];
+    let cx = s.x, cy = s.y;
+    for (let guard = SIZE * SIZE; guard-- > 0 && !(cx === tx && cy === ty);) {
+      const cur = dist.get(cx + ',' + cy);
+      const opts = [];
+      for (const [dx, dy] of ORDER) {
+        if (dist.get((cx + dx) + ',' + (cy + dy)) === cur + 1) opts.push([dx, dy]);
       }
-      const d = dist.get(x + ',' + y);
-      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-        const nx = x + dx;
-        const ny = y + dy;
-        const key = nx + ',' + ny;
-        if (dist.get(key) !== d - 1) continue;
-        back(nx, ny, cells);
+      if (!opts.length) break;
+      if (!junction && opts.length >= 2) junction = { x: cx, y: cy, opts };
+      cx += opts[0][0];
+      cy += opts[0][1];
+      defaultCells.push([cx, cy]);
+    }
+
+    // 从某格沿某方向出发，先走一步再贪心下降到目标，得到一条完整路线
+    function buildRoute(x, y, dx0, dy0) {
+      const cells = [[x, y]];
+      let px = x + dx0, py = y + dy0;
+      for (let guard = SIZE * SIZE; guard-- > 0;) {
+        if (px < 0 || py < 0 || px >= SIZE || py >= SIZE) return null;
+        cells.push([px, py]);
+        if (px === tx && py === ty) break;
+        const cur = dist.get(px + ',' + py);
+        let nxt = null;
+        for (const [dx, dy] of ORDER) {
+          if (dist.get((px + dx) + ',' + (py + dy)) === cur + 1) { nxt = [px + dx, py + dy]; break; }
+        }
+        if (!nxt) return null;
+        px = nxt[0]; py = nxt[1];
       }
-    })(tx, ty, []);
+      const path = [];
+      for (let i = 1; i < cells.length; i++) path.push([cells[i][0] - cells[i - 1][0], cells[i][1] - cells[i - 1][1]]);
+      return { path, cells };
+    }
+
+    // 没有分岔 = 最短路唯一：分组退化为默认路线的首步方向
+    const j = junction || { x: s.x, y: s.y, opts: [[defaultCells[1][0] - defaultCells[0][0], defaultCells[1][1] - defaultCells[0][1]]] };
+    const out = { junction: junction ? [junction.x, junction.y] : null, defaultCells, up: null, down: null, left: null, right: null };
+    for (const [dx, dy] of j.opts) {
+      const r = buildRoute(j.x, j.y, dx, dy);
+      if (r) out[nameOf(dx, dy)] = r;
+    }
     return out;
   }
 

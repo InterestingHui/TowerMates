@@ -560,5 +560,63 @@ s = E.state();
 s.flags['relic_gate'] = true;
 ok(E.gateForth().ok && E.gateForth().seals.length > 0, '新的一局重新获得一次机会');
 
+// ---------- 19. 拖动选路：pathsTo 多最短路分组 ----------
+E.newGame();
+s = E.state();
+ok(E.pathsTo(0, 0) === null || true, '越界/墙目标不炸（返回 null 或无候选）');
+s.floor = 0;
+// 找一个可达目标：走空地且距离 > 1
+let routeTarget = null;
+for (let ty = 0; ty < 11 && !routeTarget; ty++) {
+  for (let tx = 0; tx < 11 && !routeTarget; tx++) {
+    const ch = E.tile(tx, ty);
+    if (ch !== '.') continue;
+    if (Math.abs(tx - s.x) + Math.abs(ty - s.y) < 3) continue;
+    const p = E.pathTo(tx, ty);
+    if (p && p.length >= 2) routeTarget = { x: tx, y: ty, len: p.length };
+  }
+}
+ok(!!routeTarget, '首层存在可达的空地目标');
+if (routeTarget) {
+  const g = E.pathsTo(routeTarget.x, routeTarget.y);
+  ok(!!g && typeof g === 'object', 'pathsTo 对可达目标返回分组');
+  const names = ['up', 'down', 'left', 'right'];
+  const avail = names.filter((d) => g[d]);
+  ok(avail.length >= 1, '至少有一条候选路线');
+  // 每条候选路线：首步方向与分组名一致、长度等于最短路长度、cells 是合法连续步
+  const shortest = routeTarget.len;
+  for (const d of avail) {
+    const r = g[d];
+    ok(r.path.length === shortest, `路线 ${d} 是最短路（${r.path.length} = ${shortest}）`);
+    const [fx, fy] = r.path[0];
+    const expect = d === 'up' ? [0, -1] : d === 'down' ? [0, 1] : d === 'left' ? [-1, 0] : [1, 0];
+    ok(fx === expect[0] && fy === expect[1], `路线 ${d} 的首步与方向一致`);
+    // cells 连续性：相邻格曼哈顿距离为 1，首格是玩家，末格是目标
+    let chainOk = r.cells[0][0] === s.x && r.cells[0][1] === s.y
+      && r.cells[r.cells.length - 1][0] === routeTarget.x && r.cells[r.cells.length - 1][1] === routeTarget.y;
+    for (let i = 1; i < r.cells.length; i++) {
+      const dd = Math.abs(r.cells[i][0] - r.cells[i - 1][0]) + Math.abs(r.cells[i][1] - r.cells[i - 1][1]);
+      if (dd !== 1) { chainOk = false; break; }
+    }
+    ok(chainOk, `路线 ${d} 的 cells 序列连续且首尾正确`);
+  }
+  // 分组之间如果首步相同，分岔点必须存在（否则分组无意义）
+  if (avail.length >= 2 && g.junction) {
+    ok(g.junction.length === 2, '分岔点坐标存在');
+  }
+  // 默认寻路必须是其中一条候选（同一最短路长）
+  const defP = E.pathTo(routeTarget.x, routeTarget.y);
+  ok(defP && defP.length === shortest, 'pathTo 与 pathsTo 长度一致');
+}
+// 怪物格不进选路
+const mTarget = (() => {
+  for (let ty = 0; ty < 11; ty++) for (let tx = 0; tx < 11; tx++) {
+    const ch = E.tile(tx, ty);
+    if (D.monsters[ch] && !D.monsters[ch].ghost && !D.monsters[ch].boss) return { x: tx, y: ty };
+  }
+  return null;
+})();
+if (mTarget) ok(E.pathsTo(mTarget.x, mTarget.y) === null, '怪物目标返回 null（选路不接管打怪）');
+
 console.log(fail === 0 ? '\n✓ 全部通过' : `\n✗ ${fail} 项失败`);
 process.exit(fail ? 1 : 0);

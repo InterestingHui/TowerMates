@@ -50,6 +50,12 @@ ok(T.direction(-40, 12, 26)[0] === -1, '左滑走左');
 ok(T.direction(5, -50, 26)[1] === -1, '上滑走上');
 ok(T.direction(9, 45, 26)[1] === 1, '下滑走下');
 ok(T.direction(40, -39, 26)[0] === 1, '位移相近时取较大轴');
+// v2 新增：方向名 / 候选路线拼接 / 常量
+ok(T.dirName([0, -1]) === 'up' && T.dirName([1, 0]) === 'right' && T.dirName([-1, 0]) === 'left' && T.dirName([0, 1]) === 'down', 'dirName 四向命名正确');
+ok(T.fullCells(null, 'up') === null, '无路线时 fullCells 为空');
+ok(T.fullCells({ left: { cells: [[1, 1], [1, 2]] } }, 'left').length === 2, '无分岔路线原样返回');
+ok(T.fullCells({ left: { cells: null } }, 'left') === null, '缺 cells 不炸');
+ok(T.HOLD_MS >= 150 && T.HOLD_MS <= 350, '按住进选路的时限在手感合理区间');
 
 // 微信关系链桥接：H5 下必须静默降级，好友数据要洗干净才能进榜
 const W = require('../js/wxbridge.js');

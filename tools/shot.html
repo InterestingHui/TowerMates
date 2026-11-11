@@ -490,6 +490,54 @@
         }
         w.__tm.say([['烛', '塔顶后面**露出一段窄梯**——往上还有一层。镇上从来没人说过。', 'firm']], { autoMs: 0 });
         await wait(400);
+      } else if (scene === 'route') {
+        // 拖动选路：方向圆盘 + 候选路线预览（走 __debugRoute，不发真实指针事件）
+        d.getElementById('btnNew').click();
+        await wait(200);
+        const _vcR = d.querySelector('#vowCards .vow-card[data-vow="none"]');
+        if (_vcR) _vcR.click();
+        await wait(260);
+        const dlR = d.getElementById('dialogOverlay');
+        for (let i = 0; i < 8; i++) { dlR.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
+        const sR = E.state();
+        // 找一个可达且有多条候选路线的空地目标；找不到就退而取任意可达空地
+        let goal = null;
+        for (let ty = 0; ty < 11 && !goal; ty++) {
+          for (let tx = 0; tx < 11 && !goal; tx++) {
+            if (E.tile(tx, ty) !== '.') continue;
+            if (Math.abs(tx - sR.x) + Math.abs(ty - sR.y) < 4) continue;
+            const g = w.TouchGestures && w.TouchGestures.__debugRoute && (() => {
+              const r = w.TouchGestures.__debugRoute(tx, ty, null, null, null);
+              return r && r !== 'no-route' ? r : null;
+            })();
+            if (g && g.avail.length >= 2) goal = { x: tx, y: ty, info: g };
+          }
+        }
+        if (!goal) {
+          for (let ty = 0; ty < 11 && !goal; ty++) {
+            for (let tx = 0; tx < 11 && !goal; tx++) {
+              if (E.tile(tx, ty) !== '.') continue;
+              if (Math.abs(tx - sR.x) + Math.abs(ty - sR.y) < 3) continue;
+              const r = w.TouchGestures.__debugRoute(tx, ty, null, null, null);
+              if (r && r !== 'no-route') goal = { x: tx, y: ty, info: r };
+            }
+          }
+        }
+        if (goal) {
+          // 再挑一个非默认方向高亮（有两条以上候选时）
+          const alt = goal.info.avail.find((nm) => nm !== goal.info.hot);
+          const dir = alt || goal.info.hot;
+          const TILE = w.Renderer.getTile();
+          w.TouchGestures.__debugRoute(goal.x, goal.y, dir, TILE * 3.2, TILE * 7.5);
+          errBox.textContent = 'ROUTE goal=' + goal.x + ',' + goal.y
+            + ' avail=' + goal.info.avail.join('|')
+            + ' hot=' + dir
+            + ' preview=' + JSON.stringify(w.Renderer.__debugRoute())
+            + ' err=' + (errs.length ? errs.join('|') : 'none');
+        } else {
+          errBox.textContent = 'ROUTE no-goal err=' + (errs.length ? errs.join('|') : 'none');
+        }
+        await wait(700);
       } else if (scene === 'play') {
         d.getElementById('btnNew').click();
         await wait(200);

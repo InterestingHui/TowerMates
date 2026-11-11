@@ -1848,6 +1848,71 @@
     warn('走不过去');
   }
 
+  // ---------- 拖动选路（触屏按住拖动 → 方向圆盘） ----------
+  // open：算出到目标格的全部最短路线分组；pick：走选中的那条。
+  // 路线以「第一个分岔口」为界拼好完整格子序列，渲染层直接拿来画预览。
+  function routeOpen(cx, cy) {
+    const s = Engine.state();
+    if (!s) return null;
+    if (cx === s.x && cy === s.y) return null;
+    const ch = Engine.tile(cx, cy);
+    if (D.monsters[ch]) return null; // 点怪走 clickMonster 那套，不进选路
+    const groups = Engine.pathsTo(cx, cy);
+    if (!groups) return null;
+    const names = ['up', 'down', 'left', 'right'];
+    const avail = names.filter((d) => groups[d]);
+    if (!avail.length) return null;
+    // 默认路线 = 默认寻路（pathTo）的首步方向，与轻触行为一致
+    const defPath = Engine.pathTo(cx, cy);
+    let defaultDir = null;
+    if (defPath && defPath.length) {
+      const [dx, dy] = defPath[0];
+      defaultDir = dx === 1 ? 'right' : dx === -1 ? 'left' : dy === 1 ? 'down' : 'up';
+    }
+    if (!defaultDir || !groups[defaultDir]) defaultDir = avail[0];
+    // 分岔前的公共段：pathsTo 已给出默认路线的格子序列（defaultCells），截到分岔口为止
+    const jx = groups.junction ? groups.junction[0] : null;
+    const jy = groups.junction ? groups.junction[1] : null;
+    let defCells = null;
+    let defCut = 0;
+    if (jx != null && groups.defaultCells) {
+      defCells = [];
+      for (const c of groups.defaultCells) {
+        defCells.push(c);
+        if (c[0] === jx && c[1] === jy) { defCut = defCells.length; break; }
+      }
+      if (!defCut) { defCells = null; defCut = 0; }
+    }
+    const out = { tx: cx, ty: cy, junction: groups.junction, defaultDir };
+    for (const d of names) {
+      if (!groups[d]) continue;
+      const cells = (defCells && defCut > 1)
+        ? defCells.concat(groups[d].cells.slice(1))
+        : groups[d].cells.slice();
+      const path = (defCells && defCut > 1 && defPath)
+        ? defPath.slice(0, defCut - 1).concat(groups[d].path)
+        : groups[d].path;
+      out[d] = { path, cells };
+    }
+    return out;
+  }
+
+  function routePick(cx, cy, routes, dir) {
+    const s = Engine.state();
+    if (!s || !routes || !routes[dir]) return;
+    // 拖动途中局面变了（比如路线被挡）：路线走不下去时 walkAlong 会自己停下，这里只挡明显失效的
+    const r = routes[dir];
+    if (!r || !r.path || !r.path.length) return;
+    Tips.show('walk');
+    stopWalk();
+    walkAlong(r.path, cx, cy);
+  }
+
+  window.__tmRouteHooks = {
+    open: routeOpen,
+    pick: routePick,
+  };
+
   // ---------- 行动 ----------
   const dirs = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
 

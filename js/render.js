@@ -917,72 +917,62 @@
   // 路线预览：touch.js 在拖动时把「候选路线集合 + 当前高亮」推进来，逐帧画
   let routePreview = null;
   function setRoutePreview(preview) {
-    routePreview = preview; // null = 收起；{ cells, hot } | { pad: true, cx, cy, dirs, hot, radius }
+    routePreview = preview; // null = 收起；{ pad, cx, cy, dirs, hot, cells, hotIdx, radius }
     dirty = true;
   }
   function drawRoutePreview() {
     if (!routePreview) return;
     const now = performance.now();
-    if (routePreview.pad) { drawDirPad(routePreview, now); return; }
+    // 1) 候选路线点串：高亮那条最亮，其余候选暗铺
     const cells = routePreview.cells || [];
-    const hotIdx = routePreview.hot;
-    ctx.save();
-    // 先画暗色途经点，再画高亮光点（高亮那条最上）
-    for (let pass = 0; pass < 2; pass++) {
-      for (let i = 0; i < cells.length; i++) {
-        const cell = cells[i];
-        const isHot = i === hotIdx;
-        if ((pass === 0) === isHot) continue; // 第一遍画非高亮，第二遍只画高亮
-        const t0 = cell.start || 0;
-        const phase = ((now - t0) % 1000) / 1000;
-        const cx = cell.x * TILE + TILE / 2;
-        const cy = cell.y * TILE + TILE / 2;
-        for (let j = 0; j < cell.pts.length; j++) {
-          const k = phase + j * 0.18;
-          const tw = k - Math.floor(k);
-          const a = isHot ? 0.9 * (1 - tw) * 0.65 + 0.3 : 0.2;
-          const r = isHot ? TILE * (0.075 + 0.05 * (1 - tw)) : TILE * 0.045;
-          ctx.fillStyle = isHot ? `rgba(159,216,255,${a.toFixed(2)})` : 'rgba(159,216,255,0.2)';
-          ctx.beginPath();
-          ctx.arc(cell.pts[j][0] * TILE + TILE / 2, cell.pts[j][1] * TILE + TILE / 2, r, 0, Math.PI * 2);
-          ctx.fill();
-        }
+    const hotIdx = routePreview.hotIdx;
+    for (let gi = 0; gi < cells.length; gi++) {
+      const grp = cells[gi];
+      const isHot = gi === hotIdx;
+      const pts = grp.pts || [];
+      const t0 = grp.start || 0;
+      const phase = ((now - t0) % 1000) / 1000;
+      for (let i = 0; i < pts.length; i++) {
+        const k = phase + i * 0.14;
+        const tw = k - Math.floor(k);
+        const a = isHot ? 0.32 + 0.55 * (1 - tw) : 0.16;
+        const r = isHot ? TILE * (0.07 + 0.055 * (1 - tw)) : TILE * 0.05;
+        ctx.fillStyle = isHot ? `rgba(159,216,255,${a.toFixed(2)})` : 'rgba(159,216,255,0.16)';
+        ctx.beginPath();
+        ctx.arc(pts[i][0] * TILE + TILE / 2, pts[i][1] * TILE + TILE / 2, r, 0, Math.PI * 2);
+        ctx.fill();
       }
     }
-    ctx.restore();
-  }
-  // 方向圆盘：以手指落点为圆心，四个可用方向画扇面高亮 + 箭头
-  function drawDirPad(pad, now) {
-    const cx = pad.cx;
-    const cy = pad.cy;
-    const R = pad.radius || TILE * 1.5;
-    const DIRV = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
+    // 2) 方向圆盘：以手指落点为圆心，四个可用方向画扇面 + 箭头
+    if (!routePreview.pad) return;
+    const cx = routePreview.cx;
+    const cy = routePreview.cy;
+    const R = routePreview.radius || TILE * 1.5;
     const ANG = { up: -Math.PI / 2, down: Math.PI / 2, left: Math.PI, right: 0 };
     ctx.save();
     // 底盘
-    ctx.fillStyle = 'rgba(8,11,18,0.6)';
+    ctx.fillStyle = 'rgba(8,11,18,0.62)';
     ctx.beginPath();
     ctx.arc(cx, cy, R, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = 'rgba(159,216,255,0.35)';
+    ctx.strokeStyle = 'rgba(159,216,255,0.4)';
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.arc(cx, cy, R, 0, Math.PI * 2);
     ctx.stroke();
-    // 中心格：当前锁定的目标格
-    ctx.fillStyle = 'rgba(232,196,106,0.2)';
+    // 中心：当前锁定的目标格
+    ctx.fillStyle = 'rgba(232,196,106,0.22)';
     ctx.beginPath();
-    ctx.arc(cx, cy, TILE * 0.22, 0, Math.PI * 2);
+    ctx.arc(cx, cy, TILE * 0.2, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = 'rgba(232,196,106,0.5)';
+    ctx.strokeStyle = 'rgba(232,196,106,0.55)';
     ctx.beginPath();
-    ctx.arc(cx, cy, TILE * 0.22, 0, Math.PI * 2);
+    ctx.arc(cx, cy, TILE * 0.2, 0, Math.PI * 2);
     ctx.stroke();
     // 四个方向的可用扇面 + 箭头；选中的方向整块提亮
     for (const name of ['up', 'down', 'left', 'right']) {
-      const info = pad.dirs && pad.dirs[name];
-      if (!info) continue;
-      const active = pad.hot === name;
+      if (!routePreview.dirs || !routePreview.dirs[name]) continue;
+      const active = routePreview.hot === name;
       const a0 = ANG[name] - Math.PI / 4;
       const a1 = ANG[name] + Math.PI / 4;
       const r0 = TILE * 0.3;
@@ -992,23 +982,22 @@
       ctx.lineTo(cx + Math.cos(a1) * r0, cy + Math.sin(a1) * r0);
       ctx.arc(cx, cy, r0, a1, a0, true);
       ctx.closePath();
-      ctx.fillStyle = active ? 'rgba(159,216,255,0.34)' : 'rgba(159,216,255,0.1)';
+      ctx.fillStyle = active ? 'rgba(159,216,255,0.35)' : 'rgba(159,216,255,0.1)';
       ctx.fill();
       if (active) {
-        ctx.strokeStyle = 'rgba(159,216,255,0.85)';
+        ctx.strokeStyle = 'rgba(200,232,255,0.9)';
         ctx.lineWidth = 2;
         ctx.stroke();
       }
-      const ax = Math.cos(ANG[name]);
-      const ay = Math.sin(ANG[name]);
-      const tipR = R * 0.74;
-      const bx = cx + ax * tipR;
-      const by = cy + ay * tipR;
-      const s = TILE * (active ? 0.2 : 0.15);
+      const ang = ANG[name];
+      const tipR = R * 0.72;
+      const bx = cx + Math.cos(ang) * tipR;
+      const by = cy + Math.sin(ang) * tipR;
+      const s = TILE * (active ? 0.2 : 0.14);
       ctx.save();
       ctx.translate(bx, by);
-      ctx.rotate(ANG[name]);
-      ctx.fillStyle = active ? 'rgba(210,236,255,0.95)' : 'rgba(159,216,255,0.4)';
+      ctx.rotate(ang);
+      ctx.fillStyle = active ? 'rgba(214,238,255,0.95)' : 'rgba(159,216,255,0.42)';
       ctx.beginPath();
       ctx.moveTo(s, 0);
       ctx.lineTo(-s * 0.6, s * 0.7);
@@ -1018,7 +1007,6 @@
       ctx.restore();
     }
     ctx.restore();
-    void now;
   }
 
   // ---------- 光照 ----------
@@ -1436,6 +1424,7 @@
     setAmbient, setTarget, setRoutePreview,
     needsDraw: () => dirty,
     getTile: () => TILE,
+    __debugRoute: () => routePreview,
     // 调试/测试：强制生成一只指定种类的小生物并放慢出生节奏
     __spawnCritter(kind) {
       if (kind === 'slow') { ambient.spawnAcc = -99999; return 'spawn slowed'; }
