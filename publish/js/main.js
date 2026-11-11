@@ -78,8 +78,6 @@
         if (seen[key]) return;
         // 「重点教学」走棋盘标注（高亮格子 + 虚线 + 说明卡，点击才收）；
         // 其余仍是角色台词。标注内容在 S.coach[key]，缺稿时回退台词。
-        window.__coachBranch = (window.__coachBranch||0)+1;
-        window.__coachHasObj = !!(S.coach && S.coach[key]);
         if (S.coach && S.coach[key] && typeof S.coach[key].spot === 'function') {
           seen[key] = 1;
           save();
@@ -530,7 +528,7 @@
       $('coachCard').hidden = true;
     }
     return {
-      supported(key) { window.__coachSupported = (window.__coachSupported||0)+1; return !!(S.coach && S.coach[key] && typeof S.coach[key].spot === 'function'); },
+      supported(key) { return !!(S.coach && S.coach[key] && typeof S.coach[key].spot === 'function'); },
       show(key, def) {
         const s = Engine.state();
         if (!s) return;
@@ -2707,8 +2705,8 @@
       if (Engine.vow() !== 'none') log(`你立下了${vs.name}：${vs.desc}`, 'gold');
       log('你踏入了魔塔。塔顶传来极轻的、像铃声一样的声音。', 'gold');
       // 开局教学：不再走对白——棋盘标注（高亮格子 + 虚线 + 说明卡），点击「知道了」才收。
-      // 注意：Tips.show 自己会标记已读并接续 goal 段，前面不能先 mark，否则 show 直接跳过。
-      Tips.show('opening');
+      // 用 setTimeout 避开对白关闭的同步栈：等遮罩过渡完、布局稳定后再量尺寸定位。
+      setTimeout(() => Tips.show('opening'), 350);
     });
   }
 
