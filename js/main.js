@@ -593,7 +593,7 @@
     if (!msg) return;
     const div = document.createElement('div');
     div.className = 'line' + (cls ? ' ' + cls : '');
-    div.textContent = msg;
+    renderRich(div, msg);
     el.log.appendChild(div);
     while (el.log.children.length > 7) el.log.removeChild(el.log.firstChild);
   }
@@ -616,6 +616,15 @@
     }).join('');
     const gateChip = el.relicRow.querySelector('.relic[data-relic="gate"]');
     if (gateChip) gateChip.addEventListener('click', openGate);
+    // 触屏没有 hover：点一下就念出这件遗物的说明（gate 有自己的面板，不参与）
+    el.relicRow.querySelectorAll('.relic[data-relic]').forEach((chip) => {
+      const id = chip.dataset.relic;
+      if (id === 'gate') return;
+      chip.addEventListener('click', () => {
+        const r = D.relics[id];
+        if (r) warn(`${r.emoji} **${r.name}**：${r.desc}`);
+      });
+    });
   }
 
   // 锁环：圆形 chip，与方形遗物一眼分开
@@ -629,6 +638,14 @@
       const r = D.rings[id];
       return `<span class="ring-chip" data-ring="${id}" title="${r.name}：${r.desc}">${r.emoji}</span>`;
     }).join('');
+    // 触屏没有 hover：点一下念出这枚锁环改了什么规则
+    el.ringRow.querySelectorAll('.ring-chip[data-ring]').forEach((chip) => {
+      const id = chip.dataset.ring;
+      chip.addEventListener('click', () => {
+        const r = D.rings[id];
+        if (r) warn(`${r.emoji} **${r.name}**：${r.desc}`);
+      });
+    });
   }
 
   // 章节主色只在这里注入一次，四章共用同一套组件
@@ -651,11 +668,19 @@
     const defBreak = pred.reason === '攻击力不足，无法破防';
     const need = (m.def || 0) + 1;
     const gap = Math.max(1, need - s.atk);
-    const vars = { need, atk: s.atk, gap, dmg: pred.damage || 0, hp: s.hp };
+    // 防御解：把「承伤降到血量线以下要多少防」也算出来，别只说一句「先变强」
+    let defNeed = null;
+    if (!defBreak && pred.rounds && pred.per != null && pred.per > 0) {
+      // 每回合被打 pred.per，血量 s.hp：需要 (rounds-1)*per ≤ hp → per ≤ hp/(rounds-1)
+      const allowPer = Math.floor(s.hp / Math.max(1, pred.rounds - 1));
+      if (pred.per > allowPer) defNeed = { from: s.def, to: s.def + (pred.per - allowPer), per: pred.per, allowPer };
+    }
+    const vars = { need, atk: s.atk, gap, dmg: pred.damage || 0, hp: s.hp,
+      defNow: s.def, defGap: defNeed ? defNeed.to - defNeed.from : 0, per: pred.per || 0, rounds: pred.rounds || 0 };
     const key = defBreak ? 'stuckDef' : 'stuckHp';
     renderRich(el.stuckText, defBreak
       ? `卡在${m.name}这儿？攻击还差 **${gap}** 点（要 ≥ **${need}**）`
-      : `这一战预计掉 **${vars.dmg}** 血，你只有 **${vars.hp}**`);
+      : `这一战预计掉 **${vars.dmg}** 血，你只有 **${vars.hp}**${defNeed ? ` · 防御再加 **${defNeed.to - defNeed.from}** 就能扛住` : ''}`);
     el.stuckBar.hidden = false;
     stuckInfo = { key, vars, floor: s.floor, monster: m.name };
     const now = Date.now();
@@ -1399,13 +1424,29 @@
   function renderShop() {
     const s = Engine.state();
     $('shopGold').textContent = s.gold;
+    // 卡关时在货摊上直接标「买几个能打过挡路的怪」：玩家不用自己拿纸算
+    let needAtk = null;
+    if (stuckInfo && stuckInfo.key === 'stuckDef') {
+      const blocker = stuckInfo.monster;
+      const bk = Object.keys(D.monsters).find((k) => D.monsters[k].name === blocker);
+      if (bk) needAtk = { ch: bk, def: D.monsters[bk].def };
+    }
     const list = $('shopList');
     list.innerHTML = '';
     D.shop.forEach((item) => {
       const owned = (item.codex && s.flags.codex) || (item.relic && Engine.hasRelic(item.relic));
       const price = Engine.priceOf(item);
       const afford = s.gold >= price;
-      const tip = item.relic ? D.relics[item.relic].desc : item.key ? (item.key === 'y' ? '开黄门' : '开红门') : item.hp ? `回复 ${item.hp} 生命` : item.atk ? '攻击 +2' : item.def ? '防御 +2' : '怪物情报';
+      let tip = item.relic ? D.relics[item.relic].desc : item.key ? (item.key === 'y' ? '开黄门' : '开红门') : item.hp ? `回复 ${item.hp} 生命` : item.atk ? '攻击 +2' : item.def ? '防御 +2' : '怪物情报';
+      if (item.atk && needAtk) {
+        const gap = needAtk.def + 1 - s.atk;
+        const times = Math.max(1, Math.ceil(gap / item.atk));
+        const per = Engine.priceOf(D.shop.find((x) => x.id === 'atk')) || price;
+        const total = times * per;
+        tip = `攻击 +2 · **再买 ${times} 次（${total} 金）能打过${blocker}**`;
+      } else if (item.def && stuckInfo && stuckInfo.key === 'stuckHp') {
+        tip = '防御 +2 · **买几个能少掉不少血**';
+      }
       const row = document.createElement('div');
       row.className = 'shop-item' + (owned ? ' owned' : '');
       row.innerHTML = `
