@@ -55,6 +55,13 @@
 
   <main id="stage">
     <canvas id="game"></canvas>
+    <!-- 新手标注层：高亮格子 + 虚线 + 说明卡（点击才收起，不自动消失） -->
+    <svg id="coachSvg" hidden></svg>
+    <div class="coach-card" id="coachCard" hidden>
+      <div class="coach-title" id="coachTitle"></div>
+      <div class="coach-text" id="coachText"></div>
+      <button class="coach-ok" id="coachOk">知道了，开始走</button>
+    </div>
     <div class="floor-card" id="floorCard">
       <div class="fc-num" id="fcNum"></div>
       <div class="fc-name" id="fcName"></div>

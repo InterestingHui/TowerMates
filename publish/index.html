@@ -7,9 +7,9 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="build" content="0cef16ed55">
+<meta name="build" content="97e1c0be9d">
 <title>TowerMates · 魔塔</title>
-<link rel="stylesheet" href="css/style.css?v=0cef16ed55">
+<link rel="stylesheet" href="css/style.css?v=97e1c0be9d">
 </head>
 <body>
 <div id="app">
@@ -55,6 +55,13 @@
 
   <main id="stage">
     <canvas id="game"></canvas>
+    <!-- 新手标注层：高亮格子 + 虚线 + 说明卡（点击才收起，不自动消失） -->
+    <svg id="coachSvg" hidden></svg>
+    <div class="coach-card" id="coachCard" hidden>
+      <div class="coach-title" id="coachTitle"></div>
+      <div class="coach-text" id="coachText"></div>
+      <button class="coach-ok" id="coachOk">知道了，开始走</button>
+    </div>
     <div class="floor-card" id="floorCard">
       <div class="fc-num" id="fcNum"></div>
       <div class="fc-name" id="fcName"></div>
@@ -438,17 +445,17 @@
   </div>
 </div>
 
-<script src="js/data.js?v=0cef16ed55"></script>
-<script src="js/story.js?v=0cef16ed55"></script>
-<script src="js/portraits.js?v=0cef16ed55"></script>
-<script src="js/achievements.js?v=0cef16ed55"></script>
-<script src="js/engine.js?v=0cef16ed55"></script>
-<script src="js/render.js?v=0cef16ed55"></script>
-<script src="js/main.js?v=0cef16ed55"></script>
-<script src="js/challenge.js?v=0cef16ed55"></script>
-<script src="js/wxbridge.js?v=0cef16ed55"></script>
-<script src="js/touch.js?v=0cef16ed55"></script>
-<script src="js/gate-forth.js?v=0cef16ed55"></script>
-<script src="js/wxwire.js?v=0cef16ed55"></script>
+<script src="js/data.js?v=97e1c0be9d"></script>
+<script src="js/story.js?v=97e1c0be9d"></script>
+<script src="js/portraits.js?v=97e1c0be9d"></script>
+<script src="js/achievements.js?v=97e1c0be9d"></script>
+<script src="js/engine.js?v=97e1c0be9d"></script>
+<script src="js/render.js?v=97e1c0be9d"></script>
+<script src="js/main.js?v=97e1c0be9d"></script>
+<script src="js/challenge.js?v=97e1c0be9d"></script>
+<script src="js/wxbridge.js?v=97e1c0be9d"></script>
+<script src="js/touch.js?v=97e1c0be9d"></script>
+<script src="js/gate-forth.js?v=97e1c0be9d"></script>
+<script src="js/wxwire.js?v=97e1c0be9d"></script>
 </body>
 </html>

@@ -79,6 +79,14 @@
     return {
       show(key) {
         if (seen[key]) return;
+        // 「重点教学」走棋盘标注（高亮格子 + 虚线 + 说明卡，点击才收）；
+        // 其余仍是角色台词。标注内容在 S.coach[key]，缺稿时回退台词。
+        if (S.coach && S.coach[key] && Coach.supported(key)) {
+          seen[key] = 1;
+          save();
+          Coach.show(key, S.coach[key]);
+          return;
+        }
         const lines = (S.hints && S.hints[key]) ||
           (S.tips && S.tips[key] ? [['烛', S.tips[key], 'calm']] : null);
         if (!lines) return;
@@ -1118,6 +1126,8 @@
         { at: 0.33, n: 3, title: '第三道锁 · 塔心', text: '再近一点，你就看得见她的名字了。' },
       ];
       let phaseIdx = 0;
+      // 演出里玩家会挨的总承伤：取引擎「真实承伤」（誓约/锁环/格挡都算在内）
+      let heroDamageLeft = Math.max(0, Math.round((blockOn && info.dmgBlock ? info.dmgBlock.damage : (info.dmgBase ? info.dmgBase.damage : pred.damage || 0))));
       const showPhase = async (ph) => {
         el.bsPhaseTitle.textContent = ph.title;
         el.bsPhaseText.textContent = ph.text;
@@ -1158,12 +1168,9 @@
           el.bsFoe.classList.add('lunge-l');
           await wait(130);
           el.bsFoe.classList.remove('lunge-l');
-          // 承伤同样按比例摊：总承伤 = 引擎真实值，演出里逐刀扣，血条不会中途归零再回弹
-          const hitsLeft = K - 1 - i;                     // 本次之后还会挨几下
-          const totalTake = Math.max(0, Math.round(pred.per * blockScale));
-          const dmgRemain = Math.max(0, heroDamageLeft - totalTake);
-          const take = hitsLeft > 0 ? Math.max(0, Math.round((heroDamageLeft - dmgRemain) / (hitsLeft + 1))) : totalTake;
-          heroDamageLeft = dmgRemain;
+          // 承伤按剩余次数均摊剩余量：演出打完，玩家血条正好落在引擎结算值上
+          const take = Math.max(0, Math.round(heroDamageLeft / (K - i)));
+          heroDamageLeft -= take;
           heroHp = Math.max(1, heroHp - take);
           bars();
           if (take > 0) dmgNum(el.bsHero, '-' + take, blockOn ? '#9fd8ff' : '#ff8f8f');
@@ -1174,6 +1181,7 @@
         }
       }
       foeHp = 0;
+      heroDamageLeft = 0;
       // 血条落点直接取引擎的「真实承伤」，誓约减伤/锁环减伤/格挡都算在内
       heroHp = Math.max(1, s.hp - (blockOn && info.dmgBlock ? info.dmgBlock.damage : info.dmgBase.damage));
       bars();
