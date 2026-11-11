@@ -2,3 +2,4 @@
 *.genie
 live-*.png
 tools/out/
+.workbuddy/tmp-*/
