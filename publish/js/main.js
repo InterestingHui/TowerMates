@@ -489,19 +489,41 @@
       if (!s) return;
       const stage = el.stage;
       const rect = stage.getBoundingClientRect();
-      const T = Renderer.getTile();
-      const board = T * 11;
-      const ox = (rect.width - board) / 2;   // 棋盘在 stage 里的横向起点
-      const oy = (rect.height - board) / 2;
-      const spot = def.spot(s);               // {x, y} 格子坐标
-      const cx = ox + spot.x * T + T / 2;
-      const cy = oy + spot.y * T + T / 2;
       const svg = $('coachSvg');
       const card = $('coachCard');
       svg.setAttribute('viewBox', `0 0 ${rect.width} ${rect.height}`);
-      // 高亮圈
-      svg.innerHTML = `<circle class="coach-spot" cx="${cx}" cy="${cy}" r="${T * 0.62}"></circle>`;
+      svg.innerHTML = '';
+      // goal 教案：高亮的是顶栏「本层规矩」行（用 stage 坐标系画不到顶栏，改为圈自身脉冲）
+      const spot = def.spot(s);
+      let cx, cy, T;
+      if (spot.goal) {
+        const gr = $('goalRow').getBoundingClientRect();
+        cx = gr.left - rect.left + gr.width / 2;
+        cy = gr.top - rect.top + gr.height / 2;
+        T = Math.min(gr.height, 34);
+        // 顶栏在 stage 外：卡片直接放在 stage 顶部中间，虚线向上指
+        card.hidden = false;
+        card.style.left = 'auto'; card.style.top = 'auto';
+        card.style.right = 'auto'; card.style.bottom = 'auto';
+        const cw = card.offsetWidth;
+        const cardX = Math.max(10, (rect.width - cw) / 2);
+        const cardY = 10;
+        card.style.left = `${Math.round(cardX)}px`;
+        card.style.top = `${Math.round(cardY)}px`;
+        const nearX = cardX + cw / 2;
+        const nearY = cardY + card.offsetHeight;
+        svg.innerHTML = `<circle class="coach-spot" cx="${cx}" cy="${Math.max(cy, 8)}" r="${T * 0.5}"></circle>`
+          + `<line class="coach-line" x1="${cx}" y1="${Math.max(cy, 8) + T * 0.5}" x2="${nearX}" y2="${nearY}"></line>`;
+        return;
+      }
+      T = Renderer.getTile();
+      const board = T * 11;
+      const ox = (rect.width - board) / 2;   // 棋盘在 stage 里的横向起点
+      const oy = (rect.height - board) / 2;
+      cx = ox + spot.x * T + T / 2;
+      cy = oy + spot.y * T + T / 2;
       // 卡片摆位：目标在左半→卡片放右侧；在上半→卡片放下方；反之亦然
+      svg.innerHTML = `<circle class="coach-spot" cx="${cx}" cy="${cy}" r="${T * 0.62}"></circle>`;
       card.hidden = false;
       card.style.left = 'auto';
       card.style.top = 'auto';
@@ -1222,11 +1244,13 @@
         el.bsHero.classList.add('lunge-r');
         await wait(130);
         el.bsHero.classList.remove('lunge-r');
-        // 真实回合数比演出回合多时，把总伤害按比例摊到每一刀上：
+        // 真实回合数比演出回合多时，前期每刀按真实伤害打，最后一刀吃掉剩余全部：
         // 否则血条在演出里减不到 0，循环结束后直接跳 0，看起来像「血突然掉光」
         const strikesLeft = K - i;                       // 这一刀之后还剩几刀（含本次）
-        const hpLeft = foeHp;                            // 怪还剩多少血
-        const cut = strikesLeft > 1 ? Math.max(1, Math.round(hpLeft / strikesLeft)) : hpLeft;
+        const strikesReal = Math.ceil(foeHp / Math.max(1, pred.out)); // 现在的血量还差几刀打完
+        let cut;
+        if (strikesLeft === 1 || strikesReal <= strikesLeft) cut = foeHp;
+        else cut = Math.min(foeHp, pred.out);
         foeHp = Math.max(0, foeHp - cut);
         bars();
         dmgNum(el.bsFoe, '-' + cut, '#ffd27d');
@@ -1243,7 +1267,7 @@
           el.bsFoe.classList.add('lunge-l');
           await wait(130);
           el.bsFoe.classList.remove('lunge-l');
-          // 承伤按剩余次数均摊剩余量：演出打完，玩家血条正好落在引擎结算值上
+          // 演出里玩家挨打次数可能比真实战斗少：每刀按剩余承伤均摊，打完正好落在引擎结算值
           const take = Math.max(0, Math.round(heroDamageLeft / (K - i)));
           heroDamageLeft -= take;
           heroHp = Math.max(1, heroHp - take);
@@ -2763,7 +2787,8 @@
       // 开局只留一条合并提示，挂够时间自己收起；两个 key 一并标记，之后不再重复弹
       Tips.mark('walk');
       Tips.mark('goal');
-      if (Tips.mark('opening')) say(S.hints.opening || S.hints.walk);
+      // 开局教学：不再走对白——棋盘标注（高亮格子 + 虚线 + 说明卡），点击「知道了」才收
+      if (Tips.mark('opening')) Tips.show('opening');
     });
   }
 

@@ -15,8 +15,11 @@ function sim(m, panel, blocked) {
   let foeHp = m.hp, heroDmgLeft = totalDamage, foeSum = 0, heroSum = 0;
   const K = Math.min(rounds, 5);
   for (let i = 0; i < K; i++) {
-    const strikesLeft = K - i, hpLeft = foeHp;
-    const cut = strikesLeft > 1 ? Math.max(1, Math.round(hpLeft / strikesLeft)) : hpLeft;
+    const strikesLeft = K - i;
+    const strikesReal = Math.ceil(foeHp / out);
+    let cut;
+    if (strikesLeft === 1 || strikesReal <= strikesLeft) cut = foeHp;
+    else cut = Math.min(foeHp, out);
     foeHp = Math.max(0, foeHp - cut);
     foeSum += cut;
     if (foeHp <= 0) break;
@@ -45,7 +48,7 @@ for (const [name, m, panel, blocked] of cases) {
 
 // 回合数少于演出上限时，行为应与旧版一致：每刀真实伤害，最后一刀正好打完
 const fast = sim({ hp: 30, atk: 8, def: 2 }, { atk: 10, def: 10 }, false);
-ok(fast && fast.K === 3 && fast.foeOk, '短战斗（3 回合）逐刀真实伤害、正好归零');
+ok(fast && fast.K === 4 && fast.foeOk, '短战斗（4 回合）按真实节奏逐刀打完、正好归零');
 
 console.log('战斗演出分摊单测：' + pass + ' 项通过' + (bad ? '，' + bad + ' 项失败' : ''));
 process.exit(bad ? 1 : 0);
