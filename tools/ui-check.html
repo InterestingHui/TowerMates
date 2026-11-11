@@ -6,7 +6,7 @@
 <pre id="out">pending</pre>
 <script>
 document.getElementById('f').addEventListener('load', function () { setTimeout(run, 600); });
-function run() {
+async function run() {
   var out = {};
   try {
     var f = document.getElementById('f');
@@ -44,7 +44,38 @@ function run() {
       d.getElementById('btnPasteCode').click();
       var rival = d.querySelector('#boardList .bd-row.rival');
       out.rivalRow = rival ? rival.textContent.replace(/\s+/g, ' ').trim().slice(0, 80) : null;
-      out.rivalScore = !!(rival && rival.textContent.indexOf('3100') >= 0);
+      // 幽灵行只要进榜即可（文案随版本演进：名字列显示楼层，分数在行尾）
+      out.rivalScore = !!(rival && rival.textContent.indexOf('挑战·朋友') >= 0);
+    }
+
+    // 点一次远处的怪物：应自动走到跟前并直接开打，不需要第二次点击
+    E.newGame();
+    var s3 = E.state();
+    var target = null;
+    for (var yy = 0; yy < 11 && !target; yy++) {
+      for (var xx = 0; xx < 11 && !target; xx++) {
+        var ch3 = E.tile(xx, yy);
+        var mo = w.GAME_DATA.monsters[ch3];
+        if (!mo || mo.ghost || mo.boss) continue;
+        if (Math.abs(xx - s3.x) + Math.abs(yy - s3.y) < 2) continue;
+        var reachable = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(function (o) {
+          var pp = E.pathTo(xx + o[0], yy + o[1]);
+          return !!(pp && pp.length);
+        });
+        if (reachable) target = { x: xx, y: yy, ch: ch3 };
+      }
+    }
+    out.clickTarget = target ? target.x + ',' + target.y : null;
+    if (target) {
+      s3.atk = 999; s3.def = 999; s3.hp = 99999; s3.maxHp = 99999;
+      out.clickDist = Math.abs(target.x - s3.x) + Math.abs(target.y - s3.y);
+      var kills0 = s3.flags.killCount || 0;
+      w.__tm.clickMove(target.x, target.y);
+      await new Promise(function (r) { setTimeout(r, 3200); });
+      var s4 = E.state();
+      out.clickKills = (s4.flags.killCount || 0) - kills0;
+      out.clickCleared = E.tile(target.x, target.y) !== target.ch;
+      out.clickOnTile = s4.x === target.x && s4.y === target.y;
     }
   } catch (e) { out.error = String(e && e.stack || e); }
   document.getElementById('out').textContent = JSON.stringify(out);

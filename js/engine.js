@@ -24,7 +24,7 @@
       keys: { y: 1, r: 0 },
       maps: floorMaps(),
       over: false, won: false, ending: null,
-      flags: { vow: v, rings: [], phaseSeed: (Math.random() * 1e9) | 0, echoScore: 0 },
+      flags: { vow: v, rings: [], phaseSeed: (Math.random() * 1e9) | 0, echoMarks: 0 },
       ver: 5,
       steps: 0,
       startedAt: Date.now(),
@@ -79,7 +79,12 @@
       // v2.1 新增字段：老存档补齐默认值即可继续玩，不需要作废
       if (!Array.isArray(s.flags.rings)) s.flags.rings = [];
       if (typeof s.flags.phaseSeed !== 'number') s.flags.phaseSeed = (Math.random() * 1e9) | 0;
-      if (typeof s.flags.echoScore !== 'number') s.flags.echoScore = 0;
+      // 旧档里的 echoScore 是加分制，按每 300 分一枚章印折算，不让它凭空消失
+      if (typeof s.flags.echoMarks !== 'number') {
+        s.flags.echoMarks = Math.round((s.flags.echoScore || 0) / 300);
+        delete s.flags.echoScore;
+      }
+      if (typeof s.flags.eventEmber !== 'number') s.flags.eventEmber = 0;
       if (!s.ending) s.ending = null;
       if (s.keys && s.keys.b !== undefined) { s.keys.r = (s.keys.r || 0) + (s.keys.b || 0); delete s.keys.b; }
       if (!s.keys) s.keys = { y: 0, r: 0 };
@@ -165,10 +170,11 @@
       list.push({ floor: i, text: D.floorGoals[i] ? D.floorGoals[i].text : '', done: !!s.flags['goal_' + i] });
     }
     const done = list.filter((x) => x.done).length;
-    const bonus = [0, 90, 180, 300][done] || 0;
+    // 章印：一章三条规矩做到两条以上就留一枚，是塔印与余烬的依据，不再是加分
+    const marks = done >= 2 ? 1 : 0;
     if (s.flags['echo_' + ch] === undefined) {
-      s.flags.echoScore = (s.flags.echoScore || 0) + bonus;
-      s.flags['echoBonus_' + ch] = bonus;
+      s.flags.echoMarks = (s.flags.echoMarks || 0) + marks;
+      s.flags['echoMark_' + ch] = marks;
       s.flags['echo_' + ch] = done;
     }
     const pending = done >= 2 && !hasRingChapter(ch) && !s.flags['ringDone_' + ch];
@@ -177,7 +183,7 @@
     save();
     return {
       chapter: ch, title: meta.title, theme: meta.theme, color: meta.color,
-      list, done, bonus, pending,
+      list, done, marks, pending,
     };
   }
 
@@ -642,7 +648,8 @@
     if (eff.hpPct) s.hp = Math.max(1, Math.min(s.maxHp, s.hp + Math.round(s.maxHp * eff.hpPct)));
     if (eff.hp) s.hp = Math.max(1, Math.min(s.maxHp, s.hp + eff.hp));
     if (eff.keys) Object.keys(eff.keys).forEach((k) => { s.keys[k] = (s.keys[k] || 0) + eff.keys[k]; });
-    if (eff.score) s.flags.eventScore = (s.flags.eventScore || 0) + eff.score;
+    // 路遇里「刻个名字 / 放回去」这类选择，留下的是通关时的余烬，不是结算分
+    if (eff.ember) s.flags.eventEmber = (s.flags.eventEmber || 0) + eff.ember;
   }
 
   // 选项的"付不起"判定：金币或钥匙不足时返回原因

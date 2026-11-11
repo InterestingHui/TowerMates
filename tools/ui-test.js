@@ -70,6 +70,9 @@ const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-ui-'));
   ok(out.codeScore === 3100, '挑战码里的分数可还原');
   ok(out.pasteMax >= 45, '贴码输入框容得下新码');
   ok(out.rivalScore === true, '贴码后榜单出现朋友的幽灵行');
+  ok(out.clickTarget !== null && out.clickDist >= 2, '找到一只不相邻的怪物作点击目标');
+  ok(out.clickKills === 1, '只点一次怪物就自动走到跟前并完成战斗');
+  ok(out.clickCleared === true && out.clickOnTile === true, '战斗后怪物消失、人物站上它的格子');
 
   if (bad) console.log('  诊断：' + JSON.stringify(out).slice(0, 700));
   console.log(bad === 0 ? '✓ UI 自检通过' : `✗ UI 自检 ${bad} 项失败`);

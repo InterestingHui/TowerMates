@@ -486,7 +486,7 @@ s.floor = 2;
 s.floorEnter = { floor: 2, kills: 0, shop: 0, hp: s.hp, maxHp: s.maxHp };
 s.flags.goal_0 = true; s.flags.goal_1 = true; s.flags.goal_2 = true;
 const echo = E.settleChapter(1);
-ok(echo && echo.done === 3 && echo.bonus === 300, '三条塔规全达成 → 章回响 +300 分');
+ok(echo && echo.done === 3 && echo.marks === 1, '三条塔规全达成 → 留一枚章印');
 ok(echo.pending === true, '达成两条以上才开锁环三选一');
 const ringOpts = s.flags['ringChoices_1'] || [];
 ok(ringOpts.length === 3 && ringOpts.every((id) => D.rings[id]), '锁环候选恰好三枚且都已定义');
@@ -529,7 +529,7 @@ ok(bossRes.type === 'fight' && bossRes.boss, 'Boss 砚可正常击败');
 ok(bossRes.echo && bossRes.echo.chapter === 1, 'Boss 击败会返回本章回响');
 ok(bossRes.echo.done === 3 && bossRes.echo.pending === true, '章末层在 Boss 倒下时提前结算并开三选一');
 ok(s.flags.goalLocked_2 === true, '章末层塔规已锁定，之后吃药不会改判');
-ok(s.flags.echoScore === 300, '章回响奖分写进存档');
+ok(s.flags['echoMark_1'] === 1 && s.flags.echoMarks === 1, '章印写进存档');
 
 // ---------- 层阶之钥：一次性「往前开一层」的明码取舍 ----------
 E.newGame();

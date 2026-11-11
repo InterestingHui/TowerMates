@@ -960,7 +960,7 @@ html, body {
 .altar-card .ac-desc { font-size: 10.5px; line-height: 1.6; color: var(--muted); }
 .altar-hint { margin-top: 14px; font-size: 10.5px; color: #4e5666; letter-spacing: 1px; }
 
-/* ---------- 结算评分 ---------- */
+/* ---------- 塔印与余烬（不再有结算分） ---------- */
 .end-score {
   display: flex;
   align-items: center;
@@ -978,12 +978,14 @@ html, body {
   font-weight: 700;
   line-height: 1;
   color: var(--gold);
-  min-width: 30px;
+  min-width: 52px;
+  white-space: nowrap;
   text-align: center;
 }
-.es-grade.S { color: #ffd27d; text-shadow: 0 0 16px rgba(255, 210, 125, 0.7); }
-.es-grade.A { color: #ffe6a8; }
-.es-grade.C { color: var(--muted); }
+.es-grade.clear { color: #ffd27d; text-shadow: 0 0 16px rgba(255, 210, 125, 0.7); }
+.es-grade.ward { color: #ffe6a8; }
+.es-grade.name { color: #e2cfa6; }
+.es-grade.rough { color: var(--muted); }
 .es-meta { flex: 1; font-size: 10.5px; color: var(--muted); line-height: 1.5; }
 .es-num { font-size: 18px; font-weight: 700; color: #fff; font-variant-numeric: tabular-nums; }
 .es-num small { font-size: 10px; color: var(--dim); margin-left: 2px; font-weight: 400; }
@@ -1203,6 +1205,17 @@ html, body {
 .vow-stage { width: 100%; max-width: 470px; text-align: center; animation: popIn 0.3s ease-out; }
 .vow-kicker { font-size: 11px; letter-spacing: 9px; color: var(--gold); opacity: 0.9; }
 .vow-desc { font-size: 12px; line-height: 1.85; color: #b9bfcc; margin: 10px 0 16px; }
+.vow-ember {
+  font-size: 11.5px;
+  color: var(--gold);
+  letter-spacing: 0.5px;
+  margin: -8px 0 12px;
+  padding: 5px 10px;
+  border: 1px solid rgba(232, 196, 106, 0.22);
+  background: rgba(232, 196, 106, 0.05);
+  border-radius: 20px;
+  display: inline-block;
+}
 .vow-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
 .vow-card {
   display: flex;

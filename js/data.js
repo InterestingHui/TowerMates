@@ -180,7 +180,7 @@ window.GAME_DATA = (function () {
   // 刻意不做「直接 +攻防」：这座塔的余量极小，加战力会打穿曲线；
   // 锁环改的是规则、资源与信息，让「认真做塔规」变成一条构筑路线。
   const rings = {
-    ledger:   { name: '名册之环', emoji: '📖', short: '册', chapter: 1, desc: '每条塔规额外 +25 分' },
+    ledger:   { name: '名册之环', emoji: '📖', short: '册', chapter: 1, desc: '每条塔规额外 +1 余烬' },
     lamp:     { name: '借灯之环', emoji: '🕯️', short: '灯', chapter: 1, desc: '每上一层回复 5% 生命' },
     coin:     { name: '铜币之环', emoji: '🪙', short: '币', chapter: 1, desc: '立刻获得 200 金币' },
     keyring:  { name: '钥匙之环', emoji: '🔑', short: '钥', chapter: 1, desc: '立刻获得 2 黄钥匙、1 红钥匙' },
@@ -193,21 +193,21 @@ window.GAME_DATA = (function () {
     bell:     { name: '停钟之环', emoji: '🔔', short: '钟', chapter: 3, desc: 'Boss 战承伤 −8%' },
     stair:    { name: '回廊之环', emoji: '🪜', short: '廊', chapter: 3, desc: '每上一层额外回复 4% 生命' },
     scope:    { name: '明镜之环', emoji: '🔍', short: '镜', chapter: 3, desc: '立刻获得窥探之镜' },
-    hour:     { name: '时辰之环', emoji: '⏳', short: '时', chapter: 3, desc: '结算的用时扣分减半' },
+    hour:     { name: '时辰之环', emoji: '⏳', short: '时', chapter: 3, desc: '通关额外 +2 余烬' },
 
     seventh:  { name: '第七格之环', emoji: '✍️', short: '格', chapter: 4, desc: '锁芯门槛从 8 条塔规降到 7 条' },
-    chisel:   { name: '刻刀之环', emoji: '🪶', short: '刀', chapter: 4, desc: '最终评分 ×1.06' },
-    heart:    { name: '塔心之环', emoji: '💗', short: '心', chapter: 4, desc: '带走塔心石多 +100 上限；放下多 +120 分' },
-    oath:     { name: '守誓之环', emoji: '🕊️', short: '誓', chapter: 4, desc: '结算余烬 +3' },
+    chisel:   { name: '刻刀之环', emoji: '🪶', short: '刀', chapter: 4, desc: '通关额外 +4 余烬' },
+    heart:    { name: '塔心之环', emoji: '💗', short: '心', chapter: 4, desc: '带走塔心石多 +100 上限；放下再多 +3 余烬' },
+    oath:     { name: '守誓之环', emoji: '🕊️', short: '誓', chapter: 4, desc: '通关额外 +3 余烬' },
 
     // ---- 扩容池（P-3）：每章 4→6 枚，每局抽 3，同一条锁配出不同的构筑 ----
-    pace:     { name: '更漏之环', emoji: '⏱️', short: '漏', chapter: 1, desc: '结算的用时扣分减半' },
+    pace:     { name: '更漏之环', emoji: '⏱️', short: '漏', chapter: 1, desc: '通关额外 +2 余烬' },
     ward2:    { name: '旧誓之环', emoji: '💫', short: '誓', chapter: 1, desc: '每场战斗承伤 −6%' },
 
-    ash:      { name: '拾薪之环', emoji: '🪵', short: '薪', chapter: 2, desc: '每条塔规额外 +20 分' },
+    ash:      { name: '拾薪之环', emoji: '🪵', short: '薪', chapter: 2, desc: '每条塔规额外 +1 余烬' },
     scout2:   { name: '窥探之环', emoji: '👁️', short: '窥', chapter: 2, desc: '立刻获得窥探之镜' },
 
-    ledger2:  { name: '墨账之环', emoji: '🖋️', short: '墨', chapter: 3, desc: '每条塔规额外 +20 分' },
+    ledger2:  { name: '墨账之环', emoji: '🖋️', short: '墨', chapter: 3, desc: '每条塔规额外 +1 余烬' },
     vitality2:{ name: '深井之环', emoji: '🫗', short: '井', chapter: 3, desc: '生命上限 +200，并回复 200' },
 
     coin2:    { name: '夜市之环', emoji: '🪙', short: '市', chapter: 4, desc: '立刻获得 300 金币' },
@@ -433,7 +433,7 @@ window.GAME_DATA = (function () {
     },
     {
       // 隐藏层：塔规达成 8 条以上、击败衡后，塔顶后露出一段窄梯
-      name: '锁芯', chapter: 0, ambient: 'mist',
+      name: '锁芯', chapter: 0, ambient: 'core',
       tip: '塔顶后面是一段窄梯。塔把最要紧的东西，放在最高的地方。',
       map: [
         '###########',
@@ -451,7 +451,7 @@ window.GAME_DATA = (function () {
     },
   ];
 
-  // 每层的「规矩」：离开该层时结算，达成 +1，结算加分（不影响战斗数值）
+  // 每层的「规矩」：离开该层时结算，达成后计入塔印与通关余烬（不影响战斗数值）
   const floorGoals = [
     { type: 'killsMax', v: 1, text: '只打挡路的那一只（击杀 ≤ 1）' },
     { type: 'openDoor', text: '用黄钥匙打开内室' },
@@ -491,32 +491,33 @@ window.GAME_DATA = (function () {
     },
   ];
 
-  // 开局三誓：给整局换一套规则，不同誓约的结算分倍率不同（难的那条分更高）
+  // 开局六誓：给整局换一套规则。越难走的那条，通关时留下的余烬越多
+  // reward = 通关额外余烬（跨局解锁用，不加战力）；ember = 解锁这条誓约要花的余烬
   const vows = {
     none: {
       name: '不立誓', emoji: '○', tag: '如常',
-      desc: '什么都不改。第一次爬塔就选它。', mul: 1,
+      desc: '什么都不改。第一次爬塔就选它。', reward: 0,
     },
     mercy: {
       name: '慈悲之誓', emoji: '🕊️', tag: '手软',
-      desc: '攻击 −3；每上一层回复 12% 生命', mul: 0.94,
+      desc: '攻击 −3；每上一层回复 12% 生命', reward: 0,
     },
     greed: {
       name: '贪婪之誓', emoji: '🪙', tag: '贪财',
-      desc: '击杀金币 +70%；秤的价目 +30%', mul: 1.1,
+      desc: '击杀金币 +70%；秤的价目 +30%', reward: 2,
     },
     guard: {
       name: '铁壁之誓', emoji: '🛡️', tag: '死守',
-      desc: '不能格挡；每场战斗承伤 −18%', mul: 1.02,
+      desc: '不能格挡；每场战斗承伤 −18%', reward: 1,
     },
     // 以下两条要用余烬解锁（塔的记忆）
     ascetic: {
       name: '苦行之誓', emoji: '🪵', tag: '苦行',
-      desc: '不能格挡；每上一层回复 10% 生命', mul: 1.05, ember: 60,
+      desc: '不能格挡；每上一层回复 10% 生命', reward: 5, ember: 60,
     },
     nameless: {
       name: '无名之誓', emoji: '🕳️', tag: '无名',
-      desc: '不能格挡、物价 +40%；每上一层回复 10% 生命', mul: 1.2, ember: 120,
+      desc: '不能格挡、物价 +40%；每上一层回复 10% 生命', reward: 9, ember: 120,
     },
   };
 
@@ -567,7 +568,7 @@ window.GAME_DATA = (function () {
       id: 'carve', tier: 'a', name: '墙上的名字', emoji: '✍️',
       text: '这面墙上刻满了名字。最后一个刻到一半就停了。',
       options: [
-        { label: '刻上自己的', tip: '结算 +180 分', effect: { score: 180 }, msg: '刻痕很浅，像怕被人看见。' },
+        { label: '刻上自己的', tip: '通关余烬 +2', effect: { ember: 2 }, msg: '刻痕很浅，像怕被人看见。' },
         { label: '摸一摸就上楼', tip: '回复 8% 生命', effect: { healPct: 0.08 }, msg: '石头上还是温的。' },
       ],
     },
@@ -585,7 +586,7 @@ window.GAME_DATA = (function () {
       id: 'bridge', tier: 'b', name: '断桥', emoji: '🌉',
       text: '石桥断了一半，对面就是下一层。栏杆上还留着别人的手印。',
       options: [
-        { label: '硬跳过去', tip: '生命 −10%，结算 +180 分', effect: { hpPct: -0.1, score: 180 }, msg: '你落地时膝盖一软，但过去了。' },
+        { label: '硬跳过去', tip: '生命 −10%，通关余烬 +2', effect: { hpPct: -0.1, ember: 2 }, msg: '你落地时膝盖一软，但过去了。' },
         { label: '绕远路', tip: '黄钥匙 −2', effect: { gold: 0, keys: { y: -2 } }, msg: '你绕了很远，鞋底磨薄了一层。' },
       ],
     },
@@ -610,7 +611,7 @@ window.GAME_DATA = (function () {
       text: '他坐在台阶上守着一盏灯：「替我看一会儿。就一会儿。」',
       options: [
         { label: '替他守夜', tip: '回复 35% 生命', effect: { healPct: 0.35 }, msg: '你坐了很久。灯没灭，你也没睡。' },
-        { label: '摇头上楼', tip: '生命 −60，结算 +150 分', effect: { hp: -60, score: 150 }, msg: '走出十几步，你听见灯灭了。' },
+        { label: '摇头上楼', tip: '生命 −60，通关余烬 +2', effect: { hp: -60, ember: 2 }, msg: '走出十几步，你听见灯灭了。' },
       ],
     },
     {
@@ -618,7 +619,7 @@ window.GAME_DATA = (function () {
       text: '砖缝下面有东西在反光。伸手进去，能摸到不止一件。',
       options: [
         { label: '伸手进去', tip: '金币 +320，生命 −12%', effect: { gold: 320, hpPct: -0.12 }, msg: '你摸到一枚戒指，也摸到了别的东西。' },
-        { label: '记下位置就走', tip: '结算 +150 分', effect: { score: 150 }, msg: '你在墙上刻了个记号。' },
+        { label: '记下位置就走', tip: '通关余烬 +2', effect: { ember: 2 }, msg: '你在墙上刻了个记号。' },
       ],
     },
     // ---- 锁梁（第 7 层起）才有的事件：这里的东西都跟「名字」和「时间」有关 ----
@@ -626,7 +627,7 @@ window.GAME_DATA = (function () {
       id: 'bell', tier: 'c', name: '断钟', emoji: '🔔',
       text: '钟舌掉在你脚边，断口是新的。钟还挂着，像一个张着嘴的人。',
       options: [
-        { label: '敲一下', tip: '生命 −8%，结算 +240 分', effect: { hpPct: -0.08, score: 240 }, msg: '钟声没有传出去。它在你胸腔里响。' },
+        { label: '敲一下', tip: '生命 −8%，通关余烬 +3', effect: { hpPct: -0.08, ember: 3 }, msg: '钟声没有传出去。它在你胸腔里响。' },
         { label: '把钟舌带走', tip: '金币 +280，防御 −2', effect: { gold: 280, def: -2 }, msg: '铜很沉。你走了两步，听见钟自己响了一下。' },
       ],
     },
@@ -643,7 +644,7 @@ window.GAME_DATA = (function () {
       text: '一张欠条压在砖下，落款是「岚」。金额那一栏空着，像故意留给后来的人。',
       options: [
         { label: '替他还上', tip: '金币 −400，攻击 +3', effect: { gold: -400, atk: 3 }, msg: '你把金币压在欠条上。风把它们一起吹走了。' },
-        { label: '把欠条烧掉', tip: '结算 +220 分', effect: { score: 220 }, msg: '纸烧得很快。你听见楼上有人叹了口气。' },
+        { label: '把欠条烧掉', tip: '通关余烬 +3', effect: { ember: 3 }, msg: '纸烧得很快。你听见楼上有人叹了口气。' },
       ],
     },
     {
@@ -659,14 +660,14 @@ window.GAME_DATA = (function () {
       text: '刻刀摆在桌上，刀刃朝着门。刀柄上缠着六圈旧布，每一圈都写着一个名字。',
       options: [
         { label: '拿起来', tip: '攻击 +4，防御 −2', effect: { atk: 4, def: -2 }, msg: '刀比看上去重。你握住它时，六圈布同时松了一点。' },
-        { label: '放回原处', tip: '结算 +260 分', effect: { score: 260 }, msg: '你把刀摆正，刀刃仍然朝着门。' },
+        { label: '放回原处', tip: '通关余烬 +3', effect: { ember: 3 }, msg: '你把刀摆正，刀刃仍然朝着门。' },
       ],
     },
     {
       id: 'ledger2', tier: 'c', name: '名册的残页', emoji: '📄',
       text: '一页名册卡在锁梁的砖缝里，纸很白。上面列着九个名字，最后一个被墨涂掉了。',
       options: [
-        { label: '读出声', tip: '结算 +280 分，生命 −60', effect: { score: 280, hp: -60 }, msg: '读到第八个，风停了一拍。第九个你没敢念。' },
+        { label: '读出声', tip: '通关余烬 +4，生命 −60', effect: { ember: 4, hp: -60 }, msg: '读到第八个，风停了一拍。第九个你没敢念。' },
         { label: '把残页叠好收起', tip: '金币 +300', effect: { gold: 300 }, msg: '纸很轻，比三百枚金币还轻。' },
       ],
     },

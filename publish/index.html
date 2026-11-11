@@ -7,9 +7,9 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="build" content="32874473d5">
+<meta name="build" content="c300876ebe">
 <title>TowerMates · 魔塔</title>
-<link rel="stylesheet" href="css/style.css?v=32874473d5">
+<link rel="stylesheet" href="css/style.css?v=c300876ebe">
 </head>
 <body>
 <div id="app">
@@ -123,7 +123,8 @@
 <div class="overlay" id="vowOverlay">
   <div class="vow-stage">
     <div class="vow-kicker">立 誓</div>
-    <p class="vow-desc">进塔之前，先给自己定一条规矩。<br>选了就改不回来——誓约越难，结算分越高。</p>
+    <p class="vow-desc">进塔之前，先给自己定一条规矩。<br>选了就改不回来——越难走的誓约，通关时留下的余烬越多。</p>
+    <p class="vow-ember" id="vowEmber" hidden></p>
     <div class="vow-cards" id="vowCards"></div>
     <div class="vow-hint">点一张开始 · 可以选「不立誓」</div>
   </div>
@@ -178,7 +179,7 @@
       <input class="code-input" id="pasteCode" maxlength="220" placeholder="贴朋友的挑战码" autocomplete="off">
       <button class="si-buy" id="btnPasteCode">贴码</button>
     </div>
-    <p class="code-hint">把码发给朋友，也把他的码贴进来——他的最好成绩会以「挑战」之名进你的榜单。</p>
+    <p class="code-hint">把码发给朋友，也把他的码贴进来——他爬到第几层、用了多久，会以「挑战」之名进你的名录。</p>
     <div class="actions">
       <button class="btn primary" id="boardClose">关闭</button>
     </div>
@@ -240,6 +241,7 @@
       <button class="cfg-row" id="cfgSfx"><span>音效</span><b id="cfgSfxVal">开</b></button>
       <button class="cfg-row" id="cfgMusic"><span>环境音乐</span><b id="cfgMusicVal">开</b></button>
       <button class="cfg-row" id="cfgVib"><span>震动反馈</span><b id="cfgVibVal">开</b></button>
+      <button class="cfg-row" id="cfgCritters"><span>氛围小生物</span><b id="cfgCrittersVal">开</b></button>
       <button class="cfg-row" id="cfgFast"><span>快速战斗</span><b id="cfgFastVal">关</b></button>
     </div>
     <div class="cfg-help">
@@ -248,7 +250,7 @@
     </div>
     <div class="cfg-help">
       <div class="cfg-help-title">玩法</div>
-      <p>方向键 / WASD 走一格，点远处自动寻路。撞上怪物即战斗，打不过会被拦住。钥匙开对应的门，商人在第 3 层和第 8 层。塔共 12 层，分四章，每章三层、章末一位锁匠 Boss；塔规攒够的话，塔顶后面还有一段窄梯通向隐藏层「锁芯」。每层有一次「格挡」，战斗中点一下能把这一场的承伤降到 60%。开局可以立一条誓约改变整局规则，誓约越难，结算分倍率越高。每层有一条「本层规矩」，顶栏实时显示是否达成；打完每章的锁匠会结算该章三条规矩，达成两条以上可以从三枚锁环里挑一枚，锁环改写的是整局规则。</p>
+      <p>方向键 / WASD 走一格，点远处自动寻路。撞上怪物即战斗，打不过会被拦住。钥匙开对应的门，商人在第 3 层和第 8 层。塔共 12 层，分四章，每章三层、章末一位锁匠 Boss；塔规攒够的话，塔顶后面还有一段窄梯通向隐藏层「锁芯」。每层有一次「格挡」，战斗中点一下能把这一场的承伤降到 60%。开局可以立一条誓约改变整局规则，越难走的誓约通关留下的余烬越多。每层有一条「本层规矩」，顶栏实时显示是否达成；打完每章的锁匠会结算该章三条规矩，达成两条以上可以从三枚锁环里挑一枚，锁环改写的是整局规则。</p>
     </div>
     <div class="actions">
       <button class="btn" id="cfgRetry">↺ 重来本层</button>
@@ -350,7 +352,7 @@
         <span class="cc-ring"></span>
         <span class="cc-emoji">🪨</span>
         <span class="cc-title">放下</span>
-        <span class="cc-sub">不留一件东西<br>结算多 120 分</span>
+        <span class="cc-sub">不留一件东西<br>通关余烬 +3</span>
         <span class="cc-hint">右 →</span>
       </button>
     </div>
@@ -407,17 +409,17 @@
   </div>
 </div>
 
-<script src="js/data.js?v=32874473d5"></script>
-<script src="js/story.js?v=32874473d5"></script>
-<script src="js/portraits.js?v=32874473d5"></script>
-<script src="js/achievements.js?v=32874473d5"></script>
-<script src="js/engine.js?v=32874473d5"></script>
-<script src="js/render.js?v=32874473d5"></script>
-<script src="js/main.js?v=32874473d5"></script>
-<script src="js/challenge.js?v=32874473d5"></script>
-<script src="js/wxbridge.js?v=32874473d5"></script>
-<script src="js/touch.js?v=32874473d5"></script>
-<script src="js/gate-forth.js?v=32874473d5"></script>
-<script src="js/wxwire.js?v=32874473d5"></script>
+<script src="js/data.js?v=c300876ebe"></script>
+<script src="js/story.js?v=c300876ebe"></script>
+<script src="js/portraits.js?v=c300876ebe"></script>
+<script src="js/achievements.js?v=c300876ebe"></script>
+<script src="js/engine.js?v=c300876ebe"></script>
+<script src="js/render.js?v=c300876ebe"></script>
+<script src="js/main.js?v=c300876ebe"></script>
+<script src="js/challenge.js?v=c300876ebe"></script>
+<script src="js/wxbridge.js?v=c300876ebe"></script>
+<script src="js/touch.js?v=c300876ebe"></script>
+<script src="js/gate-forth.js?v=c300876ebe"></script>
+<script src="js/wxwire.js?v=c300876ebe"></script>
 </body>
 </html>

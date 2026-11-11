@@ -592,10 +592,12 @@
     ctx.restore();
   }
 
-  // ---------- 氛围：低频小生物（萤火虫/飞蛾/蝙蝠） ----------
+  // ---------- 氛围：低频小生物（萤火虫/飞蛾/蝙蝠/锁芯尘埃） ----------
   // 取代旧「余烬粒子」：那是每 0.5s 一颗的静止黄点，看着像屏幕脏了。
   // 现在：同屏最多 2~3 只、十几秒才来一只；进场 → 悬停漫游 → 离场；
-  // 玩家走近 1.7 格内会受惊加速飞走（蝙蝠是快速掠过的剪影，不停留、不受惊）。
+  // 玩家走近 1.7 格内、或正在移动，就近的会受惊加速飞走（蝙蝠是快速掠过的剪影，不停留、不受惊）。
+  // Settings.critters = false 时不再出生（已有的自然飞完）。
+  let crittersEnabled = () => !(window.__tmCfg && window.__tmCfg.critters === false);
   function pickEdgeTarget(x, y) {
     // 选一个屏幕外的离场点，返回归一化方向
     const S = TILE * SIZE;
@@ -610,7 +612,8 @@
     const S = TILE * SIZE;
     const mode = ambient.mode;
     let kind = 'firefly';
-    if (mode === 'mist') kind = 'moth';
+    if (mode === 'core') kind = 'wisp'; // 锁芯：逆时针慢转的尘埃幽灵
+    else if (mode === 'mist') kind = 'moth';
     else if (mode === 'boss') kind = Math.random() < 0.6 ? 'bat' : 'ember';
     else if (Math.random() < 0.2) kind = 'ember'; // 火把层偶尔一颗真火星，压低频
     if (kindForce) kind = kindForce;
@@ -628,7 +631,8 @@
       hoverDur: kind === 'bat' || kind === 'ember' ? 0 : 6 + Math.random() * 7,
       wing: Math.random() * Math.PI * 2,
       glowT: Math.random() * 3, // 萤火虫的呼吸明灭
-      speed: kind === 'bat' ? 150 : kind === 'moth' ? 40 : 24,
+      spin: 0, // wisp 的逆时针相位
+      speed: kind === 'bat' ? 150 : kind === 'moth' ? 40 : kind === 'wisp' ? 14 : 24,
     };
     // 朝屏幕内一个随机点飞
     const tx = S * (0.2 + Math.random() * 0.6), ty = S * (0.2 + Math.random() * 0.6);
@@ -639,26 +643,31 @@
 
   function updateAmbient(dt) {
     // 出生节奏：比旧余烬慢一个量级——约 11~15s 一只，同屏上限 2~3
-    const rate = ambient.mode === 'boss' ? 15000 : ambient.mode === 'mist' ? 13000 : 11000;
-    ambient.spawnAcc += dt;
-    const cap = ambient.mode === 'boss' ? 2 : 3;
-    if (ambient.spawnAcc > rate && ambient.critters.length < cap) {
-      ambient.spawnAcc = 0;
-      spawnCritter();
+    if (crittersEnabled()) {
+      const rate = ambient.mode === 'boss' ? 15000 : ambient.mode === 'mist' ? 13000 : ambient.mode === 'core' ? 16000 : 11000;
+      ambient.spawnAcc += dt;
+      const cap = ambient.mode === 'boss' ? 2 : 3;
+      if (ambient.spawnAcc > rate && ambient.critters.length < cap) {
+        ambient.spawnAcc = 0;
+        spawnCritter();
+      }
     }
     const S = TILE * SIZE;
     const px = (disp._tx != null ? disp._tx : disp.x) * TILE + TILE / 2;
     const py = (disp._ty != null ? disp._ty : disp.y) * TILE + TILE / 2;
+    const moving = disp._moving === true; // 玩家正在走路 → 附近生物立刻惊飞
     const s = dt / 1000;
     for (let i = ambient.critters.length - 1; i >= 0; i--) {
       const c = ambient.critters[i];
-      // 翅膀频率：蝙蝠约 12Hz、飞蛾约 5Hz（firefly 不用翅膀，靠 glowT 呼吸）
+      // 翅膀频率：蝙蝠约 12Hz、飞蛾约 5Hz（firefly/wisp 不用翅膀，靠 glowT 呼吸）
       c.wing += dt * (c.kind === 'bat' ? 0.012 : c.kind === 'moth' ? 0.01 : 0.004);
+      if (c.kind === 'wisp') c.spin += dt / 1400;
 
-      // 玩家靠近 1.7 格 → 受惊飞走（蝙蝠/火星不停留，不受惊）
+      // 玩家靠近 1.7 格、或正在移动且在 2.2 格内 → 受惊飞走（蝙蝠/火星不停留，不受惊）
       if (c.state === 'fly' || c.state === 'hover') {
         const dd = Math.hypot(px - c.x, py - c.y);
-        if (dd < TILE * 1.7 && (c.state === 'hover' || c.hoverDur > 0)) {
+        const near = dd < TILE * 1.7 || (moving && dd < TILE * 2.2);
+        if (near && (c.state === 'hover' || c.hoverDur > 0)) {
           const d = Math.max(1, dd);
           c.vx = (c.x - px) / d; c.vy = (c.y - py) / d;
           c.state = 'scare';
@@ -766,6 +775,28 @@
         ctx.arc(-TILE * 0.026, -TILE * 0.006, TILE * 0.016, 0, Math.PI * 2);
         ctx.arc(TILE * 0.026, -TILE * 0.006, TILE * 0.016, 0, Math.PI * 2);
         ctx.fill();
+      } else if (c.kind === 'wisp') {
+        // 锁芯尘埃幽灵：一粒淡青光晕裹着微尘，绕着自己的中心逆时针慢转
+        c.glowT += dt / 1000;
+        const pulse = 0.5 + 0.5 * Math.sin(c.glowT * 1.4 + c.seed);
+        const ox = Math.cos(c.spin * Math.PI * 2) * TILE * 0.1;
+        const oy = Math.sin(c.spin * Math.PI * 2) * TILE * 0.1;
+        ctx.globalCompositeOperation = 'lighter';
+        const g = ctx.createRadialGradient(c.x + ox, c.y + oy, 0, c.x + ox, c.y + oy, TILE * 0.4);
+        g.addColorStop(0, 'rgba(178,232,255,' + (0.3 + pulse * 0.3).toFixed(3) + ')');
+        g.addColorStop(1, 'rgba(178,232,255,0)');
+        ctx.fillStyle = g;
+        ctx.fillRect(c.x - TILE * 0.4, c.y - TILE * 0.4, TILE * 0.8, TILE * 0.8);
+        // 两粒绕转的微尘，一明一暗
+        for (let k = 0; k < 2; k++) {
+          const ph = c.spin * Math.PI * 2 + k * Math.PI;
+          const dx = Math.cos(ph) * TILE * 0.12, dy = Math.sin(ph) * TILE * 0.12;
+          ctx.fillStyle = 'rgba(214,244,255,' + (0.4 + pulse * 0.4).toFixed(3) + ')';
+          ctx.beginPath();
+          ctx.arc(c.x + dx, c.y + dy, Math.max(0.8, TILE * 0.02), 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.globalCompositeOperation = 'source-over';
       } else { // ember：压低频的真火星，偶尔一颗，微升微灭
         const age = simT - c.born;
         const p = Math.min(1, age / 5000);
@@ -1196,7 +1227,7 @@
     drawAmbientOverlay();
     drawTargetMarker();
 
-    // 玩家
+    // 玩家（disp._moving 给小生物的受惊判定用：目标格与显示格没重合 = 正在走）
     const k = 1 - Math.pow(0.0008, lastDt / 1000);
     disp._tx = state.x;
     disp._ty = state.y;
@@ -1207,6 +1238,7 @@
     disp.y += (state.y - disp.y) * k;
     if (Math.abs(state.x - disp.x) < 0.02) disp.x = state.x;
     if (Math.abs(state.y - disp.y) < 0.02) disp.y = state.y;
+    disp._moving = Math.abs(state.x - disp.x) > 0.04 || Math.abs(state.y - disp.y) > 0.04;
     drawPlayer(disp.x * TILE, disp.y * TILE, simT);
 
     // 光照
