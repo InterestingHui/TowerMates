@@ -11,6 +11,8 @@
   let typing = null;
   let warnTimer = null;
   let battleBusy = false;
+  let resetArmed = false;
+  let resetTimer = null;
   let guideTimer = null;
   let choiceFocus = null;
   let heartFocus = null;
@@ -1873,6 +1875,35 @@
       refreshStartBadges();
       refreshCfg();
       warn('已清空存档、成就与榜单');
+    });
+    // 重置游戏：放弃当前这一局并从头开始（保留成就、余烬与解锁），两步确认防误触
+    $('cfgReset').addEventListener('click', () => {
+      const b = $('cfgReset');
+      if (!resetArmed) {
+        resetArmed = true;
+        b.classList.add('armed');
+        b.textContent = '确认重置这一局？';
+        clearTimeout(resetTimer);
+        resetTimer = setTimeout(() => {
+          resetArmed = false;
+          b.classList.remove('armed');
+          b.textContent = '🗘 重置游戏';
+        }, 3500);
+        return;
+      }
+      clearTimeout(resetTimer);
+      resetArmed = false;
+      b.classList.remove('armed');
+      b.textContent = '🗘 重置游戏';
+      Sound.stopMotif();
+      Sound.setPad(-1);
+      Engine.reset();
+      $('btnContinue').style.display = 'none';
+      closeCfg();
+      el.startOverlay.classList.add('show');
+      refreshStartBadges();
+      log('已重置本局 · 从头开始', 'gold');
+      warn('本局已重置（成就、余烬与解锁保留）');
     });
     $('gateClose').addEventListener('click', () => el.gateOverlay.classList.remove('show'));
     $('btnAgain').addEventListener('click', () => {
