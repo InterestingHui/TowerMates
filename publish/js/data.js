@@ -53,7 +53,7 @@ window.GAME_DATA = (function () {
     I: { name: '锈犬', emoji: '🐕', hp: 360, atk: 92, def: 24, gold: 50, exp: 55, kind: '兽' },
     R: { name: '提灯僧', emoji: '🏮', hp: 480, atk: 100, def: 30, gold: 58, exp: 65, kind: '亡' },
     1: { name: '空甲', emoji: '🛡️', hp: 560, atk: 96, def: 34, gold: 62, exp: 72, kind: '构' },
-    2: { name: '锁蛭', emoji: '🪱', hp: 420, atk: 102, def: 26, gold: 55, exp: 60, kind: '异' },
+    2: { name: '锁虫', emoji: '🪱', hp: 420, atk: 102, def: 26, gold: 55, exp: 60, kind: '异' },
     3: { name: '无面者', emoji: '👤', hp: 520, atk: 106, def: 32, gold: 66, exp: 70, kind: '魂' },
     4: { name: '灰烬祭司', emoji: '🧙', hp: 640, atk: 106, def: 36, gold: 72, exp: 80, kind: '亡' },
     5: { name: '锈王', emoji: '👑', hp: 760, atk: 126, def: 42, gold: 90, exp: 95, kind: '兽' },
@@ -128,7 +128,7 @@ window.GAME_DATA = (function () {
       phasePool: {
         p2: [
           { at: 0.66, n: 2, title: '第二刀 · 深', text: '衡：刻深一点。浅了，三百年就磨平了。' },
-          { at: 0.66, n: 2, title: '第二刀 · 空', text: '衡：那一笔停了三百年。我每天替它掸一次灰。' },
+          { at: 0.66, n: 2, title: '第二刀 · 空', text: '衡：那一笔停了三百年。我每天替它擦一次灰。' },
         ],
         p3: [
           { at: 0.33, n: 3, title: '第三刀 · 名', text: '衡：最后一行，你打算写谁？' },
@@ -205,7 +205,7 @@ window.GAME_DATA = (function () {
     pace:     { name: '更漏之环', emoji: '⏱️', short: '漏', chapter: 1, desc: '通关额外 +2 余烬' },
     ward2:    { name: '旧誓之环', emoji: '💫', short: '誓', chapter: 1, desc: '每场战斗承伤 −6%' },
 
-    ash:      { name: '拾薪之环', emoji: '🪵', short: '薪', chapter: 2, desc: '每条塔规额外 +1 余烬' },
+    ash:      { name: '拾柴之环', emoji: '🪵', short: '柴', chapter: 2, desc: '每条塔规额外 +1 余烬' },
     scout2:   { name: '窥探之环', emoji: '👁️', short: '窥', chapter: 2, desc: '立刻获得窥探之镜' },
 
     ledger2:  { name: '墨账之环', emoji: '🖋️', short: '墨', chapter: 3, desc: '每条塔规额外 +1 余烬' },
@@ -473,7 +473,7 @@ window.GAME_DATA = (function () {
     {
       id: 1, title: '第一章 · 刻痕', theme: '规矩与计数', from: 1, to: 3, boss: 'N', bossFloor: 3,
       color: '#e8c46a', accent: 'rgba(232,196,106,0.20)',
-      blurb: '塔每十年向镇上索一条命。今年它掳走了公主——名册上第九道刻痕，是你自己划的。',
+      blurb: '塔每十年向镇上索一条命。今年它带走了公主——名册上第九道刻痕，是你自己划的。',
     },
     {
       id: 2, title: '第二章 · 明塔', theme: '真相与代价', from: 4, to: 6, boss: 'Z', bossFloor: 6,
@@ -544,10 +544,10 @@ window.GAME_DATA = (function () {
       ],
     },
     {
-      id: 'shrine', tier: 'a', name: '旧神龛', emoji: '🕯️',
-      text: '神龛早就不亮了，供台上还摆着没烂完的蜜饯。',
+      id: 'shrine', tier: 'a', name: '旧供桌', emoji: '🕯️',
+      text: '供桌上的烛早就不点了，台上还摆着没烂完的干果。',
       options: [
-        { label: '把蜜饯吃了', tip: '生命上限 +160', effect: { maxHp: 160 }, msg: '甜得发苦，你却吃完了。' },
+        { label: '把干果吃了', tip: '生命上限 +160', effect: { maxHp: 160 }, msg: '甜得发苦，你却吃完了。' },
         { label: '连供盘一起拿走', tip: '金币 +90，防御 −1', effect: { gold: 90, def: -1 }, msg: '你没敢回头。' },
       ],
     },

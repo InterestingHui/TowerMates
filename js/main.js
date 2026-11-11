@@ -1913,7 +1913,7 @@
     void card.offsetWidth;
     card.classList.add('show');
     clearTimeout(floorCardTimer);
-    floorCardTimer = setTimeout(() => card.classList.remove('show'), 2100);
+    floorCardTimer = setTimeout(() => card.classList.remove('show'), hintMs(2100));
   }
 
   // ---------- 点击寻路 ----------
@@ -2511,6 +2511,16 @@
   function openHintBook() {
     const list = $('hbList');
     if (!list) return;
+    // 用当前真实状态填变量：卡关台词在面板里也显示「你现在的数字」
+    const s = Engine.state();
+    const liveVars = s ? Object.assign({}, BOOK_VARS, {
+      need: stuckInfo && stuckInfo.vars.need || BOOK_VARS.need,
+      atk: s.atk, hp: s.hp, defNow: s.def, defGap: stuckInfo && stuckInfo.vars.defGap || 2,
+      dmg: stuckInfo && stuckInfo.vars.dmg || BOOK_VARS.dmg, rounds: stuckInfo && stuckInfo.vars.rounds || 4,
+      n: nearestShopFloor(s.floor),
+    }) : BOOK_VARS;
+    const fill = (t) => String(t).replace(/\{(\w+)\}/g,
+      (m, k) => (liveVars[k] != null ? liveVars[k] : m));
     const groups = [
       { title: '常规提示', src: S.hints, seenFlag: true },
       { title: '关键提示', src: S.keyHints, seenFlag: false },
@@ -2521,21 +2531,35 @@
       Object.keys(g.src || {}).forEach((key) => {
         const row = (g.src[key] || [])[0];
         const who = Array.isArray(row) ? (row[0] || '旁白') : '旁白';
-        const txt = bookText(Array.isArray(row) ? row[1] : String(row || ''));
+        const txt = fill(Array.isArray(row) ? row[1] : String(row || ''));
         const unseen = g.seenFlag && !Tips.seen(key);
-        html += `<button class="hb-item${unseen ? ' unseen' : ''}" data-key="${key}" data-group="${g.title}"><span class="hb-who">${who}</span><span>${richHtml(txt)}</span></button>`;
+        html += `<button class="hb-item${unseen ? ' unseen' : ''}" data-key="${key}" data-group="${g.title}" data-text="${txt.replace(/"/g, '&quot;')}"><span class="hb-who">${who}</span><span>${richHtml(txt)}</span></button>`;
       });
     }
     list.innerHTML = html;
+    // 关键字过滤：按台词文本匹配，空组标题一并藏掉
+    const filter = $('hbFilter');
+    if (filter) {
+      filter.value = '';
+      filter.oninput = () => {
+        const kw = filter.value.trim().toLowerCase();
+        let lastGroup = null;
+        list.querySelectorAll('.hb-item, .hb-group').forEach((n) => {
+          if (n.classList.contains('hb-group')) { n.hidden = true; lastGroup = n; return; }
+          const hit = !kw || (n.dataset.text || '').toLowerCase().indexOf(kw) >= 0;
+          n.hidden = !hit;
+          if (hit && lastGroup) lastGroup.hidden = false;
+        });
+      };
+    }
     list.querySelectorAll('.hb-item').forEach((b) => {
       b.addEventListener('click', () => {
-        const src = b.dataset.group === '常规提示' ? S.hints : S.keyHints;
-        const lines = src[b.dataset.key];
+        const lines = (b.dataset.group === '常规提示' ? S.hints : S.keyHints)[b.dataset.key];
         el.hintBookOverlay.classList.remove('show');
         if (!lines) return;
         say(lines.map((row) => Array.isArray(row)
-          ? [row[0], bookText(row[1]), row[2] || '']
-          : bookText(row)));
+          ? [row[0], fill(row[1]), row[2] || '']
+          : fill(row)));
       });
     });
     el.hintBookOverlay.classList.add('show');

@@ -541,6 +541,7 @@ html, body {
 .shop-item .si-name { flex: 1; font-size: 13px; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .shop-item .si-name b { font-weight: 400; display: flex; align-items: center; gap: 4px; }
 .shop-item .si-name small { color: var(--dim); font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.shop-item .si-name small strong, .shop-item .si-name small b { color: var(--gold); font-weight: 800; }
 .shop-item .si-price { color: var(--gold); font-size: 12px; margin-right: 6px; font-variant-numeric: tabular-nums; }
 .shop-item .si-buy {
   padding: 5px 11px;
@@ -1647,7 +1648,16 @@ html, body {
 
 /* 重看提示 */
 .hint-book { max-width: 380px; }
-.hb-list { max-height: 56vh; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; margin: 10px 0; }
+.hb-search { margin-top: 10px; }
+.hb-search input {
+  width: 100%; box-sizing: border-box;
+  padding: 8px 11px;
+  border: 1px solid var(--line); border-radius: 9px;
+  background: rgba(255, 255, 255, 0.035); color: var(--text);
+  font-size: 12px; font-family: inherit; outline: none;
+}
+.hb-search input:focus { border-color: rgba(var(--gold-rgb), 0.45); }
+.hb-list { max-height: 52vh; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; margin: 10px 0; }
 .hb-group { font-size: 10px; letter-spacing: 2px; color: var(--dim); margin: 6px 0 2px; }
 .hb-item {
   display: flex; gap: 8px; align-items: flex-start; text-align: left;
