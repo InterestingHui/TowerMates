@@ -10,7 +10,7 @@ window.GAME_DATA = (function () {
     p: '红药水', P: '蓝药水', s: '铁剑', d: '铁盾', m: '力量宝石',
     a: '精钢剑', b: '秘银甲', c: '魂晶', h: '圣水',
     k: '黄钥匙', L: '红钥匙', $: '金币', M: '商人', T: '公主', J: '工匠手记',
-    O: '守誓之盾', S: '断裂佩剑', X: '八个人的行李', K: '塔心石', '?': '路遇', Q: '层阶之钥',
+    O: '守誓之盾', S: '断裂佩剑', X: '八个人的行李', K: '塔心石', '?': '路遇', Q: '层阶之钥', j: '半部盾谱',
     '!': '塔的碑文',
   };
 
@@ -157,6 +157,7 @@ window.GAME_DATA = (function () {
     S: { name: '断裂佩剑', emoji: '⚔️', type: 'relic', relic: 'edge', story: 'eighthSword' },
     K: { name: '塔心石', emoji: '💗', type: 'heart' },
     Q: { name: '层阶之钥', emoji: '🗝️', type: 'relic', relic: 'gate', story: 'gateLore' },
+    j: { name: '半部盾谱', emoji: '📖', type: 'block' },
   };
 
   // 遗物说明（HUD / 设置页 / 结算都用它）
@@ -250,7 +251,7 @@ window.GAME_DATA = (function () {
       tip: '楼梯被反复修过。蜡油还是温的——像有人提着灯，在你之前先去追过什么人。',
       map: [
         '###########',
-        '#u..?....$#',
+        '#u..?..j.$#',
         '#.#######.#',
         '#.#.....#.#',
         '#.#.C.C.#.#',
@@ -540,6 +541,7 @@ window.GAME_DATA = (function () {
       text: '老兵靠在楼梯口。他只剩一条手臂，却还在磨盾。',
       options: [
         { label: '跟他学举盾', tip: '防御 +2，攻击 −1', effect: { def: 2, atk: -1 }, msg: '他没说名字，只教了你姿势。' },
+        { label: '讨教格挡', tip: '学会格挡（战斗中点盾，承伤 −40%）；若已会，防御 +1', effect: { block: true, def: 1 }, msg: '「盾不是拿来硬扛的。」他抬了一下手臂——你学会了**格挡**。' },
         { label: '听他说完', tip: '回复 10% 生命', effect: { healPct: 0.1 }, msg: '你听了很久。他说的其实是另一座塔。' },
       ],
     },
@@ -682,6 +684,7 @@ window.GAME_DATA = (function () {
     { id: 'potion', name: '红药水', emoji: '🧪', price: 30, hp: 160 },
     { id: 'atk', name: '力量训练', emoji: '⚔️', price: 60, atk: 2 },
     { id: 'def', name: '护甲强化', emoji: '🛡️', price: 60, def: 2 },
+    { id: 'blockbook', name: '半部盾谱', emoji: '📖', price: 150, block: true, once: true },
     { id: 'ember', name: '余烬灯芯', emoji: '🔥', price: 120, relic: 'ember', once: true },
     { id: 'codex', name: '窥探之镜', emoji: '🔮', price: 100, codex: true, once: true },
   ];

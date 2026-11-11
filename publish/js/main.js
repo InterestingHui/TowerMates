@@ -821,9 +821,13 @@
       el.vowTag.title = `${v.name}：${v.desc}（通关余烬 +${v.reward || 0}）`;
     }
     if (el.blockPip) {
-      const used = !Engine.canBlock();
-      el.blockPip.classList.toggle('used', used);
-      el.blockPip.title = used ? '本层格挡已用完（进下一层恢复）' : '本层还有一次格挡：战斗中可把承伤降到 60%';
+      const owned = !!(s.flags.hasBlock);
+      el.blockPip.style.display = owned ? '' : 'none';
+      if (owned) {
+        const used = !Engine.canBlock();
+        el.blockPip.classList.toggle('used', used);
+        el.blockPip.title = used ? '本层格挡已用完（进下一层恢复）' : '本层还有一次格挡：战斗中可把承伤降到 60%';
+      }
     }
 
     ['statAtk', 'statDef', 'statGold'].forEach((id) => {
@@ -1120,7 +1124,8 @@
       ? Math.max(0.05, info.dmgBlock.damage / info.dmgBase.damage)
       : Engine.ringBlockScale();
     // 小架不值得给选项：伤害不到 5% 上限的杂兵战不显示格挡，免得每次都弹
-    const worth = m.boss || pred.damage >= heroMax * 0.05;
+    // 没学会格挡时也整个不显示——它不再是开局白送的能力
+    const worth = s.flags.hasBlock && (m.boss || pred.damage >= heroMax * 0.05);
     el.bsBlock.style.display = worth ? '' : 'none';
     el.bsBlock.classList.remove('done');
     el.bsBlock.disabled = !canB;
@@ -1476,10 +1481,13 @@
     const list = $('shopList');
     list.innerHTML = '';
     D.shop.forEach((item) => {
-      const owned = (item.codex && s.flags.codex) || (item.relic && Engine.hasRelic(item.relic));
+      const owned = (item.codex && s.flags.codex) || (item.relic && Engine.hasRelic(item.relic)) || (item.block && s.flags.hasBlock);
+      // 铁壁/苦行/无名三条誓约不能格挡：盾谱置灰，别让人白花钱
+      const forbidden = item.block && Engine.vowForbidsBlock();
       const price = Engine.priceOf(item);
       const afford = s.gold >= price;
-      let tip = item.relic ? D.relics[item.relic].desc : item.key ? (item.key === 'y' ? '开黄门' : '开红门') : item.hp ? `回复 ${item.hp} 生命` : item.atk ? '攻击 +2' : item.def ? '防御 +2' : '怪物情报';
+      let tip = item.relic ? D.relics[item.relic].desc : item.key ? (item.key === 'y' ? '开黄门' : '开红门') : item.hp ? `回复 ${item.hp} 生命` : item.atk ? '攻击 +2' : item.def ? '防御 +2' : item.block ? '学会格挡：每层一次，战斗中点盾把承伤降到 60%' : '怪物情报';
+      if (forbidden) tip = '**这条誓约不能格挡**，买了也用不上';
       if (item.atk && needAtk) {
         const gap = needAtk.def + 1 - s.atk;
         const times = Math.max(1, Math.ceil(gap / item.atk));
@@ -1495,7 +1503,7 @@
         <span class="si-emoji">${item.emoji}</span>
         <span class="si-name"><b>${item.name}${item.once ? '<small class="si-tag">唯一</small>' : ''}</b><small>${tip}</small></span>
         <span class="si-price">${price}</span>
-        <button class="si-buy" data-id="${item.id}" ${owned || !afford ? 'disabled' : ''}>${owned ? '已拥有' : '购买'}</button>
+        <button class="si-buy" data-id="${item.id}" ${owned || forbidden || !afford ? 'disabled' : ''}>${owned ? '已拥有' : forbidden ? '不适用' : '购买'}</button>
       `;
       list.appendChild(row);
     });
@@ -1510,6 +1518,11 @@
           if (res.item.codex) {
             Renderer.ring(before.x, before.y, 'rgba(180,160,255,0.9)', TN() * 2.4, 600);
             sayHint('codex');
+          }
+          if (res.item.block) {
+            Renderer.ring(before.x, before.y, 'rgba(159,216,255,0.9)', TN() * 2.4, 600);
+            Tips.show('block');
+            warn('**格挡已学会**：每层一次，战斗中点盾。');
           }
           if (res.item.relic) {
             Renderer.ring(before.x, before.y, 'rgba(255,225,150,0.9)', TN() * 2.6, 620);
@@ -1646,6 +1659,12 @@
     vibrate(14);
     log(`${res.label} · ${res.msg}`, 'gold');
     warn(res.msg);
+    // 这次选择教会了格挡：让烛把用法说完（老玩家读过的不再复读）
+    if (Engine.state().flags.hasBlock && !Engine.state().flags.evBlockTaught) {
+      Engine.state().flags.evBlockTaught = true;
+      Engine.save();
+      Tips.show('block');
+    }
     refreshHud();
   }
 
@@ -1818,7 +1837,6 @@
     const brief = [];
     brief.push(`带走 ${relicIds.length} 件遗物 · 击杀 ${s.flags.killCount || 0} 只`);
     if (s.flags.worstHit) brief.push(`最狠的一场：${s.flags.worstName} −${s.flags.worstHit}`);
-    brief.push(`回响 ${echoDone}/4 章 · 锁环 ${ringList.length} 枚`);
     brief.push(s.flags.retries ? `重来本层 ${s.flags.retries} 次` : '一次没回头');
     const hint = nextSealHint(seal, s, echoDone);
     if (hint) brief.push(`下一枚塔印：${hint}`);
@@ -1826,9 +1844,6 @@
     // 首通奖励只发一次：结算落袋后才标记，刷新页面也不会重发
     if (vowDef.ember) Meta.claimFirstWin(sum.vow);
     brief.push(`✦ 余烬 +${emberGain}`);
-    const vowTotal = Object.keys(D.vows).length;
-    const vowUnlocked = Object.keys(D.vows).filter((id) => !D.vows[id].ember || Meta.has(id)).length;
-    brief.push(`刷新 塔的记忆 · 重来 ${Meta.resets} 次 · 誓约 ${vowUnlocked}/${vowTotal} 解锁`);
     $('endBrief').innerHTML = brief.map((t) => `<span>${t}</span>`).join('');
     const ringShorts = ringList.map((id) => D.rings[id].short).join(' ') || '无';
     $('endStats').innerHTML = `
@@ -1860,7 +1875,7 @@
       const v = D.vows[lockedVow];
       const need = Math.max(0, v.ember - Meta.ember);
       goals.push(need > 0
-        ? `再攒 ${need} ✦ 解锁「${v.name}」（近 ${Meta.emberRuns.length} 局平均 ${Meta.avgEmber()}/局，约 ${Math.ceil(need / Meta.avgEmber())} 局）`
+        ? `再攒 ${need} ✦ 解锁「${v.name}」`
         : `「${v.name}」已可解锁——下一局开局选它`);
     }
     // 2) 没通关过的誓约
@@ -1914,11 +1929,14 @@
   function refreshStartBadges() {
     const plain = Achievements.isUnlocked('end_plain');
     const tru = Achievements.isUnlocked('end_true');
-    $('endingBadges').innerHTML = `
+    // 首次进塔不显示徽章：新人先看到「开始游戏」，收藏品等玩过一局再露脸
+    $('endingBadges').innerHTML = (plain || tru || Achievements.count())
+      ? `
       <span class="eb ${plain ? 'on' : ''}"><i>${plain ? '🕯' : '○'}</i>铁与霜</span>
       <span class="eb ${tru ? 'on true' : ''}"><i>${tru ? '🕯' : '○'}</i>第六个名字</span>
       <span class="eb ${Achievements.count() ? 'on' : ''}"><i>✦</i>成就 ${Achievements.count()}/${Achievements.DEFS.length}</span>
-    `;
+    `
+      : '';
     const art = $('startArt');
     art.classList.toggle('lit', plain || tru);
     art.classList.toggle('true', tru);
@@ -2244,7 +2262,9 @@
       case 'pickup':
         Sound.play('pick');
         Renderer.addFloat(ev.short || ev.msg, Engine.state().x * T + T / 2, Engine.state().y * T, '#9fe8b0');
-        log(ev.msg, 'good');
+        log(ev.msg, ev.good === false ? 'warn' : 'good');
+        // 学会格挡的第一次：让烛把用法说完（老玩家读过的不再复读）
+        if (ev.blockLearned) Tips.show('block');
         break;
       case 'altar':
         openAltar();
@@ -2451,9 +2471,10 @@
     $('btnCfg').addEventListener('click', openCfg);
     $('cfgClose').addEventListener('click', closeCfg);
     $('btnHelp').addEventListener('click', () => { openCfg(); });
-    $('btnReset').addEventListener('click', () => {
+    $('cfgClearSave').addEventListener('click', () => {
       Engine.reset();
       $('btnContinue').style.display = 'none';
+      refreshStartBadges();
       log('存档已清空');
       warn('存档已清空（成就、结局与余烬保留）');
     });
@@ -2481,7 +2502,6 @@
       warn(`本局已重置（成就、余烬与解锁保留）· 第 ${n} 次重来`);
     }
     $('cfgReset').addEventListener('click', () => { el.resetConfirmOverlay.classList.add('show'); });
-    $('btnResetRun').addEventListener('click', () => { el.resetConfirmOverlay.classList.add('show'); });
     $('resetCancel').addEventListener('click', () => { el.resetConfirmOverlay.classList.remove('show'); });
     $('resetConfirm').addEventListener('click', () => {
       el.resetConfirmOverlay.classList.remove('show');
@@ -2639,32 +2659,37 @@
   }
 
   // ---------- 立誓 ----------
+  // 首屏只回答一个问题：这局按哪条规矩走。余烬余额、还差几局、首通奖励一律不讲——
+  // 想解锁的人会去点下面那排小 chip，不想的人不该开屏就被一串数字埋掉。
   function openVow() {
-    // 面板上写明：卡上的 +N 是「额外」，每局本身还有基础 + 回响/结局/路遇
     const emberLine = $('vowEmber');
-    if (emberLine) {
-      const locked = Object.keys(D.vows).filter((id) => D.vows[id].ember && !Meta.has(id));
-      emberLine.textContent = locked.length
-        ? `✦ 余烬 ${Meta.ember} · 卡上是额外，每局基础 5+ · 「${D.vows[locked[0]].tag}」还差 ${Math.max(0, D.vows[locked[0]].ember - Meta.ember)}（约 ${Math.ceil(Math.max(0, D.vows[locked[0]].ember - Meta.ember) / Meta.avgEmber())} 局）`
-        : Meta.ember > 0 ? `✦ 余烬 ${Meta.ember} · 誓约已全解锁` : '';
-      emberLine.hidden = !emberLine.textContent;
-    }
-    el.vowCards.innerHTML = Object.keys(D.vows).map((id) => {
+    if (emberLine) { emberLine.hidden = true; emberLine.textContent = ''; }
+
+    const all = Object.keys(D.vows);
+    const lockedIds = all.filter((id) => D.vows[id].ember && !Meta.has(id));
+    const shown = all.filter((id) => lockedIds.indexOf(id) < 0);
+    el.vowCards.innerHTML = shown.map((id) => {
       const v = D.vows[id];
-      const locked = !!v.ember && !Meta.has(id);
-      const rewardWord = v.reward >= 12 ? `<small>吃苦的那条，留下的最多</small>` : v.reward === 0 ? `<small>基线，不额外加</small>` : '';
-      // 锁着的卡也写明解锁后的回报，别只看到一个成本数字
-      const firstWin = v.ember && !Meta.hasFirstWin(id) ? `<small>首通再 +${Math.round(v.ember / 2)}</small>` : '';
-      const line = locked
-        ? `🔒 ${v.ember} 余烬（有 ${Meta.ember} · 还差 ${Math.max(0, v.ember - Meta.ember)}）<br><small>解锁后每局额外 +${v.reward} · 首通再 +${Math.round(v.ember / 2)}</small>`
-        : `每局额外 +${v.reward || 0} 余烬${rewardWord}${firstWin}`;
-      return `<button class="vow-card ${id === 'none' ? 'hero' : ''} ${locked ? 'locked' : ''}" data-vow="${id}">
+      const line = v.reward ? `通关 +${v.reward} ✦` : '';
+      return `<button class="vow-card ${id === 'none' ? 'hero' : ''}" data-vow="${id}">
         <span class="vc-emoji">${v.emoji}</span>
         <span class="vc-name">${v.name}</span>
         <span class="vc-desc">${v.desc}</span>
-        <span class="${locked ? 'vc-lock' : 'vc-mul'}">${line}</span>
+        ${line ? `<span class="vc-mul">${line}</span>` : ''}
       </button>`;
     }).join('');
+    const lockBox = $('vowLocked');
+    if (lockBox) {
+      lockBox.hidden = !lockedIds.length;
+      lockBox.innerHTML = lockedIds.map((id) => {
+        const v = D.vows[id];
+        const short = Math.max(0, v.ember - Meta.ember);
+        return `<button class="vow-chip ${short > 0 ? 'poor' : ''}" data-lock="${id}" title="${v.desc}">🔒 ${v.name} · ${short > 0 ? `还差 ${short} ✦` : `可解锁 ${v.ember} ✦`}</button>`;
+      }).join('');
+      lockBox.querySelectorAll('.vow-chip').forEach((b) => {
+        b.addEventListener('click', () => chooseVow(b.dataset.lock));
+      });
+    }
     el.vowCards.querySelectorAll('.vow-card').forEach((b) => {
       b.addEventListener('click', () => chooseVow(b.dataset.vow));
     });

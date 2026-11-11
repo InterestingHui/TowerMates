@@ -7,9 +7,9 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="build" content="4037332457">
+<meta name="build" content="6bbf2d1bdd">
 <title>TowerMates · 魔塔</title>
-<link rel="stylesheet" href="css/style.css?v=4037332457">
+<link rel="stylesheet" href="css/style.css?v=6bbf2d1bdd">
 </head>
 <body>
 <div id="app">
@@ -119,11 +119,7 @@
       <button class="btn" id="btnBoard2">🏆 塔友榜</button>
       <button class="btn" id="btnHelp">❔ 玩法</button>
     </div>
-    <div class="start-ghost-row">
-      <button class="btn ghost" id="btnReset">清空存档</button>
-      <button class="btn ghost" id="btnResetRun">🗘 重置游戏</button>
-    </div>
-    <p class="hint">↑↓←→ / WASD 移动 · 点击格子移动 · 对白点击继续</p>
+    <p class="hint">方向键 / 点击格子移动</p>
   </div>
 </div>
 
@@ -132,10 +128,11 @@
 <div class="overlay" id="vowOverlay">
   <div class="vow-stage">
     <div class="vow-kicker">立 誓</div>
-    <p class="vow-desc">进塔之前，先给自己定一条规矩。<br>选了就改不回来——越难走的誓约，通关时留下的余烬越多。</p>
+    <p class="vow-desc">定一条规矩，选了改不回来。也可以不立。</p>
     <p class="vow-ember" id="vowEmber" hidden></p>
     <div class="vow-cards" id="vowCards"></div>
-    <div class="vow-hint">点一张开始 · 可以选「不立誓」</div>
+    <div class="vow-locked" id="vowLocked" hidden></div>
+    <div class="vow-hint">点一张开始</div>
   </div>
 </div>
 
@@ -268,6 +265,7 @@
       <button class="btn" id="cfgReset">🗘 重置游戏</button>
       <button class="btn primary" id="cfgClose">关闭</button>
     </div>
+    <button class="btn ghost" id="cfgClearSave">清空存档（保留成就）</button>
     <button class="btn ghost" id="cfgWipe">清空存档与成就</button>
   </div>
 </div>
@@ -438,17 +436,17 @@
   </div>
 </div>
 
-<script src="js/data.js?v=4037332457"></script>
-<script src="js/story.js?v=4037332457"></script>
-<script src="js/portraits.js?v=4037332457"></script>
-<script src="js/achievements.js?v=4037332457"></script>
-<script src="js/engine.js?v=4037332457"></script>
-<script src="js/render.js?v=4037332457"></script>
-<script src="js/main.js?v=4037332457"></script>
-<script src="js/challenge.js?v=4037332457"></script>
-<script src="js/wxbridge.js?v=4037332457"></script>
-<script src="js/touch.js?v=4037332457"></script>
-<script src="js/gate-forth.js?v=4037332457"></script>
-<script src="js/wxwire.js?v=4037332457"></script>
+<script src="js/data.js?v=6bbf2d1bdd"></script>
+<script src="js/story.js?v=6bbf2d1bdd"></script>
+<script src="js/portraits.js?v=6bbf2d1bdd"></script>
+<script src="js/achievements.js?v=6bbf2d1bdd"></script>
+<script src="js/engine.js?v=6bbf2d1bdd"></script>
+<script src="js/render.js?v=6bbf2d1bdd"></script>
+<script src="js/main.js?v=6bbf2d1bdd"></script>
+<script src="js/challenge.js?v=6bbf2d1bdd"></script>
+<script src="js/wxbridge.js?v=6bbf2d1bdd"></script>
+<script src="js/touch.js?v=6bbf2d1bdd"></script>
+<script src="js/gate-forth.js?v=6bbf2d1bdd"></script>
+<script src="js/wxwire.js?v=6bbf2d1bdd"></script>
 </body>
 </html>

@@ -214,13 +214,16 @@
         T.Meta.add(200);
         d.getElementById('btnNew').click();
         await wait(400);
-        const cardA = d.querySelector('#vowCards .vow-card[data-vow="ascetic"]');
-        if (cardA) cardA.click();
+        // 锁着的誓约现在是底部小 chip（不占卡片位），点它解锁后才变成卡
+        const chipA = d.querySelector('#vowLocked .vow-chip[data-lock="ascetic"]');
+        const before = d.querySelector('#vowCards .vow-card[data-vow="ascetic"]');
+        if (chipA) chipA.click();
         await wait(400);
         const meta = JSON.parse(localStorage.getItem('towermates_meta') || '{}');
         const cardB = d.querySelector('#vowCards .vow-card[data-vow="ascetic"]');
-        errBox.textContent = 'emberLeft=' + meta.ember + ' unlocked=' + (meta.unlocked || []).join('|')
-          + ' stillLocked=' + (cardB ? cardB.classList.contains('locked') : 'gone')
+        errBox.textContent = 'chipBefore=' + !!chipA + ' cardBefore=' + !!before
+          + ' emberLeft=' + meta.ember + ' unlocked=' + (meta.unlocked || []).join('|')
+          + ' cardAfter=' + !!cardB
           + ' vowOverlay=' + d.getElementById('vowOverlay').classList.contains('show')
           + ' err=' + (errs.length ? errs.join('|') : 'none');
         return;

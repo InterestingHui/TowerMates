@@ -119,11 +119,7 @@
       <button class="btn" id="btnBoard2">🏆 塔友榜</button>
       <button class="btn" id="btnHelp">❔ 玩法</button>
     </div>
-    <div class="start-ghost-row">
-      <button class="btn ghost" id="btnReset">清空存档</button>
-      <button class="btn ghost" id="btnResetRun">🗘 重置游戏</button>
-    </div>
-    <p class="hint">↑↓←→ / WASD 移动 · 点击格子移动 · 对白点击继续</p>
+    <p class="hint">方向键 / 点击格子移动</p>
   </div>
 </div>
 
@@ -132,10 +128,11 @@
 <div class="overlay" id="vowOverlay">
   <div class="vow-stage">
     <div class="vow-kicker">立 誓</div>
-    <p class="vow-desc">进塔之前，先给自己定一条规矩。<br>选了就改不回来——越难走的誓约，通关时留下的余烬越多。</p>
+    <p class="vow-desc">定一条规矩，选了改不回来。也可以不立。</p>
     <p class="vow-ember" id="vowEmber" hidden></p>
     <div class="vow-cards" id="vowCards"></div>
-    <div class="vow-hint">点一张开始 · 可以选「不立誓」</div>
+    <div class="vow-locked" id="vowLocked" hidden></div>
+    <div class="vow-hint">点一张开始</div>
   </div>
 </div>
 
@@ -268,6 +265,7 @@
       <button class="btn" id="cfgReset">🗘 重置游戏</button>
       <button class="btn primary" id="cfgClose">关闭</button>
     </div>
+    <button class="btn ghost" id="cfgClearSave">清空存档（保留成就）</button>
     <button class="btn ghost" id="cfgWipe">清空存档与成就</button>
   </div>
 </div>

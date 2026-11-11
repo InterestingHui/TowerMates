@@ -1379,6 +1379,8 @@ html, body {
   border-radius: 20px;
   display: inline-block;
 }
+/* hidden 属性要被尊重：否则 display:inline-block 会盖掉 UA 的 display:none，留下一个空胶囊 */
+.vow-ember[hidden] { display: none; }
 .vow-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
 .vow-card {
   display: flex;
@@ -1403,6 +1405,21 @@ html, body {
 .vow-card.hero { border-color: rgba(232, 196, 106, 0.45); }
 .vow-card.hero .vc-name { color: #ffe6a8; }
 .vow-hint { margin-top: 13px; font-size: 10px; color: #4e5666; letter-spacing: 1px; }
+/* 锁着的誓约：不占卡片，收成一排小 chips——首屏只留能选的那几张 */
+.vow-locked { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 10px; }
+.vow-chip {
+  font-family: inherit;
+  font-size: 10px;
+  color: #7d8698;
+  border: 1px dashed rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 20px;
+  padding: 3px 10px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.vow-chip:hover { color: var(--gold); border-color: rgba(232, 196, 106, 0.45); }
+.vow-chip.poor { opacity: 0.62; }
 @media (max-width: 380px) {
   .vow-cards { gap: 7px; }
   .vow-card { padding: 10px 6px; }
