@@ -58,10 +58,25 @@ const warded = E.predict('F');
 ok(plain.damage > 0 && warded.damage === Math.floor(plain.damage * 0.88), '守誓之盾让承伤 −12%');
 
 // ---------- 6. 商店与动态价格 ----------
-s.floor = 2; s.x = 4; s.y = 6; s.gold = 100;
+// 从地图里找商人，不写死坐标：关卡调整后这条测试不会跟着飘
+s.floor = 2; s.gold = 100;
 delete s.flags.buy_atk;
-ev = E.tryMove(1, 0);
-ok(ev.type === 'shop', '踩到商人弹出商店');
+let shopAt = null;
+for (let y = 0; y < 11 && !shopAt; y++) {
+  for (let x = 0; x < 11; x++) if (E.tile(x, y) === 'M') { shopAt = { x, y }; break; }
+}
+ok(!!shopAt, '商店层里有商人');
+let shopHit = false;
+if (shopAt) {
+  for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+    const sx = shopAt.x - dx, sy = shopAt.y - dy;
+    if (sx < 0 || sy < 0 || sx > 10 || sy > 10 || E.tile(sx, sy) === '#') continue;
+    s.x = sx; s.y = sy;
+    ev = E.tryMove(dx, dy);
+    if (ev.type === 'shop') { shopHit = true; break; }
+  }
+}
+ok(shopHit, '踩到商人弹出商店');
 const atk0 = s.atk;
 const buy1 = E.buy('atk');
 ok(buy1.type === 'buy' && s.atk === atk0 + 2 && s.gold === 40, '力量训练：攻击 +2，扣 60 金');
@@ -471,7 +486,7 @@ ok(chainOk, '十三层塔每一层都能正常上楼（含隐藏门）');
 const S = global.STORY;
 const need = ['intro', 'candle1', 'candle2', 'candle3', 'candle4', 'candle5', 'journal', 'merchant', 'merchant2', 'eighthSword', 'solitude', 'ch2', 'ch3', 'ch4', 'bossYan', 'afterYan', 'bossJu', 'afterJu', 'bossDuo', 'afterDuo', 'bossHeng', 'afterHeng', 'core', 'princessPlain', 'princessTrue', 'afterChoicePlain', 'afterChoiceTrue'];
 ok(need.every((k) => Array.isArray(S[k]) && S[k].length), '所有剧情段都存在且非空');
-ok(S.intro.length === 6, '序章 6 句（多一句「塔只有六层」的假象）');
+ok(S.intro.length === 7, '序章 7 句（公主主动线 + 「塔只有六层」的假象）');
 ok(S.bossJu.some((l) => String(l[1]).includes('肩上')), '魔王提到薇拉小时候');
 ok(S.merchant.some((l) => String(l[1]).includes('铜币')), '三十枚铜币移到商人台词');
 ok(!!S.endingTrue.epilogue && !!S.endingPlain.epilogue, '两个结局都有后日谈');

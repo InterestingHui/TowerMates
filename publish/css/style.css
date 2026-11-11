@@ -454,6 +454,29 @@ html, body {
 }
 .dlg-text.think { color: #a9b6c9; font-style: italic; }
 .dlg-box.narration .dlg-text { color: #b7c0d0; }
+/* 关键提示里的重点：金色加粗，扫一眼不会漏 */
+.dlg-text strong, .dlg-text b, .guide strong, .guide b, .echo-hint strong, .echo-hint b {
+  color: var(--gold);
+  font-weight: 800;
+  text-shadow: 0 0 12px rgba(232, 196, 106, 0.25);
+}
+/* 角色提示比剧情对白轻一层：遮罩更淡 + 青色边框和「提示」角标 */
+/* 角色提示比剧情对白轻一层：上半屏仍能看见地图，底部压深以盖住滚动日志 */
+.overlay.dialog.hint-mode {
+  background: linear-gradient(180deg, rgba(3, 5, 9, 0.55) 0%, rgba(3, 5, 9, 0.55) 72%, rgba(3, 5, 9, 0.96) 100%);
+}
+.overlay.dialog.hint-mode .dlg-box { border-color: rgba(159, 216, 255, 0.42); }
+.overlay.dialog.hint-mode .dlg-box::before {
+  background: linear-gradient(180deg, transparent, var(--cyan), transparent);
+  opacity: 0.8;
+}
+.overlay.dialog.hint-mode .dlg-box::after {
+  content: "提 示";
+  position: absolute; right: 11px; top: 9px;
+  font-size: 9px; letter-spacing: 2px; color: var(--cyan);
+  border: 1px solid rgba(159, 216, 255, 0.32); border-radius: 8px;
+  padding: 1px 6px; pointer-events: none;
+}
 .dlg-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; gap: 8px; }
 .dlg-cue { flex: 1; text-align: center; font-size: 10.5px; color: var(--dim); animation: cueBlink 1.2s infinite; }
 @keyframes cueBlink { 0%, 100% { opacity: 0.85; } 50% { opacity: 0.25; } }
@@ -723,12 +746,13 @@ html, body {
   z-index: 45;
   pointer-events: none;
   transition: transform 0.26s cubic-bezier(0.22, 1.3, 0.36, 1);
-  white-space: nowrap;
+  white-space: normal;
+  text-align: center;
+  line-height: 1.5;
   max-width: 92vw;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 #warnPill.show { transform: translate(-50%, 0); }
+#warnPill strong, #warnPill b { color: #fff; font-weight: 800; }
 
 /* ================= 成就吐司 ================= */
 #toast {
@@ -978,12 +1002,14 @@ html, body {
   font-weight: 700;
   line-height: 1;
   color: var(--gold);
-  min-width: 30px;
+  min-width: 52px;
+  white-space: nowrap;
   text-align: center;
 }
-.es-grade.S { color: #ffd27d; text-shadow: 0 0 16px rgba(255, 210, 125, 0.7); }
-.es-grade.A { color: #ffe6a8; }
-.es-grade.C { color: var(--muted); }
+.es-grade.clear { color: #ffd27d; text-shadow: 0 0 16px rgba(255, 210, 125, 0.7); }
+.es-grade.ward { color: #ffe6a8; }
+.es-grade.name { color: #e2cfa6; }
+.es-grade.rough { color: var(--muted); }
 .es-meta { flex: 1; font-size: 10.5px; color: var(--muted); line-height: 1.5; }
 .es-num { font-size: 18px; font-weight: 700; color: #fff; font-variant-numeric: tabular-nums; }
 .es-num small { font-size: 10px; color: var(--dim); margin-left: 2px; font-weight: 400; }

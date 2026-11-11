@@ -60,6 +60,51 @@ D.floors.forEach((f, fi) => {
   if (isolated) err(`${isolated} 个格子不可达`);
 });
 
+// ---------- 关键通道：入口 → 上楼 ----------
+// 商店 M / 祭坛 X / 路遇 ? / 剧情 J 踩上去会弹全屏遮罩并中断自动寻路。
+// 一旦它成为上下层之间唯一的通道格，玩家每次点远处都被拦下，等于把这一层锁死。
+// Boss 与门是设计上允许堵路的（打掉 / 开门即可），不在此列。
+const OVERLAY_TILES = new Set(['M', 'X', '?', 'J', 'K', 'T']);
+function bfsReach(f, from, to, ban) {
+  if (!from || !to) return false;
+  const seen = Array.from({ length: SIZE }, () => new Array(SIZE).fill(false));
+  const q = [from];
+  seen[from[1]][from[0]] = true;
+  while (q.length) {
+    const [x, y] = q.shift();
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = x + dx, ny = y + dy;
+      if (nx < 0 || ny < 0 || nx >= SIZE || ny >= SIZE) continue;
+      if (seen[ny][nx] || f.map[ny][nx] === '#') continue;
+      if (ban && nx === ban[0] && ny === ban[1]) continue;
+      if (nx === to[0] && ny === to[1]) return true;
+      seen[ny][nx] = true;
+      q.push([nx, ny]);
+    }
+  }
+  return false;
+}
+D.floors.forEach((f, fi) => {
+  const entryCh = fi === 0 ? '@' : 'n';
+  let from = null, to = null;
+  f.map.forEach((row, y) => {
+    const a = row.indexOf(entryCh), b = row.indexOf('u');
+    if (a >= 0) from = [a, y];
+    if (b >= 0) to = [b, y];
+  });
+  if (!to) return; // 顶层 / 隐藏层没有上楼
+  if (!bfsReach(f, from, to)) { err(`第 ${fi + 1} 层：入口到上楼不连通`); return; }
+  const choke = [];
+  for (let y = 0; y < SIZE; y++) {
+    for (let x = 0; x < SIZE; x++) {
+      const ch = f.map[y][x];
+      if (ch === '#' || ch === 'u' || ch === entryCh) continue;
+      if (OVERLAY_TILES.has(ch) && !bfsReach(f, from, to, [x, y])) choke.push(`${ch}(${x},${y})`);
+    }
+  }
+  if (choke.length) err(`第 ${fi + 1} 层：会弹遮罩的格子焊死在唯一通路上 ${choke.join(' ')}`);
+});
+
 // 章节结构：四章、每章三层、章末一位 Boss，Boss 必须站在该章最后一层
 if (D.chapters.length !== 4) err(`章节数应为 4，实际 ${D.chapters.length}`);
 D.chapters.forEach((ch) => {

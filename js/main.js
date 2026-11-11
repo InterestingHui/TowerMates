@@ -65,6 +65,17 @@
         save();
         say(lines);
       },
+      // 战斗中不能弹全屏对白：改用底部常驻提示条，读完 6.5s 或下一条顶替
+      banner(key) {
+        const lines = (S.hints && S.hints[key]) ||
+          (S.tips && S.tips[key] ? [['烛', S.tips[key], 'calm']] : null);
+        if (!lines) return;
+        const g = $('guide');
+        renderRich($('guideText'), Array.isArray(lines[0]) ? lines[0][1] : lines[0]);
+        g.classList.add('show');
+        clearTimeout(guideTimer);
+        guideTimer = setTimeout(() => g.classList.remove('show'), 6500);
+      },
       mark(key) { if (seen[key]) return false; seen[key] = 1; save(); return true; },
       seen(key) { return !!seen[key]; },
       reset() { seen = {}; try { localStorage.removeItem(KEY); } catch (e) {} },
@@ -872,7 +883,7 @@
     el.bsBlock.classList.remove('done');
     el.bsBlock.disabled = !canB;
     el.bsBlock.innerHTML = `<b>🛡 格挡</b><span>本层一次 · 承伤 −${Math.round((1 - scaleWhenBlocked) * 100)}%</span>`;
-    if (worth && !Tips.seen('block')) Tips.show('block');
+    if (worth && Tips.mark('block')) Tips.banner('block');
     el.bsBlock.onclick = (e) => {
       e.stopPropagation();
       if (!canB || blockOn) return;
@@ -1075,12 +1086,13 @@
     el.echoRings.querySelectorAll('.echo-ring').forEach((b) => {
       b.addEventListener('click', () => chooseRing(b.dataset.id));
     });
-    el.echoHint.textContent = echo.pending ? '点一枚装上 · 也可按 1 / 2 / 3 · 选了不能换' : '';
+    renderRich(el.echoHint, echo.pending
+      ? '点一枚装上 · 也可按 1 / 2 / 3 · **选了不能换**'
+      : '');
     el.echoClose.hidden = !!echo.pending;
     el.echoOverlay.classList.add('show');
     Sound.play('relic');
     vibrate([10, 20, 10]);
-    Tips.show('echo');
     Achievements.evaluate('echo', s, notifyAchievement);
     if (!REDUCED()) {
       Renderer.pulse();
@@ -1155,17 +1167,29 @@
       Renderer.shake(130, 2.5);
       if (m.boss) {
         const shop = nearestShopFloor(s.floor);
-        warn(`打不过。回第 ${shop} 层找秤，把金币换成力量。`);
+        if (Tips.mark('toostrong')) sayHint('tooStrongBoss', { n: shop });
+        else warn(`打不过 · **回第 ${shop} 层找秤**`);
         log(`${m.name}太强了。塔里还有没清完的怪，或者回第 ${shop} 层找秤。`, 'warn');
       } else {
-        warn(pred.reason === '攻击力不足，无法破防' ? '攻击力不足，无法破防' : '这一战会要你的命，先变强吧');
+        const shop2 = nearestShopFloor(s.floor);
+        if (Tips.mark('toostrong')) sayHint('tooStrong', { n: shop2 });
+        else warn(pred.reason === '攻击力不足，无法破防' ? '**攻击力不足，无法破防**' : '这一战会要你的命，**先变强吧**');
         log(`无法战胜${m.name}：${pred.reason}`, 'warn');
+      }
+      // 破不了防时给出可操作的数字：还差几点攻击、去哪儿补
+      if (pred.reason === '攻击力不足，无法破防') {
+        log(`破防要攻击 ≥ ${m.def + 1}（当前 ${s.atk}，还差 ${m.def + 1 - s.atk}）：去这一层/第 ${nearestShopFloor(s.floor)} 层的货摊买力量训练，或先拿遗物。`, 'warn');
       }
       return;
     }
 
-    // 用格挡才打得过的战斗：先把"格挡"教给玩家，只教一次
-    if (pred.blockSave) Tips.show('blocksave');
+    // 用格挡才打得过的战斗：开战前直接由烛把话说明白，玩家读完再打
+    // 不走提示队列——这条必须赶在开战前，排队会等到战斗结束，就失去意义了
+    if (pred.blockSave && Tips.mark('blocksave')) {
+      playStory(S.hints.blocksave, () => resolveBattle(dx, dy), '知道了 · 点击开打');
+      el.dialogOverlay.classList.add('hint-mode');
+      return;
+    }
 
     if (m.boss && !s.flags['boss_seen_' + ch]) {
       s.flags['boss_seen_' + ch] = true;
@@ -1229,7 +1253,7 @@
           log(res.msg, 'good');
           if (res.item.codex) {
             Renderer.ring(before.x, before.y, 'rgba(180,160,255,0.9)', TN() * 2.4, 600);
-            warn('窥探之镜已解锁：地图上会标出每只怪的预计伤害');
+            sayHint('codex');
           }
           if (res.item.relic) {
             Renderer.ring(before.x, before.y, 'rgba(255,225,150,0.9)', TN() * 2.6, 620);
@@ -1371,7 +1395,7 @@
     heartFocus = null;
     document.querySelectorAll('#heartOverlay .choice-card').forEach((c) => c.classList.remove('focus'));
     el.heartOverlay.classList.add('show');
-    warn('石头在跳。你可以带走它，也可以让它留在这儿。');
+    warn('石头在跳。**带走它**，或者**让它留在这儿**——这一下会写进结局。');
   }
 
   function setHeartFocus(which) {
@@ -1523,7 +1547,6 @@
       <span class="es-meta">${s.ending === 'true' ? '真结局' : '普通结局'}${s.flags.heart === 'taken' ? ' · 塔心带走' : s.flags.heart === 'left' ? ' · 塔心留下' : ''} · 塔规 ${gs.done}/${gs.total} · 章印 ${echoDone}/4 · 遗物 ${relicIds.length} · 锁环 ${ringList.length}</span>
       <span class="es-num">✦ ${emberGain}<small>余烬</small></span>`;
     $('endScore').title = `塔印「${sealDef.name}」：${sealDef.desc}`;
-    $('endScore').classList.remove('with-vow');
     $('endTag').textContent = sealDef.desc;
     const brief = [];
     brief.push(`带走 ${relicIds.length} 件遗物 · 击杀 ${s.flags.killCount || 0} 只`);
@@ -2227,7 +2250,7 @@
       if (r === 'ok') {
         Sound.play('relic');
         vibrate([10, 24, 10]);
-        warn(`塔记住了你：解锁「${v.name}」`);
+        warn(`**塔记住了你**：解锁「**${v.name}**」`, 5200);
       }
       openVow();
       return;
@@ -2332,6 +2355,8 @@
     showFloorCard, showEndingChoice, completeEnding, setChoiceFocus, openHeart, chooseHeart, setHeartFocus, openVow, chooseVow, openEvent, chooseEvent, openGate, jumpTo: (i) => doJump(i), Meta,
     resolveBattle, act, clickMove, refreshHud, refreshStartBadges,
     openEcho, chooseRing, closeEcho, resumePendingRing, setChapterColor, refreshCfg,
+    // 提示系统：自动化可验证「加粗渲染 + 角色提示对白」
+    richInto: renderRich, say, sayHint, warn, Tips,
   };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);

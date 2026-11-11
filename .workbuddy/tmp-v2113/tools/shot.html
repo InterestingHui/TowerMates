@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>shot</title>
+<style>body{margin:0;background:#05070c;overflow:hidden}#err{position:fixed;left:0;top:0;width:430px;color:#00ff88;font:16px/1.35 monospace;background:#000;padding:8px;z-index:99;white-space:pre-wrap}#err:empty{display:none}</style>
+</head>
+<body>
+<iframe id="f" style="width:430px;height:900px;border:0;display:block"></iframe>
+<script>if(location.search.indexOf("w=")>-1){var W=Number(new URLSearchParams(location.search).get("w"))||430;document.getElementById("f").style.width=W+"px";}</script>
+<pre id="err"></pre>
+<script>
+  const q = new URLSearchParams(location.search);
+  const scene = q.get('scene') || 'start';
+  const f = document.getElementById('f');
+  const errBox = document.getElementById('err');
+  const errs = [];
+  const base = q.get('page') || '/index.html';
+  const VOWPICK = q.get('vow') || 'none';
+  // ?zoom=2：把游戏画布放大 N 倍再截（验证画布内细节用）
+  const ZOOM = Number(q.get('zoom')) || 1;
+  if (ZOOM !== 1) {
+    const st2 = document.createElement('style');
+    st2.textContent = '#f{transform-origin:top left;transform:scale(' + ZOOM + ')}body{width:' + (430 * ZOOM) + 'px;height:' + (900 * ZOOM) + 'px}';
+    document.head.appendChild(st2);
+  }
+  const src = {
+    floor5: base + '?dev=1#demo=4,2,8',
+    battle: base + '?dev=1#demo=0,2,3',
+    battleblock: base + '?dev=1#demo=0,2,3',
+    shop: base + '?dev=1#demo=2,4,3',
+    tower: base + '?dev=1#demo=5,5,7',
+    core: base + '?dev=1#demo=12,5,8',
+    stoneidle: base + '?dev=1#demo=12,5,8',
+  }[scene] || base + '?dev=1';
+  f.src = src;
+
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  f.onload = async () => {
+    const w = f.contentWindow, d = f.contentDocument;
+    w.addEventListener('error', (e) => errs.push('JS: ' + e.message));
+    w.addEventListener('unhandledrejection', (e) => errs.push('Promise: ' + (e.reason && e.reason.message)));
+    try {
+      await wait(500);
+      try {
+        const st = d.createElement('style');
+        st.textContent = '*{animation:none!important;transition:none!important}';
+        d.head.appendChild(st);
+      } catch (e) {}
+      await wait(120);
+      const T = w.__tm;
+      const E = w.Engine;
+      if (scene === 'start' || scene === 'floor5' || scene === 'battle' || scene === 'battleblock' || scene === 'shop' || scene === 'tower' || scene === 'core') {
+        if (scene === 'battleblock') {
+          await wait(200);
+          w.__battleSpeed = 4;
+          w.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'ArrowUp' }));
+          await wait(420);
+          const bb = d.getElementById('bsBlock');
+          if (bb) bb.click();
+          await wait(300);
+        }
+        if (scene === 'battle') {
+          await wait(200);
+          w.__battleSpeed = 30;
+          w.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'ArrowUp' }));
+          await wait(300);
+        }
+        if (scene === 'shop') {
+          await wait(200);
+          E.state().gold = 260;
+          T.openShop();
+          await wait(400);
+        }
+        if (scene === 'tower') {
+          T.showFloorCard(5);
+          await wait(400);
+        }
+      } else if (scene === 'dialog') {
+        d.getElementById('btnNew').click();
+        await wait(200);
+        const _vc = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
+        if (_vc) _vc.click();
+        await wait(260);
+        d.getElementById('dialogOverlay').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        await wait(200);
+        for (let i = 0; i < 5; i++) {
+          d.getElementById('dialogOverlay').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+          await wait(80);
+        }
+        T.playStory('candle2');
+        await wait(500);
+      } else if (scene === 'boss') {
+        d.getElementById('btnNew').click();
+        await wait(200);
+        const _vc = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
+        if (_vc) _vc.click();
+        await wait(260);
+        T.playStory('bossJu');
+        await wait(500);
+        for (let i = 0; i < 4; i++) {
+          d.getElementById('dialogOverlay').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+          await wait(60);
+        }
+        await wait(200);
+      } else if (scene === 'vera') {
+        d.getElementById('btnNew').click();
+        await wait(200);
+        const _vc = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
+        if (_vc) _vc.click();
+        await wait(260);
+        T.playStory('princessTrue');
+        await wait(400);
+        for (let i = 0; i < 2; i++) {
+          d.getElementById('dialogOverlay').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+          await wait(60);
+        }
+        await wait(300);
+      } else if (scene === 'choice') {
+        d.getElementById('btnNew').click();
+        await wait(200);
+        const _vc = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
+        if (_vc) _vc.click();
+        await wait(260);
+        T.showEndingChoice();
+        T.setChoiceFocus('true');
+        await wait(700);
+      } else if (scene === 'end') {
+        d.getElementById('btnNew').click();
+        await wait(200);
+        const _vc = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
+        if (_vc) _vc.click();
+        await wait(260);
+        const s = E.state();
+        s.ending = 'true'; s.won = true; s.startedAt = Date.now() - 360000;
+        s.flags.journal = true; s.flags.relic_ward = true; s.flags.relic_edge = true;
+        T.showEnd();
+        await wait(600);
+      } else if (scene === 'board') {
+        d.getElementById('btnNew').click();
+        await wait(200);
+        const _vc = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
+        if (_vc) _vc.click();
+        await wait(260);
+        const s = E.state();
+        try {
+          localStorage.setItem('towermates_board', JSON.stringify([
+            { ending: 'true', floor: 7, level: 9, steps: 520, time: 905, score: 1680, vow: 'greed' },
+            { ending: 'plain', floor: 6, level: 7, steps: 610, time: 1100, score: 1210, vow: 'guard' },
+          ]));
+        } catch (e) {}
+        T.openBoard();
+        await wait(400);
+      } else if (scene === 'codex') {
+        d.getElementById('btnNew').click();
+        await wait(200);
+        const _vc = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
+        if (_vc) _vc.click();
+        await wait(260);
+        const s = E.state();
+        s.flags.codex = true; s.floor = 4; s.atk = 30; s.def = 22;
+        T.openCodex();
+        await wait(400);
+      } else if (scene === 'cfg') {
+        d.getElementById('btnNew').click();
+        await wait(200);
+        const _vc = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
+        if (_vc) _vc.click();
+        await wait(260);
+        T.openCfg();
+        await wait(400);
+      } else if (scene === 'bossphase') {
+        d.getElementById('btnNew').click();
+        await wait(200);
+        const _vc = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
+        if (_vc) _vc.click();
+        await wait(260);
+        const dlC = d.getElementById('dialogOverlay');
+        for (let i = 0; i < 8; i++) { dlC.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
+        const sC = E.state();
+        sC.floor = 5; sC.x = 5; sC.y = 6; sC.hp = 3000; sC.maxHp = 3000; sC.atk = 60; sC.def = 40;
+        sC.flags.boss = true;
+        T.refreshHud();
+        T.resolveBattle(0, -1);
+        await wait(500);
+      } else if (scene === 'gate') {
+        d.getElementById('btnNew').click();
+        await wait(200);
+        const _vcg = d.querySelector('#vowCards .vow-card[data-vow="none"]');
+        if (_vcg) _vcg.click();
+        await wait(260);
+        const dlG2 = d.getElementById('dialogOverlay');
+        for (let i = 0; i < 8; i++) { dlG2.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
+        const sG2 = E.state();
+        sG2.flags.relic_gate = true;
+        sG2.flags.maxFloor = 4;
+        T.refreshHud();
+        T.openGate();
+        await wait(500);
+      } else if (scene === 'vowbuy') {
+        T.Meta.add(200);
+        d.getElementById('btnNew').click();
+        await wait(400);
+        const cardA = d.querySelector('#vowCards .vow-card[data-vow="ascetic"]');
+        if (cardA) cardA.click();
+        await wait(400);
+        const meta = JSON.parse(localStorage.getItem('towermates_meta') || '{}');
+        const cardB = d.querySelector('#vowCards .vow-card[data-vow="ascetic"]');
+        errBox.textContent = 'emberLeft=' + meta.ember + ' unlocked=' + (meta.unlocked || []).join('|')
+          + ' stillLocked=' + (cardB ? cardB.classList.contains('locked') : 'gone')
+          + ' vowOverlay=' + d.getElementById('vowOverlay').classList.contains('show')
+          + ' err=' + (errs.length ? errs.join('|') : 'none');
+        return;
+      } else if (scene === 'eventdeep') {
+        d.getElementById('btnNew').click();
+        await wait(200);
+        const _vc3 = d.querySelector('#vowCards .vow-card[data-vow="none"]');
+        if (_vc3) _vc3.click();
+        await wait(260);
+        const dlD = d.getElementById('dialogOverlay');
+        for (let i = 0; i < 8; i++) { dlD.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
+        const sD = E.state();
+        sD.floor = 4; sD.gold = 120;
+        T.refreshHud();
+        T.openEvent('broker');
+        await wait(600);
+      } else if (scene === 'event') {
+        d.getElementById('btnNew').click();
+        await wait(200);
+        const _vc2 = d.querySelector('#vowCards .vow-card[data-vow="none"]');
+        if (_vc2) _vc2.click();
+        await wait(260);
+        const dlE = d.getElementById('dialogOverlay');
+        for (let i = 0; i < 8; i++) { dlE.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
+        const sE = E.state();
+        sE.x = 4; sE.y = 4; sE.gold = 200;
+        T.refreshHud();
+        T.openEvent('herbalist');
+        await wait(600);
+      } else if (scene === 'vow') {
+        d.getElementById('btnNew').click();
+        await wait(600);
+      } else if (scene === 'stoneidle') {
+        const sI = E.state();
+        const rowI = sI.maps[12][5];
+        if (typeof rowI === 'string') sI.maps[12][5] = rowI.split('');
+        sI.maps[12][5][5] = '.';
+        sI.flags.heart = 'taken';
+        sI.flags.heartAt = [5, 5];
+        sI.flags.relic_heart = true;
+        T.refreshHud();
+        await wait(1200);
+      } else if (scene === 'stonegone') {
+        d.getElementById('btnNew').click();
+        await wait(200);
+        const _vc = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
+        if (_vc) _vc.click();
+        await wait(260);
+        const dlG = d.getElementById('dialogOverlay');
+        for (let i = 0; i < 8; i++) { dlG.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
+        const sG = E.state();
+        sG.floor = 12; sG.x = 5; sG.y = 6;
+        T.refreshHud();
+        T.act(0, -1);
+        await wait(300);
+        d.getElementById('heartTake').click();
+        await wait(500);
+        d.getElementById('dlgSkip').click();
+        await wait(400);
+        w.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'ArrowLeft' }));
+        await wait(1800);
+      } else if (scene === 'hearttake') {
+        d.getElementById('btnNew').click();
+        await wait(200);
+        const _vc = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
+        if (_vc) _vc.click();
+        await wait(260);
+        const dlT = d.getElementById('dialogOverlay');
+        for (let i = 0; i < 8; i++) { dlT.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
+        const sT = E.state();
+        sT.floor = 12; sT.x = 5; sT.y = 6;
+        T.refreshHud();
+        T.act(0, -1);
+        await wait(400);
+        d.getElementById('heartTake').click();
+        await wait(700);
+        const relics = d.querySelectorAll('#relicRow .relic.on').length;
+        errBox.textContent = 'heart=' + E.state().flags.heart
+          + ' maxHp=' + E.state().maxHp
+          + ' overlay=' + d.getElementById('heartOverlay').classList.contains('show')
+          + ' dialog=' + dlT.classList.contains('show')
+          + ' who=' + d.getElementById('dlgWho').textContent
+          + ' relics=' + relics
+          + ' err=' + (errs.length ? errs.join('|') : 'none');
+        return;
+      } else if (scene === 'heart') {
+        d.getElementById('btnNew').click();
+        await wait(200);
+        const _vc = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
+        if (_vc) _vc.click();
+        await wait(260);
+        const dlH = d.getElementById('dialogOverlay');
+        for (let i = 0; i < 8; i++) { dlH.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
+        const sH = E.state();
+        sH.floor = 12; sH.x = 5; sH.y = 6;
+        T.refreshHud();
+        T.act(0, -1);
+        await wait(500);
+        T.setHeartFocus('take');
+        await wait(300);
+      } else if (scene === 'altar5') {
+        d.getElementById('btnNew').click();
+        await wait(200);
+        const _vc = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
+        if (_vc) _vc.click();
+        await wait(260);
+        const dlB = d.getElementById('dialogOverlay');
+        for (let i = 0; i < 8; i++) { dlB.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
+        const sB = E.state();
+        sB.floor = 4; sB.x = 8; sB.y = 1;
+        T.refreshHud();
+        T.act(1, 0);
+        await wait(600);
+      } else if (scene === 'altar') {
+        d.getElementById('btnNew').click();
+        await wait(200);
+        const _vc = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
+        if (_vc) _vc.click();
+        await wait(260);
+        const dlA = d.getElementById('dialogOverlay');
+        for (let i = 0; i < 8; i++) { dlA.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
+        const sA = E.state();
+        sA.floor = 2; sA.x = 7; sA.y = 8; sA.gold = 180;
+        T.refreshHud();
+        T.act(1, 0);
+        await wait(600);
+      } else if (scene === 'echo') {
+        d.getElementById('btnNew').click();
+        await wait(200);
+        const _vc = d.querySelector('#vowCards .vow-card[data-vow="none"]');
+        if (_vc) _vc.click();
+        await wait(260);
+        const dlE = d.getElementById('dialogOverlay');
+        for (let i = 0; i < 8; i++) { dlE.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
+        const sE = E.state();
+        sE.floor = 2;
+        sE.floorEnter = { floor: 2, kills: 0, shop: 0, hp: sE.hp, maxHp: sE.maxHp };
+        sE.flags.goal_0 = true; sE.flags.goal_1 = true; sE.flags.goal_2 = true;
+        const ec = E.settleChapter(1);
+        T.openEcho(ec);
+        await wait(600);
+      } else if (scene === 'goal') {
+        d.getElementById('btnNew').click();
+        await wait(200);
+        const _vc = d.querySelector('#vowCards .vow-card[data-vow="none"]');
+        if (_vc) _vc.click();
+        await wait(260);
+        const dlG = d.getElementById('dialogOverlay');
+        for (let i = 0; i < 8; i++) { dlG.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
+        const sG = E.state();
+        sG.floor = 6;
+        sG.floorEnter = { floor: 6, kills: 0, shop: 0, hp: sG.hp, maxHp: sG.maxHp };
+        sG.flags.rings = ['lamp', 'bell'];
+        sG.flags.relic_ward = true;
+        sG.hp = 2100; sG.maxHp = 3200; sG.atk = 70; sG.def = 42; sG.gold = 460; sG.level = 11;
+        T.refreshHud();
+        T.showFloorCard(6);
+        await wait(600);
+      } else if (scene === 'hud') {
+        d.getElementById('btnNew').click();
+        await wait(200);
+        const _vc = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
+        if (_vc) _vc.click();
+        await wait(260);
+        const dl2 = d.getElementById('dialogOverlay');
+        for (let i = 0; i < 8; i++) { dl2.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
+        const s5 = E.state();
+        s5.flags.relic_ward = true; s5.flags.relic_edge = true; s5.flags.relic_ember = true;
+        s5.atk = 34; s5.def = 26; s5.gold = 320; s5.level = 5; s5.exp = 70;
+        s5.hp = 180; s5.maxHp = 1200;
+        s5.flags.codex = true;
+        T.refreshHud();
+        try { d.getElementById('guide').classList.add('show'); d.getElementById('guideText').textContent = '点你想去的格子，会自动寻路过去；方向键走一格。'; } catch (e) {}
+        await wait(300);
+      } else if (scene === 'flow') {
+        const out = [];
+        d.getElementById('btnNew').click();
+        await wait(200);
+        const _vc = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
+        if (_vc) _vc.click();
+        await wait(260);
+        const dl = d.getElementById('dialogOverlay');
+        for (let i = 0; i < 8; i++) { dl.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
+        await wait(200);
+        // 1) 进入密道 → 自动播放 candle2
+        const s3 = E.state();
+        s3.floor = 2; s3.x = 2; s3.y = 1; T.refreshHud();
+        T.act(-1, 0);
+        await wait(400);
+        out.push('floor=' + (E.state().floor + 1) + ' candle2Dialog=' + dl.classList.contains('show')
+          + ' portrait=' + (d.getElementById('dlgPortrait').childElementCount ? 'yes' : 'no')
+          + ' who=' + d.getElementById('dlgWho').textContent);
+        // playSequence 会连播两段（ch2 → candle2），必须清到对白层真正关闭
+        for (let i = 0; i < 24; i++) {
+          if (!dl.classList.contains('show')) break;
+          d.getElementById('dlgSkip').click();
+          await wait(90);
+        }
+        await wait(200);
+        out.push('skipDialog=' + !dl.classList.contains('show'));
+        // 2) 塔顶 → 公主 → 抉择
+        const s4 = E.state();
+        s4.floor = 11; s4.x = 5; s4.y = 2; s4.flags.journal = true;
+        T.act(0, -1);
+        await wait(400);
+        out.push('princessDialog=' + dl.classList.contains('show') + ' who=' + d.getElementById('dlgWho').textContent);
+        const choice = d.getElementById('choiceOverlay');
+        for (let i = 0; i < 24; i++) {
+          if (!dl.classList.contains('show') || choice.classList.contains('show')) break;
+          dl.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+          await wait(70);
+        }
+        await wait(300);
+        out.push('choiceShown=' + choice.classList.contains('show'));
+        d.getElementById('choiceTrue').click();
+        await wait(300);
+        for (let i = 0; i < 24; i++) {
+          if (!dl.classList.contains('show')) break;
+          dl.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+          await wait(60);
+        }
+        await wait(500);
+        out.push('endShown=' + d.getElementById('endOverlay').classList.contains('show')
+          + ' ending=' + E.state().ending
+          + ' title=' + d.getElementById('endTitle').textContent);
+        errBox.textContent = out.join('\n') + '\nerr=' + (errs.length ? errs.join('|') : 'none');
+        return;
+      } else if (scene === 'critters') {
+        d.getElementById('btnNew').click();
+        await wait(200);
+        const _vc = d.querySelector('#vowCards .vow-card[data-vow="none"]');
+        if (_vc) _vc.click();
+        await wait(260);
+        const dlC = d.getElementById('dialogOverlay');
+        for (let i = 0; i < 8; i++) { dlC.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
+        // 三只小生物固定摆在画面中部：萤火虫 / 飞蛾 / 蝙蝠（悬停态）
+        w.Renderer.__placeCritters();
+        await wait(150);
+        errBox.textContent = 'critters=' + JSON.stringify(w.Renderer.__critters()) + ' err=' + (errs.length ? errs.join('|') : 'none');
+        await wait(600);
+      } else if (scene === 'auto') {
+        const cv = d.getElementById('game');
+        const clickTile = (tx, ty) => {
+          const r = cv.getBoundingClientRect();
+          const size = r.width / 11;
+          cv.dispatchEvent(new w.MouseEvent('click', { bubbles: true, clientX: r.left + (tx + 0.5) * size, clientY: r.top + (ty + 0.5) * size }));
+        };
+        d.getElementById('btnNew').click();
+        await wait(200);
+        const _vc = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
+        if (_vc) _vc.click();
+        await wait(260);
+        const dl = d.getElementById('dialogOverlay');
+        for (let i = 0; i < 8; i++) { dl.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(60); }
+        await wait(300);
+        clickTile(8, 9);
+        await wait(4000);
+        clickTile(8, 9);
+        await wait(4000);
+        const s2 = E.state();
+        errBox.textContent = 'AUTO floor=' + (s2.floor + 1) + ' pos=' + s2.x + ',' + s2.y + ' hp=' + s2.hp + ' gold=' + s2.gold + ' keys=' + s2.keys.y + '/' + s2.keys.r
+          + ' dialog=' + d.getElementById('dialogOverlay').classList.contains('show')
+          + ' err=' + (errs.length ? errs.join('|') : 'none');
+        return;
+      } else if (scene === 'play') {
+        d.getElementById('btnNew').click();
+        await wait(200);
+        const _vc = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
+        if (_vc) _vc.click();
+        await wait(260);
+        for (let i = 0; i < 6; i++) { d.getElementById('dialogOverlay').dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(70); }
+        await wait(500);
+      }
+      await wait(600);
+      const q2 = [];
+      if (q.get('measure') === '1') ['bsHeroBar','bsFoeBar','bsHero','bsFoe','bsName','battleScene'].forEach((id) => {
+        const n = d.getElementById(id);
+        if (!n) return;
+        const r = n.getBoundingClientRect();
+        q2.push(id + ':' + Math.round(r.width) + 'x' + Math.round(r.height) + '@' + Math.round(r.left) + ',' + Math.round(r.top) + ' bg=' + getComputedStyle(n).width);
+      });
+      errBox.textContent = (errs.length ? 'JS 错误：\n' + errs.join('\n') : '') + (q2.length ? '\n' + q2.join('\n') : '');
+    } catch (e) {
+      errBox.textContent = 'HARNESS: ' + e.message;
+    }
+  };
+</script>
+</body>
+</html>

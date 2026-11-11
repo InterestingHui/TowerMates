@@ -31,6 +31,12 @@
     core: base + '?dev=1#demo=12,5,8',
     stoneidle: base + '?dev=1#demo=12,5,8',
   }[scene] || base + '?dev=1';
+  // 截图场景不触发新手提示对白，保持被测画面干净
+  try {
+    localStorage.setItem('towermates_tips_v2', JSON.stringify({
+      walk: 1, fight: 1, block: 1, blocksave: 1, low: 1, relic: 1, goal: 1, echo: 1, ring: 1, tooStrong: 1
+    }));
+  } catch (e) {}
   f.src = src;
 
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -144,8 +150,8 @@
         const s = E.state();
         try {
           localStorage.setItem('towermates_board', JSON.stringify([
-            { ending: 'true', floor: 7, level: 9, steps: 520, time: 905, score: 1680, vow: 'greed' },
-            { ending: 'plain', floor: 6, level: 7, steps: 610, time: 1100, score: 1210, vow: 'guard' },
+            { ending: 'true', floor: 13, level: 19, steps: 520, time: 905, seal: 'clear', goals: 13, vow: 'greed' },
+            { ending: 'plain', floor: 11, level: 16, steps: 610, time: 1100, seal: 'name', goals: 8, vow: 'guard' },
           ]));
         } catch (e) {}
         T.openBoard();
@@ -471,6 +477,19 @@
           + ' dialog=' + d.getElementById('dialogOverlay').classList.contains('show')
           + ' err=' + (errs.length ? errs.join('|') : 'none');
         return;
+      } else if (scene === 'hint') {
+        // 角色提示对白：加粗重点 + 青色「提示」角标，验证一闪而过的问题已解决
+        d.getElementById('btnNew').click();
+        await wait(200);
+        const _vh = d.querySelector('#vowCards .vow-card[data-vow="none"]');
+        if (_vh) _vh.click();
+        await wait(260);
+        for (let i = 0; i < 10; i++) {
+          d.getElementById('dialogOverlay').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+          await wait(50);
+        }
+        w.__tm.say([['烛', '塔顶后面**露出一段窄梯**——往上还有一层。镇上从来没人说过。', 'firm']]);
+        await wait(400);
       } else if (scene === 'play') {
         d.getElementById('btnNew').click();
         await wait(200);

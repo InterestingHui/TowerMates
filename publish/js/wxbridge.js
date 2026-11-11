@@ -1,6 +1,6 @@
 // TowerMates · 微信小游戏环境桥接（可选，H5 下自动降级为空实现）
 // 主域不能直读好友托管数据：真正的排行榜由开放数据域绘制到 sharedCanvas。
-// 这里负责三件事：上报自己的分数、请求好友榜、接收开放数据域回传的好友影子。
+// 这里负责三件事：上报这一局走到了哪、请求好友榜、接收开放数据域回传的好友影子。
 // 非微信环境里，好友行改由「贴挑战码」注入，异步竞争的闭环不依赖平台。
 (function () {
   const w = typeof window !== 'undefined' ? window : null;
@@ -19,27 +19,30 @@
     if (!Array.isArray(list)) return [];
     return list.slice(0, 20).map((x) => ({
       name: clean(x && x.name, 16) || '塔友',
-      score: num(x && x.score),
+      floor: num(x && x.floor),
+      time: num(x && x.time),
+      steps: num(x && x.steps),
       vow: clean(x && x.vow, 16) || 'none',
       ending: x && x.ending === 'true' ? 'true' : 'plain',
-      floor: num(x && x.floor),
-      steps: num(x && x.steps),
-      grade: clean(x && x.grade, 1),
-    })).filter((x) => x.score > 0);
+      seal: clean(x && x.seal, 8),
+      goals: num(x && x.goals),
+    })).filter((x) => x.floor > 0);
   }
 
   const api = {
     available() { return !!(wx && typeof wx.setUserCloudStorage === 'function'); },
-    // 通关/结算时上报：微信托管数据只收字符串
+    // 通关/结算时上报：微信托管数据只收字符串；比的是层数与用时，不是分数
     submit(entry) {
       if (!this.available()) return false;
       try {
         wx.setUserCloudStorage({
           KVDataList: [
-            { key: 'tm_score', value: String(num(entry && entry.score)) },
+            { key: 'tm_floor', value: String(num(entry && entry.floor)) },
+            { key: 'tm_time', value: String(num(entry && entry.time)) },
             { key: 'tm_vow', value: clean(entry && entry.vow, 16) || 'none' },
             { key: 'tm_ending', value: String((entry && entry.ending) || '') },
-            { key: 'tm_grade', value: clean(entry && entry.grade, 1) },
+            { key: 'tm_seal', value: clean(entry && entry.seal, 8) },
+            { key: 'tm_goals', value: String(num(entry && entry.goals)) },
             { key: 'tm_at', value: String(Date.now()) },
           ],
           fail() {},
@@ -73,7 +76,7 @@
       const all = normalize(list).concat(read());
       const seen = new Set();
       const uniq = all.filter((x) => {
-        const k = x.name + '|' + x.score + '|' + x.vow;
+        const k = x.name + '|' + x.floor + '|' + x.time + '|' + x.vow;
         if (seen.has(k)) return false;
         seen.add(k); return true;
       });

@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"><title>TowerMates UI check</title></head>
+<body>
+<iframe id="f" src="../index.html?play=1" style="width:430px;height:900px;border:0"></iframe>
+<pre id="out">pending</pre>
+<script>
+document.getElementById('f').addEventListener('load', function () { setTimeout(run, 600); });
+async function run() {
+  var out = {};
+  try {
+    var f = document.getElementById('f');
+    var w = f.contentWindow, d = f.contentDocument;
+    var E = w.Engine, s = E.state();
+    out.booted = !!s;
+    out.modules = { touch: !!w.TouchGestures, challenge: !!w.Challenge, wx: !!w.WXBridge };
+    w.localStorage.removeItem('towermates_board');
+    w.localStorage.removeItem('towermates_rivals');
+
+    // 一次性往前开一层：拿钥匙、停在首层、最高层为 0
+    s.flags['relic_gate'] = true;
+    s.flags.maxFloor = 0;
+    out.gateForthRaw = E.gateForth();
+    w.__tm.openGate();
+    var btn = d.getElementById('gateForthBtn');
+    var tip = d.getElementById('gateForthTip');
+    out.gateBtn = btn ? btn.textContent : null;
+    out.gateTip = tip ? tip.textContent : null;
+    out.gateEnabled = btn ? !btn.disabled : false;
+    if (btn && !btn.disabled) { btn.click(); btn.click(); }
+    var s2 = E.state();
+    out.afterFloor = s2.floor;
+    out.gateForthUsed = s2.flags.gateForth === true;
+    out.sealCount = ((s2.flags || {}).gateSeals || []).length;
+
+    // 挑战码：生产环境里的编解码与贴码进榜闭环
+    var code = w.Challenge.encode({ ending: 'plain', vow: 'mercy', floor: 9, level: 12, steps: 500, time: 400, seal: '', goals: 3 });
+    out.codeLen = code.length;
+    out.codeScore = w.Challenge.decode(code) && w.Challenge.decode(code).floor === 9 ? 3100 : 0;
+    var input = d.getElementById('pasteCode');
+    out.pasteMax = input ? Number(input.maxLength) : 0;
+    if (input) {
+      input.value = code;
+      d.getElementById('btnPasteCode').click();
+      var rival = d.querySelector('#boardList .bd-row.rival');
+      out.rivalRow = rival ? rival.textContent.replace(/\s+/g, ' ').trim().slice(0, 80) : null;
+      // 幽灵行只要进榜即可（文案随版本演进：名字列显示楼层，分数在行尾）
+      out.rivalScore = !!(rival && rival.textContent.indexOf('挑战·朋友') >= 0);
+    }
+
+    // 点一次远处的怪物：应自动走到跟前并直接开打，不需要第二次点击
+    E.newGame();
+    var s3 = E.state();
+    var target = null;
+    for (var yy = 0; yy < 11 && !target; yy++) {
+      for (var xx = 0; xx < 11 && !target; xx++) {
+        var ch3 = E.tile(xx, yy);
+        var mo = w.GAME_DATA.monsters[ch3];
+        if (!mo || mo.ghost || mo.boss) continue;
+        if (Math.abs(xx - s3.x) + Math.abs(yy - s3.y) < 2) continue;
+        var reachable = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(function (o) {
+          var pp = E.pathTo(xx + o[0], yy + o[1]);
+          return !!(pp && pp.length);
+        });
+        if (reachable) target = { x: xx, y: yy, ch: ch3 };
+      }
+    }
+    out.clickTarget = target ? target.x + ',' + target.y : null;
+    if (target) {
+      s3.atk = 999; s3.def = 999; s3.hp = 99999; s3.maxHp = 99999;
+      out.clickDist = Math.abs(target.x - s3.x) + Math.abs(target.y - s3.y);
+      var kills0 = s3.flags.killCount || 0;
+      w.__tm.clickMove(target.x, target.y);
+      await new Promise(function (r) { setTimeout(r, 3200); });
+      var s4 = E.state();
+      out.clickKills = (s4.flags.killCount || 0) - kills0;
+      out.clickCleared = E.tile(target.x, target.y) !== target.ch;
+      out.clickOnTile = s4.x === target.x && s4.y === target.y;
+    }
+  } catch (e) { out.error = String(e && e.stack || e); }
+  document.getElementById('out').textContent = JSON.stringify(out);
+}
+</script>
+</body>
+</html>

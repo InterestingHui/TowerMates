@@ -890,6 +890,8 @@
     const ch = tile(x, y);
     if (ch === '#') return false;
     if (D.monsters[ch]) return false;
+    // 商店会弹全屏遮罩并打断自动寻路：只许玩家主动点它，路过一律绕开
+    if (ch === 'M') return false;
     if (ch === 'y' || ch === 'r') return s.keys[ch] > 0;
     if (ch === 'u' || ch === 'n') return false;
     return true;
@@ -954,6 +956,7 @@
         if (nx < 0 || ny < 0 || nx >= SIZE || ny >= SIZE) continue;
         const ch = tile(nx, ny);
         if (ch === '#') continue;
+        if (ch === 'M') continue; // 同上：不把商店塞进自动寻路的途经格
         if (ch === 'y' || ch === 'r') { if (s.keys[ch] <= 0) continue; }
         if ((ch === 'u' || ch === 'n') && !(nx === tx && ny === ty)) continue;
         prev.set(key, [x, y]);
@@ -1012,7 +1015,7 @@
 
   function summary() {
     if (!s) return null;
-    // 系统时间被往回调整时可能为负：钳到 0，否则会出现「-360 秒」并在评分里反向加分
+    // 系统时间被往回调整时可能为负：钳到 0，否则会出现「-360 秒」并把通关用时写坏
     const time = Math.max(0, Math.round(((s.finishedAt || Date.now()) - s.startedAt) / 1000));
     return { ending: s.ending, floor: s.floor + 1, level: s.level, steps: s.steps, time };
   }

@@ -67,19 +67,46 @@
       <path d="M60 58l12 14-6 18" fill="none" stroke="currentColor" stroke-opacity=".3" stroke-width="1.6"/>
       <path d="M18 96c12 8 26 10 42 10s30-2 42-10" fill="none" stroke="currentColor" stroke-opacity=".2" stroke-width="2" stroke-dasharray="4 5"/>
       <path d="M24 62c-6 12-8 26-9 40" fill="none" stroke="currentColor" stroke-opacity=".16" stroke-width="1.6"/>`,
-    // 薇拉：长发、王冠、披风
+    // 薇拉：精细立绘——垂瀑长发、宝石王冠、束腰长裙、睫毛与唇色
     vera: `
-      <path d="M60 62c-19 2-31 20-34 44l-5 44h78l-5-44c-3-24-15-42-34-44z" fill="${INK}"/>
-      <path d="M38 40c-9 24-9 60-5 94h12c-4-30-3-58 0-74z" fill="${INK2}"/>
-      <path d="M82 40c9 24 9 60 5 94H75c4-30 3-58 0-74z" fill="${INK2}"/>
-      <ellipse cx="60" cy="44" rx="14.5" ry="16.5" fill="#06080d"/>
-      <path d="M46 30l4-13 5 9 5-14 5 14 5-9 4 13z" fill="none" stroke="currentColor" stroke-opacity=".85" stroke-width="1.8" stroke-linejoin="round"/>
-      <ellipse cx="54.5" cy="45" rx="2.2" ry="1.7" fill="currentColor" opacity=".85"/>
-      <ellipse cx="65.5" cy="45" rx="2.2" ry="1.7" fill="currentColor" opacity=".85"/>
-      <path d="M56 52c2.5 1.6 5.5 1.6 8 0" fill="none" stroke="currentColor" stroke-opacity=".35" stroke-width="1.2" stroke-linecap="round"/>
-      <path d="M40 44c-7 22-8 46-6 70" fill="none" stroke="currentColor" stroke-opacity=".22" stroke-width="1.4"/>
-      <path d="M80 44c7 22 8 46 6 70" fill="none" stroke="currentColor" stroke-opacity=".22" stroke-width="1.4"/>
-      <path d="M32 118c18 8 38 8 56 0" fill="none" stroke="currentColor" stroke-opacity=".12" stroke-width="1.4"/>`,
+      <!-- 披在身后的长发（最底层） -->
+      <path d="M60 30c-24 0-36 20-37 44-1 26 2 48 6 66l10-2c-5-20-6-42-4-62l4-32z" fill="${INK2}"/>
+      <path d="M60 30c24 0 36 20 37 44 1 26-2 48-6 66l-10-2c5-20 6-42 4-62l-4-32z" fill="${INK2}"/>
+      <path d="M36 46c-2 24-1 50 3 72" fill="none" stroke="currentColor" stroke-opacity=".4" stroke-width="1.6"/>
+      <path d="M84 46c2 24 1 50-3 72" fill="none" stroke="currentColor" stroke-opacity=".4" stroke-width="1.6"/>
+      <!-- 长裙：束腰 + 裙摆 + 裙褶 -->
+      <path d="M60 74c-13 0-20 8-22 18l-7 48h58l-7-48c-2-10-9-18-22-18z" fill="${INK}"/>
+      <path d="M46 78l-3 26M74 78l3 26" fill="none" stroke="currentColor" stroke-opacity=".28" stroke-width="1.5"/>
+      <path d="M38 108c14 6 30 6 44 0" fill="none" stroke="currentColor" stroke-opacity=".16" stroke-width="1.4"/>
+      <!-- 肩颈与胸口 -->
+      <path d="M52 66h16v8c6 0 10 3 12 8l-20 4-20-4c2-5 6-8 12-8z" fill="${INK2}"/>
+      <path d="M56 70c2.5 2 5.5 3 4 3s1.5-1 4-3" fill="none" stroke="currentColor" stroke-opacity=".4" stroke-width="1.2"/>
+      <!-- 脸 -->
+      <ellipse cx="60" cy="44" rx="14" ry="15.5" fill="#0a0d14"/>
+      <ellipse cx="60" cy="46.5" rx="10.5" ry="12" fill="#141824"/>
+      <!-- 刘海：中分两缕 -->
+      <path d="M46 40c1-9 7-14 14-14s13 5 14 14c-4-5-8-7-11-6l1 4c-3-4-6-5-9-4l1 5c-3-3-6-3-10 1z" fill="${INK}"/>
+      <!-- 眼睛：睫毛 + 高光 -->
+      <path d="M50.5 42.5c1.6-1.6 4.4-1.8 6.2-.4" fill="none" stroke="currentColor" stroke-opacity=".85" stroke-width="1.3" stroke-linecap="round"/>
+      <path d="M63.3 42.1c1.8-1.4 4.6-1.2 6.2.4" fill="none" stroke="currentColor" stroke-opacity=".85" stroke-width="1.3" stroke-linecap="round"/>
+      <ellipse cx="53.6" cy="45.4" rx="2.3" ry="2.6" fill="currentColor" opacity=".95"/>
+      <ellipse cx="66.4" cy="45.4" rx="2.3" ry="2.6" fill="currentColor" opacity=".95"/>
+      <circle cx="54.3" cy="44.5" r=".8" fill="#fff" opacity=".9"/>
+      <circle cx="67.1" cy="44.5" r=".8" fill="#fff" opacity=".9"/>
+      <!-- 鼻与唇 -->
+      <path d="M60 48.5l-.9 2.2h1.8z" fill="currentColor" opacity=".4"/>
+      <path d="M57.4 53.2c1.7 1.3 3.5 1.3 5.2 0" fill="none" stroke="#ff9bb4" stroke-opacity=".8" stroke-width="1.5" stroke-linecap="round"/>
+      <!-- 耳坠 -->
+      <circle cx="46.6" cy="48" r="1.1" fill="currentColor" opacity=".75"/>
+      <circle cx="73.4" cy="48" r="1.1" fill="currentColor" opacity=".75"/>
+      <!-- 宝石王冠：三尖 + 中央菱形宝石 -->
+      <path d="M47 31.5l4-11 5 7 4-13 4 13 5-7 4 11z" fill="none" stroke="currentColor" stroke-opacity=".9" stroke-width="1.8" stroke-linejoin="round"/>
+      <path d="M60 20.5l2.6 4-2.6 4-2.6-4z" fill="currentColor" opacity=".85"/>
+      <circle cx="51.5" cy="27.5" r="1.2" fill="currentColor" opacity=".7"/>
+      <circle cx="68.5" cy="27.5" r="1.2" fill="currentColor" opacity=".7"/>
+      <!-- 冠侧垂链 -->
+      <path d="M47 32l-2 8" fill="none" stroke="currentColor" stroke-opacity=".4" stroke-width="1.2"/>
+      <path d="M73 32l2 8" fill="none" stroke="currentColor" stroke-opacity=".4" stroke-width="1.2"/>`,
     // 秤：圆帽、货包、手提秤
     scale: `
       <path d="M60 44c-19 0-31 15-33 36l-4 54h74l-4-54c-2-21-14-36-33-36z" fill="${INK}"/>

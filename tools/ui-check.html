@@ -1,6 +1,13 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-<head><meta charset="UTF-8"><title>TowerMates UI check</title></head>
+<head><meta charset="UTF-8"><title>TowerMates UI check</title>
+<script>
+// 自动化场景不触发新手提示，保持被测画面干净
+try { localStorage.setItem('towermates_tips_v2', JSON.stringify({
+  walk:1, fight:1, block:1, blocksave:1, low:1, relic:1, goal:1, echo:1, ring:1, tooStrong:1
+})); } catch (e) {}
+</script>
+</head>
 <body>
 <iframe id="f" src="../index.html?play=1" style="width:430px;height:900px;border:0"></iframe>
 <pre id="out">pending</pre>
@@ -34,9 +41,13 @@ async function run() {
     out.sealCount = ((s2.flags || {}).gateSeals || []).length;
 
     // 挑战码：生产环境里的编解码与贴码进榜闭环
-    var code = w.Challenge.encode({ ending: 'plain', vow: 'mercy', floor: 9, level: 12, steps: 500, time: 400, score: 3100, grade: 'A' });
+    var code = w.Challenge.encode({ ending: 'plain', vow: 'mercy', floor: 9, level: 12, steps: 500, time: 400, seal: 'ward', goals: 3 });
     out.codeLen = code.length;
-    out.codeScore = w.Challenge.decode(code).score;
+    var dec = w.Challenge.decode(code);
+    out.codeFloor = dec ? dec.floor : 0;
+    out.codeSeal = dec ? dec.seal : '';
+    out.codeGoals = dec ? dec.goals : 0;
+    out.noScore = !!(dec && dec.score === undefined);
     var input = d.getElementById('pasteCode');
     out.pasteMax = input ? Number(input.maxLength) : 0;
     if (input) {
@@ -46,6 +57,7 @@ async function run() {
       out.rivalRow = rival ? rival.textContent.replace(/\s+/g, ' ').trim().slice(0, 80) : null;
       // 幽灵行只要进榜即可（文案随版本演进：名字列显示楼层，分数在行尾）
       out.rivalScore = !!(rival && rival.textContent.indexOf('挑战·朋友') >= 0);
+      out.rivalFloor = !!(rival && /9\s*层/.test(rival.textContent));
     }
 
     // 点一次远处的怪物：应自动走到跟前并直接开打，不需要第二次点击
@@ -68,6 +80,8 @@ async function run() {
     out.clickTarget = target ? target.x + ',' + target.y : null;
     if (target) {
       s3.atk = 999; s3.def = 999; s3.hp = 99999; s3.maxHp = 99999;
+      // blocksave 教学是一次性对白（Tips 存 localStorage），测试里预标记已读
+      try { var tk = Object.keys(W.localStorage).filter(function(k){return /tip/i.test(k);}); tk.forEach(function(k){ var o=JSON.parse(W.localStorage.getItem(k)||'{}'); o.blocksave=1; W.localStorage.setItem(k, JSON.stringify(o)); }); } catch(e){}
       out.clickDist = Math.abs(target.x - s3.x) + Math.abs(target.y - s3.y);
       var kills0 = s3.flags.killCount || 0;
       w.__tm.clickMove(target.x, target.y);
@@ -77,6 +91,41 @@ async function run() {
       out.clickCleared = E.tile(target.x, target.y) !== target.ch;
       out.clickOnTile = s4.x === target.x && s4.y === target.y;
     }
+
+    // 第 3 层关键通道：商店不再焊在「打砚 → 上楼」的唯一立足格上
+    E.newGame();
+    var s5 = E.state();
+    s5.floor = 2; s5.x = 5; s5.y = 9;
+    out.f3Ledge = E.tile(5, 6);
+    var p5 = E.pathTo(5, 6);
+    out.f3ReachLedge = !!(p5 && p5.length);
+    var qx = 5, qy = 9, hitShop = false;
+    (p5 || []).forEach(function (o) {
+      qx += o[0]; qy += o[1];
+      if (E.tile(qx, qy) === 'M') hitShop = true;
+    });
+    out.f3ShopOnPath = hitShop;
+    out.f3UpPath = !!E.pathThrough(1, 1);
+
+    // 提示系统自检：加粗渲染、角色台词、关键提示走对白（需玩家点掉）
+    var probe = d.createElement('div');
+    w.__tm.richInto(probe, '先看**加粗**再走 <b>不是标签</b>');
+    out.richBold = probe.querySelectorAll('strong').length === 1
+      && probe.textContent === '先看加粗再走 <b>不是标签</b>';
+    out.richNoHtml = probe.querySelectorAll('b').length === 0;
+    out.hintScripts = !!w.STORY.hints && Object.keys(w.STORY.hints).length >= 9
+      && w.STORY.hints.block[0][1].indexOf('**') >= 0;
+    w.__tm.warn('测试**加粗**');
+    out.warnBold = d.getElementById('warnPill').querySelectorAll('strong').length === 1;
+    d.querySelectorAll('.overlay.show').forEach(function (o) { o.classList.remove('show'); });
+    w.__tm.say([['烛', '这条**测试提示**不会一闪而过', 'calm']]);
+    setTimeout(function () {
+      var dl = d.getElementById('dialogOverlay');
+      out.hintDialog = dl.classList.contains('show') && dl.classList.contains('hint-mode')
+        && d.getElementById('dlgText').querySelectorAll('strong').length === 1
+        && d.getElementById('dlgCue').textContent.indexOf('点击收起') >= 0;
+      document.getElementById('out').textContent = JSON.stringify(out);
+    }, 600);
   } catch (e) { out.error = String(e && e.stack || e); }
   document.getElementById('out').textContent = JSON.stringify(out);
 }
