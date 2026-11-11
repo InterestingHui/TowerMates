@@ -7,7 +7,8 @@ const http = require('http');
 
 const ROOT = path.resolve(__dirname, '..');
 const OUT = path.join(__dirname, 'out');
-const PORT = 8899;
+// 按进程号错开端口：多个会话同时跑回归不会互相抢占
+const PORT = 8800 + (process.pid % 300);
 const CHROME_CANDIDATES = [
   'C:/Program Files/Google/Chrome/Application/chrome.exe',
   'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',

@@ -3,10 +3,10 @@
 const { spawn, spawnSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
+const net = require('net');
 const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
-const PORT = 8907;
 const CANDIDATES = [
   'C:/Program Files/Google/Chrome/Application/chrome.exe',
   'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
@@ -20,9 +20,17 @@ if (!chrome) {
 }
 
 const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-ui-'));
-const server = spawn(process.execPath, ['tools/serve.js', String(PORT), ROOT], { cwd: ROOT, stdio: 'ignore' });
 
 (async function () {
+  // 让系统分配空闲端口：多个会话同时跑回归时不会互相抢占
+  const probe = net.createServer();
+  const PORT = await new Promise((resolve) => {
+    probe.listen(0, '127.0.0.1', () => {
+      const p = probe.address().port;
+      probe.close(() => resolve(p));
+    });
+  });
+  const server = spawn(process.execPath, ['tools/serve.js', String(PORT), ROOT], { cwd: ROOT, stdio: 'ignore' });
   await new Promise((r) => setTimeout(r, 800));
   const args = [
     '--headless=new', '--disable-gpu', '--no-first-run',
