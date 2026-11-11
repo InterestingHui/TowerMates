@@ -78,6 +78,10 @@
   function ring(tx, ty, color, maxR, dur) {
     rings.push({ tx, ty, start: simT, dur: dur || 420, color, maxR: maxR || TILE * 2.2 });
   }
+  // 像素坐标版：给自由飞行的小生物用（rings 数组里 px 标记走像素分支）
+  function ringPx(x, y, color, maxR, dur) {
+    rings.push({ px: true, x, y, start: simT, dur: dur || 380, color, maxR: maxR || TILE * 0.7 });
+  }
   // 遗物高光：十字星芒 + 三重冲击环。竖光柱从拾取点冲出画面顶，横光带扫过全屏
   function relicBeamFx(tx, ty) {
     relicBeam = { tx, ty, start: performance.now() };

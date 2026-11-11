@@ -130,20 +130,52 @@
   BODY.duo = BODY.torch;
   BODY.heng = BODY.torch;
 
+  // 薇拉的「锁中」形态：王冠换成垂纱，光色转雾紫冷调（plain 线对白用）
+  // 做法：在标准立绘上叠一层半透明纱幕 + 换头饰，其余不动
+  function veiledVera() {
+    const base = BODY.vera
+      // 摘掉王冠三尖与宝石（按路径起点特征整段裁掉）
+      .replace(/<path d="M47 31\.5l4-11[^/]*\/>/, '')
+      .replace(/<path d="M60 20\.5[^/]*\/>/, '')
+      .replace(/<circle cx="51\.5" cy="27\.5"[^/]*\/>/, '')
+      .replace(/<circle cx="68\.5" cy="27\.5"[^/]*\/>/, '');
+    return base + `
+      <!-- 头纱：从头顶垂到肩，边缘波浪 -->
+      <path d="M43 34c0-10 8-17 17-17s17 7 17 17l3 26c-6 5-13 7-20 7s-14-2-20-7z" fill="currentColor" opacity=".14"/>
+      <path d="M43 34c0-10 8-17 17-17s17 7 17 17" fill="none" stroke="currentColor" stroke-opacity=".55" stroke-width="1.4"/>
+      <path d="M43 34l-3 26c6 5 13 7 20 7" fill="none" stroke="currentColor" stroke-opacity=".3" stroke-width="1.2"/>
+      <path d="M77 34l3 26c-6 5-13 7-20 7" fill="none" stroke="currentColor" stroke-opacity=".3" stroke-width="1.2"/>
+      <!-- 纱下的额饰：一枚垂坠宝石 -->
+      <path d="M60 36l2.4 3.6L60 43l-2.4-3.4z" fill="currentColor" opacity=".8"/>
+      <path d="M60 43v4" stroke="currentColor" stroke-opacity=".5" stroke-width="1.1"/>`;
+  }
+  BODY.veraVeiled = veiledVera();
+
   function colorOf(id, mood) {
     const c = COLORS[id];
     if (!c) return '#9fd8ff';
     return c[mood] || c.base;
   }
 
-  function render(who, mood) {
+  // veiled 用的冷调色板：锁里的薇拉更淡、更紫
+  const COLORS_VEILED = {
+    base: '#c9b8e8', calm: '#c9b8e8', sad: '#9d8cc4', hard: '#c794c9',
+    tired: '#b0a2c4', firm: '#d4a8d8', warm: '#cab8d8',
+  };
+
+  function render(who, mood, variant) {
     const id = KEY[who];
     if (!id) return '';
-    const color = colorOf(id, mood);
+    let color = colorOf(id, mood);
+    let shape = BODY[id];
+    if (variant === 'veiled' && id === 'vera' && BODY.veraVeiled) {
+      shape = BODY.veraVeiled;
+      color = (COLORS_VEILED[mood] || COLORS_VEILED.base);
+    }
     return `<div class="pt" data-char="${id}" style="color:${color}">
         <div class="pt-aura"></div>
         <svg class="pt-svg" viewBox="0 0 120 150" aria-hidden="true">
-          <g class="pt-shape">${BODY[id]}</g>
+          <g class="pt-shape">${shape}</g>
         </svg>
       </div>`;
   }

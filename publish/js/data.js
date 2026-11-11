@@ -74,7 +74,7 @@ window.GAME_DATA = (function () {
         ],
         p3: [
           { at: 0.33, n: 3, title: '第三页 · 空行', text: '砚：空着的那一行，本来该是我。' },
-          { at: 0.33, n: 3, title: '第三页 · 划掉', text: '砚：划掉一个名字，塔就会再向镇上要一个。' },
+          { at: 0.33, n: 3, title: '第三页 · 划掉', text: '砚：划掉一个名字，塔就会再索一条命。' },
         ],
       },
     },
@@ -472,7 +472,7 @@ window.GAME_DATA = (function () {
     {
       id: 1, title: '第一章 · 刻痕', theme: '规矩与计数', from: 1, to: 3, boss: 'N', bossFloor: 3,
       color: '#e8c46a', accent: 'rgba(232,196,106,0.20)',
-      blurb: '镇上每十年送一个人进塔。今年轮到你。塔把你的名字写在名册上，用的是还没干的墨。',
+      blurb: '塔每十年向镇上索一条命。今年它掳走了公主——名册上第九道刻痕，是你自己划的。',
     },
     {
       id: 2, title: '第二章 · 明塔', theme: '真相与代价', from: 4, to: 6, boss: 'Z', bossFloor: 6,
@@ -482,7 +482,7 @@ window.GAME_DATA = (function () {
     {
       id: 3, title: '第三章 · 塔脊', theme: '被删掉的六层', from: 7, to: 9, boss: 'Y', bossFloor: 9,
       color: '#9fd8ff', accent: 'rgba(159,216,255,0.20)',
-      blurb: '锁梁上的六层不在任何图纸里。钟每十年响一次，镇上就送一个人上来——那不是规矩，是账期。',
+      blurb: '锁梁上的六层不在任何图纸里。钟每十年响一次，塔就向镇上索一个人——那不是村里的规矩，是钟的账期。',
     },
     {
       id: 4, title: '第四章 · 无名', theme: '名字的重量', from: 10, to: 12, boss: 'U', bossFloor: 12,

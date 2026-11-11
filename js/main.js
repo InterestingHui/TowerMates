@@ -686,7 +686,7 @@
   }
 
   // ---------- 对白 ----------
-  function playStory(key, cb, cue) {
+  function playStory(key, cb, cue, variant) {
     // 对白期间画面暂停重绘，这里先补一帧，避免遮罩后面是空画布
     if (Engine.state() && !covered()) { try { Renderer.draw(Engine.state()); } catch (e) {} }
     const script = Array.isArray(key) ? key : S[key];
@@ -695,7 +695,7 @@
       if (Array.isArray(row)) return { who: row[0] || '', text: row[1] || '', mood: row[2] || '' };
       return { who: '', text: String(row), mood: '' };
     });
-    typing = { lines, idx: 0, cb: cb || null, cue: cue || '' };
+    typing = { lines, idx: 0, cb: cb || null, cue: cue || '', variant: variant || null };
     el.dialogOverlay.classList.add('show');
     renderLine();
   }
@@ -727,7 +727,9 @@
     renderRich(text, line.text);
     text.className = 'dlg-text' + (isThink ? ' think' : '');
     $('dlgBox').classList.toggle('narration', !line.who);
-    $('dlgPortrait').innerHTML = window.Portraits ? window.Portraits.render(line.who, line.mood || 'calm') : '';
+    $('dlgPortrait').innerHTML = window.Portraits
+      ? window.Portraits.render(line.who, line.mood || 'calm', typing.variant || null)
+      : '';
     $('dlgCue').textContent = typing.cue || (typing.idx >= typing.lines.length - 1 ? '点击结束' : '▼');
     const prev = $('dlgPrev');
     prev.disabled = typing.idx === 0;
@@ -2054,7 +2056,7 @@
         break;
       case 'princess':
         if (ev.hasJournal) playStory('princessTrue', () => showEndingChoice());
-        else playStory('princessPlain', () => completeEnding('plain', false));
+        else playStory('princessPlain', () => completeEnding('plain', false), null, 'veiled');
         return;
       case 'move':
         Sound.play('step');
