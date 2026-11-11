@@ -655,6 +655,11 @@
     ambient.critters.push(c);
   }
 
+  // 受惊涟漪的配色：按生物种类取同色系
+  function scareColor(kind) {
+    return kind === 'moth' ? 'rgba(198,176,255,0.75)' : kind === 'wisp' ? 'rgba(160,232,220,0.75)' : 'rgba(255,232,150,0.8)';
+  }
+
   function updateAmbient(dt) {
     // 出生节奏：比旧余烬慢一个量级——约 11~15s 一只，同屏上限 2~3
     if (crittersEnabled()) {
@@ -686,7 +691,7 @@
           c.vx = (c.x - px) / d; c.vy = (c.y - py) / d;
           c.state = 'scare';
           // 受惊瞬间一圈同色涟漪：让「飞走」有可见的起跳点
-          ringPx(c.x, c.y, c.kind === 'moth' ? 'rgba(198,176,255,0.75)' : c.kind === 'wisp' ? 'rgba(160,232,220,0.75)' : 'rgba(255,232,150,0.8)');
+          ringPx(c.x, c.y, scareColor(c.kind));
           if (scareCb) scareCb();
         }
       }
@@ -1442,6 +1447,20 @@
       return spawnCritter(kind);
     },
     __critters: () => ambient.critters.map((c) => ({ kind: c.kind, state: c.state, x: Math.round(c.x), y: Math.round(c.y) })),
+    __rings: () => rings.map((r) => ({ px: r.px == null ? null : Math.round(r.px), py: r.py == null ? null : Math.round(r.py), color: r.color })),
+    // 调试/测试：强制场上小生物立刻受惊（验证涟漪 + 音效钩子）
+    __scareAll() {
+      let n = 0;
+      for (const c of ambient.critters) {
+        if (c.state === 'scare') continue;
+        c.state = 'scare';
+        c.scareBoost = 1.8;
+        ringPx(c.x, c.y, scareColor(c.kind));
+        if (scareCb) scareCb();
+        n++;
+      }
+      return n;
+    },
     // 调试/截图：清场后把三只小生物固定摆在画面中部（悬停态），便于确定性验证
     __placeCritters() {
       ambient.critters.length = 0;
