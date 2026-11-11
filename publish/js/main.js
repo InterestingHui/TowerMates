@@ -493,11 +493,13 @@
       const card = $('coachCard');
       svg.setAttribute('viewBox', `0 0 ${rect.width} ${rect.height}`);
       svg.innerHTML = '';
-      // goal 教案：高亮的是顶栏「本层规矩」行（用 stage 坐标系画不到顶栏，改为圈自身脉冲）
+      // goal 教案：先确保顶栏规矩行展开可见，再圈它
       const spot = def.spot(s);
       let cx, cy, T;
       if (spot.goal) {
+        if (typeof expandGoalRow === 'function') expandGoalRow();
         const gr = $('goalRow').getBoundingClientRect();
+        // goalRow 在 stage 外（顶栏）：把圈画进 stage 坐标需要相对换算
         cx = gr.left - rect.left + gr.width / 2;
         cy = gr.top - rect.top + gr.height / 2;
         T = Math.min(gr.height, 34);
@@ -567,8 +569,9 @@
         $('coachOk').onclick = () => {
           if (!active) return;
           Sound.play('buy');
+          const after = def.after;
           close();
-          if (def.after) def.after();
+          if (after) after();
         };
       },
       closeNow: close,
@@ -1249,7 +1252,7 @@
         const strikesLeft = K - i;                       // 这一刀之后还剩几刀（含本次）
         const strikesReal = Math.ceil(foeHp / Math.max(1, pred.out)); // 现在的血量还差几刀打完
         let cut;
-        if (strikesLeft === 1 || strikesReal <= strikesLeft) cut = foeHp;
+        if (strikesLeft === 1 || strikesReal < strikesLeft) cut = foeHp;
         else cut = Math.min(foeHp, pred.out);
         foeHp = Math.max(0, foeHp - cut);
         bars();
@@ -1267,8 +1270,8 @@
           el.bsFoe.classList.add('lunge-l');
           await wait(130);
           el.bsFoe.classList.remove('lunge-l');
-          // 演出里玩家挨打次数可能比真实战斗少：每刀按剩余承伤均摊，打完正好落在引擎结算值
-          const take = Math.max(0, Math.round(heroDamageLeft / (K - i)));
+          // 演出里玩家挨打次数可能比真实战斗少：按剩余次数均摊，打完正好落在引擎结算值
+          const take = Math.max(0, Math.round(heroDamageLeft / (K - 1 - i)));
           heroDamageLeft -= take;
           heroHp = Math.max(1, heroHp - take);
           bars();
@@ -2784,11 +2787,13 @@
       enterFloor(true);
       if (Engine.vow() !== 'none') log(`你立下了${vs.name}：${vs.desc}`, 'gold');
       log('你踏入了魔塔。塔顶传来极轻的、像铃声一样的声音。', 'gold');
-      // 开局只留一条合并提示，挂够时间自己收起；两个 key 一并标记，之后不再重复弹
-      Tips.mark('walk');
-      Tips.mark('goal');
-      // 开局教学：不再走对白——棋盘标注（高亮格子 + 虚线 + 说明卡），点击「知道了」才收
-      if (Tips.mark('opening')) Tips.show('opening');
+      // 开局教学：不再走对白——棋盘标注（高亮格子 + 虚线 + 说明卡），点击「知道了」才收。
+      // 先教「怎么走」（收下后），紧接着标注顶栏「本层规矩」；两条都要玩家亲自收下。
+      if (Tips.mark('opening')) {
+        Tips.show('opening');
+        return;
+      }
+      if (Tips.mark('goal')) setTimeout(() => Tips.show('goal'), 400);
     });
   }
 

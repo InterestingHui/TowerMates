@@ -18,13 +18,13 @@ function sim(m, panel, blocked) {
     const strikesLeft = K - i;
     const strikesReal = Math.ceil(foeHp / out);
     let cut;
-    if (strikesLeft === 1 || strikesReal <= strikesLeft) cut = foeHp;
+    if (strikesLeft === 1 || strikesReal < strikesLeft) cut = foeHp;
     else cut = Math.min(foeHp, out);
     foeHp = Math.max(0, foeHp - cut);
     foeSum += cut;
     if (foeHp <= 0) break;
     if (i < K - 1) {
-      const take = Math.max(0, Math.round(heroDmgLeft / (K - i)));
+      const take = Math.max(0, Math.round(heroDmgLeft / (K - 1 - i)));
       heroDmgLeft -= take;
       heroSum += take;
     }
