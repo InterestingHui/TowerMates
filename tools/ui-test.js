@@ -91,7 +91,6 @@ const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-ui-'));
   ok(out.warnBold === true, '操作反馈里的重点也加粗');
   ok(out.hintDialog === true, '关键提示改走角色对白，点击可提前收起');
   ok(out.hintAutoClose === true, '角色提示悬挂到时自己收起，不会一直占着画面');
-  ok(out.goalCollapsed === true && out.goalReopen === true, '顶栏「本层规矩」挂够时间收起，点一下可再展开');
   ok(out.stuckBar === true, '打不过时顶栏钉住「还差多少攻击」的指引且重点加粗');
   ok(out.hintSpeed === true && out.hintMsScaled === true, '提示停留档位可切换且时长跟着变');
   ok(out.hintBook === true, '设置里可重看全部角色提示台词');

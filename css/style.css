@@ -1222,16 +1222,7 @@ html, body {
 }
 .cx-tag.boss { border-color: rgba(201, 74, 82, 0.55); color: #e09a9f; }
 
-/* ---------- 楼层卡片：本层规矩 ---------- */
-.fc-goal {
-  margin-top: 6px;
-  padding-top: 6px;
-  border-top: 1px solid rgba(232, 196, 106, 0.16);
-  font-size: 10.5px;
-  letter-spacing: 0.4px;
-  color: rgba(232, 196, 106, 0.82);
-}
-.fc-goal:empty { display: none; }
+
 
 /* ---------- 魔王三阶段 ---------- */
 .bs-phase {
@@ -1609,75 +1600,9 @@ html, body {
 .relic.on[data-relic="gate"] { cursor: pointer; }
 .relic.on[data-relic="gate"]:hover { transform: scale(1.14); }
 
-/* ================= v2.1 · 实时塔规 / 锁环 / 章末回响 ================= */
+/* ================= v2.1 · 锁环 / 章末回响 ================= */
 
-/* 顶栏：本层规矩展开一会儿后收成小徽标，达成即变绿；点一下可再展开 */
-.goal-row {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 4px 9px;
-  border-radius: 9px;
-  border: 1px solid rgba(var(--gold-rgb), 0.16);
-  background: linear-gradient(90deg, rgba(var(--gold-rgb), 0.07), rgba(255, 255, 255, 0.012));
-  font-size: 10.5px;
-  line-height: 1.4;
-  cursor: pointer;
-  transition: border-color 0.3s, background 0.3s, opacity 0.3s;
-}
-.goal-row[hidden] { display: none; }
-/* 挂够时间收成小徽标：只留标签与状态，点一下重新展开 */
-.goal-row.collapsed {
-  width: fit-content;
-  max-width: 100%;
-  opacity: 0.7;
-}
-.goal-row.collapsed:hover { opacity: 1; }
-.goal-row.collapsed .goal-text { display: none; }
-.goal-label {
-  flex: none;
-  font-size: 9.5px;
-  letter-spacing: 1px;
-  color: var(--chapter);
-  border: 1px solid var(--chapter-soft);
-  border-radius: 20px;
-  padding: 1px 7px;
-}
-.goal-text {
-  flex: 1;
-  min-width: 0;
-  color: var(--muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.goal-state {
-  flex: none;
-  font-size: 9.5px;
-  letter-spacing: 0.5px;
-  color: var(--dim);
-  border: 1px solid var(--line2);
-  border-radius: 20px;
-  padding: 1px 7px;
-}
-.goal-row.ok {
-  border-color: rgba(var(--green-rgb), 0.34);
-  background: linear-gradient(90deg, rgba(var(--green-rgb), 0.10), rgba(255, 255, 255, 0.012));
-}
-.goal-row.ok .goal-label { color: var(--green); border-color: rgba(var(--green-rgb), 0.5); }
-.goal-row.ok .goal-state {
-  color: var(--green);
-  border-color: rgba(var(--green-rgb), 0.45);
-  background: rgba(var(--green-rgb), 0.08);
-}
-.goal-row.ok .goal-state::before { content: '✓ '; }
-.goal-row.locked { opacity: 0.66; }
-/* 规矩达成时闪一下：收成小徽标后也不会漏看 */
-@keyframes goalFlash {
-  0%, 100% { box-shadow: 0 0 0 rgba(111, 227, 160, 0); }
-  50% { box-shadow: 0 0 0 3px rgba(111, 227, 160, 0.3); }
-}
-.goal-row.flash { animation: goalFlash 0.85s ease-out 2; }
+
 
 /* 卡关指引：打不过时一直挂着，直到能打过或离开本层 */
 .stuck-bar {
@@ -1752,9 +1677,8 @@ html, body {
 }
 .fc-num { color: var(--chapter); }
 .fc-name { text-shadow: 0 2px 18px var(--chapter-soft); }
-.fc-goal { border-top-color: var(--chapter-soft); color: var(--chapter); }
 
-/* 章末回响：结算三条规矩 + 锁环三选一 */
+/* 章末回响：锁环三选一 */
 #echoOverlay {
   background:
     radial-gradient(620px 380px at 50% 40%, var(--chapter-soft), transparent 70%),
@@ -1785,35 +1709,7 @@ html, body {
 @keyframes echoSweep { to { transform: translateX(120%); } }
 .echo-kicker { font-size: 11px; letter-spacing: 9px; color: var(--chapter); }
 .echo-line { font-size: 11.5px; line-height: 1.8; color: var(--muted); margin: 8px 0 14px; }
-.echo-goals { display: flex; flex-direction: column; gap: 5px; text-align: left; }
-.echo-goal {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 6px 10px;
-  border-radius: 9px;
-  border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.022);
-  font-size: 10.5px;
-  color: var(--dim);
-}
-.echo-goal .eg-mark {
-  flex: none;
-  width: 16px; height: 16px;
-  border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 9px;
-  border: 1px solid var(--line2);
-  color: var(--dim);
-}
-.echo-goal .eg-floor { flex: none; font-size: 9.5px; color: var(--dim); letter-spacing: 0.5px; }
-.echo-goal .eg-text { flex: 1; }
-.echo-goal.done { color: var(--text); border-color: rgba(var(--green-rgb), 0.28); background: rgba(var(--green-rgb), 0.055); }
-.echo-goal.done .eg-mark {
-  color: var(--green);
-  border-color: rgba(var(--green-rgb), 0.5);
-  background: rgba(var(--green-rgb), 0.12);
-}
+
 .echo-reward {
   margin: 13px 0 12px;
   font-size: 12px;
@@ -1854,10 +1750,8 @@ html, body {
 #echoClose { margin-top: 12px; min-width: 140px; }
 #echoClose[hidden] { display: none; }
 
-/* 小屏：规矩条与锁环不挤成一团 */
+/* 小屏：锁环不挤成一团 */
 @media (max-width: 390px) {
-  .goal-row { font-size: 10px; gap: 5px; }
-  .goal-label { letter-spacing: 0; }
   .echo-rings { gap: 6px; }
   .echo-ring { padding: 10px 5px; }
   .echo-ring .er-desc { font-size: 9.5px; }

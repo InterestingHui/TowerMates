@@ -25,7 +25,7 @@
       vow: clean(x && x.vow, 16) || 'none',
       ending: x && x.ending === 'true' ? 'true' : 'plain',
       seal: clean(x && x.seal, 8),
-      goals: num(x && x.goals),
+      goals: num(x && x.goals), // 回响章数
     })).filter((x) => x.floor > 0);
   }
 

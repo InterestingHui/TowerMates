@@ -120,7 +120,7 @@ D.chapters.forEach((ch) => {
     if (D.floors[i - 1].chapter !== ch.id) err(`第 ${i} 层章节标记不是 ${ch.id}`);
   }
 });
-if (D.floorGoals.length !== D.floors.length - 1) err(`塔规应为 ${D.floors.length - 1} 条，实际 ${D.floorGoals.length}`);
+// 塔规系统已移除（2026-11-12）：章末回响改为击败 Boss 必得锁环三选一
 
 // 图例覆盖：地图里不允许出现没登记的字符
 D.floors.forEach((f, fi) => {
@@ -174,9 +174,9 @@ D.shop.forEach((it) => {
 });
 
 // ---------- 跨局余烬经济：解锁线不能掐断循环 ----------
-// 一局常规通关约 18 余烬（基础 5 + 塔规/章印/结局/路遇），最贵的解锁应在 3 局内够得着。
+// 一局常规通关约 16 余烬（基础 5 + 击杀/回响/结局/路遇），最贵的解锁应在 3 局内够得着。
 // 老分数制时代留的 60/120 要 7~20 局，PROGRESS P-1 记过这个断头问题。
-const RUN_EMBER = 18;
+const RUN_EMBER = 16;
 const vowIds = Object.keys(D.vows);
 const freeMax = Math.max(...vowIds.filter((id) => !D.vows[id].ember).map((id) => D.vows[id].reward || 0));
 vowIds.forEach((id) => {

@@ -147,17 +147,11 @@ async function run() {
         && d.getElementById('dlgText').querySelectorAll('strong').length >= 1
         && d.getElementById('dlgCue').textContent.indexOf('点击收起') >= 0;
       document.getElementById('out').textContent = JSON.stringify(out);
-      // 用短时长验证自动收起，不用真等 7 秒；顶栏规矩同理
+      // 用短时长验证提示自动收起，不用真等 7 秒
       d.getElementById('dlgSkip').click();
       w.__tm.say([['烛', '**自动收起**测试', 'calm']], { autoMs: 300 });
-      w.__goalHintMs = 300;
-      w.__tm.expandGoal();
       setTimeout(function () {
         out.hintAutoClose = !dl.classList.contains('show');
-        var gr = d.getElementById('goalRow');
-        out.goalCollapsed = gr.classList.contains('collapsed');
-        gr.click();
-        out.goalReopen = !gr.classList.contains('collapsed');
         // 卡关指引 / 提示停留档位 / 重看提示
         var sb = d.getElementById('stuckBar');
         w.__tm.showStuck({ name: '砚', def: 16 }, { reason: '攻击力不足，无法破防', damage: null }, E.state());
@@ -179,9 +173,9 @@ async function run() {
         M.buy('nameless', 48);
         M.memory.lamps = 0;
         M.memory.firstVowWin = {};
-        var eA = w.__tm.emberOf(E.state(), { done: 0 }, 0, w.GAME_DATA.vows.ascetic);
+        var eA = w.__tm.emberOf(E.state(), 0, w.GAME_DATA.vows.ascetic);
         M.claimFirstWin('ascetic');
-        var eB = w.__tm.emberOf(E.state(), { done: 0 }, 0, w.GAME_DATA.vows.ascetic);
+        var eB = w.__tm.emberOf(E.state(), 0, w.GAME_DATA.vows.ascetic);
         out.firstWinBonus = eA.total - eB.total;
         M.memory.emberRuns = [10, 20, 30];
         out.avgEmber = M.avgEmber();

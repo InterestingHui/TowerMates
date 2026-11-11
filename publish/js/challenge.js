@@ -1,5 +1,5 @@
 // TowerMates · 挑战码：编解码纯函数（浏览器 / Node 共用，不依赖 DOM）
-// v3 码带层数、用时、塔印与塔规数，朋友贴进自己的名录就能比「爬到多深、走得多快」。
+// v3 码带层数、用时、塔印与回响章数，朋友贴进自己的名录就能比「爬到多深、走得多快」。
 // 结算分已取消：v2 码里的分数字段会被忽略，v1 老码照常能贴。
 (function (root, factory) {
   const api = factory();
@@ -49,7 +49,7 @@
     const raw = String(code == null ? '' : code).trim().replace(/\s+/g, '');
     if (!raw || raw.length > 400) return null;
     try {
-      // v3：塔印 + 塔规数
+      // v3：塔印 + 回响章数（旧码里的塔规数按 0 处理，不影响展示）
       if (raw.indexOf(PREFIX) === 0) {
         const p = base(raw, PREFIX);
         if (p.length !== 9 || Number(p[0]) !== 3) return null;

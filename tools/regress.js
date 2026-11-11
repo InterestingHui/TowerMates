@@ -22,28 +22,34 @@ function run(cmd, args) {
   return { code: r.status, out: (r.stdout || '') + (r.stderr || '') };
 }
 
-console.log('== 1/4 地图与数据校验 ==');
+console.log('== 1/5 地图与数据校验 ==');
 const check = run(process.execPath, ['tools/check.js']);
 const okCheck = check.code === 0;
 console.log((okCheck ? '✓' : '✗') + ' check.js' + (okCheck ? '' : '\n' + check.out));
 
-console.log('== 2/4 平衡模拟 ==');
+console.log('== 2/5 平衡模拟 ==');
 const sim = run(process.execPath, ['tools/sim.js']);
 const simLine = sim.out.split('\n').filter((l) => l.includes('总承伤')).pop() || '';
 const okSim = sim.code === 0 && sim.out.includes('通关成功');
 console.log((okSim ? '✓' : '✗') + ' sim.js ' + simLine.trim());
 
-console.log('== 3/4 引擎单测 ==');
+console.log('== 3/5 引擎单测 ==');
 const test = run(process.execPath, ['tools/engine-test.js']);
 const passed = (test.out.match(/^✓/gm) || []).length;
 const okTest = test.code === 0;
 console.log((okTest ? '✓' : '✗') + ` engine-test.js ${passed} 项`);
 
-console.log('== 4/4 挑战码与触控单测 ==');
+console.log('== 4/5 挑战码与触控单测 ==');
 const code = run(process.execPath, ['tools/code-test.js']);
 const codePassed = (code.out.match(/(\d+) 项通过/) || [])[1] || 0;
 const okCode = code.code === 0;
 console.log((okCode ? '✓' : '✗') + ` code-test.js ${codePassed} 项` + (okCode ? '' : '\n' + code.out));
+
+console.log('== 5/5 战斗演出分摊单测 ==');
+const bsim = run(process.execPath, ['tools/battle-sim-test.js']);
+const bsimPassed = (bsim.out.match(/(\d+) 项通过/) || [])[1] || 0;
+const okBsim = bsim.code === 0;
+console.log((okBsim ? '✓' : '✗') + ` battle-sim-test.js ${bsimPassed} 项` + (okBsim ? '' : '\n' + bsim.out));
 
 let okShots = true;
 if (!process.argv.includes('--no-shot')) {
@@ -82,12 +88,12 @@ if (!process.argv.includes('--no-shot')) {
       const ui = run(process.execPath, ['tools/ui-test.js']);
       const okUi = ui.code === 0;
       console.log((okUi ? '✓' : '✗') + ' ui-test.js' + (okUi ? '' : '\n' + ui.out));
-      const all = okCheck && okSim && okTest && okCode && okUi && bad === 0;
+      const all = okCheck && okSim && okTest && okCode && okBsim && okUi && bad === 0;
       console.log(all ? '✓ 质量闸门通过' : '✗ 质量闸门有失败项');
       process.exit(all ? 0 : 1);
     })();
     return;
   }
 }
-console.log(okCheck && okSim && okTest && okCode ? '\n✓ 质量闸门通过' : '\n✗ 有失败项');
-process.exit(okCheck && okSim && okTest && okCode ? 0 : 1);
+console.log(okCheck && okSim && okTest && okCode && okBsim ? "\n✓ 质量闸门通过" : "\n✗ 有失败项");
+process.exit(okCheck && okSim && okTest && okCode && okBsim ? 0 : 1);

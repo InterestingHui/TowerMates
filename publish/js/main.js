@@ -16,9 +16,6 @@
   let hintAuto = null;
   let hintSeq = 0;
   const HINT_AUTO_MS = 7000; // 角色提示悬挂时长：够读完，也像成就吐司一样自己收起
-  const GOAL_SHOW_MS = 8000; // 顶栏「本层规矩」完整展开的时长，之后收成小徽标
-  let goalSig = null;
-  let goalTimer = null;
   let stuckInfo = null;   // 当前卡关指引 { key, vars, floor, monster }
   let stuckSayAt = 0;     // 同一卡点重复弹对白的节流
   const hintQueue = [];
@@ -113,7 +110,7 @@
 
   // ---------- 音效 ----------
   // 塔的记忆：跨局保存的「余烬」，用来解锁誓约 / 点亮层灯，都只影响外观与收藏，不卖战力
-  // memory 记跨局履历（结局数/誓约通关/塔规满章/塔心取舍/近几局余烬/首通/层灯）
+  // memory 记跨局履历（结局数/誓约通关/回响满章/塔心取舍/近几局余烬/首通/层灯）
   const LAMP_COST = 20;   // 点亮一盏灯要花的余烬
   const LAMP_MAX = 13;    // 一层一盏，纯收藏，全解锁后的余烬出口
   const Meta = (() => {
@@ -164,7 +161,7 @@
         mem.runs = (mem.runs || 0) + 1;
         mem.endings[rec.ending] = (mem.endings[rec.ending] || 0) + 1;
         if (rec.won) mem.vowWins[rec.vow] = (mem.vowWins[rec.vow] || 0) + 1;
-        mem.fullChapters = Math.max(mem.fullChapters || 0, rec.fullChapters || 0);
+        mem.fullChapters = Math.max(mem.fullChapters || 0, Math.min(4, rec.fullChapters || 0));
         if (rec.heart === 'taken') mem.heartTaken = (mem.heartTaken || 0) + 1;
         if (rec.heart === 'left') mem.heartLeft = (mem.heartLeft || 0) + 1;
         mem.deepest = Math.max(mem.deepest || 0, rec.floor || 0);
@@ -452,12 +449,11 @@
     bsBlock: $('bsBlock'), blockPip: $('blockPip'),
     bsPanel: document.querySelector('.bs-panel'),
     guide: $('guide'),
-    goalRow: $('goalRow'), goalText: $('goalText'), goalState: $('goalState'),
     stuckBar: $('stuckBar'), stuckText: $('stuckText'),
     hintBookOverlay: $('hintBookOverlay'),
     ringRow: $('ringRow'),
     echoOverlay: $('echoOverlay'), echoKicker: $('echoKicker'), echoLine: $('echoLine'),
-    echoGoals: $('echoGoals'), echoReward: $('echoReward'), echoRings: $('echoRings'),
+    echoReward: $('echoReward'), echoRings: $('echoRings'),
     echoHint: $('echoHint'), echoClose: $('echoClose'),
     resetConfirmOverlay: $('resetConfirmOverlay'),
   };
@@ -493,31 +489,8 @@
       const card = $('coachCard');
       svg.setAttribute('viewBox', `0 0 ${rect.width} ${rect.height}`);
       svg.innerHTML = '';
-      // goal 教案：先确保顶栏规矩行展开可见，再圈它
       const spot = def.spot(s);
       let cx, cy, T;
-      if (spot.goal) {
-        if (typeof expandGoalRow === 'function') expandGoalRow();
-        const gr = $('goalRow').getBoundingClientRect();
-        // goalRow 在 stage 外（顶栏）：把圈画进 stage 坐标需要相对换算
-        cx = gr.left - rect.left + gr.width / 2;
-        cy = gr.top - rect.top + gr.height / 2;
-        T = Math.min(gr.height, 34);
-        // 顶栏在 stage 外：卡片直接放在 stage 顶部中间，虚线向上指
-        card.hidden = false;
-        card.style.left = 'auto'; card.style.top = 'auto';
-        card.style.right = 'auto'; card.style.bottom = 'auto';
-        const cw = card.offsetWidth;
-        const cardX = Math.max(10, (rect.width - cw) / 2);
-        const cardY = 10;
-        card.style.left = `${Math.round(cardX)}px`;
-        card.style.top = `${Math.round(cardY)}px`;
-        const nearX = cardX + cw / 2;
-        const nearY = cardY + card.offsetHeight;
-        svg.innerHTML = `<circle class="coach-spot" cx="${cx}" cy="${Math.max(cy, 8)}" r="${T * 0.5}"></circle>`
-          + `<line class="coach-line" x1="${cx}" y1="${Math.max(cy, 8) + T * 0.5}" x2="${nearX}" y2="${nearY}"></line>`;
-        return;
-      }
       T = Renderer.getTile();
       const board = T * 11;
       const ox = (rect.width - board) / 2;   // 棋盘在 stage 里的横向起点
@@ -802,16 +775,6 @@
     stuckInfo = null;
   }
 
-  // 顶栏「本层规矩」：内容或状态变了才重新展开，避免走一步就重置计时、永远不收起
-  function expandGoalRow() {
-    if (!el.goalRow) return;
-    el.goalRow.classList.remove('collapsed');
-    clearTimeout(goalTimer);
-    goalTimer = setTimeout(() => {
-      if (el.goalRow && !el.goalRow.hidden) el.goalRow.classList.add('collapsed');
-    }, window.__goalHintMs || hintMs(GOAL_SHOW_MS));
-  }
-
   function refreshHud() {
     const s = Engine.state();
     if (!s) return;
@@ -851,28 +814,6 @@
     renderRingRow(s);
     setChapterColor(s.floor);
 
-    // 本层规矩实时反馈：以前只有离开楼层才知道做没做到
-    const gp = Engine.goalPreview();
-    if (el.goalRow) {
-      el.goalRow.hidden = !gp;
-      if (gp) {
-        el.goalText.textContent = gp.text;
-        el.goalState.textContent = gp.locked ? (gp.ok ? '已结算' : '未达成') : (gp.ok ? '已达成' : '进行中');
-        const wasOk = el.goalRow.classList.contains('ok');
-        el.goalRow.classList.toggle('ok', !!gp.ok);
-        el.goalRow.classList.toggle('locked', !!gp.locked);
-        if (gp.ok && !wasOk) {
-          el.goalRow.classList.remove('flash');
-          void el.goalRow.offsetWidth;
-          el.goalRow.classList.add('flash');
-        }
-        el.goalRow.title = `第 ${s.floor + 1} 层的额外目标 · 离开本层时结算，达成后计入塔印与通关余烬${gp.locked ? '（本章已结算）' : ''} · 点一下可展开／收起`;
-        const sig = `${s.floor}|${gp.text}|${!!gp.ok}|${!!gp.locked}`;
-        if (sig !== goalSig) { goalSig = sig; expandGoalRow(); }
-      } else {
-        goalSig = null;
-      }
-    }
     if (el.vowTag) {
       const v = D.vows[s.flags.vow] || D.vows.none;
       el.vowTag.hidden = v.name === '不立誓';
@@ -1157,7 +1098,7 @@
 
     el.bsHero.textContent = '🧙';
     el.bsFoe.textContent = m.emoji;
-    // 章末 Boss 带「第 N 章」标记：玩家要据此规划"半血以上打赢"这类塔规
+    // 章末 Boss 带「第 N 章」标记，玩家能看出自己在塔里的位置
     el.bsName.textContent = m.name + (m.boss ? ' · ' + (m.title || '塔的主人') : (m.chapter ? ` · 第 ${m.chapter} 章` : ''));
     el.bsRounds.textContent = `回合 1 / ${pred.rounds}`;
     el.bsHeroHp.textContent = Math.round(heroHp);
@@ -1367,7 +1308,7 @@
     refreshHud();
   }
 
-  // ---------- 章末回响：结算三条塔规 + 锁环三选一 ----------
+  // ---------- 章末回响：击败章末锁匠 → 锁环三选一 ----------
   let curEcho = null;
   function openEcho(echo) {
     if (!echo) return;
@@ -1376,18 +1317,10 @@
     setChapterColor(echo.chapter * 3 - 1); // 该章章末层的索引（2 / 5 / 8 / 11）
     el.echoKicker.textContent = `${echo.title} · 回响`;
     el.echoLine.textContent = (S.echoLines && S.echoLines[echo.chapter - 1]) || '';
-    el.echoGoals.innerHTML = echo.list.map((g) => `
-      <div class="echo-goal ${g.done ? 'done' : ''}">
-        <span class="eg-mark">${g.done ? '✓' : '·'}</span>
-        <span class="eg-floor">${g.floor + 1}F</span>
-        <span class="eg-text">${g.text}</span>
-      </div>`).join('');
     el.echoReward.textContent = echo.pending
-      ? `本章规矩 ${echo.done}/3 · 留下章印 ×${echo.marks || 0} · 挑一枚锁环`
-      : echo.done > 0
-        ? `本章规矩 ${echo.done}/3 · 再做到 ${Math.max(0, 2 - echo.done)} 条就能留章印、挑锁环`
-        : '本章规矩 0/3 · 这一章没有留下回响';
-    el.echoReward.classList.toggle('muted', echo.done === 0);
+      ? '锁匠倒下了 · 塔从墙上取下一枚锁环，让你挑'
+      : '这一章的锁环你已经拿过了';
+    el.echoReward.classList.toggle('muted', !echo.pending);
     const choices = echo.pending ? (s.flags['ringChoices_' + echo.chapter] || []) : [];
     el.echoRings.innerHTML = choices.map((id) => {
       const r = D.rings[id];
@@ -1407,7 +1340,6 @@
     el.echoOverlay.classList.add('show');
     Sound.play('relic');
     vibrate([10, 20, 10]);
-    Achievements.evaluate('echo', s, notifyAchievement);
     if (!REDUCED()) {
       Renderer.pulse();
       Renderer.ring(s.x, s.y, 'rgba(255,225,150,0.8)', TN() * 3, 700);
@@ -1447,17 +1379,8 @@
   function resumePendingRing() {
     const ch = Engine.pendingRing();
     if (!ch) return;
-    const s = Engine.state();
     const meta = D.chapters[ch - 1];
-    openEcho({
-      chapter: ch, title: meta.title,
-      done: s.flags['echo_' + ch] || 0,
-      marks: s.flags['echoMark_' + ch] || 0,
-      pending: true,
-      list: [meta.from - 1, meta.from, meta.to - 1].map((i) => ({
-        floor: i, text: D.floorGoals[i] ? D.floorGoals[i].text : '', done: !!s.flags['goal_' + i],
-      })),
-    });
+    openEcho({ chapter: ch, title: meta.title, pending: true });
   }
 
   // ---------- 战斗入口 ----------
@@ -1797,32 +1720,28 @@
     name:  { name: '留名', desc: '塔的墙上，多了你的一道刻痕。' },
     rough: { name: '未竟', desc: '塔记住了你的名字——仅此而已。' },
   };
-  function sealOf(s, gs, echoDone) {
-    const total = gs.total || 1;
-    const goals = gs.done || 0;
+  function sealOf(s, echoDone) {
     const trueEnd = s.ending === 'true';
     const noRetry = !(s.flags && s.flags.retries);
-    if (trueEnd && goals >= total && echoDone >= 4 && noRetry) return 'clear';
-    if (trueEnd && (goals >= total - 2 || echoDone >= 3)) return 'ward';
-    if (goals >= Math.ceil(total / 2)) return 'name';
+    if (trueEnd && echoDone >= 4 && noRetry) return 'clear';
+    if (trueEnd && echoDone >= 3) return 'ward';
+    if (echoDone >= 2) return 'name';
     return 'rough';
   }
-  function nextSealHint(seal, s, gs, echoDone) {
-    const total = gs.total || 1;
-    const goals = gs.done || 0;
+  function nextSealHint(seal, s, echoDone) {
     if (seal === 'clear') return null;
-    if (seal === 'rough') return `再做到 ${Math.max(1, Math.ceil(total / 2) - goals)} 条塔规，可换「留名」`;
+    if (seal === 'rough') return `再拿到 ${2 - echoDone} 枚锁环，可换「留名」`;
     if (seal === 'name') return s.ending === 'true'
-      ? `塔规做到 ${total - 2} 条、或章印攒到 3 枚，可换「守灯」`
+      ? `锁环攒到 3 枚可换「守灯」`
       : '念出第六个名字，塔印才会再往上走';
-    return `塔规 ${goals}/${total} · 章印 ${echoDone}/4 · 回头 ${s.flags.retries || 0} 次——全满且一次不回头可换「无痕」`;
+    return `锁环 ${echoDone}/4 · 回头 ${s.flags.retries || 0} 次——四章全拿且一次不回头可换「无痕」`;
   }
   // 余烬：按这一局留下的东西逐项累加，返回明细供结局页展示（不再绕分数换算）
-  function emberOf(s, gs, echoDone, vowDef) {
+  function emberOf(s, echoDone, vowDef) {
     const parts = [{ label: '走到结局', n: 5 }];
     if (s.ending === 'true') parts.push({ label: '念出第六个名字', n: 4 });
-    if (gs.done) parts.push({ label: `塔规 ${gs.done} 条`, n: gs.done });
-    if (echoDone) parts.push({ label: `章印 ${echoDone} 枚`, n: echoDone * 2 });
+    const kills = Math.floor((s.flags.killCount || 0) / 10);
+    if (kills) parts.push({ label: `击杀 ${s.flags.killCount} 只`, n: kills });
     if (s.flags.heart === 'left') parts.push({ label: '塔心留在原处', n: 3 });
     if (s.flags.eventEmber) parts.push({ label: '路遇里的选择', n: s.flags.eventEmber });
     if (vowDef.reward) parts.push({ label: `「${vowDef.name}」`, n: vowDef.reward });
@@ -1833,7 +1752,8 @@
       parts.push({ label: `首通「${vowDef.name}」`, n: Math.round(vowDef.ember / 2) });
     }
     const has = (id) => Engine.hasRing(id);
-    if (has('ledger') || has('ash') || has('ledger2')) parts.push({ label: '锁环·塔规翻倍', n: gs.done || 0 });
+    if (has('ledger') || has('ash') || has('ledger2')) parts.push({ label: '锁环·击杀余烬翻倍', n: kills });
+    if (has('seventh')) parts.push({ label: '锁环·第七格', n: 3 });
     const ringFlat = (has('hour') || has('pace') ? 2 : 0) + (has('chisel') ? 4 : 0)
       + (has('oath') ? 3 : 0) + (has('heart') && s.flags.heart === 'left' ? 3 : 0);
     if (ringFlat) parts.push({ label: '锁环加成', n: ringFlat });
@@ -1869,17 +1789,17 @@
     $('endEpi').textContent = (E.epilogue || '') + (heartLine ? ' ' + heartLine : '');
     const relicIds = Engine.ownedRelics();
     const relics = relicIds.map((id) => D.relics[id].short).join(' ') || '无';
-    const gs = Engine.goalStatus();
     sum.vow = s.flags.vow || 'none';
     const vowDef = D.vows[s.flags.vow] || D.vows.none;
     const ringList = Engine.rings();
-    const echoDone = [1, 2, 3, 4].filter((i) => (s.flags['echo_' + i] || 0) >= 2).length;
-    const seal = sealOf(s, gs, echoDone);
+    // 回响数 = 拿到的锁环覆盖的章数（击败 Boss 即得，四章全拿 = 满回响）
+    const echoDone = [1, 2, 3, 4].filter((i) => s.flags['echo_' + i]).length;
+    const seal = sealOf(s, echoDone);
     const sealDef = SEALS[seal];
-    const ember = emberOf(s, gs, echoDone, vowDef);
+    const ember = emberOf(s, echoDone, vowDef);
     const emberGain = ember.total;
     sum.seal = seal;
-    sum.goals = gs.done;
+    sum.goals = echoDone;
     // 跨局履历：这局结束了，塔替你记一笔（P-4），余烬进近 3 局滑动平均
     Meta.recordRun({
       ending: s.ending, won: true, vow: sum.vow,
@@ -1887,7 +1807,7 @@
       floor: sum.floor, time: sum.time, seal, ember: emberGain,
     });
     $('endScore').innerHTML = `<span class="es-grade ${seal}" data-seal="${seal}">${sealDef.name}</span>
-      <span class="es-meta">${s.ending === 'true' ? '真结局' : '普通结局'}${s.flags.heart === 'taken' ? ' · 塔心带走' : s.flags.heart === 'left' ? ' · 塔心留下' : ''} · 塔规 ${gs.done}/${gs.total} · 章印 ${echoDone}/4 · 遗物 ${relicIds.length} · 锁环 ${ringList.length}</span>
+      <span class="es-meta">${s.ending === 'true' ? '真结局' : '普通结局'}${s.flags.heart === 'taken' ? ' · 塔心带走' : s.flags.heart === 'left' ? ' · 塔心留下' : ''} · 回响 ${echoDone}/4 · 遗物 ${relicIds.length} · 锁环 ${ringList.length}</span>
       <span class="es-num">✦ ${emberGain}<small>余烬</small></span>`;
     $('endScore').title = `塔印「${sealDef.name}」：${sealDef.desc}`;
     const ed = $('endEmberDetail');
@@ -1898,9 +1818,9 @@
     const brief = [];
     brief.push(`带走 ${relicIds.length} 件遗物 · 击杀 ${s.flags.killCount || 0} 只`);
     if (s.flags.worstHit) brief.push(`最狠的一场：${s.flags.worstName} −${s.flags.worstHit}`);
-    brief.push(`塔规 ${gs.done}/${gs.total} · 章印 ${echoDone}/4 · 锁环 ${ringList.length} 枚`);
+    brief.push(`回响 ${echoDone}/4 章 · 锁环 ${ringList.length} 枚`);
     brief.push(s.flags.retries ? `重来本层 ${s.flags.retries} 次` : '一次没回头');
-    const hint = nextSealHint(seal, s, gs, echoDone);
+    const hint = nextSealHint(seal, s, echoDone);
     if (hint) brief.push(`下一枚塔印：${hint}`);
     Meta.add(emberGain);
     // 首通奖励只发一次：结算落袋后才标记，刷新页面也不会重发
@@ -1947,7 +1867,7 @@
     const unWon = Object.keys(D.vows).filter((id) => id !== 'none' && !D.vows[id].ember && !(mem.vowWins || {})[id]);
     if (unWon.length) goals.push(`带着「${D.vows[unWon[0]].name}」走到一次结局`);
     // 3) 没满过的章回响
-    if ((mem.fullChapters || 0) < 4) goals.push(`把回响打满的章推进到 ${(mem.fullChapters || 0) + 1}/4`);
+    if ((mem.fullChapters || 0) < 4) goals.push(`把回响拿满的章推进到 ${(mem.fullChapters || 0) + 1}/4`);
     // 4) 双结局收集
     if (!(mem.endings.true || 0)) goals.push('去念出第六个名字');
     else if (!(mem.endings.plain || 0)) goals.push('试试另一条路：铁与霜');
@@ -1983,7 +1903,7 @@
     // 平台桥接读这份摘要上报，不用再从 DOM 里抠数字
     if (window.__tm) window.__tm.lastRun = {
       ending: sum.ending, vow: sum.vow, floor: sum.floor, time: sum.time,
-      steps: sum.steps, seal, goals: gs.done,
+      steps: sum.steps, seal, goals: echoDone,
     };
     Achievements.evaluate('finish', s, notifyAchievement);
     el.endOverlay.classList.add('show');
@@ -2025,8 +1945,6 @@
       : `第 ${floor + 1} 层 / 共 ${D.floors.length} 层`;
     $('fcName').textContent = f.name;
     $('fcTip').textContent = f.tip;
-    const goal = D.floorGoals && D.floorGoals[floor];
-    $('fcGoal').textContent = goal ? `这一层的规矩 · ${goal.text}` : '';
     const card = $('floorCard');
     card.classList.remove('show');
     void card.offsetWidth;
@@ -2372,7 +2290,6 @@
     el.dialogOverlay.addEventListener('click', advanceDialog);
     $('dlgSkip').addEventListener('click', (e) => { e.stopPropagation(); skipDialog(); });
     $('dlgPrev').addEventListener('click', (e) => { e.stopPropagation(); prevDialog(); });
-    if (el.goalRow) el.goalRow.addEventListener('click', expandGoalRow);
 
     // 切回标签页时音频上下文可能被系统挂起：恢复并重排一次音乐
     document.addEventListener('visibilitychange', () => {
@@ -2723,7 +2640,7 @@
 
   // ---------- 立誓 ----------
   function openVow() {
-    // 面板上写明：卡上的 +N 是「额外」，每局本身还有基础 + 塔规/章印/结局/路遇
+    // 面板上写明：卡上的 +N 是「额外」，每局本身还有基础 + 回响/结局/路遇
     const emberLine = $('vowEmber');
     if (emberLine) {
       const locked = Object.keys(D.vows).filter((id) => D.vows[id].ember && !Meta.has(id));
@@ -2788,12 +2705,8 @@
       if (Engine.vow() !== 'none') log(`你立下了${vs.name}：${vs.desc}`, 'gold');
       log('你踏入了魔塔。塔顶传来极轻的、像铃声一样的声音。', 'gold');
       // 开局教学：不再走对白——棋盘标注（高亮格子 + 虚线 + 说明卡），点击「知道了」才收。
-      // 先教「怎么走」（收下后），紧接着标注顶栏「本层规矩」；两条都要玩家亲自收下。
-      if (Tips.mark('opening')) {
-        Tips.show('opening');
-        return;
-      }
-      if (Tips.mark('goal')) setTimeout(() => Tips.show('goal'), 400);
+      // 注意：Tips.show 自己会标记已读并接续 goal 段，前面不能先 mark，否则 show 直接跳过。
+      Tips.show('opening');
     });
   }
 
@@ -2883,7 +2796,7 @@
     testRelicShowcase: () => { const st = Engine.state(); if (st) relicShowcase(st.x, st.y); },
     openEcho, chooseRing, closeEcho, resumePendingRing, setChapterColor, refreshCfg,
     // 提示系统：自动化可验证「加粗渲染 + 角色提示对白」
-    richInto: renderRich, say, sayHint, warn, Tips, expandGoal: expandGoalRow,
+    richInto: renderRich, say, sayHint, warn, Tips,
     Settings, hintMs, openHintBook, showStuck, clearStuck,
   };
 

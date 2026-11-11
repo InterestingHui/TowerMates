@@ -154,52 +154,13 @@ s = E.state();
 E.pickRelic('scout');
 ok(s.flags.codex === true, '无名之镜：直接解锁窥探之镜');
 
-// ---------- 9d. 每层的「规矩」 ----------
-E.newGame();
-s = E.state();
-s.hp = 5000;
-E.beginFloor();
-E.fight(0, -1); // 打掉 (2,2) 的蝙蝠
-s.x = 8; s.y = 8;
-ev = E.tryMove(0, 1); // 踩上楼
-ok(ev.type === 'floor' && s.flags.goal_0 === true, '第 1 层：只杀 1 只 → 规矩达成');
-
-E.newGame();
-s = E.state();
-s.floor = 2; s.x = 5; s.y = 9; s.gold = 200;
-E.beginFloor();
-E.buy('atk');
-s.x = 2; s.y = 1;
-E.tryMove(-1, 0);
-ok(s.flags.goal_2 === false, '第 3 层：在秤那里花了钱 → 规矩未达成');
-
-E.newGame();
-s = E.state();
-s.floor = 1; s.x = 5; s.y = 8; s.keys.y = 1;
-E.beginFloor();
-E.tryMove(0, -1); // 开黄门
-s.x = 2; s.y = 1;
-E.tryMove(-1, 0); // 上楼
-ok(s.flags.goal_1 === true, '第 2 层：用黄钥匙开了内室 → 规矩达成');
-
-E.newGame();
-s = E.state();
-s.floor = 5; s.hp = s.maxHp; s.won = false;
-E.beginFloor();
-E.finish('true');
-ok(s.flags.goal_5 === true, '第 6 层：满血收尾 → 规矩达成');
-const gs = E.goalStatus();
-ok(gs.total === 12 && gs.list.length === 12, '塔规面板共 12 条');
-
-// ---------- 9e. 隐藏门「锁芯」 ----------
+// ---------- 9d. 隐藏门「锁芯」（塔规系统已移除：击败衡即开窄梯） ----------
 E.newGame();
 s = E.state();
 s.floor = 11;
 ok(E.revealCore() === false, '没打赢衡时塔顶后面没有路');
 s.flags.bossKilled_U = true;
-ok(E.revealCore() === false, '塔规不足时塔顶后面没有路');
-for (let g = 0; g < 8; g++) s.flags['goal_' + g] = true;
-ok(E.revealCore() === true && E.tile(9, 2) === 'u', '塔规 8 条后塔顶露出窄梯');
+ok(E.revealCore() === true && E.tile(9, 2) === 'u', '击败衡后塔顶露出窄梯');
 ok(E.state().maps[11][2][9] === 'u', '窄梯写进地图');
 ok(D.floors.length === 13 && D.floors[12].name === '锁芯', '第十三层的锁芯存在');
 
@@ -475,7 +436,6 @@ for (let fi = 0; fi < D.floors.length - 1; fi++) {
   for (let y = 0; y < 11; y++) for (let x = 0; x < 11; x++) if (map[y][x] === 'u') { ux = x; uy = y; }
   if (ux < 0 && D.floors[fi].hiddenGate) {
     s.flags.bossKilled_U = true;
-    for (let g = 0; g < 8; g++) s.flags['goal_' + g] = true;
     E.revealCore();
     for (let y = 0; y < 11; y++) for (let x = 0; x < 11; x++) if (map[y][x] === 'u') { ux = x; uy = y; }
   }
@@ -524,11 +484,8 @@ ok(Array.isArray(s.flags.rings) && s.flags.rings.length === 0, '新局锁环为�
 ok(typeof s.flags.phaseSeed === 'number', '每局有独立的 Boss 台词种子');
 
 s.floor = 2;
-s.floorEnter = { floor: 2, kills: 0, shop: 0, hp: s.hp, maxHp: s.maxHp };
-s.flags.goal_0 = true; s.flags.goal_1 = true; s.flags.goal_2 = true;
 const echo = E.settleChapter(1);
-ok(echo && echo.done === 3 && echo.marks === 1, '三条塔规全达成 → 留一枚章印');
-ok(echo.pending === true, '达成两条以上才开锁环三选一');
+ok(echo && echo.pending === true, '击败章末 Boss 后必开锁环三选一');
 const ringOpts = s.flags['ringChoices_1'] || [];
 ok(ringOpts.length === 3 && ringOpts.every((id) => D.rings[id]), '锁环候选恰好三枚且都已定义');
 ok(E.pendingRing() === 1, '未选完的锁环刷新后仍可继续');
@@ -550,27 +507,17 @@ const ph = E.bossPhases('N');
 ok(Array.isArray(ph) && ph.length === 2 && !!ph[0].title && !!ph[1].text, 'Boss 每局抽两段阶段台词');
 ok(E.bossPhases('N') === ph, '同一局重复取到的台词组合不变');
 
-E.newGame();
-s = E.state();
-s.floorEnter = { floor: 0, kills: 0, shop: 0, hp: s.hp, maxHp: s.maxHp };
-const gp = E.goalPreview();
-ok(gp && typeof gp.text === 'string' && typeof gp.ok === 'boolean', '本层规矩可实时预览');
-ok(s.flags.goal_0 === undefined, '实时预览不会提前写结算标记');
-
 // Boss 击败 → 章末回响的完整链路（不是只测结算函数）
 E.newGame();
 s = E.state();
 s.floor = 2; s.x = 5; s.y = 6;
 s.atk = 80; s.def = 40; s.hp = 6000; s.maxHp = 6000;
-s.floorEnter = { floor: 2, kills: 0, shop: 0, hp: s.hp, maxHp: s.maxHp };
 s.flags.boss_seen_N = true;
-s.flags.goal_0 = true; s.flags.goal_1 = true;
 const bossRes = E.fight(0, -1);
 ok(bossRes.type === 'fight' && bossRes.boss, 'Boss 砚可正常击败');
 ok(bossRes.echo && bossRes.echo.chapter === 1, 'Boss 击败会返回本章回响');
-ok(bossRes.echo.done === 3 && bossRes.echo.pending === true, '章末层在 Boss 倒下时提前结算并开三选一');
-ok(s.flags.goalLocked_2 === true, '章末层塔规已锁定，之后吃药不会改判');
-ok(s.flags['echoMark_1'] === 1 && s.flags.echoMarks === 1, '章印写进存档');
+ok(bossRes.echo.pending === true, 'Boss 倒下即开三选一');
+ok(s.flags['echo_1'] === 1 && (s.flags['ringChoices_1'] || []).length === 3, '回响标记与锁环候选写进存档');
 
 // ---------- 层阶之钥：一次性「往前开一层」的明码取舍 ----------
 E.newGame();

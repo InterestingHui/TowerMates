@@ -177,11 +177,11 @@ window.GAME_DATA = (function () {
   const altarPool = ['steel', 'thrift', 'vigor', 'scout', 'ember'];
 
   // ---------- 锁环：章末回响的构筑奖励 ----------
-  // 规则：击败章末 Boss 时结算该章 3 条塔规，达成 ≥2 条才能三选一。
+  // 规则：击败章末 Boss 必得一次三选一。
   // 刻意不做「直接 +攻防」：这座塔的余量极小，加战力会打穿曲线；
-  // 锁环改的是规则、资源与信息，让「认真做塔规」变成一条构筑路线。
+  // 锁环改的是规则、资源与信息，让每一章的选择拼出不同的构筑。
   const rings = {
-    ledger:   { name: '名册之环', emoji: '📖', short: '册', chapter: 1, desc: '每条塔规额外 +1 余烬' },
+    ledger:   { name: '名册之环', emoji: '📖', short: '册', chapter: 1, desc: '每击败 10 只怪额外 +1 余烬' },
     lamp:     { name: '借灯之环', emoji: '🕯️', short: '灯', chapter: 1, desc: '每上一层回复 5% 生命' },
     coin:     { name: '铜币之环', emoji: '🪙', short: '币', chapter: 1, desc: '立刻获得 200 金币' },
     keyring:  { name: '钥匙之环', emoji: '🔑', short: '钥', chapter: 1, desc: '立刻获得 2 黄钥匙、1 红钥匙' },
@@ -196,7 +196,7 @@ window.GAME_DATA = (function () {
     scope:    { name: '明镜之环', emoji: '🔍', short: '镜', chapter: 3, desc: '立刻获得窥探之镜' },
     hour:     { name: '时辰之环', emoji: '⏳', short: '时', chapter: 3, desc: '通关额外 +2 余烬' },
 
-    seventh:  { name: '第七格之环', emoji: '✍️', short: '格', chapter: 4, desc: '锁芯门槛从 8 条塔规降到 7 条' },
+    seventh:  { name: '第七格之环', emoji: '✍️', short: '格', chapter: 4, desc: '名字刻得更深：通关额外 +3 余烬' },
     chisel:   { name: '刻刀之环', emoji: '🪶', short: '刀', chapter: 4, desc: '通关额外 +4 余烬' },
     heart:    { name: '塔心之环', emoji: '💗', short: '心', chapter: 4, desc: '带走塔心石多 +100 上限；放下再多 +3 余烬' },
     oath:     { name: '守誓之环', emoji: '🕊️', short: '誓', chapter: 4, desc: '通关额外 +3 余烬' },
@@ -205,10 +205,10 @@ window.GAME_DATA = (function () {
     pace:     { name: '更漏之环', emoji: '⏱️', short: '漏', chapter: 1, desc: '通关额外 +2 余烬' },
     ward2:    { name: '旧誓之环', emoji: '💫', short: '誓', chapter: 1, desc: '每场战斗承伤 −6%' },
 
-    ash:      { name: '拾柴之环', emoji: '🪵', short: '柴', chapter: 2, desc: '每条塔规额外 +1 余烬' },
+    ash:      { name: '拾柴之环', emoji: '🪵', short: '柴', chapter: 2, desc: '每击败 10 只怪额外 +1 余烬' },
     scout2:   { name: '窥探之环', emoji: '👁️', short: '窥', chapter: 2, desc: '立刻获得窥探之镜' },
 
-    ledger2:  { name: '墨账之环', emoji: '🖋️', short: '墨', chapter: 3, desc: '每条塔规额外 +1 余烬' },
+    ledger2:  { name: '墨账之环', emoji: '🖋️', short: '墨', chapter: 3, desc: '每击败 10 只怪额外 +1 余烬' },
     vitality2:{ name: '深井之环', emoji: '🫗', short: '井', chapter: 3, desc: '生命上限 +200，并回复 200' },
 
     coin2:    { name: '夜市之环', emoji: '🪙', short: '市', chapter: 4, desc: '立刻获得 300 金币' },
@@ -433,7 +433,7 @@ window.GAME_DATA = (function () {
       ],
     },
     {
-      // 隐藏层：塔规达成 8 条以上、击败衡后，塔顶后露出一段窄梯
+      // 隐藏层：击败衡后，塔顶后露出一段窄梯
       name: '锁芯', chapter: 0, ambient: 'core',
       tip: '塔顶后面是一段窄梯。塔把最要紧的东西，放在最高的地方。',
       map: [
@@ -450,22 +450,6 @@ window.GAME_DATA = (function () {
         '###########',
       ],
     },
-  ];
-
-  // 每层的「规矩」：离开该层时结算，达成后计入塔印与通关余烬（不影响战斗数值）
-  const floorGoals = [
-    { type: 'killsMax', v: 1, text: '只打挡路的那一只（击杀 ≤ 1）' },
-    { type: 'openDoor', text: '用黄钥匙打开内室' },
-    { type: 'noShop', text: '不在秤那里花一枚金币' },
-    { type: 'killKind', v: 'E', text: '打倒密道的石像鬼' },
-    { type: 'clear', text: '把狼厅的怪清空' },
-    { type: 'hpAbove', v: 0.5, text: '半血以上打赢魔王' },
-    { type: 'killsMax', v: 3, text: '塔脊上最多打三只（击杀 ≤ 3）' },
-    { type: 'noShop', text: '不在空廊的货摊上花一枚金币' },
-    { type: 'hpAbove', v: 0.4, text: '四成血以上离开钟楼' },
-    { type: 'hpAbove', v: 0.45, text: '四成半血以上离开名墙' },
-    { type: 'clear', text: '把刻名室清空' },
-    { type: 'hpAbove', v: 0.5, text: '半血以上打赢衡' },
   ];
 
   // 四章结构：每章三层、章末一 Boss；Boss 站在上楼唯一的路上。
@@ -702,5 +686,5 @@ window.GAME_DATA = (function () {
     { id: 'codex', name: '窥探之镜', emoji: '🔮', price: 100, codex: true, once: true },
   ];
 
-  return { LEGEND, PALETTE, kindColor, monsters, items, relics, altarPool, rings, ringPools, levelExp, floors, floorGoals, chapters, vows, events, shop };
+  return { LEGEND, PALETTE, kindColor, monsters, items, relics, altarPool, rings, ringPools, levelExp, floors, chapters, vows, events, shop };
 })();

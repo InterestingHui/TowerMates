@@ -393,6 +393,37 @@
         T.refreshHud();
         try { d.getElementById('guide').classList.add('show'); d.getElementById('guideText').textContent = '点你想去的格子，会自动寻路过去；方向键走一格。'; } catch (e) {}
         await wait(300);
+      } else if (scene === 'coach') {
+        // 新手标注端到端：开局 → coach 卡（怎么走）→ 点掉 → 画面干净
+        const out = [];
+        for (let i = 0; i < 20 && !w.__tm; i++) await wait(200);   // 等 boot（无头解析慢）
+        d.getElementById('btnNew').click();
+        for (let i = 0; i < 10 && !d.querySelector('#vowCards .vow-card'); i++) await wait(200);
+        out.push('vowOpen=' + d.getElementById('vowOverlay').classList.contains('show'));
+        const _vc = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
+        if (_vc) _vc.click();
+        await wait(260);
+        const dl = d.getElementById('dialogOverlay');
+        out.push('introDlg=' + dl.classList.contains('show'));
+        for (let i = 0; i < 12; i++) {
+          if (!dl.classList.contains('show')) break;
+          dl.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+          await wait(60);
+        }
+        out.push('dlgClosedAfterSkip=' + !dl.classList.contains('show'));
+        // 等教练卡出现（cb 同步触发，最长等 1.5s 兜底）
+        for (let i = 0; i < 15 && d.getElementById('coachCard').hidden; i++) await wait(100);
+        const card = d.getElementById('coachCard');
+        const svg = d.getElementById('coachSvg');
+        out.push('coach1=' + !card.hidden + ' title=' + d.getElementById('coachTitle').textContent
+          + ' circle=' + !!svg.querySelector('.coach-spot') + ' line=' + !!svg.querySelector('.coach-line')
+          + ' okBtn=' + d.getElementById('coachOk').textContent);
+        d.getElementById('coachOk').click();
+        await wait(700);
+        out.push('coachClosed=' + card.hidden);
+        out.push('allClosed=' + card.hidden + ' dlgClosed=' + !dl.classList.contains('show'));
+        errBox.textContent = out.join('\n') + '\nerr=' + (errs.length ? errs.join('|') : 'none');
+        return;
       } else if (scene === 'flow') {
         const out = [];
         d.getElementById('btnNew').click();

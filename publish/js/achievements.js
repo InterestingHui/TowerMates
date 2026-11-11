@@ -1,4 +1,4 @@
-// TowerMates · 成就系统（v2.1：31 项，含章节 Boss/遗物/结局/塔心/誓约/章末回响与锁环）
+// TowerMates · 成就系统（29 项，含章节 Boss/遗物/结局/塔心/誓约/锁环）
 // 定义 + 检测 + 通知，存储在 localStorage。与引擎解耦，由 main 喂事件。
 (function () {
   const KEY = 'towermates_ach_v1';
@@ -32,9 +32,7 @@
     { id: 'vow_guard', name: '不必再挡', emoji: '🛡️', desc: '以铁壁之誓走到结局' },
     { id: 'vow_all', name: '三誓皆立', emoji: '📜', desc: '三条誓约各走到一次结局' },
     { id: 'ring_first', name: '第一道环', emoji: '⭕', desc: '装上第一枚锁环' },
-    { id: 'echo_perfect', name: '一章不落', emoji: '✍️', desc: '某一章三条塔规全部达成' },
     { id: 'ring_four', name: '四环齐备', emoji: '🔗', desc: '一局内四章各装上一枚锁环' },
-    { id: 'echo_master', name: '塔把账记全了', emoji: '📖', desc: '四章回响都达成两条以上规矩' },
   ];
 
   let unlocked = {};
@@ -96,11 +94,8 @@
     // 章末回响与锁环（通用判定，任何事件后都会过一遍）
     const rings = Array.isArray(f.rings) ? f.rings : [];
     if (rings.length >= 1) unlock('ring_first', notify);
-    const echoes = [1, 2, 3, 4].map((i) => f['echo_' + i]);
-    if (echoes.some((n) => n === 3)) unlock('echo_perfect', notify);
     const chapters = new Set(rings.map((id) => (window.GAME_DATA.rings[id] || {}).chapter));
     if (chapters.size >= 4) unlock('ring_four', notify);
-    if (echoes.filter((n) => n >= 2).length === 4) unlock('echo_master', notify);
   }
 
   function reset() {

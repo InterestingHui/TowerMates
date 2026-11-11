@@ -1,0 +1,32 @@
+✓ ?play=1 后引擎就绪
+✓ 触控 / 挑战码 / 平台桥接模块已加载
+✓ 首层拿到钥匙时「往前开一层」可用
+✓ 按钮写明目标层与一次性
+✓ 代价在按钮下方明码列出
+✓ 点两次确认后真的跳到第 2 层
+✓ 两件宝物被封印并写进存档
+✓ 挑战码短到能直接贴进输入框
+✓ 挑战码还原层数/塔印/塔规，且不含结算分
+✓ 贴码输入框容得下新码
+✓ 贴码后名录出现朋友的层数
+✓ 找到一只不相邻的怪物作点击目标
+✓ 只点一次怪物就自动走到跟前并完成战斗
+✓ 战斗后怪物消失、人物站上它的格子
+✓ 第 3 层打砚的立足格可直达
+✓ 通往砚的自动寻路不再踩到商店
+✓ 砚倒下后入口到上楼有通路
+✗ 解锁誓约首通额外 +12，第二次不再给
+✗ 余烬估算走近 3 局平均，无记录回退 18
+✗ 结局页逐项展示本局余烬来源
+✗ 全解锁后余烬可点亮层灯（扣 20、灯 +1）
+✓ 提示加粗生效且文案不会被当 HTML 执行
+✓ 九条角色提示台词就位（含加粗重点）
+✓ 操作反馈里的重点也加粗
+✓ 关键提示改走角色对白，点击可提前收起
+✗ 角色提示悬挂到时自己收起，不会一直占着画面
+✗ 顶栏「本层规矩」挂够时间收起，点一下可再展开
+✗ 打不过时顶栏钉住「还差多少攻击」的指引且重点加粗
+✗ 提示停留档位可切换且时长跟着变
+✗ 设置里可重看全部角色提示台词
+  诊断：{"booted":true,"modules":{"touch":true,"challenge":true,"wx":true},"gateForthRaw":{"ok":true,"target":1,"seals":[{"x":5,"y":5,"ch":"d","name":"铁盾","rank":7},{"x":4,"y":9,"ch":"p","name":"红药水","rank":9}],"msg":""},"gateBtn":"↥ 往前开一层 · 第 2 层（仅此一次）","gateTip":"代价：封印 铁盾、红药水，且跳过这一层之前的东西。点两次确认。","gateEnabled":true,"afterFloor":1,"gateForthUsed":true,"sealCount":2,"codeLen":39,"codeFloor":9,"codeSeal":"ward","codeGoals":3,"noScore":true,"pasteMax":220,"rivalRow":"1 挑战·朋友 第 9 层手 铁与霜 9层 500步 6分40秒","rivalScore":true,"rivalFloor":true,"clickTarget":"2,2","clickDist":3,"clickKills":1,"clickCleared":true,"clickOnTile":true,"f3Ledge":".","f3ReachLedge":true,"f3ShopOnPath":false,"f3UpPath":true,"richBold"
+✗ UI 自检 9 项失败

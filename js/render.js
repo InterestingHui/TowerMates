@@ -542,12 +542,100 @@
     ctx.fillText(text, px + TILE - w / 2 - 2, py + 2 + h / 2 + 0.5);
   }
 
+  // 章节 Boss 地图标 identity：四位锁匠共用「炬」的剪影，只换光色（与 portraits.js 同源）
+  const BOSS_LIGHT = {
+    N: ['#b9a6ff', 'rgba(185,166,255,'], // 砚：紫
+    Z: ['#ff7d7d', 'rgba(255,125,125,'], // 炬/魔王：红
+    Y: ['#e8c46a', 'rgba(232,196,106,'], // 铎：金
+    U: ['#9fd8ff', 'rgba(159,216,255,'], // 衡：蓝
+  };
+
+  // 章节 Boss 画法：坐着的锁匠剪影（宽肩+双角+亮瞳）+ 膝上锁物 + 脚下红色威胁环。
+  // 之前直接整格画 emoji（砚=📖、铎=🔔），跟可拾取道具长得一样，玩家会误判；
+  // 现在构图与人形立绘同源，一眼可辨是「拦路的人」而不是道具。
+  function drawBossFigure(m, ch, px, py, t) {
+    const cx = px + TILE / 2;
+    const baseY = py + TILE * 0.74;
+    const light = BOSS_LIGHT[ch] || BOSS_LIGHT.Z;
+    const s = TILE / 48;
+    const breathe = Math.sin(t / 620 + px * 0.07);
+
+    groundShadow(px, py, TILE * 0.4, 0.42);
+
+    // 脚下红色威胁环：脉动椭圆，沿用全塔「红 = 危险」的语言
+    const ringP = 0.86 + Math.sin(t / 430) * 0.14;
+    ctx.strokeStyle = 'rgba(255,80,70,' + (0.3 + Math.sin(t / 430) * 0.13).toFixed(2) + ')';
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.ellipse(cx, py + TILE * 0.8, TILE * 0.42 * ringP, TILE * 0.16 * ringP, 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // 身后光晕：该锁匠的立绘光色
+    const halo = ctx.createRadialGradient(cx, baseY - TILE * 0.3, 1, cx, baseY - TILE * 0.3, TILE * 0.64);
+    halo.addColorStop(0, light[1] + '0.24)');
+    halo.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = halo;
+    ctx.fillRect(px - TILE * 0.2, py - TILE * 0.28, TILE * 1.4, TILE * 1.45);
+
+    // 剪影：宽肩坐姿 + 双角（同立绘「炬」的构图）
+    ctx.save();
+    ctx.translate(cx, baseY);
+    ctx.scale(s, s);
+    const ink = '#0a0d14';
+    ctx.fillStyle = ink;
+    ctx.beginPath();
+    ctx.moveTo(-16, 2);
+    ctx.bezierCurveTo(-17, -8, -15, -17, -11, -21);
+    ctx.bezierCurveTo(-7, -24.5, 7, -24.5, 11, -21);
+    ctx.bezierCurveTo(15, -17, 17, -8, 16, 2);
+    ctx.closePath();
+    ctx.fill();
+    // 头
+    ctx.beginPath();
+    ctx.ellipse(0, -26, 6.2, 6.8, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // 双角
+    ctx.strokeStyle = ink;
+    ctx.lineWidth = 3.2;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(-5, -30);
+    ctx.quadraticCurveTo(-9.5, -36, -8.5, -41);
+    ctx.moveTo(5, -30);
+    ctx.quadraticCurveTo(9.5, -36, 8.5, -41);
+    ctx.stroke();
+    // 边缘受光：肩线一道细亮边
+    ctx.strokeStyle = light[1] + '0.5)';
+    ctx.lineWidth = 1.3;
+    ctx.beginPath();
+    ctx.moveTo(-11, -21);
+    ctx.bezierCurveTo(-7, -24.5, 7, -24.5, 11, -21);
+    ctx.stroke();
+    // 亮瞳：随呼吸明灭
+    ctx.fillStyle = light[1] + (0.72 + breathe * 0.26).toFixed(2) + ')';
+    ctx.beginPath();
+    ctx.ellipse(-2.6, -26.5, 1.5, 1.15, 0, 0, Math.PI * 2);
+    ctx.ellipse(2.6, -26.5, 1.5, 1.15, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // 膝上锁物：缩小后的 emoji 悬在膝前，读作「他守着的东西」，不再是整格大图标
+    ctx.save();
+    glow(light[1] + '0.5)', TILE * 0.3);
+    ctx.globalAlpha = 0.95;
+    drawEmoji(m.emoji, px, py + TILE * 0.08, 0.34);
+    ctx.globalAlpha = 1;
+    noGlow();
+    ctx.restore();
+  }
+
   function drawMonster(ch, px, py, t) {
     const m = D.monsters[ch];
+    if (m.boss) { drawBossFigure(m, ch, px, py, t); return; }
     const bob = Math.sin(t / 420 + px * 0.11) * TILE * 0.035;
-    groundShadow(px, py, TILE * (m.boss ? 0.4 : 0.3), 0.4);
+    groundShadow(px, py, TILE * 0.3, 0.4);
     // 同族底光：兽=琥珀 / 亡=霜蓝 / 构=石灰 / 异=苔绿
-    const tint = !m.boss && !m.ghost && D.kindColor && D.kindColor[m.kind];
+    const tint = !m.ghost && D.kindColor && D.kindColor[m.kind];
     if (tint) {
       const kg = ctx.createRadialGradient(px + TILE / 2, py + TILE * 0.6, 1, px + TILE / 2, py + TILE * 0.6, TILE * 0.52);
       kg.addColorStop(0, tint);
@@ -556,13 +644,6 @@
       ctx.beginPath();
       ctx.arc(px + TILE / 2, py + TILE * 0.6, TILE * 0.52, 0, Math.PI * 2);
       ctx.fill();
-    }
-    if (m.boss) {
-      const g = ctx.createRadialGradient(px + TILE / 2, py + TILE / 2, 1, px + TILE / 2, py + TILE / 2, TILE * 0.66);
-      g.addColorStop(0, 'rgba(255,60,60,0.26)');
-      g.addColorStop(1, 'rgba(255,60,60,0)');
-      ctx.fillStyle = g;
-      ctx.fillRect(px - TILE * 0.2, py - TILE * 0.2, TILE * 1.4, TILE * 1.4);
     }
     if (m.ghost) {
       const p = 0.5 + Math.sin(t / 300) * 0.5;
@@ -580,7 +661,7 @@
       noGlow();
       return;
     }
-    drawEmoji(m.emoji, px, py + bob, m.boss ? 0.76 : 0.6);
+    drawEmoji(m.emoji, px, py + bob, 0.6);
   }
 
   function drawPlayer(px, py, t) {
