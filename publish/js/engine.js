@@ -124,7 +124,7 @@
     if (!p || p.damage === null) return null;
     const m = D.monsters[ch];
     let dmg = p.damage;
-    if (vow() === 'guard') dmg = Math.round(dmg * 0.82);
+    if (vow() === 'guard') dmg = Math.round(dmg * 1.18);
     if (hasRing('ward2')) dmg = Math.round(dmg * 0.94);
     if (hasRing('bell') && m && m.boss) dmg = Math.round(dmg * 0.92);
     if (blocked) dmg = Math.round(dmg * ringBlockScale());
