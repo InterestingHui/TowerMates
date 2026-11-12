@@ -2466,6 +2466,20 @@
         ? '你把签好的盾谱留在了塔里。名字还没有传出去，但招式会。'
         : '';
     $('endEpi').textContent = (E.epilogue || '') + (heartLine ? ' ' + heartLine : '');
+    // 秤的告别：第八位勇者的军需官跟了你一路，结局这一刻他的账清了。
+    // 真结局才亮（普通结局没人替川收尾）；带过断剑时，纸条直接写给他等了八十年的人。
+    const scaleNote = s.ending === 'true' && s.flags.relic_edge
+      ? '下塔的时候，第三层的货摊已经空了。铜盘里压着最后一张纸条，字迹是秤的：「他说过要带我去塔顶看看。我没等到他，等到了你。——秤」'
+      : s.ending === 'true'
+        ? '下塔的时候，第三层的货摊已经空了。铜盘里压着最后一张纸条，字迹是秤的：「账清了。后头的路，自己走稳。——秤」'
+        : '';
+    if (scaleNote) {
+      const epi = $('endEpi');
+      const p = document.createElement('p');
+      p.className = 'end-epi end-epi-scale';
+      p.textContent = scaleNote;
+      epi.parentNode.insertBefore(p, epi.nextSibling);
+    }
     // 签名独立一行：等结算面板入场后，用「一笔写下来」的揭示动画出现（只有集齐盾谱才有）
     const signEl = $('endSign');
     if (signEl) {
@@ -3032,6 +3046,8 @@
       }
       case 'princess':
         if (ev.hasJournal) playStory('princessTrue', () => showEndingChoice());
+        // 带着第八位勇者的断剑走到塔顶：薇拉会认出它（变体段；没捡过剑走原段，不剧透）
+        else if (Engine.hasRelic('edge')) playStory('princessPlainSword', () => completeEnding('plain', false), null, 'veiled');
         else playStory('princessPlain', () => completeEnding('plain', false), null, 'veiled');
         return;
       case 'move':

@@ -780,6 +780,10 @@
         const r = n.getBoundingClientRect();
         q2.push(id + ':' + Math.round(r.width) + 'x' + Math.round(r.height) + '@' + Math.round(r.left) + ',' + Math.round(r.top) + ' bg=' + getComputedStyle(n).width);
       });
+      if (q.get('scene') === 'end') {
+        const p = d.querySelector('.end-epi-scale');
+        q2.push('scaleNote=' + (p ? p.textContent.slice(0, 24) : 'MISSING'));
+      }
       errBox.textContent = (errs.length ? 'JS 错误：\n' + errs.join('\n') : '') + (q2.length ? '\n' + q2.join('\n') : '');
     } catch (e) {
       errBox.textContent = 'HARNESS: ' + e.message;

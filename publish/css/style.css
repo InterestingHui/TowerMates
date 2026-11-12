@@ -1412,6 +1412,11 @@ html, body {
   padding: 1px 0 1px 9px;
 }
 .end-epi:empty { display: none; }
+/* 秤的告别纸条：比后日谈再浅一档，像随手压在铜盘底下的 */
+.end-epi-scale {
+  border-left-color: rgba(159, 216, 255, 0.28);
+  color: #8fa3b4;
+}
 
 /* ---------- 签名彩蛋：盾谱集齐后，一笔写下来的那句话 ---------- */
 .end-sign {
