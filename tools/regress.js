@@ -15,7 +15,7 @@ const CHROME_CANDIDATES = [
   'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
   'C:/Program Files/Microsoft/Edge/Application/msedge.exe',
 ];
-const SCENES = ['start', 'play', 'critters', 'dialog', 'hint', 'stuck', 'battle', 'battleblock', 'bossphase', 'bossyan', 'bossdef', 'probecard', 'altar', 'choice', 'end', 'board', 'codex', 'cfg', 'hud', 'tower', 'core', 'heart', 'stoneidle', 'vow', 'event', 'eventdeep', 'gate', 'echo', 'goal', 'flow', 'showcase', 'death'];
+const SCENES = ['start', 'play', 'critters', 'dialog', 'hint', 'stuck', 'battle', 'battleblock', 'bossphase', 'bossyan', 'bossdef', 'probecard', 'altar', 'choice', 'end', 'board', 'codex', 'cfg', 'hud', 'tower', 'core', 'heart', 'stoneidle', 'vow', 'event', 'eventdeep', 'gate', 'echo', 'goal', 'flow', 'showcase', 'death', 'collection'];
 
 function run(cmd, args) {
   const r = spawnSync(cmd, args, { cwd: ROOT, encoding: 'utf8' });
@@ -81,6 +81,20 @@ if (!process.argv.includes('--no-shot')) {
         if (!good) bad++;
         console.log((good ? '✓' : '✗') + ` scene ${scene} ${(size / 1024).toFixed(0)}KB`);
       }
+      // 手感探针：跳过必须当场生效（曾经点一下要白等 528ms / Boss 过场 950ms）
+      console.log('== 附加 · 手感探针（战斗跳过延迟）==');
+      let okProbe = true, probeA3 = -1;
+      {
+        const p = spawnSync(chrome, [
+          '--headless=new', '--disable-gpu', '--no-sandbox',
+          '--virtual-time-budget=90000',
+          '--dump-dom', `http://127.0.0.1:${PORT}/tools/fx-probe.html?gate=1`,
+        ], { encoding: 'utf8', maxBuffer: 12 * 1024 * 1024 });
+        const m = /A3=(\d+)/.exec(p.stdout || '');
+        probeA3 = m ? Number(m[1]) : -1;
+        okProbe = probeA3 >= 0 && probeA3 < 150;
+        console.log((okProbe ? '✓' : '✗') + ` 点跳过→面板消失 ${probeA3 < 0 ? '读数失败' : probeA3 + 'ms'}（阈值 <150ms）`);
+      }
       server.kill();
       console.log(bad === 0 ? `\n✓ 截图全部生成（${SCENES.length} 张，见 tools/out/）` : `\n✗ ${bad} 张截图异常`);
 
@@ -88,8 +102,8 @@ if (!process.argv.includes('--no-shot')) {
       const ui = run(process.execPath, ['tools/ui-test.js']);
       const okUi = ui.code === 0;
       console.log((okUi ? '✓' : '✗') + ' ui-test.js' + (okUi ? '' : '\n' + ui.out));
-      const all = okCheck && okSim && okTest && okCode && okBsim && okUi && bad === 0;
-      if (!all) console.log('  闸门明细:', JSON.stringify({ okCheck, okSim, okTest, okCode, okBsim, okUi, bad }));
+      const all = okCheck && okSim && okTest && okCode && okBsim && okUi && okProbe && bad === 0;
+      if (!all) console.log('  闸门明细:', JSON.stringify({ okCheck, okSim, okTest, okCode, okBsim, okUi, okProbe, probeA3, bad }));
       console.log(all ? '✓ 质量闸门通过' : '✗ 质量闸门有失败项');
       process.exit(all ? 0 : 1);
     })();

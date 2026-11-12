@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>fx-probe</title>
+<style>
+body{margin:0;background:#05070c;color:#8ef;font:13px/1.6 monospace;width:430px;overflow:hidden}
+#f{width:430px;height:640px;border:0;display:block;overflow:hidden}
+#out{padding:10px;white-space:pre-wrap;font-size:11.5px}
+.ok{color:#6fe3a0}.bad{color:#ff8f8f}
+</style>
+</head>
+<body>
+<iframe id="f"></iframe>
+<pre id="out">running…</pre>
+<script>
+// 手感探针：量「操作 → 反馈」的真实耗时（焦点 A · 手感回归）
+// 跑法：chrome --headless --dump-dom http://127.0.0.1:PORT/tools/fx-probe.html
+const f = document.getElementById('f');
+const out = document.getElementById('out');
+const now = () => performance.now();
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const R = [];
+function rec(name, ms, note) {
+  R.push({ name, ms: Math.round(ms), note: note || '' });
+  out.textContent = R.map((r) => `${r.name.padEnd(34, '.')} ${String(r.ms).padStart(6)}ms  ${r.note}`).join('\n');
+  // 自动化读数通道：headless 下截图不可靠，把结果压进 title 供 tab_title 读取
+  document.title = 'R|' + R.map((r) => `${r.name.split(' ')[0]}=${r.ms}`).join(' ') + '|';
+}
+async function waitFor(fn, timeout = 12000, step = 8) {
+  const t0 = now();
+  while (now() - t0 < timeout) {
+    let v = null;
+    try { v = fn(); } catch (e) {}
+    if (v) return { v, dt: now() - t0 };
+    await wait(step);
+  }
+  return { v: null, dt: now() - t0 };
+}
+function load(url) {
+  return new Promise((resolve) => {
+    f.onload = () => resolve();
+    f.src = url;
+  });
+}
+function clickEl(el) {
+  el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+}
+
+(async () => {
+  try {
+    // 预置：提示全已读、标准战斗速度、不用快速战斗（测标准手感）
+    await load('/index.html?dev=1&p=0');
+    const w0 = f.contentWindow;
+    w0.localStorage.setItem('towermates_tips_v2', JSON.stringify({
+      walk: 1, fight: 1, block: 1, blocksave: 1, low: 1, relic: 1, goal: 1, echo: 1, ring: 1, tooStrong: 1, opening: 1,
+    }));
+    w0.localStorage.setItem('towermates_cfg_v2', JSON.stringify({ battleSpeed: 'normal', fast: false, hintSpeed: 'normal', fx: 'full', sfx: false, music: false }));
+    await wait(200);
+
+    // ===== 场景 A：第 1 层，站 (4,5)，右侧 (6,5) 有普通怪 B =====
+    await load('/index.html?dev=1&p=1#demo=0,4,5');
+    let w = f.contentWindow, d = f.contentDocument;
+    await waitFor(() => w.__tm && w.Engine && w.Engine.state(), 10000);
+    await wait(500);
+    const T = w.__tm;
+
+    // A1 单步：act 是否同步生效
+    {
+      const s0 = JSON.parse(JSON.stringify(w.Engine.state()));
+      const t0 = now();
+      T.act(1, 0);
+      const s1 = JSON.parse(JSON.stringify(w.Engine.state()));
+      rec('A1 单步 act 同步生效', now() - t0, `(${s0.x},${s0.y})->(${s1.x},${s1.y})`);
+    }
+
+    // A2 先退回 (4,5) 再点远处的怪：点击 → 战斗面板出现
+    {
+      const sB = w.Engine.state();
+      if (sB.x !== 4) { T.act(-1, 0); await wait(200); }
+      const t0 = now();
+      T.clickMove(6, 5);
+      const r = await waitFor(() => d.getElementById('battleScene').classList.contains('show'), 8000);
+      rec('A2 点怪→战斗面板出现', r.dt, r.v ? '含 1 格走路+启动' : '超时未出现');
+    }
+
+    // A3 战斗面板点击跳过 → 面板消失
+    {
+      const bs = d.getElementById('battleScene');
+      await wait(60);
+      const t0 = now();
+      clickEl(bs);
+      const r = await waitFor(() => !bs.classList.contains('show'), 6000);
+      rec('A3 点跳过→面板消失(普通怪)', r.dt, r.v ? '' : '超时');
+    }
+    await wait(400);
+
+    // ===== 场景 B：第 3 层，站 (5,6)，上方 (5,5) 是 Boss 砚 =====
+    await load('/index.html?dev=1&p=2#demo=2,5,6');
+    w = f.contentWindow; d = f.contentDocument;
+    await waitFor(() => w.__tm && w.Engine && w.Engine.state(), 10000);
+    await wait(600);
+    const T2 = w.__tm;
+    // 进层可能带剧情对白：先点掉，否则 act 只会 advanceDialog
+    for (let i = 0; i < 12; i++) {
+      const ov = d.getElementById('dialogOverlay');
+      if (!ov.classList.contains('show')) break;
+      clickEl(ov);
+      await wait(60);
+    }
+    // 白板打不过 Boss 时 clickMonster 只会提示，不进战斗——先把属性拉满再撞
+    {
+      const st = w.Engine.state();
+      st.atk = 400; st.def = 400; st.maxHp = 9999; st.hp = 9999;
+      st.flags.hasBlock = true;
+      w.__tm.refreshHud();
+      await wait(80);
+    }
+
+    {
+      const st = w.Engine.state();
+      const dlg = d.getElementById('dialogOverlay').classList.contains('show');
+      rec('B0 诊断', 0, `floor=${st.floor} pos=${st.x},${st.y} atk=${st.atk} tile55=${w.Engine.tile(5,5)} dlg=${dlg} over=${st.over} won=${st.won}`);
+      const t0 = now();
+      T2.resolveBattle(0, -1);
+      const st2 = w.Engine.state();
+      rec('B0b 点击后', 0, `pos=${st2.x},${st2.y} busy=${d.getElementById('battleScene').classList.contains('show')}`);
+      // 引擎层直探：能打的话 main 层被挡就是本地 bug，不能打则是属性问题
+      try {
+        const ev = w.Engine.tryMove(0, -1);
+        rec('B0c tryMove 直探', 0, 'type=' + (ev && ev.type) + (ev && ev.msg ? ' msg=' + ev.msg : ''));
+      } catch (e) { rec('B0c tryMove 直探', 0, 'throw ' + e.message); }
+      const r = await waitFor(() => d.getElementById('battleScene').classList.contains('show'), 8000);
+      rec('B1 撞Boss→战斗面板出现', r.dt, r.v ? '' : '超时');
+    }
+    // B2 等 Boss 阶段过场出现 → 过场中点跳过 → 面板消失
+    {
+      const ph = await waitFor(() => d.getElementById('battleScene').classList.contains('phasing'), 12000);
+      if (ph.v) {
+        await wait(80);
+        const bs = d.getElementById('battleScene');
+        const t0 = now();
+        clickEl(bs);   // 过场中点击
+        const r = await waitFor(() => !bs.classList.contains('show'), 8000);
+        rec('B2 过场中点跳过→面板消失', r.dt, r.v ? '含过场剩余等待' : '超时');
+      } else {
+        rec('B2 过场中跳过', 0, 'Boss 过场未触发（可能太快/已跳）');
+      }
+    }
+    // B3 若无过场：等面板自然结束，量总时长
+    {
+      const bs = d.getElementById('battleScene');
+      if (bs.classList.contains('show')) {
+        await wait(100);
+        clickEl(bs);
+        await waitFor(() => !bs.classList.contains('show'), 8000);
+      }
+    }
+    await wait(600);
+
+    // ===== 场景 C：楼层卡时长 =====
+    {
+      await load('/index.html?dev=1&p=3#demo=0,4,5');
+      w = f.contentWindow; d = f.contentDocument;
+      await waitFor(() => w.__tm && w.Engine && w.Engine.state(), 10000);
+      await wait(500);
+      const card = d.getElementById('floorCard');
+      const t0 = now();
+      w.__tm.showFloorCard(1);
+      await waitFor(() => card.classList.contains('show'), 2000, 16);
+      const r = await waitFor(() => !card.classList.contains('show'), 6000, 16);
+      rec('C1 楼层卡显示总时长', now() - t0, r.v ? '标准速度' : '超时');
+    }
+
+    out.textContent = R.map((r) => `${r.name.padEnd(34, '.')} ${String(r.ms).padStart(6)}ms  ${r.note}`).join('\n') + '\n\nDONE';
+    document.title = 'DONE|' + R.map((r) => `${r.name.split(' ')[0]}=${r.ms}${r.v === false ? '!' : ''}`).join(' ');
+  } catch (e) {
+    out.textContent = 'HARNESS: ' + e.message + '\n' + (e.stack || '');
+    document.title = 'ERR|' + e.message;
+  }
+})();
+</script>
+</body>
+</html>

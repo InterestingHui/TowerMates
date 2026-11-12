@@ -397,6 +397,10 @@
       if (it.flag && !s.flags[it.flag]) s.flags[it.flag] = true;
       return { type: 'story', story: it.story, msg: '拾取了一本泛黄的手记', good: true };
     }
+    if (it.type === 'gold') {
+      s.gold += it.value;
+      return { type: 'pickup', msg: `拾取${it.name}，金币 +${it.value}`, short: `+${it.value}💰`, good: true };
+    }
     if (it.type === 'relic') {
       s.flags['relic_' + it.relic] = true;
       if (it.relic === 'edge') s.atk += 6;
@@ -881,6 +885,22 @@
     return D.shop.filter((x) => !x.minFloor || f + 1 >= x.minFloor);
   }
 
+  // 本层还剩几只怪（商店的「还差多少金、还能刷几只」提示用；幽灵 NPC 不算）
+  function floorMonsterCount(floor) {
+    if (!s) return 0;
+    const f = floor === undefined ? s.floor : floor;
+    const map = s.maps[f];
+    if (!map) return 0;
+    let n = 0;
+    for (let y = 0; y < SIZE; y++) {
+      for (let x = 0; x < SIZE; x++) {
+        const m = D.monsters[map[y][x]];
+        if (m && !m.ghost) n++;
+      }
+    }
+    return n;
+  }
+
   function buy(id) {
     if (!s) return { type: 'refuse', msg: '没有进行游戏' };
     const item = D.shop.find((x) => x.id === id);
@@ -1177,7 +1197,7 @@
       const ch = tile(s.x + dx, s.y + dy);
       return D.monsters[ch] ? predict(ch) : null;
     },
-    tryMove, fight, canBlock, grantBlock, vowForbidsBlock, buy, priceOf, shopStock, finish, altarChoices, pickRelic, pathTo, pathThrough, pathToNear, pathsTo,
+    tryMove, fight, canBlock, grantBlock, vowForbidsBlock, buy, priceOf, shopStock, floorMonsterCount, finish, altarChoices, pickRelic, pathTo, pathThrough, pathToNear, pathsTo,
     nextLevelExp, margin, keyName, summary, hasRelic, ownedRelics, beginFloor, restoreFloor, revealCore, heartState, heartTake, heartLeave, vow, pickEvent, eventPool, eventCost, resolveEvent, applyEffect, jumpTo, visitedMax, gateForth, sealPlan,
     rings, hasRing, ringBlockScale, fightDamage, bossPhases, settleChapter, ringChoices, pendingRing, pickRing,
   };

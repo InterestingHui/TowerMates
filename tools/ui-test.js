@@ -94,6 +94,13 @@ const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-ui-'));
   ok(out.stuckBar === true, '打不过时顶栏钉住「还差多少攻击」的指引且重点加粗');
   ok(out.hintSpeed === true && out.hintMsScaled === true, '提示停留档位可切换且时长跟着变');
   ok(out.hintBook === true, '设置里可重看全部角色提示台词');
+  ok(out.colMemory === true, '收藏图鉴：拿过的遗物/锁环写进跨局记忆');
+  ok(typeof out.colText === 'string' && /遗物 \d+\/11 · 锁环 \d+\/24/.test(out.colText), '收藏收集度按全表计数');
+  ok(out.colShown === true && out.colClosed === true, '收藏图鉴能打开也能关掉');
+  ok(out.colCards === 35 && out.colGroups === 5, '收藏面板渲染 11 遗物 + 24 锁环（4 章分组）');
+  ok(out.colGot >= 2 && out.colGot <= 4, '已获得的卡片高亮，其余置灰');
+  ok(out.colHudChips === 2, 'HUD 遗物栏显示全部已获遗物（含旧十字架/幸运金币）');
+  ok(out.renderErrors === 0, '整轮 UI 自检零渲染异常（rAF 兜底探针）');
 
   if (bad) console.log('  诊断：' + JSON.stringify(out).slice(0, 700));
   console.log(bad === 0 ? '✓ UI 自检通过' : `✗ UI 自检 ${bad} 项失败`);

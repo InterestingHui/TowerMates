@@ -93,6 +93,7 @@ function applyItem(ch) {
   if (it.type === 'def') s.def += it.value;
   if (it.type === 'both') { s.atk += it.value; s.def += it.value; }
   if (it.type === 'key') s.keys[it.key]++;
+  if (it.type === 'gold') { s.gold += it.value; console.log(`  ◈ ${it.name} → 金币 +${it.value}`); }
   if (it.type === 'block') { s.flags.hasBlock = true; console.log(`  ◈ ${it.name} → 学会格挡`); }
   if (it.type === 'relic' && USE_RELIC) {
     s.flags['relic_' + it.relic] = true;

@@ -254,6 +254,7 @@
       <button class="cfg-row" id="cfgFullRounds"><span>全量回合</span><b id="cfgFullRoundsVal">关</b></button>
       <button class="cfg-row" id="cfgHintSpeed"><span>提示停留</span><b id="cfgHintSpeedVal">标准</b></button>
       <button class="cfg-row" id="cfgHintBook"><span>重看提示</span><b id="cfgHintBookVal">全部台词 ›</b></button>
+      <button class="cfg-row" id="cfgCollection"><span>收藏图鉴</span><b id="cfgCollectionVal">遗物 0/11 · 锁环 0/24 ›</b></button>
     </div>
     <div class="cfg-help">
       <div class="cfg-help-title">遗物</div>
@@ -284,6 +285,21 @@
     <div class="hb-list" id="hbList"></div>
     <div class="actions">
       <button class="btn primary" id="hbClose">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- 收藏图鉴：遗物 × 锁环，跨局累计（见过的都记下来，未获得的置灰留悬念） -->
+<div class="overlay" id="collectionOverlay">
+  <div class="panel collection-panel">
+    <div class="shop-head">
+      <div class="shop-title">🗂 收藏图鉴</div>
+      <div class="shop-gold" id="colCount">遗物 0/11 · 锁环 0/24</div>
+    </div>
+    <div class="collection-body" id="colBody"></div>
+    <p class="code-hint">拿过一次就记进图鉴，跨局保留。灰着的是这局还没见过的东西。</p>
+    <div class="actions">
+      <button class="btn primary" id="colClose">关闭</button>
     </div>
   </div>
 </div>
@@ -422,6 +438,7 @@
     <p id="endDesc"></p>
     <div class="end-body" id="endBody"></div>
     <p class="end-epi" id="endEpi"></p>
+    <p class="end-sign" id="endSign" hidden><span></span></p>
     <div class="end-score" id="endScore"></div>
     <div class="end-ember-detail" id="endEmberDetail"></div>
     <p class="end-tag" id="endTag"></p>

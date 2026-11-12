@@ -197,6 +197,29 @@ async function run() {
         var lb7 = d.querySelector('#endMemory .lamp-btn');
         if (lb7 && !lb7.disabled) lb7.click();
         out.lampLit = M.lamps === lampsBefore + 1 && M.ember === emberBefore - 20;
+        // 收藏图鉴：拿过的东西跨局留档，面板按全表渲染（遗物 11 + 锁环 24）
+        d.querySelectorAll('.overlay.show').forEach(function (o) { o.classList.remove('show'); });
+        E.newGame();
+        var s8 = E.state();
+        s8.flags.relic_steel = true;   // 模拟本局拿过两件
+        s8.flags.relic_coin = true;
+        s8.flags.rings = ['ledger', 'parry'];
+        w.__tm.refreshHud();
+        out.colMemory = M.memory.seenRelics.length >= 2 && M.memory.seenRings.length >= 2;
+        out.colText = w.__tm.collectionText();
+        w.__tm.openCollection();
+        var colOv = d.getElementById('collectionOverlay');
+        out.colShown = colOv.classList.contains('show');
+        out.colCards = d.querySelectorAll('#colBody .col-card').length;
+        out.colGot = d.querySelectorAll('#colBody .col-card.got').length;
+        out.colGroups = d.querySelectorAll('#colBody .col-group').length;
+        w.__tm.closeCollection();
+        out.colClosed = !colOv.classList.contains('show');
+        // HUD 遗物 chip 全表（cross/coin 曾漏在 RELIC_ORDER 外，不显示）
+        out.colHudChips = d.querySelectorAll('#relicRow .relic[data-relic]').length;
+        // 渲染异常探针：整轮 UI 自检跑下来一次都不许有
+        out.renderErrors = (w.__tmRenderErrors || []).length;
+        out.renderErrorSample = (w.__tmRenderErrors || []).slice(0, 2);
         document.getElementById('out').textContent = JSON.stringify(out);
       }, 1000);
     }, 600);

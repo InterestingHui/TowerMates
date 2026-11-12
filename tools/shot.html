@@ -147,8 +147,10 @@
         const s = E.state();
         s.ending = 'true'; s.won = true; s.startedAt = Date.now() - 360000;
         s.flags.journal = true; s.flags.relic_ward = true; s.flags.relic_edge = true;
+        // 盾谱集齐 → 签名彩蛋行（截图要覆盖「一笔写下来」的动效落点）
+        s.flags.hasBlock = true; s.flags.hasBlock2 = true;
         T.showEnd();
-        await wait(600);
+        await wait(1600);
       } else if (scene === 'board') {
         d.getElementById('btnNew').click();
         await wait(200);
@@ -724,6 +726,26 @@
         sd.flags.worstHit = 1225; sd.flags.worstName = '钟妖';
         T.showDeath({ name: '钟妖' }, 1225);
         await wait(400);
+      } else if (scene === 'collection') {
+        // 收藏图鉴：预置一批「见过」的记录，检查 11 遗物 + 24 锁环（4 章分组）的卡片排版
+        d.getElementById('btnNew').click();
+        await wait(200);
+        const _vcc = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
+        if (_vcc) _vcc.click();
+        await wait(260);
+        const dlC = d.getElementById('dialogOverlay');
+        for (let i = 0; i < 8; i++) { dlC.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
+        const sc = E.state();
+        // 一半见过的状态：遗物 6/11、锁环 9/24 —— 亮卡与灰卡同屏，排版问题一眼可见
+        sc.flags.relic_ward = true; sc.flags.relic_edge = true; sc.flags.relic_steel = true;
+        sc.flags.relic_thrift = true; sc.flags.relic_gate = true; sc.flags.relic_coin = true;
+        sc.flags.rings = ['ledger', 'lamp', 'coin', 'parry', 'cinder', 'bell', 'stair', 'seventh', 'chisel'];
+        T.refreshHud();
+        await wait(200);
+        T.openCollection();
+        await wait(400);
+        errBox.textContent = 'COLLECTION ' + T.collectionText();
+        await wait(200);
       }
       await wait(600);
       const q2 = [];

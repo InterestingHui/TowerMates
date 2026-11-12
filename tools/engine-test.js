@@ -111,6 +111,19 @@ ok(gEv.blockLearned === true, '首次拾取带教学标记');
 ok(gEv.story === 'blockLore' && !!global.STORY.blockLore, '拾取盾谱带小传 blockLore');
 // 商店铺开：每 ~5 层一副（第 3/8/11/13 层），全部可达且不焊死在唯一通路上（check.js 已验）
 ok(D.floors.filter((f) => f.map.join('').includes('M')).length === 4, '全塔 4 副货摊（3/8/11/13 层）');
+// 无遗物线的经济救济：9 层钟楼铎之前有一袋金币（+400），位置在 Boss 之前的半场
+E.newGame();
+s = E.state();
+const oPos = (() => {
+  const m = s.maps[8];
+  for (let y = 0; y < 11; y++) for (let x = 0; x < 11; x++) if (m[y][x] === 'o') return { x, y };
+  return null;
+})();
+ok(!!oPos && oPos.y > 5, '第 9 层铎之前的半场有一袋金币');
+s.floor = 8; s.x = oPos.x + 1; s.y = oPos.y;
+const goldBeforeBag = s.gold;
+const oEv = E.tryMove(-1, 0);
+ok(oEv.type === 'pickup' && s.gold === goldBeforeBag + 400, '拾取一袋金币 → +400 金');
 // 货架分级：第 3 层没有蓝药/圣水，第 8 层起有蓝药，第 11 层起有圣水
 ok(E.shopStock(2).every((x) => x.id !== 'bigpotion' && x.id !== 'holywater'), '第 3 层货架没有高级药');
 ok(E.shopStock(7).some((x) => x.id === 'bigpotion') && E.shopStock(7).every((x) => x.id !== 'holywater'), '第 8 层上架蓝药水');
@@ -125,6 +138,14 @@ ok(hs1.type === 'buy' && s.flags.heartShard === true, '买塔心碎片 → 标�
 const hs2 = E.buy('heartshard');
 ok(hs2.type === 'refuse', '碎片唯一：第二枚被拒');
 ok(!E.shopStock(2).some((x) => x.id === 'heartshard'), '第 3 层买不到碎片');
+// 保底提示的数据源：本层剩余怪数（幽灵 NPC 不算）
+ok(E.floorMonsterCount(1) > 0, '第 2 层还有怪可刷（剩余计数可用）');
+E.newGame();
+s = E.state();
+const cnt0 = E.floorMonsterCount(0);
+s.x = 1; s.y = 2;
+const killEv = E.fight(1, 0); // (2,2) 的蝙蝠
+ok(killEv.type === 'fight' && E.floorMonsterCount(0) === cnt0 - 1, '杀掉一只后剩余计数 −1');
 // 后半部盾谱：锁芯拾取 → 格挡强化（×0.45 + 卸伤三成化经验）
 E.newGame();
 s = E.state();
@@ -418,6 +439,28 @@ E.tryMove(0, 1);
 s.hp = 500;
 const evNew = E.tryMove(0, -1);
 ok(evNew.type === 'floor' && evNew.at.heal === Math.round(s.maxHp * 0.12), '新的一层照常回血');
+
+// ---------- 9h+. 锁环「借灯/回廊/长明」同样受首访标记约束（防同款刷血回归） ----------
+E.newGame();
+s = E.state();
+s.flags.rings = ['lamp'];           // 借灯之环：每上一层 +5%
+s.hp = 500; s.x = 8; s.y = 8;
+ev = E.tryMove(0, 1);               // 首访第 2 层 → 回 5%
+ok(ev.type === 'floor' && ev.at.heal === Math.round(s.maxHp * 0.05), '借灯之环：首上某层回 5%');
+// 下楼回第 1 层，再上第 2 层 → 已标记，不再回
+s.x = 1; s.y = 9;
+E.tryMove(0, -1);
+E.tryMove(0, 1);
+s.hp = 500; s.x = 8; s.y = 8;
+ev = E.tryMove(0, 1);
+ok(ev.type === 'floor' && ev.at.heal === 0 && s.hp === 500, '借灯之环：重上同一层不再回血');
+// 三枚回血环叠加上限仍是首访一次
+E.newGame();
+s = E.state();
+s.flags.rings = ['lamp', 'stair', 'lamp2'];   // 5% + 4% + 4%
+s.hp = 500; s.x = 8; s.y = 8;
+ev = E.tryMove(0, 1);
+ok(ev.at.heal === Math.round(s.maxHp * 0.13), '三枚回血环叠加：首访回 13%');
 
 E.newGame('guard');
 s = E.state();
@@ -803,6 +846,9 @@ if (mTarget) ok(E.pathsTo(mTarget.x, mTarget.y) === null, '怪物目标返回 nu
   ok(D.monsters.F.trait === 'double', '狼人带连击特性');
   const roundsF = Math.ceil(fm.hp / (st.atk - fm.def));
   ok(pf.damage === Math.max(0, roundsF - 1) * Math.max(0, fm.atk - st.def) * 1.7, '连击：承伤 ×1.7（第二刀七成力）');
+  // 口径一致：trait 文案（图鉴/速查卡/首次教学共用同一份 tip）不得再写「翻倍」
+  ok(/七成/.test(D.TRAITS.double.tip) && !/翻倍|两下/.test(D.TRAITS.double.tip.replace('每回合打两下', '')),
+    '连击文案与 1.7 系数同口径（不写翻倍）');
 
   // 边际收益：魔攻怪的「加防」收益必须为 0，只攻有效
   const mgW = E.margin('W');
