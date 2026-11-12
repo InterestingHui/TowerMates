@@ -574,8 +574,8 @@ ok(ev.at.heal === Math.round(s.maxHp * 0.13), '三枚回血环叠加：首访回
   const keyBase = E.priceOf(keyItem);
   const potionBase = E.priceOf(potionItem);
   s.flags.rings = ['bargain'];
-  ok(E.priceOf(keyItem) === Math.round(keyBase * 0.75), '秤砣之环：黄钥匙价 −25%');
-  ok(E.priceOf(D.shop.find((x) => x.id === 'rkey')) === Math.round(45 * 0.75), '秤砣之环：红钥匙价也 −25%');
+  ok(E.priceOf(keyItem) === Math.round(keyBase * 0.5), '秤砣之环：黄钥匙价 −50%');
+  ok(E.priceOf(D.shop.find((x) => x.id === 'rkey')) === Math.round(45 * 0.5), '秤砣之环：红钥匙价也 −50%');
   ok(E.priceOf(potionItem) === potionBase, '秤砣之环：药水价不动');
 
   // 罗盘之环：本层剩余可捡数只数道具与金币
@@ -626,10 +626,11 @@ ok(ev.at.heal === Math.round(s.maxHp * 0.13), '三枚回血环叠加：首访回
   E.beginFloor();
   const yB = s.keys.y, rB = s.keys.r;
   const rBoss = E.fight(0, -1);
-  ok(rBoss.type === 'fight' && rBoss.tomeKey === true && s.keys.y === yB + 1 && s.keys.r === rB + 1, '名录之环：锁匠倒下后一黄一红');
+  ok(rBoss.type === 'fight' && rBoss.tomeKey === true && s.keys.y === yB + 1 && s.keys.r === rB, '名录之环：锁匠倒下后一把黄钥匙（红钥匙已移除）');
 
-  // 落笔之环：结算按剩余金币折算（上限 5），口径写在描述里
-  ok(/每剩 100 金币/.test(D.rings.quill.desc), '落笔之环：描述写明按金币折算');
+  // 落笔之环：结算按剩余金币折算（保底 2、每 100 金 +1、上限 6），口径写在描述里。
+  // 断言只认「每 100 / 金币 / 最多 N」三个语义要素，不锁死语序（文案改写过两次）
+  ok(/每\s*100/.test(D.rings.quill.desc) && /金币/.test(D.rings.quill.desc) && /最多\s*6/.test(D.rings.quill.desc), '落笔之环：描述写明按金币折算与上限');
 }
 
 E.newGame('guard');

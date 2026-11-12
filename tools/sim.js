@@ -19,7 +19,11 @@ const USE_BLOCK = !process.argv.includes('--no-block');
 const VOW = (process.argv.find((a) => a.startsWith('--vow=')) || '--vow=none').slice(6);
 // 极限构筑：借灯 5% + 回廊 4% 每上楼、灯油 +240 上限、停钟 Boss 承伤 −8%
 const USE_RINGS = process.argv.includes('--rings');
-const RINGS = USE_RINGS ? ['lamp', 'vitality', 'stair', 'bell'] : [];
+// --quill：模拟「为落笔之环刻意留钱」的构筑——留 500 金不花（刚好换满 5 余烬）
+// 用来回答一个设计问题：拿战力换 5 余烬到底亏不亏（卡关 = 陷阱选项，通关 = 合理权衡）
+const QUILL = process.argv.includes('--quill');
+const KEEP_GOLD = QUILL ? 500 : 0;
+const RINGS = QUILL ? ['quill'] : (USE_RINGS ? ['lamp', 'vitality', 'stair', 'bell'] : []);
 const hasRing = (id) => RINGS.indexOf(id) >= 0;
 
 let s = {
@@ -169,6 +173,7 @@ function shop() {
     const atk = D.shop.find((x) => x.id === 'atk');
     const price = priceOf(atk);
     if (s.gold < price) break;
+    if (QUILL && s.gold - price < KEEP_GOLD) break;   // 为落笔之环留钱
     s.gold -= price;
     spent += price;
     s.flags['buy_atk'] = (s.flags['buy_atk'] || 0) + 1;
@@ -375,7 +380,9 @@ function report() {
     console.log(`真实终局（打完碑魔）：${Math.round(s.lastBattle.hp)}/${s.lastBattle.maxHp}（${lp}%）← 难度基准`);
   }
   console.log(`遗物：${USE_RELIC ? Object.keys(D.relics).filter((k) => s.flags['relic_' + k]).join(' ') || '无' : '（已关闭）'}`);
-  console.log(`锁环：${RINGS.length ? RINGS.map((k) => D.rings[k].name).join(' / ') : '无'}`);
+  const quillEmber = hasRing('quill') ? 2 + Math.min(4, Math.floor(s.gold / 100)) : 0;
+  console.log(`锁环：${RINGS.length ? RINGS.map((k) => D.rings[k].name).join(' / ') : '无'}`
+    + (hasRing('quill') ? `（剩 ${s.gold} 金 → 额外 ${quillEmber} 余烬）` : ''));
 }
 
 climb();

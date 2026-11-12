@@ -486,7 +486,7 @@
     bsHeroHp: $('bsHeroHp'), bsFoeHp: $('bsFoeHp'),
     bsName: $('bsName'), bsRounds: $('bsRounds'), bsNumbers: $('bsNumbers'),
     bsPhase: $('bsPhase'), bsPhaseTitle: $('bsPhaseTitle'), bsPhaseText: $('bsPhaseText'),
-    bsBlock: $('bsBlock'), blockPip: $('blockPip'), compassPip: $('compassPip'),
+    bsBlock: $('bsBlock'), blockPip: $('blockPip'), compassPip: $('compassPip'), scopePip: $('scopePip'),
     bsPanel: document.querySelector('.bs-panel'),
     guide: $('guide'),
     stuckBar: $('stuckBar'), stuckText: $('stuckText'),
@@ -1024,6 +1024,17 @@
         const left = Engine.floorPickupCount();
         el.compassPip.textContent = `🧭 ${left}`;
         el.compassPip.title = left > 0 ? `本层还有 ${left} 件东西没捡` : '这一层能捡的都捡完了';
+      }
+    }
+
+    // 明镜之环：本层还剩几只怪（幽灵 NPC 不算）
+    if (el.scopePip) {
+      const hasScope = Engine.hasRing('scope');
+      el.scopePip.hidden = !hasScope;
+      if (hasScope) {
+        const left = Engine.floorMonsterCount();
+        el.scopePip.textContent = `⚔ ${left}`;
+        el.scopePip.title = left > 0 ? `本层还有 ${left} 只怪` : '这一层清干净了';
       }
     }
 
@@ -2276,19 +2287,36 @@
     const has = (id) => Engine.hasRing(id);
     if (has('ledger') || has('ash') || has('ledger2')) parts.push({ label: '锁环·击杀余烬翻倍', n: kills });
     if (has('seventh')) parts.push({ label: '锁环·第七格', n: 3 });
-    // 落笔之环：通关时剩下的金币折成余烬（每 100 金 +1，上限 5）——清仓还是留钱成了决策
+    // 落笔之环：保底 +2，剩下的金币每 100 再 +1（上限 6）。
+    // 曾按「每 100 金 +1、上限 5」做过，sim 验证是陷阱：留 500 金会少 28 点攻，
+    // 终局血量从 66.6% 掉到 48.5%，却只换到 2 余烬——保底把它拉回「稳定小收益」。
     if (has('quill')) {
-      const byGold = Math.min(5, Math.floor((s.gold || 0) / 100));
-      if (byGold > 0) parts.push({ label: `锁环·落笔（剩 ${s.gold} 金）`, n: byGold });
+      const byGold = 2 + Math.min(4, Math.floor((s.gold || 0) / 100));
+      parts.push({ label: `锁环·落笔（剩 ${s.gold} 金）`, n: byGold });
     }
     // 落款之环：本局第一次收录进图鉴的件数，每件 +1（上限 5，避免开局撞大运爆收益）
     if (has('signature')) {
       const nNew = Array.isArray(s.flags.collectNew) ? Math.min(5, s.flags.collectNew.length) : 0;
       if (nNew > 0) parts.push({ label: `锁环·落款（图鉴新收录 ${nNew} 件）`, n: nNew });
     }
-    const ringFlat = (has('hour') || has('pace') ? 2 : 0) + (has('chisel') ? 4 : 0)
-      + (has('oath') ? 3 : 0) + (has('heart') && s.flags.heart === 'left' ? 3 : 0);
-    if (ringFlat) parts.push({ label: '锁环加成', n: ringFlat });
+    // 通关型锁环各有触发条件，逐条列出来源（不再是「锁环加成」一笔带过）
+    if (has('pace')) parts.push({ label: '锁环·更漏', n: 2 });
+    if (has('chisel')) parts.push({ label: '锁环·刻刀', n: 4 });
+    if (has('hour')) {
+      const mins = Math.round((Engine.summary().time || 0) / 60);
+      if (mins > 0 && mins <= 20) parts.push({ label: `锁环·时辰（${mins} 分钟内通关）`, n: 4 });
+      else parts.push({ label: '锁环·时辰', n: 2 });
+    }
+    if (has('oath')) {
+      const withVow = (s.flags.vow || 'none') !== 'none';
+      parts.push({ label: withVow ? `锁环·守誓（${(D.vows[s.flags.vow] || {}).name || '誓约'}）` : '锁环·守誓', n: withVow ? 5 : 3 });
+    }
+    if (has('heart') && s.flags.heart === 'left') parts.push({ label: '锁环·塔心（放下）', n: 3 });
+    // 拾柴之环：每击败一位锁匠 +2（与击杀数无关，奖励推进度）
+    if (has('ash')) {
+      const bossesDown = ['N', 'Z', 'Y', 'U'].filter((c) => s.flags['bossKilled_' + c]).length;
+      if (bossesDown > 0) parts.push({ label: `锁环·拾柴（${bossesDown} 位锁匠）`, n: bossesDown });
+    }
     const list = parts.filter((p) => p.n > 0);
     return { total: Math.max(1, list.reduce((a, p) => a + p.n, 0)), parts: list };
   }

@@ -197,48 +197,48 @@ window.GAME_DATA = (function () {
   const rings = {
     ledger:   { name: '名册之环', emoji: '📖', short: '册', chapter: 1, desc: '每击败 10 只怪额外 +1 余烬' },
     lamp:     { name: '借灯之环', emoji: '🕯️', short: '灯', chapter: 1, desc: '每上一层回复 5% 生命' },
-    coin:     { name: '铜币之环', emoji: '🪙', short: '币', chapter: 1, desc: '立刻获得 200 金币' },
+    coin:     { name: '铜币之环', emoji: '🪙', short: '币', chapter: 1, desc: '立刻获得 280 金币' },
     keyring:  { name: '钥匙之环', emoji: '🔑', short: '钥', chapter: 1, desc: '立刻获得 2 黄钥匙、1 红钥匙' },
 
-    parry:    { name: '断刃之环', emoji: '⚔️', short: '刃', chapter: 2, desc: '格挡时承伤 ×0.5（原 ×0.6）' },
-    cinder:   { name: '灰烬之环', emoji: '🔥', short: '烬', chapter: 2, desc: '每次击杀回复 1% 生命（至少 3）' },
-    thrift2:  { name: '账期之环', emoji: '📒', short: '账', chapter: 2, desc: '商店价格再 −15%' },
+    parry:    { name: '断刃之环', emoji: '🗡️', short: '断', chapter: 2, desc: '格挡时承伤 ×0.45（原 ×0.55）' },
+    cinder:   { name: '灰烬之环', emoji: '🔥', short: '灰', chapter: 2, desc: '每次击杀回复 0.7% 生命（至少 2）' },
+    thrift2:  { name: '账期之环', emoji: '📉', short: '账', chapter: 2, desc: '商店价格再 −25%' },
     vitality: { name: '灯油之环', emoji: '🏺', short: '油', chapter: 2, desc: '生命上限 +240，并回复 240' },
 
-    bell:     { name: '停钟之环', emoji: '🔔', short: '钟', chapter: 3, desc: 'Boss 战承伤 −8%' },
+    bell:     { name: '停钟之环', emoji: '🔔', short: '钟', chapter: 3, desc: 'Boss 战承伤 −15%' },
     stair:    { name: '回廊之环', emoji: '🪜', short: '廊', chapter: 3, desc: '每上一层额外回复 4% 生命' },
-    scope:    { name: '明镜之环', emoji: '🔍', short: '镜', chapter: 3, desc: '立刻获得窥探之镜' },
-    hour:     { name: '时辰之环', emoji: '⏳', short: '时', chapter: 3, desc: '通关额外 +2 余烬' },
+    scope:    { name: '明镜之环', emoji: '🔮', short: '明', chapter: 3, desc: '顶栏显示本层还剩几只怪' },
+    hour:     { name: '时辰之环', emoji: '⏳', short: '辰', chapter: 3, desc: '通关额外 +2 余烬；20 分钟内通关再 +2' },
 
     seventh:  { name: '第七格之环', emoji: '✍️', short: '格', chapter: 4, desc: '名字刻得更深：通关额外 +3 余烬' },
     chisel:   { name: '刻刀之环', emoji: '🪶', short: '刀', chapter: 4, desc: '通关额外 +4 余烬' },
     heart:    { name: '塔心之环', emoji: '💗', short: '心', chapter: 4, desc: '带走塔心石多 +100 上限；放下再多 +3 余烬' },
-    oath:     { name: '守誓之环', emoji: '🕊️', short: '誓', chapter: 4, desc: '通关额外 +3 余烬' },
+    oath:     { name: '守誓之环', emoji: '📿', short: '誓', chapter: 4, desc: '通关额外 +3 余烬；带着誓约通关再 +2' },
 
     // ---- 扩容池（P-3）：每章 4→6 枚，每局抽 3，同一条锁配出不同的构筑 ----
     pace:     { name: '更漏之环', emoji: '⏱️', short: '漏', chapter: 1, desc: '通关额外 +2 余烬' },
     ward2:    { name: '旧誓之环', emoji: '💫', short: '誓', chapter: 1, desc: '每场战斗承伤 −6%' },
 
-    ash:      { name: '拾柴之环', emoji: '🪵', short: '柴', chapter: 2, desc: '每击败 10 只怪额外 +1 余烬' },
+    ash:      { name: '拾柴之环', emoji: '🪵', short: '柴', chapter: 2, desc: '每击败一位章节锁匠，额外 +1 余烬' },
     scout2:   { name: '窥探之环', emoji: '👁️', short: '窥', chapter: 2, desc: '立刻获得窥探之镜' },
 
-    ledger2:  { name: '墨账之环', emoji: '🖋️', short: '墨', chapter: 3, desc: '每击败 10 只怪额外 +1 余烬' },
-    vitality2:{ name: '深井之环', emoji: '🫗', short: '井', chapter: 3, desc: '生命上限 +200，并回复 200' },
+    ledger2:  { name: '墨账之环', emoji: '📓', short: '墨', chapter: 3, desc: '每击败 10 只怪额外 +1 余烬，且击杀金币 +15%' },
+    vitality2:{ name: '深井之环', emoji: '💧', short: '井', chapter: 3, desc: '生命上限 +280，并回复 280' },
 
-    coin2:    { name: '夜市之环', emoji: '🪙', short: '市', chapter: 4, desc: '立刻获得 300 金币' },
+    coin2:    { name: '夜市之环', emoji: '🪙', short: '市', chapter: 4, desc: '立刻获得 380 金币' },
     lamp2:    { name: '长明之环', emoji: '🕯️', short: '明', chapter: 4, desc: '每上一层回复 4% 生命' },
 
     // ---- 扩容池（每章 6→7，组合数 20→35）：只改资源与信息，不碰攻防 ----
     ration:   { name: '干粮之环', emoji: '🍞', short: '粮', chapter: 1, desc: '所有药水回复量 +30%' },
-    bargain:  { name: '秤砣之环', emoji: '⚖️', short: '秤', chapter: 2, desc: '钥匙价目 −25%' },
+    bargain:  { name: '秤砣之环', emoji: '⚖️', short: '秤', chapter: 2, desc: '钥匙价目 −50%' },
     compass:  { name: '罗盘之环', emoji: '🧭', short: '盘', chapter: 3, desc: '顶栏显示本层还剩几件东西没捡' },
     signature:{ name: '落款之环', emoji: '🖊️', short: '款', chapter: 4, desc: '图鉴每新收录 1 件，通关额外 +1 余烬（最多 5）' },
 
     // ---- 第二轮扩容（每章 7→8，组合数 35→56）：同样只改资源与规则，不碰攻防 ----
     tally:    { name: '刻痕之环', emoji: '🪢', short: '痕', chapter: 1, desc: '每击败 8 只怪，额外交给你一把黄钥匙' },
     toll:     { name: '过路之环', emoji: '🎫', short: '路', chapter: 2, desc: '每次路遇结算后，额外获得 40 金币' },
-    tome:     { name: '名录之环', emoji: '📜', short: '录', chapter: 3, desc: '每击败一位章节锁匠，额外得到一把黄钥匙与一把红钥匙' },
-    quill:    { name: '落笔之环', emoji: '🪶', short: '笔', chapter: 4, desc: '通关时每剩 100 金币，额外 +1 余烬（最多 5）' },
+    tome:     { name: '名录之环', emoji: '📜', short: '录', chapter: 3, desc: '每击败一位章节锁匠，额外得到一把黄钥匙' },
+    quill:    { name: '落笔之环', emoji: '🪶', short: '笔', chapter: 4, desc: '通关额外 +2 余烬；剩的金币每 100 再 +1（最多 6）' },
   };
 
   // 每章抽 3 个给玩家选（池 8 个 → 每局的构筑起点不同）

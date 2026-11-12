@@ -2037,3 +2037,11 @@ html, body {
   font-style: normal; font-size: 9.5px; line-height: 1.4; color: var(--dim);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+
+/* 明镜之环：本层还剩几只怪（与罗盘的青色分开，用雾紫） */
+.scopepip {
+  border-color: rgba(143, 123, 255, 0.42);
+  color: var(--mist);
+  background: rgba(143, 123, 255, 0.1);
+  box-shadow: 0 0 10px rgba(143, 123, 255, 0.16);
+}

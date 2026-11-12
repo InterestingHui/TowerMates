@@ -126,7 +126,7 @@
     let dmg = p.damage;
     if (vow() === 'guard') dmg = Math.round(dmg * 1.18);
     if (hasRing('ward2')) dmg = Math.round(dmg * 0.94);
-    if (hasRing('bell') && m && m.boss) dmg = Math.round(dmg * 0.92);
+    if (hasRing('bell') && m && m.boss) dmg = Math.round(dmg * 0.85);
     if (blocked) dmg = Math.round(dmg * ringBlockScale());
     return { damage: dmg, raw: p.damage, per: p.per, rounds: p.rounds, out: p.out, blockScale: blocked ? ringBlockScale() : 1 };
   }
@@ -826,7 +826,7 @@
     }
     setTile(nx, ny, '.');
     moveTo(nx, ny);
-    const goldMul = (vow() === 'greed' ? 1.7 : 1) * (hasRelic('coin') ? 2 : 1);
+    const goldMul = (vow() === 'greed' ? 1.7 : 1) * (hasRelic('coin') ? 2 : 1) * (hasRing('ledger2') ? 1.15 : 1);
     const goldGain = Math.round(m.gold * goldMul);
     s.gold += goldGain;
     // 后半部盾谱的「格挡反击」：挡下的那场，被卸掉的伤的三成化为经验
@@ -850,7 +850,7 @@
         s.flags['chap_' + m.chapter] = true;
         echo = settleChapter(m.chapter);
         // 名录之环：每倒一位锁匠，额外一黄一红
-        if (hasRing('tome')) { s.keys.y++; s.keys.r++; tomeKey = true; }
+        if (hasRing('tome')) { s.keys.y++; tomeKey = true; }
       }
       if (m.finalBoss) {
         s.flags.finalBossKilled = true;
@@ -868,7 +868,7 @@
         s.hp += h; heal += h;
       }
       if (hasRing('cinder')) {
-        const h = Math.min(Math.max(3, Math.floor((s.maxHp || s.hp) * 0.01)), Math.max(0, s.maxHp - s.hp));
+        const h = Math.min(Math.max(2, Math.floor((s.maxHp || s.hp) * 0.007)), Math.max(0, s.maxHp - s.hp));
         s.hp += h; heal += h;
       }
     }
@@ -891,9 +891,9 @@
     const step = item.step || 0;
     let price = item.price + (s.flags['buy_' + item.id] || 0) * step;
     if (hasRelic('thrift')) price = Math.max(1, Math.round(price * 0.75));
-    if (hasRing('thrift2')) price = Math.max(1, Math.round(price * 0.85));
+    if (hasRing('thrift2')) price = Math.max(1, Math.round(price * 0.75));
     // 秤砣之环（bargain）：钥匙价目再 −25%（只影响钥匙，药水与训练照旧）
-    if (item.key && hasRing('bargain')) price = Math.max(1, Math.round(price * 0.75));
+    if (item.key && hasRing('bargain')) price = Math.max(1, Math.round(price * 0.5));
     if (vow() === 'greed') price = Math.max(1, Math.round(price * 1.3));
     if (vow() === 'nameless') price = Math.max(1, Math.round(price * 1.4));
     return price;
