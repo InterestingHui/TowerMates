@@ -266,17 +266,22 @@
     }
     s.x = nx; s.y = ny;
     s.flags.maxFloor = Math.max(s.flags.maxFloor || 0, target);
-    // 慈悲之誓：往上走一层回 12% 生命（下楼不触发，免得来回刷）
+    // 誓约/锁环的「每上一层回复」只在**第一次踏上这一层**时结算（floor_healed_f{n} 标记）：
+    // 否则残血玩家在两层楼之间来回走楼梯，每趟上楼都回一口——无限刷血。
+    // 标记按楼层记录，同一层只能吃一次；跳层（jumpTo）不走这里，不受影响。
     let heal = 0;
+    const healedKey = 'floor_healed_f' + target;
+    const firstVisit = !(s.flags[healedKey]);
+    if (firstVisit) s.flags[healedKey] = true;
     const gain = (pct) => {
       const v = Math.min(Math.round((s.maxHp || s.hp) * pct), Math.max(0, s.maxHp - s.hp));
       s.hp += v; heal += v;
     };
-    if (dir > 0 && vow() === 'mercy') gain(0.12);
+    if (dir > 0 && firstVisit && vow() === 'mercy') gain(0.12);
     // 苦行 / 无名：没有格挡，但每上一层塔会补给你 10% 生命
-    if (dir > 0 && (vow() === 'ascetic' || vow() === 'nameless')) gain(0.10);
+    if (dir > 0 && firstVisit && (vow() === 'ascetic' || vow() === 'nameless')) gain(0.10);
     // 锁环「借灯 / 回廊 / 长明」：只在往上走时生效，跳层不回血，防止来回刷
-    if (dir > 0) {
+    if (dir > 0 && firstVisit) {
       const pct = (hasRing('lamp') ? 0.05 : 0) + (hasRing('stair') ? 0.04 : 0) + (hasRing('lamp2') ? 0.04 : 0);
       if (pct > 0) gain(pct);
     }

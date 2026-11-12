@@ -124,6 +124,8 @@
       },
       mark(key) { if (seen[key]) return false; seen[key] = 1; save(); return true; },
       seen(key) { return !!seen[key]; },
+      // walk 教学走 banner 不走对白，但同样只出一次（与 seen 库同源）
+      showWalkBanner() { if (seen.walk) return false; seen.walk = 1; save(); banner('walk'); return true; },
       reset() { seen = {}; try { localStorage.removeItem(KEY); } catch (e) {} },
     };
   })();
@@ -844,7 +846,7 @@
       const v = D.vows[s.flags.vow] || D.vows.none;
       el.vowTag.hidden = v.name === '不立誓';
       el.vowTag.textContent = v.tag;
-      el.vowTag.title = `${v.name}：${v.desc}（归途余烬 +${v.reward || 0}）`;
+      el.vowTag.title = `${v.name}：${v.desc}`;
     }
     if (el.blockPip) {
       const owned = !!(s.flags.hasBlock);
@@ -890,7 +892,17 @@
       if (Array.isArray(row)) return { who: row[0] || '', text: row[1] || '', mood: row[2] || '' };
       return { who: '', text: String(row), mood: '' };
     });
-    typing = { lines, idx: 0, cb: cb || null, cue: cue || '', variant: variant || null };
+    // 新对白打断旧对白时，旧回调不能丢——不然「商店对白 → openShop」这类链
+    // 被后来的提示对白覆盖后，商店永远不弹（玩家看到的就是'点完对话卡住'）。
+    // 旧 cb 挂到新对白的 finally 链上，关闭时依次执行。
+    const prevCb = typing && typing.cb;
+    const chainedCb = cb || prevCb
+      ? () => {
+          if (cb) cb();
+          if (prevCb) prevCb();
+        }
+      : null;
+    typing = { lines, idx: 0, cb: chainedCb, cue: cue || '', variant: variant || null };
     el.dialogOverlay.classList.add('show');
     renderLine();
   }
@@ -2267,7 +2279,10 @@
   function clickMove(cx, cy) {
     const s = Engine.state();
     if (!s) return;
-    Tips.show('walk');
+    // 「怎么走」教学改为底部横幅（Tips.banner）：它以前是全屏对白，
+    // 会在寻路启动的同一瞬间打断 walkAlong（step 见 typing 即停）——
+    // 玩家第一次点商店就'点完对白人物不动'，看起来像卡死。
+    Tips.showWalkBanner();
     if (cx === s.x && cy === s.y) { stopWalk(); return; }
     const dx = cx - s.x;
     const dy = cy - s.y;
@@ -2892,8 +2907,7 @@
     }
     el.vowCards.innerHTML = shown.map((id) => {
       const v = D.vows[id];
-      const line = v.reward ? `归途 +${v.reward} ✦` : '';
-      // 档位暗语：不直说难不难，只给一抹随档位加深的颜色
+      // 用户明确要求：开局不展示每局预计余烬收益——那是结算页才该出现的数字
       const tierCls = { '轻羽': 't-easy', '无名之分': 't-normal', '重金': 't-hard', '铁色': 't-nightmare' }[v.tag] || '';
       const tier = `<span class="vc-tier ${tierCls}">${v.tag}</span>`;
       // 代价高亮：desc 里「不能 / −N」这类负面词挑出来染红，选之前先看见失去什么
@@ -2905,7 +2919,6 @@
         <span class="vc-name">${v.name}</span>
         <span class="vc-desc">${rest}</span>
         ${cost ? `<span class="vc-cost">${cost}</span>` : ''}
-        ${line ? `<span class="vc-mul">${line}</span>` : ''}
       </button>`;
     }).join('');
     const lockBox = $('vowLocked');
@@ -2914,7 +2927,7 @@
       lockBox.innerHTML = lockedIds.map((id) => {
         const v = D.vows[id];
         const short = Math.max(0, v.ember - Meta.ember);
-        return `<button class="vow-chip ${short > 0 ? 'poor' : ''}" data-lock="${id}" title="${v.desc}">🔒 ${v.name} · ${short > 0 ? `还差 ${short} ✦（每局归途 +${v.reward} ✦）` : `可解锁 ${v.ember} ✦ · 每局归途 +${v.reward} ✦`}</button>`;
+        return `<button class="vow-chip ${short > 0 ? 'poor' : ''}" data-lock="${id}" title="${v.desc}">🔒 ${v.name} · ${short > 0 ? `还差 ${short} ✦` : `可解锁 ${v.ember} ✦`}</button>`;
       }).join('');
       lockBox.querySelectorAll('.vow-chip').forEach((b) => {
         b.addEventListener('click', () => chooseVow(b.dataset.lock));

@@ -395,7 +395,15 @@ ok(s.hp === 500 + Math.round(s.maxHp * 0.12), '回血真的加到了生命上');
 const hpAfterUp = s.hp;
 s.x = 8; s.y = 8;
 E.tryMove(0, -1);
-ok(s.hp === hpAfterUp, '下楼不回血（不能来回刷）');
+ok(s.hp === hpAfterUp, '下楼不回血');
+// 刷血堵漏：同一层只结算一次（floor_healed_f 标记）。下楼再上来，不再回第二口。
+s.x = 8; s.y = 8;
+const evRe = E.tryMove(0, 1);
+ok(evRe.at.heal === 0 && s.hp === hpAfterUp, '重上同一层不再回血（堵上下楼刷血漏洞）');
+// 新楼层照常回血
+s.hp = 500; s.x = 8; s.y = 8;
+const evNew = E.tryMove(0, 1);
+ok(evNew.at.heal === Math.round(s.maxHp * 0.12), '新的一层照常回血');
 
 E.newGame('guard');
 s = E.state();

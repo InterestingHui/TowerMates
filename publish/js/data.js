@@ -497,7 +497,7 @@ window.GAME_DATA = (function () {
     // 难度越高，通关余烬反馈越高——塔替你的胆量记账。
     none: {
       name: '不立誓', emoji: '○', tag: '无名之分',
-      desc: '塔是什么样就什么样。第一次爬塔就选它。', reward: 0,
+      desc: '塔是什么样就什么样。第一次爬塔就选它。', reward: 1,
     },
     mercy: {
       name: '慈悲之誓', emoji: '🕊️', tag: '轻羽',
