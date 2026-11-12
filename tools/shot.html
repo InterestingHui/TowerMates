@@ -712,6 +712,18 @@
         errBox.textContent = 'SHOWCASE frameErrors=' + ((w.__tmRenderErrors || []).length)
           + ' err=' + (errs.length ? errs.join('|') : 'none');
         await wait(60);
+      } else if (scene === 'death') {
+        // 死亡结算：直接把状态摆进 over + hp=0，调 showDeath 看灰调面板与「折戟」塔印
+        d.getElementById('btnNew').click();
+        await wait(200);
+        const _vcd = d.querySelector('#vowCards .vow-card[data-vow="guard"]');
+        if (_vcd) _vcd.click();
+        await wait(260);
+        const sd = E.state();
+        sd.over = true; sd.hp = 0; sd.floor = 8; sd.flags.killCount = 37;
+        sd.flags.worstHit = 1225; sd.flags.worstName = '钟妖';
+        T.showDeath({ name: '钟妖' }, 1225);
+        await wait(400);
       }
       await wait(600);
       const q2 = [];

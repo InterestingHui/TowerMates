@@ -188,7 +188,7 @@
         if (rec.heart === 'left') mem.heartLeft = (mem.heartLeft || 0) + 1;
         mem.deepest = Math.max(mem.deepest || 0, rec.floor || 0);
         if (rec.time > 0) mem.fastest = mem.fastest ? Math.min(mem.fastest, rec.time) : rec.time;
-        const rank = ['', 'rough', 'name', 'ward', 'clear'];
+        const rank = ['', 'fall', 'rough', 'name', 'ward', 'clear'];
         if (rank.indexOf(rec.seal) > rank.indexOf(mem.bestSeal || '')) mem.bestSeal = rec.seal;
         if (typeof rec.ember === 'number') {
           mem.emberRuns.push(rec.ember);
@@ -1437,6 +1437,8 @@
   }
 
   // ---------- 死亡：塔收下了这一局 ----------
+  // 败局不借用胜局的金色面板：endOverlay 挂 death-mode，整块转铁灰冷调；
+  // 「折戟」塔印只在此处出现，不参与 bestSeal 竞争。履历/目标照常给出——败局也有下一局。
   let deathShown = false;
   function showDeath(monster, damage) {
     if (deathShown) return;
@@ -1452,29 +1454,64 @@
         count: 26, colors: ['#ff8f8f', '#c9524a', '#5a2020'], speed: 120, life: [500, 1100], grav: 70, size: [2, 4],
       });
     }
+    const vowDef = D.vows[s.flags.vow] || D.vows.none;
+    const sum = Engine.summary();
+    const seal = 'fall';
+    const sealDef = SEALS[seal];
+    const emberGain = Math.floor((s.flags.killCount || 0) / 5);
     $('endEmoji').textContent = '💀';
     $('endTitle').textContent = '塔收下了你';
     $('endDesc').textContent = `你倒在了${monster ? monster.name : '塔里'}的手里。塔把这一局的余烬收进墙上，等下一个人。`;
     $('endBody').textContent = '';
     $('endEpi').textContent = `第 ${s.floor + 1} 层 · 挨了 ${damage} 点。塔不怪你——它只是照章办事。`;
-    $('endScore').innerHTML = `<span class="es-meta">第 ${s.floor + 1} 层 · 击杀 ${s.flags.killCount || 0} · 用时 ${fmtTime(Engine.summary().time)}</span>
-      <span class="es-num">✦ ${Math.floor((s.flags.killCount || 0) / 5)}<small>余烬</small></span>`;
+    $('endScore').innerHTML = `<span class="es-grade fall" data-seal="fall">${sealDef.name}</span>
+      <span class="es-meta">${s.ending ? '' : '败局'} · 第 ${s.floor + 1} 层 · 击杀 ${s.flags.killCount || 0} · 用时 ${fmtTime(sum.time)}</span>
+      <span class="es-num">✦ ${emberGain}<small>余烬</small></span>`;
+    $('endScore').title = `塔印「${sealDef.name}」：${sealDef.desc}`;
     $('endEmberDetail').innerHTML = '';
-    $('endTag').textContent = '';
-    $('endBrief').innerHTML = '<span>败局也算履历：击杀折成余烬带回。</span>';
-    $('endMemory').innerHTML = '';
+    $('endTag').textContent = sealDef.desc;
+    $('endBrief').innerHTML = `<span>败局也算履历：击杀折成余烬带回。</span>`
+      + (s.flags.worstHit ? `<span>最狠的一场：${s.flags.worstName} −${s.flags.worstHit}</span>` : '');
+    Meta.recordRun({ ending: null, won: false, vow: s.flags.vow || 'none', fullChapters: 0, heart: null, floor: s.floor, time: sum.time, seal, ember: emberGain });
+    Meta.add(emberGain);
+    // 败局也给「塔的记忆」：同一套履历 + 下一局目标——死不是终点，是排队重来的理由
+    const mem = Meta.memory;
+    const memItems = [
+      `进塔 ${mem.runs || 1} 次 · 最远第 ${Math.max(mem.deepest || 0, s.floor)} 层${mem.fastest ? ` · 最快 ${fmtTime(mem.fastest)}` : ''}`,
+      `刻下过最好的塔印：${SEALS[mem.bestSeal] ? SEALS[mem.bestSeal].name : '尚未刻下'}`,
+      `结局：铁与霜 ×${mem.endings.plain || 0} · 第六个名字 ×${mem.endings.true || 0}`,
+      `满回响 ${mem.fullChapters || 0}/4 章 · 塔心 带走×${mem.heartTaken || 0} 留下×${mem.heartLeft || 0}`,
+    ];
+    const goals = [];
+    const lockedVow = Object.keys(D.vows).find((id) => D.vows[id].ember && !Meta.has(id));
+    if (lockedVow) {
+      const need = Math.max(0, D.vows[lockedVow].ember - Meta.ember);
+      goals.push(need > 0 ? `再攒 ${need} ✦ 解锁「${D.vows[lockedVow].name}」` : `「${D.vows[lockedVow].name}」已可解锁——下一局开局选它`);
+    }
+    if ((mem.fullChapters || 0) < 4) goals.push(`把回响拿满的章推进到 ${(mem.fullChapters || 0) + 1}/4`);
+    if (!(mem.endings.true || 0)) goals.push('去念出第六个名字');
+    else if (!(mem.endings.plain || 0)) goals.push('试试另一条路：铁与霜');
+    goals.unshift(`这次倒在了第 ${s.floor + 1} 层——下一局从这里再往上`);
+    const memWrap = $('endMemory');
+    if (memWrap) {
+      memWrap.innerHTML = `<div class="mem-grid">${memItems.map((t) => `<div>${t}</div>`).join('')}</div>`
+        + (goals.length ? `<div class="mem-goals">${goals.slice(0, 3).map((g) => `<span>▸ ${g}</span>`).join('')}</div><p class="mem-note">塔收起了你的名字，但位置还留着。</p>` : '');
+    }
     $('endStats').innerHTML = `
       <div>倒在 <b>${monster ? monster.name : '塔里'}</b></div>
       <div>深度 <b>第 ${s.floor + 1} 层</b></div>
+      <div>塔印 <b>${sealDef.name}</b></div>
       <div>击杀 <b>${s.flags.killCount || 0}</b></div>
-      <div>誓约 <b>${(D.vows[s.flags.vow] || D.vows.none).name}</b></div>
+      <div>誓约 <b>${vowDef.name}</b></div>
+      <div>用时 <b>${fmtTime(sum.time)}</b></div>
     `;
     $('endCode').textContent = '—— 未达结局 ——';
-    const emberGain = Math.floor((s.flags.killCount || 0) / 5);
-    Meta.recordRun({ ending: null, won: false, vow: s.flags.vow || 'none', fullChapters: 0, heart: null, floor: s.floor, time: Engine.summary().time, seal: 'rough', ember: emberGain });
-    Meta.add(emberGain);
+    if (window.__tm) window.__tm.lastRun = {
+      ending: null, vow: s.flags.vow || 'none', floor: s.floor, time: sum.time,
+      steps: sum.steps, seal, goals: 0,
+    };
+    el.endOverlay.classList.add('show', 'death-mode');
     refreshStartBadges();
-    el.endOverlay.classList.add('show');
   }
 
   // ---------- 章末回响：击败章末锁匠 → 锁环三选一 ----------
@@ -1906,11 +1943,13 @@
 
   // ---------- 塔印：不看分数，只看这一局真的做到了什么 ----------
   // 四档塔印由明确条件判定；结算页会直接写出「还差什么」，玩家知道下一局该做什么。
+  // 折戟 = 死亡专属：不参与 bestSeal 竞争（rank 里排最低），但结算页有自己的名分。
   const SEALS = {
     clear: { name: '无痕', desc: '六盏灯全亮。这一趟，你没欠谁。' },
     ward:  { name: '守灯', desc: '灯还亮着。你没让它灭在自己手里。' },
     name:  { name: '留名', desc: '塔的墙上，多了你的一道刻痕。' },
     rough: { name: '未竟', desc: '塔记住了你的名字——仅此而已。' },
+    fall:  { name: '折戟', desc: '你没能走到结局。塔替你记下倒下的地方。' },
   };
   function sealOf(s, echoDone) {
     const trueEnd = s.ending === 'true';
@@ -1960,6 +1999,7 @@
     if (endShown) return;
     endShown = true;
     stopWalk();
+    el.endOverlay.classList.remove('death-mode'); // 胜局面板不吃死亡灰调（上局死过也不串）
     const s = Engine.state();
     const E = s.ending === 'true' ? S.endingTrue : S.endingPlain;
     const sum = Engine.summary();
@@ -2741,7 +2781,7 @@
     });
     $('gateClose').addEventListener('click', () => el.gateOverlay.classList.remove('show'));
     $('btnAgain').addEventListener('click', () => {
-      el.endOverlay.classList.remove('show');
+      el.endOverlay.classList.remove('show', 'death-mode');
       Engine.reset();
       openVow();
     });
@@ -2976,6 +3016,7 @@
     stopWalk();
     endShown = false;
     deathShown = false; // 新一局要能重新弹死亡结算：上一局置的 true 必须清掉
+    el.endOverlay.classList.remove('death-mode', 'show');
     el.log.innerHTML = '';
     el.startOverlay.classList.remove('show');
     el.shopOverlay.classList.remove('show');
@@ -3098,7 +3139,7 @@
     // 提示系统：自动化可验证「加粗渲染 + 角色提示对白」
     richInto: renderRich, say, sayHint, warn, Tips,
     Settings, hintMs, openHintBook, showStuck, clearStuck,
-    openMonsterProbe,
+    openMonsterProbe, showDeath,
   };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);

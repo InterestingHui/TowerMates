@@ -1128,6 +1128,16 @@ html, body {
 .es-grade.ward { color: #ffe6a8; }
 .es-grade.name { color: #e2cfa6; }
 .es-grade.rough { color: var(--muted); }
+.es-grade.fall { color: #9aa4b5; text-shadow: 0 0 14px rgba(120, 132, 150, 0.45); }
+
+/* ---------- 死亡结算：铁灰冷调 ---------- */
+/* endOverlay 挂 death-mode 时整块去金换铁：标题/金框/余烬全走冷灰，胜局不受影响 */
+#endOverlay.death-mode .end-panel { border-color: rgba(140, 150, 165, 0.3); box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55); }
+#endOverlay.death-mode .end-panel h2 { color: #aeb8c6; text-shadow: none; }
+#endOverlay.death-mode .end-score { border-color: rgba(140, 150, 165, 0.26); background: linear-gradient(90deg, rgba(140, 150, 165, 0.10), rgba(140, 150, 165, 0.02)); }
+#endOverlay.death-mode .es-num { color: #c4ccd8; }
+#endOverlay.death-mode .end-stats b { color: #c4ccd8; }
+#endOverlay.death-mode .end-body { border-color: rgba(140, 150, 165, 0.22); }
 .es-meta { flex: 1; font-size: 10.5px; color: var(--muted); line-height: 1.5; }
 .es-num { font-size: 18px; font-weight: 700; color: #fff; font-variant-numeric: tabular-nums; }
 .es-num small { font-size: 10px; color: var(--dim); margin-left: 2px; font-weight: 400; }
