@@ -26,8 +26,11 @@
   // 提示停留：快 / 标准 / 慢，统一乘到对白、顶栏、药丸、成就吐司的时长上
   const HINT_SCALE = { fast: 0.6, normal: 1, slow: 1.7 };
   const HINT_SPEED_NAME = { fast: '快', normal: '标准', slow: '慢' };
+  // 战斗演出速度档：0.55 慢（看得清每一刀）/ 1 标准 / 1.9 快（刷层党）
+  const BATTLE_SPEED = { slow: 1.55, normal: 1, fast: 0.55 };
+  const BATTLE_SPEED_NAME = { slow: '慢', normal: '标准', fast: '快' };
   const Settings = (() => {
-    let data = { fx: 'full', sfx: true, music: true, vib: true, fast: false, critters: true, dpad: false, hintSpeed: 'normal' };
+    let data = { fx: 'full', sfx: true, music: true, vib: true, fast: false, critters: true, dpad: false, hintSpeed: 'normal', battleSpeed: 'normal', fullRounds: false };
     try {
       const old = JSON.parse(localStorage.getItem('towermates_cfg') || 'null');
       const cur = JSON.parse(localStorage.getItem('towermates_cfg_v2') || 'null');
@@ -48,6 +51,15 @@
       get critters() { return data.critters !== false; },
       get dpad() { return data.dpad === true; },
       get hintSpeed() { return HINT_SCALE[data.hintSpeed] ? data.hintSpeed : 'normal'; },
+      get battleSpeed() { return BATTLE_SPEED[data.battleSpeed] ? data.battleSpeed : 'normal'; },
+      get fullRounds() { return data.fullRounds === true; },
+      toggleFullRounds() { data.fullRounds = !(data.fullRounds === true); save(); return data.fullRounds === true; },
+      cycleBattleSpeed() {
+        const order = ['slow', 'normal', 'fast'];
+        data.battleSpeed = order[(order.indexOf(this.battleSpeed) + 1) % order.length];
+        save();
+        return data.battleSpeed;
+      },
       cycleHintSpeed() {
         const order = ['normal', 'fast', 'slow'];
         data.hintSpeed = order[(order.indexOf(this.hintSpeed) + 1) % order.length];
@@ -1175,7 +1187,8 @@
     let foeHp = foeMax;
     let skipped = false;
     // 「快速战斗」把整段演出压到 42%，重复刷层时不再被迫看完
-    const speed = (window.__battleSpeed || 1) * (Settings.fast ? 0.42 : 1);
+    // 三档速度（设置里调）× 快速战斗总开关 × 测试钩子：重复刷层不必看完演出
+    const speed = (window.__battleSpeed || 1) * BATTLE_SPEED[Settings.battleSpeed] * (Settings.fast ? 0.42 : 1);
     const wait = (ms) => new Promise((r) => setTimeout(r, ms * speed));
 
     const bg = Renderer.snapshot();
@@ -1253,7 +1266,9 @@
     el.battleScene.onclick = () => { skipped = true; };
 
     (async () => {
-      const K = Math.min(pred.rounds, m.boss ? 8 : 5);
+      // 演出刀数：默认压上限（普通 5 / Boss 8）保证节奏；设置「全量回合」时
+      // 按真实回合数播放，每一刀都是真实伤害，长战斗不再被均摊
+      const K = Settings.fullRounds ? pred.rounds : Math.min(pred.rounds, m.boss ? 8 : 5);
       // Boss 三阶段：血量跨过 66% / 33% 时插一段短过场（只改表现，不改数值）
       // 每局从 Boss 台词池抽两段：同一局固定，重开一局会听到另一组
       const PHASES = info.phases || m.phases || [
@@ -1972,9 +1987,14 @@
       <span class="es-num">✦ ${emberGain}<small>余烬</small></span>`;
     $('endScore').title = `塔印「${sealDef.name}」：${sealDef.desc}`;
     const ed = $('endEmberDetail');
-    if (ed) ed.innerHTML = `<span class="eed-title">本局余烬</span>`
-      + ember.parts.map((p) => `<span>${p.label} <b>+${p.n}</b></span>`).join('')
-      + `<span class="eed-sum">合计 <b>${emberGain}</b></span>`;
+    if (ed) {
+      // 与开局立誓的余额行呼应：结算这一刻「之前 → 现在」，落袋看得见
+      const before = Meta.ember;
+      ed.innerHTML = `<span class="eed-title">本局余烬</span>`
+        + ember.parts.map((p) => `<span>${p.label} <b>+${p.n}</b></span>`).join('')
+        + `<span class="eed-sum">合计 <b>+${emberGain}</b></span>`
+        + `<span class="eed-total">✦ ${before} → ${before + emberGain}</span>`;
+    }
     $('endTag').textContent = sealDef.desc;
     const brief = [];
     brief.push(`带走 ${relicIds.length} 件遗物 · 击杀 ${s.flags.killCount || 0} 只`);
@@ -2726,6 +2746,8 @@
     $('cfgVib').addEventListener('click', () => { Settings.toggleVib(); refreshCfg(); vibrate(12); });
     $('cfgCritters').addEventListener('click', () => { Settings.toggleCritters(); refreshCfg(); });
     $('cfgFast').addEventListener('click', () => { Settings.toggleFast(); refreshCfg(); });
+    $('cfgBattleSpeed').addEventListener('click', () => { Settings.cycleBattleSpeed(); refreshCfg(); });
+    $('cfgFullRounds').addEventListener('click', () => { Settings.toggleFullRounds(); refreshCfg(); });
     $('cfgHintSpeed').addEventListener('click', () => { Settings.cycleHintSpeed(); refreshCfg(); });
     $('cfgHintBook').addEventListener('click', () => { el.cfgOverlay.classList.remove('show'); openHintBook(); });
     $('hbClose').addEventListener('click', () => el.hintBookOverlay.classList.remove('show'));
@@ -2818,6 +2840,9 @@
     $('cfgCrittersVal').className = Settings.critters ? '' : 'off';
     $('cfgFastVal').textContent = Settings.fast ? '开（演出 ×0.42）' : '关';
     $('cfgFastVal').className = Settings.fast ? '' : 'off';
+    $('cfgBattleSpeedVal').textContent = BATTLE_SPEED_NAME[Settings.battleSpeed];
+    $('cfgFullRoundsVal').textContent = Settings.fullRounds ? '开（每刀真实伤害）' : '关';
+    $('cfgFullRoundsVal').className = Settings.fullRounds ? '' : 'off';
     $('cfgHintSpeedVal').textContent = HINT_SPEED_NAME[Settings.hintSpeed];
     $('cfgHintBookVal').textContent = `全部 ${Object.keys(S.hints || {}).length + Object.keys(S.keyHints || {}).length} 条 ›`;
     const s = Engine.state();
@@ -2857,6 +2882,13 @@
       } else {
         emberLine.hidden = true;
       }
+    }
+    // 「余烬是什么」注释：只在还没通关过时显示（Meta.memory.runs === 0），
+    // 通关过的人已经从结算页见过它落袋，不再解释
+    const emberNote = $('vowEmberNote');
+    if (emberNote) {
+      const played = (Meta.memory && Meta.memory.runs) || 0;
+      emberNote.hidden = played > 0 || !lockedIds.length;
     }
     el.vowCards.innerHTML = shown.map((id) => {
       const v = D.vows[id];

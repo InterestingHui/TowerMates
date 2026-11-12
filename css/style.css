@@ -716,7 +716,7 @@ html, body {
 @keyframes lungeR { 40% { transform: translateX(17px) scale(1.13); } }
 @keyframes lungeL { 40% { transform: translateX(-17px) scale(1.13); } }
 .bs-bar { width: 100%; height: 7px; background: rgba(0, 0, 0, 0.55); border: 1px solid rgba(255, 255, 255, 0.11); border-radius: 5px; overflow: hidden; }
-.bs-bar i { display: block; height: 100%; width: 100%; border-radius: 5px; transition: width 0.18s linear; background: linear-gradient(90deg, #e85f5f, #ff9f9f); }
+.bs-bar i { display: block; height: 100%; width: 100%; border-radius: 5px; transition: width 0.16s cubic-bezier(0.25, 0.6, 0.3, 1); background: linear-gradient(90deg, #e85f5f, #ff9f9f); }
 .bs-bar.foe i { background: linear-gradient(90deg, #c9a23a, #e8d27d); }
 .bs-num { font-size: 10.5px; color: #a2abbd; font-variant-numeric: tabular-nums; }
 .bs-vs { font-size: 17px; opacity: 0.6; color: var(--gold); }
@@ -1148,6 +1148,7 @@ html, body {
 .end-ember-detail b { color: var(--gold); font-variant-numeric: tabular-nums; }
 .end-ember-detail .eed-title { color: var(--dim); }
 .end-ember-detail .eed-sum { margin-left: auto; color: #d9cba6; }
+.end-ember-detail .eed-total { color: var(--gold); font-variant-numeric: tabular-nums; letter-spacing: 0.4px; }
 
 /* 全解锁后的余烬出口：一层一盏灯，纯收藏 */
 .mem-lamps {
@@ -1495,6 +1496,8 @@ html, body {
 }
 .vow-chip:hover { color: var(--gold); border-color: rgba(232, 196, 106, 0.45); }
 .vow-chip.poor { opacity: 0.62; }
+/* 「余烬是什么」注释：只给没通关过的人看 */
+.vow-ember-note { font-size: 10px; line-height: 1.6; color: #5d6675; margin: -4px 0 10px; }
 @media (max-width: 380px) {
   .vow-cards { gap: 7px; }
   .vow-card { padding: 10px 6px; }
