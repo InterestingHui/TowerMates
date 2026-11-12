@@ -1257,6 +1257,21 @@ html, body {
   padding: 3px 8px;
   white-space: nowrap;
 }
+/* 摘要折叠：默认只亮 4 枚胶囊，其余点开；ⓘ 里放余裕的完整提示 */
+.end-brief .brief-extra { display: none; }
+.end-brief.open .brief-extra { display: inline; }
+.end-brief .brief-toggle {
+  font-size: 10px;
+  color: #cbb997;
+  border: 1px solid rgba(232, 196, 106, 0.28);
+  background: rgba(232, 196, 106, 0.08);
+  border-radius: 20px;
+  padding: 3px 9px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.end-brief .brief-toggle:hover { background: rgba(232, 196, 106, 0.18); }
+.end-brief .brief-tip { font-style: normal; color: #d9bd7d; cursor: help; }
 
 /* 塔的记忆：跨局履历 + 下一局目标 */
 .end-memory {
@@ -2077,6 +2092,13 @@ html, body {
   background: rgba(159, 216, 255, 0.035);
 }
 .col-stat .col-group-title { margin-bottom: 6px; }
+/* 决战余裕档案：S 用金色，其余走中性；别和锁环档案的冷蓝撞色 */
+.col-margin {
+  border-color: rgba(232, 196, 106, 0.22);
+  background: rgba(232, 196, 106, 0.035);
+}
+.col-margin .mg-S { color: #e8c46a; font-weight: 700; }
+.col-margin .mg-A, .col-margin .mg-B, .col-margin .mg-C { color: #a9b2c3; }
 .col-stat-row { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-top: 3px; }
 .col-stat-row .cs-label {
   font-size: 9px; letter-spacing: 1.5px; color: var(--dim);

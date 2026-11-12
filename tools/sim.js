@@ -3,6 +3,8 @@
 // 用法：node tools/sim.js            正常（含遗物）
 //       node tools/sim.js --no-relic 关闭遗物，用于对比遗物提供了多少强度
 //       node tools/sim.js --rings    上界：四章全拿回血型锁环，检查构筑不会打穿曲线
+//       node tools/sim.js --skip-fights  避战流：用 0-1 最短路找「上楼必经的怪」，其余绕开
+//                                      （验证决战余裕 S 档可达性；实测 76.1% / 仅 6 次击杀）
 global.window = global;
 // 固定随机序列（防御性）：基线必须可复现。当前 sim 不抽祭坛/路遇，
 // 但引擎里的随机若将来泄漏进来，这条能防止「同一版代码跑出两种结论」
@@ -16,6 +18,8 @@ const D = global.GAME_DATA;
 const SIZE = 11;
 const USE_RELIC = !process.argv.includes('--no-relic');
 const USE_BLOCK = !process.argv.includes('--no-block');
+// 避战流：只打「为了上楼/见公主必经」的怪，其余绕开——用来验证决战余裕 S 档是否真的可达
+const SKIP_FIGHTS = process.argv.includes('--skip-fights');
 const VOW = (process.argv.find((a) => a.startsWith('--vow=')) || '--vow=none').slice(6);
 // 极限构筑：借灯 5% + 回廊 4% 每上楼、灯油 +240 上限、停钟 Boss 承伤 −8%
 const USE_RINGS = process.argv.includes('--rings');
@@ -184,7 +188,69 @@ function shop() {
   if (bought) console.log(`  在秤那里训练了 ${bought} 次（${spent} 金）→ ATK ${s.atk}，余 ${s.gold} 金`);
 }
 
+// 0-1 最短路：穿过一只怪记代价 1，空地 0。找「穿怪最少」的上楼路径，
+// 回溯出路径上的怪 = 这一层非打不可的怪。避战流只打这些，其余当墙绕开。
+function unavoidableMonsters() {
+  const map = s.maps[s.floor];
+  const goals = [];
+  for (let y = 0; y < SIZE; y++) {
+    for (let x = 0; x < SIZE; x++) {
+      if (map[y][x] === 'u' || map[y][x] === 'T') goals.push([x, y]);
+    }
+  }
+  if (!goals.length) return new Set();
+  const INF = 1e9;
+  const dist = Array.from({ length: SIZE }, () => new Array(SIZE).fill(INF));
+  const prev = Array.from({ length: SIZE }, () => new Array(SIZE).fill(null));
+  const seen = Array.from({ length: SIZE }, () => new Array(SIZE).fill(false));
+  dist[s.y][s.x] = 0;
+  for (let iter = 0; iter < SIZE * SIZE; iter++) {
+    let bx = -1, by = -1, bd = INF;
+    for (let y = 0; y < SIZE; y++) {
+      for (let x = 0; x < SIZE; x++) {
+        if (!seen[y][x] && dist[y][x] < bd) { bd = dist[y][x]; bx = x; by = y; }
+      }
+    }
+    if (bx < 0) break;
+    seen[by][bx] = true;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = bx + dx, ny = by + dy;
+      if (nx < 0 || ny < 0 || nx >= SIZE || ny >= SIZE) continue;
+      const ch = map[ny][nx];
+      if (ch === '#') continue;
+      if ((ch === 'y' || ch === 'r') && s.keys[ch] <= 0) continue;
+      let cost = 0;
+      const m = D.monsters[ch];
+      if (m && !m.ghost) {
+        const p = predict(ch);
+        const bossSave = m.boss && s.flags.hasBlock && !s.flags['block_f' + s.floor]
+          && Math.round(p.damage * (s.flags.hasBlock2 ? 0.42 : 0.55)) < s.hp;
+        if (!p.win && !bossSave) continue;
+        cost = 1;
+      }
+      if (dist[by][bx] + cost < dist[ny][nx]) {
+        dist[ny][nx] = dist[by][bx] + cost;
+        prev[ny][nx] = [bx, by];
+      }
+    }
+  }
+  let best = null;
+  goals.forEach(([gx, gy]) => {
+    if (!best || dist[gy][gx] < dist[best[1]][best[0]]) best = [gx, gy];
+  });
+  const set = new Set();
+  let cur = best;
+  while (cur) {
+    const [x, y] = cur;
+    const ch = map[y][x];
+    if (D.monsters[ch] && !D.monsters[ch].ghost) set.add(y * SIZE + x);
+    cur = prev[y][x];
+  }
+  return set;
+}
+
 function bfs() {
+  const must = SKIP_FIGHTS ? unavoidableMonsters() : null;
   const map = s.maps[s.floor];
   const seen = Array.from({ length: SIZE }, () => new Array(SIZE).fill(false));
   const q = [[s.x, s.y]];
@@ -198,10 +264,14 @@ function bfs() {
       if (nx < 0 || ny < 0 || nx >= SIZE || ny >= SIZE || seen[ny][nx]) continue;
       const ch = map[ny][nx];
       if (ch === '#') continue;
-      if (D.monsters[ch] && !D.monsters[ch].ghost && !predict(ch).win) {
-        const mb = D.monsters[ch];
-        const canBlockBoss = mb.boss && s.flags.hasBlock && !s.flags['block_f' + s.floor] && Math.round(predict(ch).damage * (s.flags.hasBlock2 ? 0.42 : 0.55)) < s.hp;
-        if (!canBlockBoss) continue;
+      if (D.monsters[ch] && !D.monsters[ch].ghost) {
+        // 避战流：不在「最少穿怪路径」上的怪一律绕开（拾取也走不到那一片）
+        if (must && !must.has(ny * SIZE + nx)) continue;
+        if (!predict(ch).win) {
+          const mb = D.monsters[ch];
+          const canBlockBoss = mb.boss && s.flags.hasBlock && !s.flags['block_f' + s.floor] && Math.round(predict(ch).damage * (s.flags.hasBlock2 ? 0.42 : 0.55)) < s.hp;
+          if (!canBlockBoss) continue;
+        }
       }
       if ((ch === 'y' || ch === 'r') && s.keys[ch] <= 0) continue;
       seen[ny][nx] = true;

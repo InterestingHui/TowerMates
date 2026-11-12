@@ -32,6 +32,12 @@ const sim = run(process.execPath, ['tools/sim.js']);
 const simLine = sim.out.split('\n').filter((l) => l.includes('总承伤')).pop() || '';
 const okSim = sim.code === 0 && sim.out.includes('通关成功');
 console.log((okSim ? '✓' : '✗') + ' sim.js ' + simLine.trim());
+// 避战流是决战余裕 S 档的唯一现有路线；它必须仍然可达，
+// 否则「S 档 +2 余烬」「图鉴里拿一次 S」「结算提示避战可上 S」全是空话
+const skipSim = run(process.execPath, ['tools/sim.js', '--skip-fights']);
+const skipPct = /真实终局[^\n]*（([\d.]+)%）/.exec(skipSim.out || '');
+const okSkip = skipSim.code === 0 && skipSim.out.includes('通关成功') && skipPct && Number(skipPct[1]) >= 70;
+console.log((okSkip ? '✓' : '✗') + ` 避战流 S 档可达 ${skipPct ? skipPct[1] + '%' : '读数失败'}（阈值 ≥70%）`);
 
 console.log('== 3/6 引擎单测 ==');
 const test = run(process.execPath, ['tools/engine-test.js']);
@@ -209,8 +215,8 @@ if (!process.argv.includes('--no-shot')) {
       const ui = run(process.execPath, ['tools/ui-test.js']);
       const okUi = ui.code === 0;
       console.log((okUi ? '✓' : '✗') + ' ui-test.js' + (okUi ? '' : '\n' + ui.out));
-      const all = okCheck && okSim && okTest && okCode && okBsim && okOd && okUi && okProbe && okAds && okIntro && okWxb && okWx && bad === 0;
-      if (!all) console.log('  闸门明细:', JSON.stringify({ okCheck, okSim, okTest, okCode, okBsim, okOd, okUi, okProbe, probeA3, okAds, adsLine, okIntro, introLine, okWxb, wxbLine, okWx, bad }));
+      const all = okCheck && okSim && okSkip && okTest && okCode && okBsim && okOd && okUi && okProbe && okAds && okIntro && okWxb && okWx && bad === 0;
+      if (!all) console.log('  闸门明细:', JSON.stringify({ okCheck, okSim, okSkip, okTest, okCode, okBsim, okOd, okUi, okProbe, probeA3, okAds, adsLine, okIntro, introLine, okWxb, wxbLine, okWx, bad }));
       console.log(all ? '✓ 质量闸门通过' : '✗ 质量闸门有失败项');
       process.exit(all ? 0 : 1);
     })();
