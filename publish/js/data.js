@@ -10,7 +10,7 @@ window.GAME_DATA = (function () {
     p: '红药水', P: '蓝药水', s: '铁剑', d: '铁盾', m: '力量宝石',
     a: '精钢剑', b: '秘银甲', c: '魂晶', h: '圣水',
     k: '黄钥匙', L: '红钥匙', $: '金币', M: '商人', T: '公主', J: '工匠手记',
-    O: '守誓之盾', S: '断裂佩剑', X: '八个人的行李', K: '塔心石', '?': '路遇', Q: '层阶之钥', j: '半部盾谱', v: '盾谱·后半',
+    O: '守誓之盾', S: '断裂佩剑', X: '八个人的行李', K: '塔心石', '?': '路遇', Q: '层阶之钥', j: '半部盾谱', v: '盾谱·后半', o: '一袋金币',
     '!': '塔的碑文',
   };
 
@@ -167,6 +167,7 @@ window.GAME_DATA = (function () {
     Q: { name: '层阶之钥', emoji: '🗝️', type: 'relic', relic: 'gate', story: 'gateLore' },
     j: { name: '半部盾谱', emoji: '📖', type: 'block', story: 'blockLore' },
     v: { name: '盾谱·后半', emoji: '📕', type: 'block2', story: 'blockLore2' },
+    o: { name: '一袋金币', emoji: '💰', type: 'gold', value: 400 },
   };
 
   // 遗物说明（HUD / 设置页 / 结算都用它）
@@ -389,7 +390,7 @@ window.GAME_DATA = (function () {
         '#..P...P..#',
         '#.b..P..h.#',
         '#.I.?.3.k.#',
-        '#....3.n..#',
+        '#o..3.n.$.#',
         '###########',
       ],
     },

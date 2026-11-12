@@ -137,7 +137,7 @@
   const LAMP_MAX = 13;    // 一层一盏，纯收藏，全解锁后的余烬出口
   const Meta = (() => {
     const KEY = 'towermates_meta';
-    const blank = () => ({ runs: 0, endings: {}, vowWins: {}, fullChapters: 0, heartTaken: 0, heartLeft: 0, deepest: 0, fastest: 0, bestSeal: '', emberRuns: [], firstVowWin: {}, lamps: 0 });
+    const blank = () => ({ runs: 0, endings: {}, vowWins: {}, fullChapters: 0, heartTaken: 0, heartLeft: 0, deepest: 0, fastest: 0, bestSeal: '', emberRuns: [], firstVowWin: {}, lamps: 0, seenRelics: [], seenRings: [] });
     let data = { ember: 0, unlocked: [], resets: 0, memory: blank() };
     try { data = Object.assign(data, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) {}
     if (!data.memory) data.memory = blank();
@@ -149,12 +149,25 @@
     mem.endings = mem.endings || {};
     mem.vowWins = mem.vowWins || {};
     mem.lamps = mem.lamps || 0;
+    // 收藏图鉴：见过的遗物/锁环跨局累计（老档补空数组，不作废）
+    mem.seenRelics = Array.isArray(mem.seenRelics) ? mem.seenRelics : [];
+    mem.seenRings = Array.isArray(mem.seenRings) ? mem.seenRings : [];
     return {
       get ember() { return data.ember || 0; },
       get resets() { return data.resets || 0; },
       get memory() { return mem; },
       get lamps() { return mem.lamps || 0; },
       get emberRuns() { return mem.emberRuns; },
+      // 记一笔收藏：拿到过就永久留档（跨局，不与本局输赢绑定）
+      seenRelic(id) {
+        if (!id || mem.seenRelics.indexOf(id) >= 0) return false;
+        mem.seenRelics.push(id); save(); return true;
+      },
+      seenRing(id) {
+        if (!id || mem.seenRings.indexOf(id) >= 0) return false;
+        mem.seenRings.push(id); save(); return true;
+      },
+      saveMemory() { save(); },
       // 近 3 局平均，没记录时用常规通关的保守值 18
       avgEmber() {
         if (!mem.emberRuns.length) return 18;
@@ -478,6 +491,7 @@
     echoReward: $('echoReward'), echoRings: $('echoRings'),
     echoHint: $('echoHint'), echoClose: $('echoClose'),
     resetConfirmOverlay: $('resetConfirmOverlay'),
+    collectionOverlay: $('collectionOverlay'), colBody: $('colBody'), colCount: $('colCount'),
   };
 
   // ---------- 富文本：把 **重点** 渲染成加粗 ----------
@@ -702,7 +716,9 @@
   }
 
   // ---------- HUD ----------
-  const RELIC_ORDER = ['ward', 'edge', 'ember', 'steel', 'thrift', 'vigor', 'scout', 'gate', 'heart'];
+  // 遗物全表顺序 = 顶栏 chip / 设置页列表 / 收藏图鉴共用一份。
+  // cross 与 coin 曾漏在这张表外——玩家拿了旧十字架/幸运金币，顶栏根本不显示 chip（已修）。
+  const RELIC_ORDER = ['ward', 'edge', 'ember', 'steel', 'thrift', 'vigor', 'scout', 'gate', 'heart', 'cross', 'coin'];
   let relicSig = null;
   function renderRelicRow(s) {
     const owned = RELIC_ORDER.filter((id) => s && s.flags['relic_' + id]);
@@ -750,6 +766,54 @@
       });
     });
   }
+
+  // ---------- 收藏图鉴：见过的遗物/锁环跨局累计 ----------
+  // 记档时机放在 refreshHud：不管是祭坛、商店、跳层、事件还是回响拿到的，
+  // 只要进了本局背包就自动留档——不用每个获取入口各写一遍。
+  let collectSig = null;
+  function rememberCollection(s) {
+    if (!s) return;
+    const owned = RELIC_ORDER.filter((id) => s.flags['relic_' + id]).join(',');
+    const rings = Engine.rings().join(',');
+    const sig = owned + '|' + rings;
+    if (sig === collectSig) return; // 没变化就不写盘
+    collectSig = sig;
+    RELIC_ORDER.forEach((id) => { if (s.flags['relic_' + id]) Meta.seenRelic(id); });
+    Engine.rings().forEach((id) => Meta.seenRing(id));
+  }
+
+  function collectionText() {
+    const mem = Meta.memory;
+    const r = RELIC_ORDER.filter((id) => mem.seenRelics.indexOf(id) >= 0).length;
+    const g = Object.keys(D.rings).filter((id) => mem.seenRings.indexOf(id) >= 0).length;
+    return `遗物 ${r}/${RELIC_ORDER.length} · 锁环 ${g}/${Object.keys(D.rings).length}`;
+  }
+
+  function openCollection() {
+    const mem = Meta.memory;
+    const card = (r, on, extraCls) => `<div class="col-card ${on ? 'got' : 'off'}${extraCls ? ' ' + extraCls : ''}">
+      <span class="cc-emoji">${on ? r.emoji : '❔'}</span>
+      <span class="cc-name">${r.name}</span>
+      <span class="cc-desc">${on ? r.desc : '未获得'}</span>
+    </div>`;
+    let html = '<div class="col-group"><p class="col-group-title">遗 物 · '
+      + RELIC_ORDER.filter((id) => mem.seenRelics.indexOf(id) >= 0).length + '/' + RELIC_ORDER.length
+      + '</p><div class="col-grid">';
+    html += RELIC_ORDER.map((id) => card(D.relics[id], mem.seenRelics.indexOf(id) >= 0)).join('');
+    html += '</div></div>';
+    D.chapters.forEach((ch) => {
+      const ids = Object.keys(D.rings).filter((id) => D.rings[id].chapter === ch.id);
+      const got = ids.filter((id) => mem.seenRings.indexOf(id) >= 0).length;
+      html += `<div class="col-group"><p class="col-group-title">${ch.title} · ${got}/${ids.length}</p><div class="col-grid">`;
+      html += ids.map((id) => card(D.rings[id], mem.seenRings.indexOf(id) >= 0, 'ring')).join('');
+      html += '</div></div>';
+    });
+    el.colBody.innerHTML = html;
+    el.colCount.textContent = collectionText();
+    el.collectionOverlay.classList.add('show');
+    Sound.play('buy');
+  }
+  function closeCollection() { el.collectionOverlay.classList.remove('show'); }
 
   // 章节主色只在这里注入一次，四章共用同一套组件
   function setChapterColor(floor) {
@@ -840,6 +904,7 @@
     });
     renderRelicRow(s);
     renderRingRow(s);
+    rememberCollection(s);
     setChapterColor(s.floor);
 
     if (el.vowTag) {
@@ -1201,7 +1266,26 @@
     // 「快速战斗」把整段演出压到 42%，重复刷层时不再被迫看完
     // 三档速度（设置里调）× 快速战斗总开关 × 测试钩子：重复刷层不必看完演出
     const speed = (window.__battleSpeed || 1) * BATTLE_SPEED[Settings.battleSpeed] * (Settings.fast ? 0.42 : 1);
-    const wait = (ms) => new Promise((r) => setTimeout(r, ms * speed));
+    // 跳过必须当场生效：每个 wait 注册一个唤醒器，点一下战斗面板就结束「当前这一等」，
+    // 而不是等这段动画/过场演完才发现点了——Boss 阶段过场原来最长白等 950ms（780+170）。
+    let skipWaiter = null;
+    const skipNow = () => {
+      if (!skipWaiter) return;
+      const w = skipWaiter;
+      skipWaiter = null;
+      w();
+    };
+    const wait = (ms) => new Promise((resolve) => {
+      // 已经点过跳过：后面每一步等待都不再真的等，一口气把演出收掉
+      if (skipped) { resolve(); return; }
+      const finish = () => {
+        clearTimeout(timer);
+        if (skipWaiter === finish) skipWaiter = null;
+        resolve();
+      };
+      const timer = setTimeout(finish, ms * speed);
+      skipWaiter = finish;
+    });
 
     const bg = Renderer.snapshot();
     if (bg) el.battleScene.style.setProperty('--bg', `url(${bg})`);
@@ -1275,7 +1359,7 @@
       setTimeout(() => d.remove(), 820 * speed);
     }
 
-    el.battleScene.onclick = () => { skipped = true; };
+    el.battleScene.onclick = () => { skipped = true; skipNow(); };
 
     (async () => {
       // 演出刀数：默认压上限（普通 5 / Boss 8）保证节奏；设置「全量回合」时
@@ -1364,6 +1448,7 @@
       el.bsHero.classList.remove('hit', 'lunge-r', 'lunge-l');
       el.battleScene.onclick = null;
       el.bsBlock.onclick = null;
+      skipWaiter = null; // 战斗结束必须清掉唤醒器，别让下一次点击去唤醒上一场的等待
       done(blockOn);
     })();
   }
@@ -1694,6 +1779,11 @@
       const afford = s.gold >= price;
       let tip = item.relic ? D.relics[item.relic].desc : item.key ? (item.key === 'y' ? '开黄门' : '开红门') : item.hp ? `回复 ${item.hp} 生命` : item.atk ? '攻击 +2' : item.def ? '防御 +2' : item.block ? '学会格挡：每层一次，战斗中点盾把承伤降到 60%' : item.heartShard ? '带一点塔的心跳出去：**通关余烬 +8**（唯一）' : '怪物情报';
       if (forbidden) tip = '**这条誓约不能格挡**，买了也用不上';
+      // 碎片保底提示：钱不够时告诉玩家「差多少、本层还剩几只怪可刷」，别让人以为错过了就没了
+      if (item.heartShard && !owned && !afford) {
+        const left = Engine.floorMonsterCount();
+        tip = `带一点塔的心跳出去：**通关余烬 +8** · 还差 **${price - s.gold}** 金${left ? ` · 这一层还剩 **${left}** 只怪可刷` : ' · 这一层已经清空，回下层找钱'}`;
+      }
       if (item.atk && needAtk) {
         const gap = needAtk.def + 1 - s.atk;
         const times = Math.max(1, Math.ceil(gap / item.atk));
@@ -1977,7 +2067,12 @@
     if (s.flags.eventEmber) parts.push({ label: '路遇里的选择', n: s.flags.eventEmber });
     // 锁芯买的塔心碎片：带一点塔的心跳出去，结算时化为余烬
     if (s.flags.heartShard) parts.push({ label: '塔心碎片', n: 8 });
-    if (vowDef.reward) parts.push({ label: `「${vowDef.name}」`, n: vowDef.reward });
+    // 誓约奖励：其他誓约用「誓约名」（那是玩家主动立的），不立誓改成陈述句
+    // 「无誓通关」——「「不立誓」+1」读起来像双重否定，结算明细里反而费解
+    if (vowDef.reward) {
+      const vowLabel = vowDef === D.vows.none ? '无誓通关' : `「${vowDef.name}」`;
+      parts.push({ label: vowLabel, n: vowDef.reward });
+    }
     // 解锁誓约第一次通关：额外给解锁成本的一半，让「解锁 → 真的用它」当场回本一半
     // 按 vowDef 反查 id，不用 s.flags.vow，避免结算与自动化取到不同口径
     const vowId = Object.keys(D.vows).find((k) => D.vows[k] === vowDef) || s.flags.vow;
@@ -2027,7 +2122,18 @@
       : signed
         ? '你把签好的盾谱留在了塔里。名字还没有传出去，但招式会。'
         : '';
-    $('endEpi').textContent = (E.epilogue || '') + (heartLine ? ' ' + heartLine : '') + (signLine ? ' ' + signLine : '');
+    $('endEpi').textContent = (E.epilogue || '') + (heartLine ? ' ' + heartLine : '');
+    // 签名独立一行：等结算面板入场后，用「一笔写下来」的揭示动画出现（只有集齐盾谱才有）
+    const signEl = $('endSign');
+    if (signEl) {
+      signEl.hidden = !signLine;
+      signEl.classList.remove('write');
+      if (signLine) {
+        signEl.firstElementChild.textContent = signLine;
+        // 两个 rAF 后再加类，保证动画从 0 开始（同一帧内加类浏览器会跳过过渡）
+        requestAnimationFrame(() => requestAnimationFrame(() => signEl.classList.add('write')));
+      }
+    }
     const relicIds = Engine.ownedRelics();
     const relics = relicIds.map((id) => D.relics[id].short).join(' ') || '无';
     sum.vow = s.flags.vow || 'none';
@@ -2597,6 +2703,7 @@
       if (el.cfgOverlay.classList.contains('show')) { if (e.key === 'Escape') closeCfg(); return; }
       if (el.boardOverlay.classList.contains('show')) { if (e.key === 'Escape') closeBoard(); return; }
       if (el.codexOverlay.classList.contains('show')) { if (e.key === 'Escape') el.codexOverlay.classList.remove('show'); return; }
+      if (el.collectionOverlay.classList.contains('show')) { if (e.key === 'Escape') closeCollection(); return; }
 
       const k = e.key.toLowerCase();
       let d = null;
@@ -2754,11 +2861,17 @@
       Engine.reset();
       Achievements.reset();
       Tips.reset();
+      // 收藏图鉴属于跨局履历，跟成就同级——全清时一起清，并把记档签名复位
+      const wmem = Meta.memory;
+      wmem.seenRelics = [];
+      wmem.seenRings = [];
+      Meta.saveMemory();
+      collectSig = null;
       try { localStorage.removeItem('towermates_board'); } catch (e) {}
       $('btnContinue').style.display = 'none';
       refreshStartBadges();
       refreshCfg();
-      warn('已清空存档、成就与榜单');
+      warn('已清空存档、成就、收藏与榜单');
     });
     // 重置游戏：放弃当前这一局并从头开始（保留成就、余烬与解锁）。统一走二次确认弹层
     function doResetRun() {
@@ -2820,6 +2933,8 @@
     $('cfgHintSpeed').addEventListener('click', () => { Settings.cycleHintSpeed(); refreshCfg(); });
     $('cfgHintBook').addEventListener('click', () => { el.cfgOverlay.classList.remove('show'); openHintBook(); });
     $('hbClose').addEventListener('click', () => el.hintBookOverlay.classList.remove('show'));
+    $('cfgCollection').addEventListener('click', () => { el.cfgOverlay.classList.remove('show'); openCollection(); });
+    $('colClose').addEventListener('click', closeCollection);
     if (el.stuckBar) el.stuckBar.addEventListener('click', () => {
       if (stuckInfo) sayHint(stuckInfo.key, stuckInfo.vars);
     });
@@ -2914,6 +3029,7 @@
     $('cfgFullRoundsVal').className = Settings.fullRounds ? '' : 'off';
     $('cfgHintSpeedVal').textContent = HINT_SPEED_NAME[Settings.hintSpeed];
     $('cfgHintBookVal').textContent = `全部 ${Object.keys(S.hints || {}).length + Object.keys(S.keyHints || {}).length} 条 ›`;
+    $('cfgCollectionVal').textContent = collectionText() + ' ›';
     const s = Engine.state();
     $('cfgRelics').innerHTML = RELIC_ORDER.map((id) => {
       const r = D.relics[id];
@@ -2927,7 +3043,7 @@
 
   // 遮罩是否完全盖住画布（盖住时暂停重绘）
   const FULL_OVERLAYS = ['startOverlay', 'dialogOverlay', 'shopOverlay', 'boardOverlay',
-    'codexOverlay', 'cfgOverlay', 'hintBookOverlay', 'choiceOverlay', 'altarOverlay', 'heartOverlay', 'vowOverlay', 'eventOverlay', 'gateOverlay', 'echoOverlay', 'endOverlay', 'resetConfirmOverlay'];
+    'codexOverlay', 'cfgOverlay', 'hintBookOverlay', 'choiceOverlay', 'altarOverlay', 'heartOverlay', 'vowOverlay', 'eventOverlay', 'gateOverlay', 'echoOverlay', 'endOverlay', 'resetConfirmOverlay', 'collectionOverlay'];
   function covered() {
     for (const id of FULL_OVERLAYS) {
       if (el[id] && el[id].classList.contains('show')) return true;
@@ -3140,6 +3256,7 @@
     richInto: renderRich, say, sayHint, warn, Tips,
     Settings, hintMs, openHintBook, showStuck, clearStuck,
     openMonsterProbe, showDeath,
+    openCollection, closeCollection, collectionText, rememberCollection,
   };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);

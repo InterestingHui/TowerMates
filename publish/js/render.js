@@ -505,6 +505,7 @@
     else if (it && it.type === 'def') tint = 'rgba(130,190,255,0.32)';
     else if (it && it.type === 'both') tint = 'rgba(200,150,255,0.36)';
     else if (it && (it.type === 'block' || it.type === 'block2')) tint = it.type === 'block2' ? 'rgba(255,120,120,0.42)' : 'rgba(159,216,255,0.4)';
+    else if (it && it.type === 'gold') tint = 'rgba(250,205,80,0.4)';
     else if (it && it.type === 'relic') tint = 'rgba(255,225,150,0.4)';
 
     glow(tint, TILE * 0.32);
