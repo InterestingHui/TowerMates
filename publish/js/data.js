@@ -99,7 +99,7 @@ window.GAME_DATA = (function () {
       },
     },
     Y: {
-      name: '钟妖', emoji: '🔔', hp: 780, atk: 112, def: 38, gold: 420, exp: 200, boss: true, kind: '锁',
+      name: '钟妖', emoji: '🔔', hp: 780, atk: 104, def: 38, gold: 420, exp: 200, boss: true, kind: '锁',
       title: '第五位工匠 · 时辰之锁', story: 'bossDuo', after: 'afterDuo', chapter: 3,
       defeat: '钟声停了。整座塔安静得能听见灰尘落下。',
       phases: [
@@ -386,8 +386,8 @@ window.GAME_DATA = (function () {
         '#.#.....#.#',
         '#.#..2....#',
         '#####Y#####',
-        '#.........#',
-        '#.b..p..h.#',
+        '#..P...P..#',
+        '#.b..P..h.#',
         '#.I.?.3.k.#',
         '#....3.n..#',
         '###########',
