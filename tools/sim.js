@@ -21,6 +21,10 @@ const USE_BLOCK = !process.argv.includes('--no-block');
 // 避战流：只打「为了上楼/见公主必经」的怪，其余绕开——用来验证决战余裕 S 档是否真的可达
 const SKIP_FIGHTS = process.argv.includes('--skip-fights');
 const VOW = (process.argv.find((a) => a.startsWith('--vow=')) || '--vow=none').slice(6);
+// 禁挡誓约：与引擎 vowForbidsBlock 同口径——买不了盾谱，也不能用格挡换命进 Boss 战。
+// 以前 sim 漏了这条：让铁壁/苦行/无名「换命」进了打不赢的 Boss 战，再靠升级回血复活，
+// 产出「能通关」的假读数（真实引擎会拒绝致死战斗，玩家卡在原地）。
+const NO_BLOCK_VOW = VOW === 'guard' || VOW === 'ascetic' || VOW === 'nameless';
 // 极限构筑：借灯 5% + 回廊 4% 每上楼、灯油 +240 上限、停钟 Boss 承伤 −8%
 const USE_RINGS = process.argv.includes('--rings');
 // --quill：模拟「为落笔之环刻意留钱」的构筑——留 500 金不花（刚好换满 5 余烬）
@@ -170,8 +174,9 @@ function healAtShop() {
 
 function shop() {
   let spent = 0;
-  // 半部盾谱：没学过格挡时优先买（150 金，一次性）——能力优先于数值
-  if (USE_BLOCK && !s.flags.hasBlock && s.gold >= 150) {
+  // 半部盾谱：没学过格挡时优先买（150 金，一次性）——能力优先于数值。
+  // 禁挡誓约买不了（引擎 buy 里 vowForbidsBlock 会拒绝），这里同口径
+  if (USE_BLOCK && !NO_BLOCK_VOW && !s.flags.hasBlock && s.gold >= 150) {
     s.gold -= 150;
     s.flags.hasBlock = true;
     console.log('  在秤那里买了半部盾谱 → 学会格挡');
@@ -227,7 +232,7 @@ function unavoidableMonsters() {
       const m = D.monsters[ch];
       if (m && !m.ghost) {
         const p = predict(ch);
-        const bossSave = m.boss && s.flags.hasBlock && !s.flags['block_f' + s.floor]
+        const bossSave = m.boss && !NO_BLOCK_VOW && s.flags.hasBlock && !s.flags['block_f' + s.floor]
           && Math.round(p.damage * (s.flags.hasBlock2 ? 0.42 : 0.55)) < s.hp;
         if (!p.win && !bossSave) continue;
         cost = 1;
@@ -273,7 +278,7 @@ function bfs() {
         if (must && !must.has(ny * SIZE + nx)) continue;
         if (!predict(ch).win) {
           const mb = D.monsters[ch];
-          const canBlockBoss = mb.boss && s.flags.hasBlock && !s.flags['block_f' + s.floor] && Math.round(predict(ch).damage * (s.flags.hasBlock2 ? 0.42 : 0.55)) < s.hp;
+          const canBlockBoss = mb.boss && !NO_BLOCK_VOW && s.flags.hasBlock && !s.flags['block_f' + s.floor] && Math.round(predict(ch).damage * (s.flags.hasBlock2 ? 0.42 : 0.55)) < s.hp;
           if (!canBlockBoss) continue;
         }
       }
@@ -334,7 +339,7 @@ function floorLoop(fi) {
       const p = predict(ch);
       // 打得过，或者「Boss 靠格挡能换命」——后者必须真打一场，
       // 不能只在 bfs 里当通路（否则会出现「没碰 Boss 就判通关」的假通关）
-      const bossSave = !!D.monsters[ch].boss && s.flags.hasBlock && !s.flags['block_f' + s.floor]
+      const bossSave = !!D.monsters[ch].boss && !NO_BLOCK_VOW && s.flags.hasBlock && !s.flags['block_f' + s.floor]
         && Math.round(p.damage * (s.flags.hasBlock2 ? 0.42 : 0.55)) < s.hp;
       if (p.win || bossSave) targets.push({ x, y, ch, damage: p.damage, zeal: p.zeal || 1 });
     }
@@ -371,7 +376,7 @@ function floorLoop(fi) {
     // 格挡：Boss 层留给 Boss；普通层已把「本层最疼的怪」排到最前，够疼就挡
     let take = t.damage;
     if (VOW === 'guard') take = Math.round(take * 1.18);
-    if (USE_BLOCK && s.flags.hasBlock && VOW !== 'guard' && VOW !== 'ascetic' && VOW !== 'nameless' && (isBoss || !D.floors[fi].boss) && !s.flags['block_f' + s.floor] && take >= s.maxHp * 0.15) {
+    if (USE_BLOCK && s.flags.hasBlock && !NO_BLOCK_VOW && (isBoss || !D.floors[fi].boss) && !s.flags['block_f' + s.floor] && take >= s.maxHp * 0.15) {
       s.flags['block_f' + s.floor] = true;
       const scale = s.flags.hasBlock2 ? 0.42 : 0.55;
       take = Math.round(take * scale);
