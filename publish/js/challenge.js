@@ -6,10 +6,12 @@
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.Challenge = api;
 })(typeof window !== 'undefined' ? window : globalThis, function () {
-  const PREFIX = 'TM3.';
+  const PREFIX = 'TM4.';
+  const PREFIX3 = 'TM3.';
   const isNode = typeof window === 'undefined' && typeof Buffer !== 'undefined';
   const SEAL_CODE = { clear: 'c', ward: 'w', name: 'n', rough: 'r' };
   const CODE_SEAL = { c: 'clear', w: 'ward', n: 'name', r: 'rough', S: 'clear', A: 'ward', B: 'name', C: 'rough' };
+  const MARGIN_CODE = { S: 'S', A: 'A', B: 'B', C: 'C' };
 
   function b64encode(str) {
     if (isNode) return Buffer.from(str, 'utf8').toString('base64');
@@ -28,10 +30,11 @@
   };
 
   // 紧凑点分格式，码长约 50 字符：面板放得下、输入框也不会截断
+  // v4 = v3 + 末段决战余裕（S/A/B/C，空表示那局没记录）
   function encode(sum) {
     const s = sum || {};
     const raw = [
-      3,
+      4,
       s.ending === 'true' ? 't' : 'p',
       text(s.vow || 'none', 16).replace(/\./g, ''),
       clamp(s.floor, 0, 99),
@@ -40,6 +43,7 @@
       clamp(s.time, 0, 999999),
       SEAL_CODE[s.seal] || '',
       clamp(s.goals, 0, 99),
+      MARGIN_CODE[s.margin] || '',
     ].join('.');
     return PREFIX + b64encode(raw)
       .replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_');
@@ -49,9 +53,23 @@
     const raw = String(code == null ? '' : code).trim().replace(/\s+/g, '');
     if (!raw || raw.length > 400) return null;
     try {
-      // v3：塔印 + 回响章数（旧码里的塔规数按 0 处理，不影响展示）
+      // v4：v3 + 第 10 段决战余裕（S/A/B/C）
       if (raw.indexOf(PREFIX) === 0) {
         const p = base(raw, PREFIX);
+        if (p.length !== 10 || Number(p[0]) !== 4) return null;
+        return {
+          version: 4, legacy: false,
+          ending: p[1] === 't' ? 'true' : 'plain',
+          vow: text(p[2], 16) || 'none',
+          floor: clamp(p[3], 0, 99), level: clamp(p[4], 0, 99),
+          steps: clamp(p[5], 0, 999999), time: clamp(p[6], 0, 999999),
+          seal: CODE_SEAL[text(p[7], 1)] || '', goals: clamp(p[8], 0, 99),
+          margin: MARGIN_CODE[text(p[9], 1)] || '',
+        };
+      }
+      // v3：塔印 + 回响章数（旧码里的塔规数按 0 处理，不影响展示）
+      if (raw.indexOf(PREFIX3) === 0) {
+        const p = base(raw, PREFIX3);
         if (p.length !== 9 || Number(p[0]) !== 3) return null;
         return {
           version: 3, legacy: false,
@@ -60,6 +78,7 @@
           floor: clamp(p[3], 0, 99), level: clamp(p[4], 0, 99),
           steps: clamp(p[5], 0, 999999), time: clamp(p[6], 0, 999999),
           seal: CODE_SEAL[text(p[7], 1)] || '', goals: clamp(p[8], 0, 99),
+          margin: '',
         };
       }
       // v2 旧码：第 8 段是已废弃的结算分，直接忽略；第 9 段是 S/A/B/C，折算成塔印
