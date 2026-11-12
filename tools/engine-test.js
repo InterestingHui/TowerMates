@@ -390,7 +390,7 @@ ok(!E.canBlock(), '铁壁之誓：学了也不给格挡');
 s.hp = 5000; s.x = 2; s.y = 3;
 const guardRaw = E.predict('A').damage;
 const gRes = E.fight(0, -1);
-ok(gRes.damage === Math.round(guardRaw * 0.82), '铁壁之誓：承伤按 82% 结算');
+ok(gRes.damage === Math.round(guardRaw * 1.18), '铁壁之誓：承伤按 +18% 结算');
 
 E.newGame('greed');
 s = E.state();
