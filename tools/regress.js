@@ -173,6 +173,29 @@ if (!process.argv.includes('--no-shot')) {
         introLine = r.bits ? `${(r.bits.match(/1/g) || []).length}/${r.bits.length} 项` : '读数失败';
         console.log((okIntro ? '✓' : '✗') + ` 序章重播 ${introLine}`);
       }
+      // 好友榜接线：H5 隐藏、注入 sharedCanvas 后能贴到榜单面板
+      console.log('== 附加 · 好友榜接线自检 ==');
+      let okWxb = true, wxbLine = '';
+      {
+        const os = require('os');
+        const args = [
+          '--headless=new', '--disable-gpu', '--no-sandbox', '--no-first-run', '--disable-extensions',
+          '--user-data-dir=' + path.join(os.tmpdir(), 'tm-wxb-' + process.pid),
+          '--virtual-time-budget=40000',
+          '--dump-dom', `http://127.0.0.1:${PORT}/tools/wxboard-check.html?gate=1`,
+        ];
+        const read = () => {
+          const p = spawnSync(chrome, args, { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+          const t = p.stdout || '';
+          const bits = /(?:ALLPASS|HASFAIL|ERR)\|([01]+)/.exec(t);
+          return { pass: /ALLPASS\|1+/.test(t), bits: bits ? bits[1] : '' };
+        };
+        let r = read();
+        if (!r.bits) r = read();
+        okWxb = r.pass;
+        wxbLine = r.bits ? `${(r.bits.match(/1/g) || []).length}/${r.bits.length} 项` : '读数失败';
+        console.log((okWxb ? '✓' : '✗') + ` 好友榜接线 ${wxbLine}`);
+      }
       server.kill();
       console.log(bad === 0 ? `\n✓ 截图全部生成（${SCENES.length} 张，见 tools/out/）` : `\n✗ ${bad} 张截图异常`);
 
@@ -180,8 +203,8 @@ if (!process.argv.includes('--no-shot')) {
       const ui = run(process.execPath, ['tools/ui-test.js']);
       const okUi = ui.code === 0;
       console.log((okUi ? '✓' : '✗') + ' ui-test.js' + (okUi ? '' : '\n' + ui.out));
-      const all = okCheck && okSim && okTest && okCode && okBsim && okOd && okUi && okProbe && okAds && okIntro && bad === 0;
-      if (!all) console.log('  闸门明细:', JSON.stringify({ okCheck, okSim, okTest, okCode, okBsim, okOd, okUi, okProbe, probeA3, okAds, adsLine, okIntro, introLine, bad }));
+      const all = okCheck && okSim && okTest && okCode && okBsim && okOd && okUi && okProbe && okAds && okIntro && okWxb && bad === 0;
+      if (!all) console.log('  闸门明细:', JSON.stringify({ okCheck, okSim, okTest, okCode, okBsim, okOd, okUi, okProbe, probeA3, okAds, adsLine, okIntro, introLine, okWxb, wxbLine, bad }));
       console.log(all ? '✓ 质量闸门通过' : '✗ 质量闸门有失败项');
       process.exit(all ? 0 : 1);
     })();

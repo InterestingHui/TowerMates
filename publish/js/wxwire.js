@@ -19,10 +19,59 @@
       return r;
     };
 
+    // 好友榜贴图：子域把榜画进 sharedCanvas，主域每帧把它当图片贴到面板里的 canvas 上。
+    // H5 没有 wx/sharedCanvas → 整块保持 hidden，玩家看到的就是原来的挑战码榜。
+    function sharedCanvasOf() {
+      const wx = window.wx;
+      if (!wx || typeof wx.getOpenDataContext !== 'function') return null;
+      try {
+        const odc = wx.getOpenDataContext();
+        if (odc && odc.canvas) return odc.canvas;
+      } catch (e) {}
+      // 部分基础库只暴露全局 sharedCanvas
+      return typeof window.sharedCanvas !== 'undefined' ? window.sharedCanvas : null;
+    }
+
+    function mountWxBoard() {
+      const wrap = document.getElementById('wxBoardWrap');
+      const cv = document.getElementById('wxBoard');
+      if (!wrap || !cv) return false;
+      const shared = sharedCanvasOf();
+      if (!shared) { wrap.hidden = true; return false; }
+      wrap.hidden = false;
+      // 面板里按实际宽度贴，避免拉伸；高度固定 420 与子域绘制比例对齐
+      const w = Math.max(220, Math.round(wrap.clientWidth || 340));
+      const h = 420;
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      cv.width = Math.round(w * dpr);
+      cv.height = Math.round(h * dpr);
+      cv.style.width = w + 'px';
+      cv.style.height = h + 'px';
+      const ctx = cv.getContext('2d');
+      if (!ctx) return false;
+      const paint = () => {
+        try {
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+          ctx.clearRect(0, 0, w, h);
+          ctx.drawImage(shared, 0, 0, w, h);
+        } catch (e) { /* 子域还没画完时 drawImage 会空/抛错，忽略即可 */ }
+      };
+      paint();
+      // 子域是异步取数据再画：多刷几帧收敛（好友榜不需要每帧重绘）
+      let n = 0;
+      const timer = setInterval(() => {
+        paint();
+        if (++n > 14) clearInterval(timer);
+      }, 180);
+      return true;
+    }
+    window.__tmWxBoard = mountWxBoard; // 供回归/联调直接触发
+
     const origBoard = tm.openBoard;
     tm.openBoard = function () {
       const r = origBoard.apply(this, arguments);
       try { B.request(); } catch (e) {}
+      try { mountWxBoard(); } catch (e) {}
       return r;
     };
 

@@ -706,10 +706,13 @@
     const blocked = eventCost(o);
     if (blocked) return { type: 'refuse', msg: blocked };
     applyEffect(o.effect);
+    // 过路之环：路遇结算后额外 40 金币（走哪条路都给，代价照付）
+    const tollGold = hasRing('toll') ? 40 : 0;
+    if (tollGold) s.gold += tollGold;
     s.flags['ev_f' + s.floor] = true;
     if (tile(s.x, s.y) === '?') setTile(s.x, s.y, '.');
     save();
-    return { type: 'event', msg: o.msg, label: o.label };
+    return { type: 'event', msg: o.msg, label: o.label, tollGold };
   }
 
   // ---------- 塔心石：带走，或者放下 ----------
@@ -835,13 +838,19 @@
     s.exp += m.exp;
     s.flags.killCount = (s.flags.killCount || 0) + 1;
     s.flags['kill_' + ch] = true;
+    // 刻痕之环：每 8 只怪额外一把黄钥匙（按累计击杀数走 8 的倍数）
+    let tallyKey = false;
+    if (hasRing('tally') && s.flags.killCount % 8 === 0) { s.keys.y++; tallyKey = true; }
     let echo = null;
+    let tomeKey = false;
     if (m.boss) {
       s.flags['bossKilled_' + ch] = true;
       if (ch === 'Z') s.flags.bossKilled = true;
       if (m.chapter) {
         s.flags['chap_' + m.chapter] = true;
         echo = settleChapter(m.chapter);
+        // 名录之环：每倒一位锁匠，额外一黄一红
+        if (hasRing('tome')) { s.keys.y++; s.keys.r++; tomeKey = true; }
       }
       if (m.finalBoss) {
         s.flags.finalBossKilled = true;
@@ -872,6 +881,7 @@
       gold: goldGain, exp: m.exp, heal, levelUps: ups, riposte,
       monster: m, boss: !!m.boss, chapter: m.chapter || 0,
       after: m.after || null, finalBoss: !!m.finalBoss, echo,
+      tallyKey, tomeKey,
     };
   }
 
@@ -893,6 +903,19 @@
   function potionHeal(base) {
     const v = Number(base) || 0;
     return hasRing('ration') ? Math.round(v * 1.3) : v;
+  }
+
+  // 决战余裕：打完最终 Boss 那一刻还剩多少血（S/A/B/C）。
+  // 与难度基准同口径——用 finalHp（不含随后买药/升级的回血），老档没有就回落到当前值。
+  function battleMargin() {
+    if (!s) return null;
+    const hp = s.flags.finalHp != null ? s.flags.finalHp : s.hp;
+    const mx = s.flags.finalMaxHp != null ? s.flags.finalMaxHp : s.maxHp;
+    if (!(mx > 0)) return null;
+    const pct = hp / mx;
+    const grade = pct >= 0.7 ? 'S' : pct >= 0.5 ? 'A' : pct >= 0.3 ? 'B' : 'C';
+    const label = { S: '毫发无伤', A: '从容', B: '险胜', C: '一线' }[grade];
+    return { grade, pct: Math.round(pct * 100), label };
   }
 
   // 这一层的货摊摆什么：minFloor 是上架层——秤走一步，货跟一步
@@ -1235,7 +1258,7 @@
       const ch = tile(s.x + dx, s.y + dy);
       return D.monsters[ch] ? predict(ch) : null;
     },
-    tryMove, fight, canBlock, grantBlock, vowForbidsBlock, buy, priceOf, shopStock, floorMonsterCount, floorPickupCount, potionHeal, finish, altarChoices, pickRelic, pathTo, pathThrough, pathToNear, pathsTo,
+    tryMove, fight, canBlock, grantBlock, vowForbidsBlock, buy, priceOf, shopStock, floorMonsterCount, floorPickupCount, battleMargin, potionHeal, finish, altarChoices, pickRelic, pathTo, pathThrough, pathToNear, pathsTo,
     nextLevelExp, margin, keyName, summary, hasRelic, ownedRelics, beginFloor, restoreFloor, revealCore, heartState, heartTake, heartLeave, vow, pickEvent, eventPool, eventCost, resolveEvent, applyEffect, jumpTo, visitedMax, gateForth, sealPlan,
     rings, hasRing, ringBlockScale, fightDamage, bossPhases, settleChapter, ringChoices, pendingRing, pickRing,
   };

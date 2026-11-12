@@ -1,0 +1,13 @@
+{
+  "description": "TowerMates 微信小游戏（A 路线骨架，UI 层待 canvas 化）",
+  "miniprogramRoot": "./",
+  "compileType": "game",
+  "appid": "",
+  "projectname": "towermates-wxgame",
+  "setting": {
+    "urlCheck": true,
+    "es6": true,
+    "enhance": true,
+    "minified": true
+  }
+}

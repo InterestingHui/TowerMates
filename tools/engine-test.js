@@ -168,6 +168,19 @@ E.fight(0, 1); // 首次接触只播 Boss 剧情
 const finalEv = E.fight(0, 1);
 ok(finalEv.type === 'fight' && s.flags.finalHp === hpBeforeFinal - finalEv.damage,
   '击败最终 Boss 时记下决战结束血量（不含随后升级回血）');
+// 决战余裕分档：S≥70% / A≥50% / B≥30% / C<30%
+const marginCases = [[0.75, 'S'], [0.70, 'S'], [0.66, 'A'], [0.50, 'A'], [0.40, 'B'], [0.30, 'B'], [0.05, 'C']];
+const marginOk = marginCases.every(([p, g]) => {
+  s.flags.finalHp = Math.round(1000 * p);
+  s.flags.finalMaxHp = 1000;
+  return E.battleMargin().grade === g;
+});
+ok(marginOk, '决战余裕分档 S/A/B/C 边界正确');
+// 老档没有 finalHp 时回落到当前血量，不报错
+delete s.flags.finalHp;
+delete s.flags.finalMaxHp;
+s.hp = 300; s.maxHp = 1000;
+ok(E.battleMargin().grade === 'B', '无决战记录时用当前血量兜底');
 E.newGame();
 s = E.state();
 const cnt0 = E.floorMonsterCount(0);
@@ -528,7 +541,7 @@ ok(ev.at.heal === Math.round(s.maxHp * 0.13), '三枚回血环叠加：首访回
 {
   [1, 2, 3, 4].forEach((c) => {
     const pool = D.ringPools[c];
-    ok(pool.length === 7, `第 ${c} 章锁环池 7 枚`);
+    ok(pool.length === 8, `第 ${c} 章锁环池 8 枚（组合数 56）`);
     ok(pool.every((id) => D.rings[id] && D.rings[id].chapter === c), `第 ${c} 章池内 id 与章号一致`);
   });
 
@@ -580,6 +593,43 @@ ok(ev.at.heal === Math.round(s.maxHp * 0.13), '三枚回血环叠加：首访回
   }
   s.maps[0][pickAt[1]][pickAt[0]] = '.';
   ok(E.floorPickupCount() === n0 - 1, '罗盘：拿走一件，计数 −1');
+}
+
+// ---------- 9h+++. 第二轮扩容 4 枚（刻痕 / 过路 / 名录 / 落笔） ----------
+{
+  // 刻痕之环：每 8 只怪 +1 黄钥匙（按累计击杀数走 8 的倍数）
+  E.newGame();
+  s = E.state();
+  s.flags.rings = ['tally'];
+  s.flags.killCount = 7;
+  s.atk = 200; s.def = 200; s.hp = 5000; s.maxHp = 5000;
+  s.x = 2; s.y = 3;
+  const keyBefore = s.keys.y;
+  let rT = E.fight(0, -1);
+  ok(rT.type === 'fight' && rT.tallyKey === true && s.keys.y === keyBefore + 1, '刻痕之环：第 8 只怪额外给黄钥匙');
+
+  // 过路之环：路遇结算后 +40 金
+  E.newGame();
+  s = E.state();
+  s.flags.rings = ['toll'];
+  s.gold = 100; s.floor = 2; s.x = 8; s.y = 7; s.maps[2][7][8] = '?';
+  E.beginFloor();
+  const evT = E.resolveEvent('smith', 0);
+  ok(evT.type === 'event' && evT.tollGold === 40 && s.gold >= 140, '过路之环：路遇后额外 +40 金');
+
+  // 名录之环：击败章节锁匠给一黄一红
+  E.newGame();
+  s = E.state();
+  s.flags.rings = ['tome'];
+  s.atk = 400; s.def = 300; s.hp = 30000; s.maxHp = 30000;
+  s.floor = 2; s.x = 5; s.y = 6; s.flags['boss_seen_N'] = true;
+  E.beginFloor();
+  const yB = s.keys.y, rB = s.keys.r;
+  const rBoss = E.fight(0, -1);
+  ok(rBoss.type === 'fight' && rBoss.tomeKey === true && s.keys.y === yB + 1 && s.keys.r === rB + 1, '名录之环：锁匠倒下后一黄一红');
+
+  // 落笔之环：结算按剩余金币折算（上限 5），口径写在描述里
+  ok(/每剩 100 金币/.test(D.rings.quill.desc), '落笔之环：描述写明按金币折算');
 }
 
 E.newGame('guard');

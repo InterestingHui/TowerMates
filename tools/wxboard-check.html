@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>wxboard-check</title>
+<style>
+body{margin:0;background:#05070c;color:#8ef;font:12.5px/1.6 monospace}
+#f{width:430px;height:780px;border:0;display:block}
+#out{padding:10px;white-space:pre-wrap}
+</style>
+</head>
+<body>
+<iframe id="f"></iframe>
+<pre id="out">running…</pre>
+<script src="../wxgame/openDataContext/index.js"></script>
+<script>
+// 好友榜接线自检：H5 默认整块隐藏；注入 wx/sharedCanvas 后能贴到榜单面板上
+const f = document.getElementById('f');
+const out = document.getElementById('out');
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const R = [];
+function rec(name, ok, note) {
+  R.push({ name, ok: !!ok, note: note || '' });
+  out.textContent = R.map((r) => `${r.ok ? '✓' : '✗'} ${r.name}${r.note ? ' — ' + r.note : ''}`).join('\n');
+  document.title = (R.every((r) => r.ok) ? 'ALLPASS|' : 'HASFAIL|') + R.map((r) => (r.ok ? '1' : '0')).join('');
+}
+async function waitFor(fn, timeout = 8000, step = 25) {
+  const t0 = performance.now();
+  while (performance.now() - t0 < timeout) {
+    let v = null;
+    try { v = fn(); } catch (e) {}
+    if (v) return v;
+    await wait(step);
+  }
+  return null;
+}
+function load(url) { return new Promise((res) => { f.onload = () => res(); f.src = url; }); }
+
+const ROWS = [
+  { nickname: '沈知白', KVDataList: [{ key: 'tm_floor', value: '13' }, { key: 'tm_time', value: '1120' }, { key: 'tm_vow', value: 'guard' }, { key: 'tm_ending', value: 'true' }, { key: 'tm_seal', value: 'name' }] },
+  { nickname: '阿箬', KVDataList: [{ key: 'tm_floor', value: '12' }, { key: 'tm_time', value: '1340' }, { key: 'tm_vow', value: 'mercy' }, { key: 'tm_seal', value: 'ward' }] },
+  { nickname: '老秤', KVDataList: [{ key: 'tm_floor', value: '9' }, { key: 'tm_time', value: '760' }] },
+];
+
+(async () => {
+  try {
+    await load('/index.html?dev=1&p=w1');
+    const w = f.contentWindow, d = f.contentDocument;
+    await waitFor(() => w.__tm && w.Engine && w.Engine.state && w.__tm.openBoard);
+    await wait(500);
+
+    rec('A1 接线函数已挂载', typeof w.__tmWxBoard === 'function', typeof w.__tmWxBoard);
+
+    // 默认（H5，没有 wx）：打开榜单不该出现好友榜块
+    w.__tm.openBoard();
+    await wait(300);
+    const wrap0 = d.getElementById('wxBoardWrap');
+    rec('A2 H5 下好友榜整块隐藏', wrap0 && wrap0.hidden === true, 'hidden=' + (wrap0 && wrap0.hidden));
+    rec('A3 挑战码榜照常显示', d.getElementById('boardList').children.length > 0, '行数=' + d.getElementById('boardList').children.length);
+    d.getElementById('boardClose').click();
+    await wait(200);
+
+    // 注入 wx + sharedCanvas：子域先把榜画好，主域再贴
+    const shared = d.createElement('canvas');
+    TMOpenData.draw(shared, ROWS, { w: 430, h: 420, dpr: 1 });
+    w.wx = { getOpenDataContext: () => ({ canvas: shared }) };
+    w.__tm.openBoard();
+    await wait(400);
+
+    const wrap = d.getElementById('wxBoardWrap');
+    const cv = d.getElementById('wxBoard');
+    rec('B1 有 sharedCanvas 时好友榜显形', wrap.hidden === false, 'hidden=' + wrap.hidden);
+
+    // 像素抽查：贴上去的 canvas 不该是全空
+    let nonEmpty = 0;
+    try {
+      const ctx = cv.getContext('2d');
+      const img = ctx.getImageData(0, 0, cv.width, cv.height).data;
+      for (let i = 3; i < img.length; i += 4 * 97) if (img[i] > 8) nonEmpty++;
+    } catch (e) { rec('B2 读像素', false, e.message); }
+    rec('B2 贴图有内容（非全透明）', nonEmpty > 20, '采样命中 ' + nonEmpty);
+
+    rec('B3 挑战码榜仍在好友榜之下', d.getElementById('boardList').children.length > 0, '行数=' + d.getElementById('boardList').children.length);
+
+    // 关掉再开一次：不该叠出第二个 canvas
+    d.getElementById('boardClose').click();
+    await wait(200);
+    w.__tm.openBoard();
+    await wait(300);
+    rec('B4 重复打开不叠 canvas', d.querySelectorAll('#wxBoard').length === 1, 'count=' + d.querySelectorAll('#wxBoard').length);
+
+    out.textContent = R.map((r) => `${r.ok ? '✓' : '✗'} ${r.name}${r.note ? ' — ' + r.note : ''}`).join('\n')
+      + '\n\n' + (R.every((r) => r.ok) ? 'ALL PASS' : 'HAS FAIL');
+    document.title = (R.every((r) => r.ok) ? 'ALLPASS|' : 'HASFAIL|') + R.map((r) => (r.ok ? '1' : '0')).join('');
+  } catch (e) {
+    out.textContent = 'HARNESS: ' + e.message + '\n' + (e.stack || '');
+    document.title = 'ERR|' + e.message;
+  }
+})();
+</script>
+</body>
+</html>

@@ -791,7 +791,12 @@
       if (Meta.seenRelic(id)) fresh.push(D.relics[id].name);
     });
     Engine.rings().forEach((id) => { if (Meta.seenRing(id)) fresh.push(D.rings[id].name); });
-    if (fresh.length) s.flags.collectNew = (s.flags.collectNew || []).concat(fresh);
+    if (fresh.length) {
+      s.flags.collectNew = (s.flags.collectNew || []).concat(fresh);
+      // 图鉴首见：延后一点再弹，别和「获得遗物」「选锁环」的即时提示抢同一秒
+      const names = fresh.slice(0, 3).join('、') + (fresh.length > 3 ? ` 等 ${fresh.length} 件` : '');
+      setTimeout(() => warn(`🗂 **图鉴新收录**：${names}`), 900);
+    }
   }
 
   function collectionText() {
@@ -2271,6 +2276,11 @@
     const has = (id) => Engine.hasRing(id);
     if (has('ledger') || has('ash') || has('ledger2')) parts.push({ label: '锁环·击杀余烬翻倍', n: kills });
     if (has('seventh')) parts.push({ label: '锁环·第七格', n: 3 });
+    // 落笔之环：通关时剩下的金币折成余烬（每 100 金 +1，上限 5）——清仓还是留钱成了决策
+    if (has('quill')) {
+      const byGold = Math.min(5, Math.floor((s.gold || 0) / 100));
+      if (byGold > 0) parts.push({ label: `锁环·落笔（剩 ${s.gold} 金）`, n: byGold });
+    }
     // 落款之环：本局第一次收录进图鉴的件数，每件 +1（上限 5，避免开局撞大运爆收益）
     if (has('signature')) {
       const nNew = Array.isArray(s.flags.collectNew) ? Math.min(5, s.flags.collectNew.length) : 0;
@@ -2378,6 +2388,9 @@
     adOfferDouble(emberGain, ed);
     // 首通奖励只发一次：结算落袋后才标记，刷新页面也不会重发
     if (vowDef.ember) Meta.claimFirstWin(sum.vow);
+    // 决战余裕：用「打完碑魔那一刻的血」给一个 S/A/B/C，和塔印并列——塔印看的是流程，这个看的是硬实力
+    const margin = Engine.battleMargin();
+    if (margin) brief.push(`决战余裕 <b>${margin.grade}</b> · ${margin.label}（剩 ${margin.pct}%）`);
     brief.push(`✦ 余烬 +${emberGain}`);
     $('endBrief').innerHTML = brief.map((t) => `<span>${t}</span>`).join('');
     const ringShorts = ringList.map((id) => D.rings[id].short).join(' ') || '无';
@@ -2750,6 +2763,13 @@
       Engine.save();
       playStory('core');
       return;
+    }
+    // 塔顶：一件遗物都没拿的人——告诉这条路真的走得通（4.6% 极限通关），但只有一次机会
+    if (s.floor === 11 && !s.flags.noRelicTip && Engine.ownedRelics().length === 0) {
+      s.flags.noRelicTip = true;
+      Engine.save();
+      warn('**烛**：一件遗物都没拿，你也走到这儿了。碑魔不给第二次机会——把它当最后一战打。');
+      log('烛：这条路走得通，我只见过一次。', 'good');
     }
     if (s.floor === 4 && !s.flags.solo5) {
       s.flags.solo5 = true;

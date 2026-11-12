@@ -423,6 +423,12 @@ html, body {
 .rc-text { font-size: 12.5px; color: var(--dim); line-height: 1.6; margin: 0 0 14px; }
 .actions { display: flex; gap: 9px; margin-top: 12px; }
 .actions .btn { margin-top: 0; }
+/* 好友榜（小游戏开放数据域把 sharedCanvas 贴到这里）：H5 下整块隐藏 */
+.wx-board { margin: 0 0 10px; }
+.wx-board[hidden] { display: none; }
+.wx-board canvas { width: 100%; height: auto; display: block; border-radius: 10px; background: #111722; }
+.wx-board-hint { margin: 6px 0 0; font-size: 10.5px; color: var(--dim); text-align: center; }
+
 /* 激励视频卡点按钮：只在 Ads 可用时由 JS 插入（提审前恒不显示，线上流程零变化） */
 .ad-cta {
   width: 100%;

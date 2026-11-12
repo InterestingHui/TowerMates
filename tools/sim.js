@@ -322,7 +322,25 @@ function floorLoop(fi) {
   const hasUp = cells.some(([x, y]) => s.maps[s.floor][y][x] === 'u');
   const hasWin = cells.some(([x, y]) => s.maps[s.floor][y][x] === 'T');
   console.log(`  结束：HP ${s.hp}/${s.maxHp} ATK ${s.atk} DEF ${s.def} 金 ${s.gold} Lv.${s.level} keys=${JSON.stringify(s.keys)}`);
-  if (hasWin) { console.log('  ✓ 到达公主，通关'); return 'win'; }
+  if (hasWin) {
+    // 闸门：判「通关」之前必须真的打过最终 Boss。
+    // 曾经踩过坑——bfs 把「Boss 靠格挡能换命」当通路，于是没碰碑魔就判通关，
+    // 难度读数全成了假的。这里硬断言，假通关直接非零退出。
+    const fb = Object.keys(D.monsters).find((k) => D.monsters[k].finalBoss);
+    const fbAlive = fb && s.maps[s.floor].some((row) => row.includes(fb));
+    if (fbAlive) {
+      console.log(`  ✗ 假通关：还没打 ${D.monsters[fb].name} 就判公主可达（bfs 把 Boss 当通路了）`);
+      return 'fake-win';
+    }
+    console.log('  ✓ 到达公主，通关');
+    return 'win';
+  }
+  // 锁芯（最后一层）是隐藏层：没有上楼也没有公主，清到底就是终点。
+  // 不补这一条，越强的构筑越会被误判「卡住」——调数值时读到的是假阴性。
+  if (fi === D.floors.length - 1) {
+    console.log('  ✓ 到塔心（锁芯），清完即通关');
+    return 'win';
+  }
   if (!hasUp) { console.log('  ✗ 到不了上楼'); return false; }
   return true;
 }
@@ -331,6 +349,7 @@ function climb() {
   for (let fi = 0; fi < D.floors.length; fi++) {
     s.floor = fi;
     const r = floorLoop(fi);
+    if (r === 'fake-win') { console.log('\n✗ 假通关（未击败最终 Boss）'); process.exitCode = 1; return; }
     if (r === false) { console.log('\n✗ 卡住'); return; }
     if (r === 'win') { console.log('\n✓ 通关成功'); report(); return; }
     if (VOW === 'mercy') s.hp = Math.min(s.maxHp, s.hp + Math.round(s.maxHp * 0.12));
