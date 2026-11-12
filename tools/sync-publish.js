@@ -33,6 +33,9 @@ fs.mkdirSync(path.join(OUT, 'css'), { recursive: true });
 JS_FILES.forEach((f) => fs.writeFileSync(path.join(OUT, 'js', f), js[f]));
 fs.writeFileSync(path.join(OUT, 'css', 'style.css'), css);
 fs.writeFileSync(path.join(OUT, 'index.html'), outHtml);
+// 源码 index.html 同步指纹：本地/无头工具吃的是源码，指纹不跟就会加载旧 js
+// （并发写回旧指纹会互相踩，这里每次 sync 都强制刷成最新 build）
+fs.writeFileSync(path.join(ROOT, 'index.html'), outHtml);
 
 const refs = outHtml.match(/\?v=[^"']+/g) || [];
 console.log('build:', build);
