@@ -53,7 +53,7 @@ function predict(ch) {
   if (effAtk <= eDef) return { win: false, damage: Infinity, rounds: Infinity };
   const rounds = Math.ceil(m.hp / (effAtk - eDef));
   const myDef = tr === 'magic' ? 0 : s.def;
-  const per = Math.max(0, m.atk - myDef) * (tr === 'double' ? 2 : 1);
+  const per = Math.max(0, m.atk - myDef) * (tr === 'double' ? 1.7 : 1);
   const hits = tr === 'first' ? rounds : Math.max(0, rounds - 1);
   let damage = hits * per;
   if (damage > 0 && hasRelic('ward')) damage = Math.max(1, Math.floor(damage * 0.88));
@@ -261,6 +261,13 @@ function floorLoop(fi) {
         continue;
       }
       break;
+    }
+    // 非Boss层：格挡留给本层最疼的一场（不是第一场）——与玩家「留刀」习惯同口径
+    if (USE_BLOCK && s.flags.hasBlock && !D.floors[fi].boss && !s.flags['block_f' + s.floor]) {
+      const worst = targets.reduce((a, b) => (b.damage > a.damage ? b : a));
+      if (worst.damage >= s.maxHp * 0.15) {
+        targets.sort((a, b) => (a.ch === worst.ch ? -1 : b.ch === worst.ch ? 1 : a.damage - b.damage));
+      }
     }
     targets.sort((a, b) => a.damage - b.damage);
     const t = targets[0];

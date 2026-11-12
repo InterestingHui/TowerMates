@@ -99,7 +99,7 @@ window.GAME_DATA = (function () {
       },
     },
     Y: {
-      name: '钟妖', emoji: '🔔', hp: 780, atk: 120, def: 40, gold: 420, exp: 200, boss: true, kind: '锁',
+      name: '钟妖', emoji: '🔔', hp: 780, atk: 112, def: 38, gold: 420, exp: 200, boss: true, kind: '锁',
       title: '第五位工匠 · 时辰之锁', story: 'bossDuo', after: 'afterDuo', chapter: 3,
       defeat: '钟声停了。整座塔安静得能听见灰尘落下。',
       phases: [
@@ -143,7 +143,7 @@ window.GAME_DATA = (function () {
   const TRAITS = {
     first: { icon: '⚡', name: '先攻', tip: '开打前它先打你一下，残血时不能碰' },
     magic: { icon: '🔮', name: '魔攻', tip: '无视你的防御——加防没用，只能加攻速杀' },
-    double: { icon: '⚔️', name: '连击', tip: '每回合打两下，于是每一点防御的收益也翻倍' },
+    double: { icon: '⚔️', name: '连击', tip: '每回合打两下，第二下只有七成力——每一点防御的收益依然很高' },
     solid: { icon: '🛡️', name: '坚固', tip: '它的防御视为你的攻击 −1，只能靠加防硬扛' },
   };
 
@@ -284,9 +284,9 @@ window.GAME_DATA = (function () {
         '#.#..D..#.#',
         '#.#y......#',
         '#####N#####',
-        '#...M.....#',
+        '#...M..p..#',
         '#.p..k..?.#',
-        '#.L.D...X$#',
+        '#.L.D..X.$#',
         '#....n....#',
         '###########',
       ],

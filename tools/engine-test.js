@@ -203,10 +203,24 @@ ok(healFight.type === 'fight' && healFight.heal === 20, '余烬灯芯：击杀�
 ok(s.hp === 500 - healFight.damage + 20, '回血正确结算');
 
 // ---------- 9b. 祭坛三选一 ----------
+// 祭坛 X 不焊死在固定坐标：从地图里找，站它旁边走上去（布局调整不用再改测试）
 E.newGame();
 s = E.state();
-s.floor = 2; s.x = 7; s.y = 8;
-ev = E.tryMove(1, 0);
+s.floor = 2;
+let ax = -1, ay = -1;
+for (let y = 1; y < 10 && ax < 0; y++) {
+  for (let x = 1; x < 10; x++) {
+    if (D.floors[2].map[y][x] === 'X') {
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const c = D.floors[2].map[y + dy] && D.floors[2].map[y + dy][x + dx];
+        if (c && c !== '#') { ax = x + dx; ay = y + dy; break; }
+      }
+      if (ax >= 0) break;
+    }
+  }
+}
+s.x = ax; s.y = ay;
+ev = E.tryMove(Math.sign(ax === 7 ? 1 : (ax < D.floors[2].map[8].indexOf('X') ? 1 : -1)), 0);
 ok(ev.type === 'altar', '踩到行李堆弹出三选一');
 const choices = E.altarChoices();
 ok(choices.length === 3 && choices.every((id) => !!D.relics[id]), '祭坛给出 3 件可拿的遗物');
@@ -393,19 +407,19 @@ const gRes = E.fight(0, -1);
 ok(gRes.damage === Math.round(guardRaw * 1.18), '铁壁之誓：承伤按 +18% 结算');
 
 // ---------- 9h+. 铁壁生死口径：真实承伤超出预判时必须拦住（防负血走塔） ----------
+// 数值全部现算（连击系数/锈犬数值调整后不再失效）：raw=守誓后承伤，夹缝取 raw < hp < raw×1.18
 E.newGame('guard');
 s = E.state();
 s.flags.relic_ward = true;            // 借守誓之盾造出「raw < hp < raw×1.18」的夹缝
 s.atk = 57; s.def = 37;
-s.flags.kill_A = true;
-const rawWard = Math.floor(700 * 0.88);   // 锈犬 700 → 616
-s.hp = rawWard + 20;                      // 636：raw 616 < 636 < 727
 s.maps[s.floor][3][2] = 'I'; s.x = 2; s.y = 4;
+const rawWard = E.predict('I').damage;    // 守誓后承伤（如 523）
+s.hp = rawWard + 20;                      // 夹缝内：raw < hp < raw×1.18
 const gapPred = E.predictOpt('I', true);
-ok(gapPred.win === false, '铁壁夹缝：预判用真实承伤，不放行（636 < 616×1.18）');
+ok(gapPred.win === false, '铁壁夹缝：预判用真实承伤，不放行（' + s.hp + ' < ' + rawWard + '×1.18）');
 const gapFight = E.fight(0, -1);
 ok(gapFight.type === 'refuse', '铁壁夹缝：fight 拒绝，不会把玩家打进负血');
-s.hp = Math.round(rawWard * 1.18) + 1;    // 728：真实承伤也扛得住
+s.hp = Math.round(rawWard * 1.18) + 1;    // 真实承伤也扛得住
 const okPred = E.predictOpt('I', true);
 ok(okPred.win === true, '血过真实承伤线后预判放行');
 const okFight = E.fight(0, -1);
@@ -761,12 +775,12 @@ if (mTarget) ok(E.pathsTo(mTarget.x, mTarget.y) === null, '怪物目标返回 nu
   const roundsW = Math.ceil(wm.hp / (st.atk - wm.def));
   ok(pw.damage === Math.max(0, roundsW - 1) * wm.atk, '魔攻：承伤无视防御');
 
-  // 连击：每回合两下
+  // 连击：每回合两下，第二下收招只有七成力（合计 1.7 倍）
   const fm = D.monsters.F;
   const pf = E.predict('F');
   ok(D.monsters.F.trait === 'double', '狼人带连击特性');
   const roundsF = Math.ceil(fm.hp / (st.atk - fm.def));
-  ok(pf.damage === Math.max(0, roundsF - 1) * Math.max(0, fm.atk - st.def) * 2, '连击：承伤翻倍');
+  ok(pf.damage === Math.max(0, roundsF - 1) * Math.max(0, fm.atk - st.def) * 1.7, '连击：承伤 ×1.7（第二刀七成力）');
 
   // 边际收益：魔攻怪的「加防」收益必须为 0，只攻有效
   const mgW = E.margin('W');

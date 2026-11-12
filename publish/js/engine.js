@@ -303,8 +303,10 @@
     const rounds = Math.ceil(m.hp / out);
     // 魔攻：你的防御视作 0，堆防在这里没有意义
     const myDef = tr === 'magic' ? 0 : s.def;
-    // 连击：每回合打两下，于是每一点防御的收益也翻倍
-    const per = Math.max(0, m.atk - myDef) * (tr === 'double' ? 2 : 1);
+    // 连击：每回合打两下——但第二下是收招的余劲，只有七成力
+    // （无遗物线在特性上线后被拦在 9 层，这里给全体玩家一刀软减免）
+    const doubleMult = tr === 'double' ? 1.7 : 1;
+    const per = Math.max(0, m.atk - myDef) * doubleMult;
     // 先攻：连最后一击之前也要先挨一下，残血时不能碰
     const hits = tr === 'first' ? rounds : Math.max(0, rounds - 1);
     let damage = hits * per;
@@ -348,7 +350,7 @@
       if (out <= 0) return null;
       const rounds = Math.ceil(m.hp / out);
       const myDef = tr === 'magic' ? 0 : def;
-      const per = Math.max(0, m.atk - myDef) * (tr === 'double' ? 2 : 1);
+      const per = Math.max(0, m.atk - myDef) * (tr === 'double' ? 1.7 : 1);
       const hits = tr === 'first' ? rounds : Math.max(0, rounds - 1);
       let dmg = hits * per;
       if (dmg > 0 && hasRelic('ward')) dmg = Math.max(1, Math.floor(dmg * 0.88));

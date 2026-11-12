@@ -695,6 +695,23 @@
         errBox.textContent = dpadState;
         window.__dpadState = dpadState;
         await wait(600);
+      } else if (scene === 'showcase') {
+        // 遗物高光特效播放中的一帧：延迟环负年龄曾把 arc() 炸成 IndexSizeError 冻结画面，
+        // 这里触发后紧贴时间轴截图——特效在飞、画面在动，regression 直接看这张图。
+        d.getElementById('btnNew').click();
+        await wait(200);
+        const _vcs = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
+        if (_vcs) _vcs.click();
+        await wait(260);
+        const dlS = d.getElementById('dialogOverlay');
+        for (let i = 0; i < 8; i++) { dlS.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
+        T.refreshHud();
+        await wait(300);
+        w.__tm.testRelicShowcase();
+        await wait(140); // 延迟环 start=+140ms 恰好处于负年龄→激活的边界带
+        errBox.textContent = 'SHOWCASE frameErrors=' + ((w.__tmRenderErrors || []).length)
+          + ' err=' + (errs.length ? errs.join('|') : 'none');
+        await wait(60);
       }
       await wait(600);
       const q2 = [];

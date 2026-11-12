@@ -3034,11 +3034,28 @@
 
     window.addEventListener('beforeunload', () => Engine.save());
 
+    // 渲染异常兜底：draw() 抛错（如特效参数异常）只丢当前帧，绝不炸掉 rAF 主循环——
+    // 否则画面从此冻结、只能刷新。连续报错时压噪（同一异常每秒最多记一次）。
+    let lastRenderErrAt = 0;
+    window.__tmRenderErrors = [];
     function loop() {
       const s = Engine.state();
       // 遮罩完全盖住画布时不重绘：省电，也避免后台空转掉帧
       const force = Renderer.needsDraw && Renderer.needsDraw();
-      if (s && !document.hidden && (!covered() || force)) Renderer.draw(s);
+      if (s && !document.hidden && (!covered() || force)) {
+        try {
+          Renderer.draw(s);
+        } catch (err) {
+          const now = performance.now();
+          if (now - lastRenderErrAt > 1000) {
+            lastRenderErrAt = now;
+            const rec = { at: Date.now(), msg: String(err && err.message || err), stack: String(err && err.stack || '').split('\n')[1] || '' };
+            window.__tmRenderErrors.push(rec);
+            if (window.__tmRenderErrors.length > 10) window.__tmRenderErrors.shift();
+            if (typeof console !== 'undefined' && console.warn) console.warn('[render]', rec.msg);
+          }
+        }
+      }
       requestAnimationFrame(loop);
     }
     requestAnimationFrame(loop);
