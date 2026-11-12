@@ -832,5 +832,40 @@ if (mTarget) ok(E.pathsTo(mTarget.x, mTarget.y) === null, '怪物目标返回 nu
   }
 }
 
+// ---------- 10. 渲染层冲击环：负年龄必须跳过、半径必须非负（渲染冻结事故回归） ----------
+// relicBeamFx 的第二/三道环是 start=simT+140/300 的延迟环；负年龄曾被画成负半径，
+// arc() 抛 IndexSizeError 炸掉整帧主循环 → 画面永久卡死。这里锁死口径：
+{
+  const TILE = 48;
+  const drawRingLogic = (simT, r) => {
+    const p = (simT - r.start) / r.dur;
+    if (p <= 0) return { skipped: true };
+    const ease = 1 - Math.pow(1 - p, 2.2);
+    const rad = 6 + ease * r.maxR;
+    if (rad <= 0) return { skipped: true, rad };
+    return { drawn: true, rad };
+  };
+  ok(drawRingLogic(1000, { start: 1140, dur: 620, maxR: TILE * 4.6 }).skipped === true, '冲击环：延迟环未到期时跳过不画');
+  ok(drawRingLogic(1300, { start: 1140, dur: 620, maxR: TILE * 4.6 }).drawn === true, '冲击环：到期后正常绘制');
+  // 扫一遍整个生命周期，任何 simT 下半径都不为负
+  let badRad = 0;
+  for (let t = 0; t < 2200; t += 16) {
+    const r = drawRingLogic(t, { start: 140, dur: 620, maxR: TILE * 6 });
+    if (r.rad !== undefined && r.rad < 0) badRad++;
+  }
+  ok(badRad === 0, '冲击环：全生命周期扫描半径无负值');
+}
+
+// ---------- 11. 事件扣血/扣上限的地板：hp ≥ 1、maxHp ≥ 100，不会把玩家打死或打成负上限 ----------
+{
+  E.newGame();
+  const st1 = E.state();
+  st1.maxHp = 1000; st1.hp = 50;
+  E.applyEffect({ hp: -100 });
+  ok(st1.hp === 1 && !st1.over, '事件扣血：钳到 1，不会致死');
+  E.applyEffect({ maxHp: -5000 });
+  ok(st1.maxHp === 100 && st1.hp <= st1.maxHp, '事件扣上限：钳到 100，hp 不超上限');
+}
+
 console.log(fail === 0 ? '\n✓ 全部通过' : `\n✗ ${fail} 项失败`);
 process.exit(fail ? 1 : 0);

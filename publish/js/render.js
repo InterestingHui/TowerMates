@@ -1023,16 +1023,23 @@
 
   function drawFx() {
     for (const r of rings) {
+      // 延迟环（relicBeamFx 的 start=simT+N）年龄为负时跳过；
+      // 负 age 会算出负半径，arc() 直接抛 IndexSizeError——主循环每帧死在同一环上，画面永久冻结
       const p = (simT - r.start) / r.dur;
+      if (p <= 0) continue;
       const ease = 1 - Math.pow(1 - p, 2.2);
-      ctx.globalAlpha = 1 - p;
+      ctx.globalAlpha = Math.max(0, 1 - p);
       ctx.strokeStyle = r.color;
       ctx.lineWidth = 3 * (1 - p) + 1;
       ctx.beginPath();
       const cx = r.px != null ? r.px : r.tx * TILE + TILE / 2;
       const cy = r.py != null ? r.py : r.ty * TILE + TILE / 2;
-      ctx.arc(cx, cy, (r.px != null ? 2 : 6) + ease * r.maxR, 0, Math.PI * 2);
-      ctx.stroke();
+      // 半径硬保证非负：特效参数异常时最多不画，绝不让 arc() 抛异常炸掉整帧
+      const rad = (r.px != null ? 2 : 6) + ease * r.maxR;
+      if (rad > 0) {
+        ctx.arc(cx, cy, rad, 0, Math.PI * 2);
+        ctx.stroke();
+      }
     }
     for (const f of flashes) {
       const p = (simT - f.start) / f.dur;

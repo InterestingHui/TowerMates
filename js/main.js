@@ -2158,6 +2158,7 @@
 
   // ---------- 拖动选路（touch v2）：按住格子拖向一边，方向圆盘挑最短路线 ----------
   function routeOpen(cx, cy) {
+    const s = Engine.state();
     if (!s) return null;
     if (cx === s.x && cy === s.y) return null;
     const ch = Engine.tile(cx, cy);
@@ -2915,6 +2916,7 @@
     Engine.newGame(vow);
     stopWalk();
     endShown = false;
+    deathShown = false; // 新一局要能重新弹死亡结算：上一局置的 true 必须清掉
     el.log.innerHTML = '';
     el.startOverlay.classList.remove('show');
     el.shopOverlay.classList.remove('show');
