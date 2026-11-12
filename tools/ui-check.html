@@ -349,6 +349,17 @@ async function run() {
         var offCard = d.querySelector('#colBody .col-card.off');
         if (offCard) offCard.click();
         out.colDetailOff = cd.textContent.indexOf('未获得') >= 0;
+        // 锁环使用统计：选中记 picks、带它通关记 wins，图鉴卡片上要能看见
+        w.__tm.Meta.ringPicked('ledger');
+        w.__tm.Meta.ringPicked('ledger');
+        w.__tm.Meta.ringWin(['ledger']);
+        var rst = w.__tm.Meta.ringStat('ledger');
+        out.ringStat = !!rst && rst.picks === 2 && rst.wins === 1;
+        w.__tm.closeCollection();
+        w.__tm.openCollection();
+        var useEl = d.querySelector('#colBody .cc-use');
+        out.ringStatCard = !!useEl && /选\s*2/.test(useEl.textContent);
+        w.__tm.closeCollection();
         // 「下一件」：还没收录的三件带去处线索，点一下也能看详情
         out.colNextCount = d.querySelectorAll('#colBody .col-next-chip').length;
         var nextChip = d.querySelector('#colBody .col-next-chip');

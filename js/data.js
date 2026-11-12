@@ -239,14 +239,20 @@ window.GAME_DATA = (function () {
     toll:     { name: '过路之环', emoji: '🎫', short: '路', chapter: 2, desc: '每次路遇结算后，额外获得 40 金币' },
     tome:     { name: '名录之环', emoji: '📜', short: '录', chapter: 3, desc: '每击败一位章节锁匠，额外得到一把黄钥匙' },
     quill:    { name: '落笔之环', emoji: '🪶', short: '笔', chapter: 4, desc: '通关额外 +2 余烬；剩的金币每 100 再 +1（最多 6）' },
+
+    // ---- 第三轮扩容（每章 8→9，组合数 56→84）：避开已有 24 种效果，只补新维度 ----
+    notch:    { name: '刻数之环', emoji: '🗓', short: '数', chapter: 1, desc: '每走 100 步，额外获得 30 金币' },
+    chain:    { name: '短链之环', emoji: '⛓', short: '链', chapter: 2, desc: '商店训练不再越买越贵（涨价阶梯取消）' },
+    bulwark:  { name: '基石之环', emoji: '🧱', short: '基', chapter: 3, desc: '每层进入时生命低于三成，自动回复 15%' },
+    finale:   { name: '终章之环', emoji: '📖', short: '终', chapter: 4, desc: '四位锁匠全倒时，通关额外 +3 余烬' },
   };
 
-  // 每章抽 3 个给玩家选（池 8 个 → 每局的构筑起点不同）
+  // 每章抽 3 个给玩家选（池 9 个 → 每局的构筑起点不同）
   const ringPools = {
-    1: ['ledger', 'lamp', 'coin', 'keyring', 'pace', 'ward2', 'ration', 'tally'],
-    2: ['parry', 'cinder', 'thrift2', 'vitality', 'ash', 'scout2', 'bargain', 'toll'],
-    3: ['bell', 'stair', 'scope', 'hour', 'ledger2', 'vitality2', 'compass', 'tome'],
-    4: ['seventh', 'chisel', 'heart', 'oath', 'coin2', 'lamp2', 'signature', 'quill'],
+    1: ['ledger', 'lamp', 'coin', 'keyring', 'pace', 'ward2', 'ration', 'tally', 'notch'],
+    2: ['parry', 'cinder', 'thrift2', 'vitality', 'ash', 'scout2', 'bargain', 'toll', 'chain'],
+    3: ['bell', 'stair', 'scope', 'hour', 'ledger2', 'vitality2', 'compass', 'tome', 'bulwark'],
+    4: ['seventh', 'chisel', 'heart', 'oath', 'coin2', 'lamp2', 'signature', 'quill', 'finale'],
   };
 
   // 升到下一级所需经验（索引 = 当前等级-1）

@@ -211,7 +211,11 @@
 
   const keyName = (k) => (k === 'y' ? '黄钥匙' : '红钥匙');
 
-  function moveTo(x, y) { s.x = x; s.y = y; s.steps++; }
+  function moveTo(x, y) {
+    s.x = x; s.y = y; s.steps++;
+    // 刻数之环：按总步数走，每满 100 步给 30 金（爬完全塔约 500 步 ≈ 150 金）
+    if (hasRing('notch') && s.steps > 0 && s.steps % 100 === 0) s.gold += 30;
+  }
 
   // ---------- 本层快照：软锁兜底 ----------
   function beginFloor() {
@@ -285,6 +289,8 @@
       const pct = (hasRing('lamp') ? 0.05 : 0) + (hasRing('stair') ? 0.04 : 0) + (hasRing('lamp2') ? 0.04 : 0);
       if (pct > 0) gain(pct);
     }
+    // 基石之环：残血进新层才触发（30% 以下回 15%），是「救命」不是「续航」，与借灯类不冲突
+    if (dir > 0 && firstVisit && hasRing('bulwark') && s.maxHp > 0 && s.hp / s.maxHp < 0.3) gain(0.15);
     return { floor: target, x: nx, y: ny, heal };
   }
 
@@ -888,7 +894,7 @@
   // 价格：可重复商品每次购买后涨价 item.step（越买越贵）；once 商品固定价
   function priceOf(item) {
     if (!s) return item.price;
-    const step = item.step || 0;
+    const step = (hasRing('chain') && (item.id === 'atk' || item.id === 'def')) ? 0 : (item.step || 0);
     let price = item.price + (s.flags['buy_' + item.id] || 0) * step;
     if (hasRelic('thrift')) price = Math.max(1, Math.round(price * 0.75));
     if (hasRing('thrift2')) price = Math.max(1, Math.round(price * 0.75));

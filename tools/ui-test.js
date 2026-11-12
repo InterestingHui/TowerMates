@@ -119,6 +119,8 @@ const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-ui-'));
   ok(out.colNextCount === 3, '收藏面板顶部给「下一件」三件待补');
   ok(out.colNextHasFrom === true, '「下一件」带去处线索');
   ok(out.colNextDetail === true, '点「下一件」也能看详情');
+  ok(out.ringStat === true, '锁环使用统计：选中与通关各记一笔');
+  ok(out.ringStatCard === true, '图鉴卡片上显示「选过几次」');
   // 激励视频（IAA 红线）：默认关闭是硬要求——线上不允许出现任何广告按钮
   ok(out.adDefaultOff === true, '激励视频接口默认恒不可用（提审前不接 SDK）');
   ok(Array.isArray(out.adSlots) && out.adSlots.length === 2 && out.adSlots.indexOf('revive') >= 0 && out.adSlots.indexOf('ember') >= 0, '只留两个卡点槽位（复活 / 余烬翻倍），不做插屏横幅');

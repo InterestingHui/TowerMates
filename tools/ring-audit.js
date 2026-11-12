@@ -69,6 +69,16 @@ Object.keys(D.rings).forEach((id) => {
     add(id, '金币', Math.round(B.events * 40 * 1.5), '约 8 个可达路遇');
   } else if (/剩的金币每 100/.test(d)) {
     add(id, '余烬', 2.5 * EMBER_W, '保底 2 + 余钱约 0.5');
+  } else if (/每走 100 步，额外获得 (\d+) 金币/.test(d)) {
+    const per = Number(/额外获得 (\d+) 金币/.exec(d)[1]);
+    add(id, '金币', Math.round(500 / 100 * per * 1.5), '全塔约 500 步 × 1.5 换算');
+  } else if (/训练不再越买越贵/.test(d)) {
+    add(id, '金币', Math.round(900 * 1.5), '买 10 次训练：阶梯总价 1500 → 600，省 900 金');
+  } else if (/生命低于三成，自动回复 (\d+)%/.test(d)) {
+    const pct = Number(/自动回复 (\d+)%/.exec(d)[1]) / 100;
+    add(id, '血量', Math.round(1.5 * B.maxHp * pct), '一局约触发 1-2 次');
+  } else if (/四位锁匠全倒时/.test(d)) {
+    add(id, '余烬', 3 * EMBER_W, '四锁匠全倒才给');
   } else {
     add(id, '?', 0, '未识别：' + d);
   }

@@ -542,7 +542,7 @@ ok(ev.at.heal === Math.round(s.maxHp * 0.13), '三枚回血环叠加：首访回
 {
   [1, 2, 3, 4].forEach((c) => {
     const pool = D.ringPools[c];
-    ok(pool.length === 8, `第 ${c} 章锁环池 8 枚（组合数 56）`);
+    ok(pool.length === 9, `第 ${c} 章锁环池 9 枚（组合数 84）`);
     ok(pool.every((id) => D.rings[id] && D.rings[id].chapter === c), `第 ${c} 章池内 id 与章号一致`);
   });
 
@@ -632,6 +632,49 @@ ok(ev.at.heal === Math.round(s.maxHp * 0.13), '三枚回血环叠加：首访回
   // 落笔之环：结算按剩余金币折算（保底 2、每 100 金 +1、上限 6），口径写在描述里。
   // 断言只认「每 100 / 金币 / 最多 N」三个语义要素，不锁死语序（文案改写过两次）
   ok(/每\s*100/.test(D.rings.quill.desc) && /金币/.test(D.rings.quill.desc) && /最多\s*6/.test(D.rings.quill.desc), '落笔之环：描述写明按金币折算与上限');
+}
+
+// ---------- 9h++++. 第三轮扩容 4 枚（刻数 / 短链 / 基石 / 终章） ----------
+{
+  // 刻数之环：每满 100 步 +20 金
+  E.newGame();
+  s = E.state();
+  s.flags.rings = ['notch'];
+  s.gold = 0; s.steps = 99; s.x = 2; s.y = 5;
+  E.tryMove(0, -1);
+  ok(s.gold === 30, '刻数之环：第 100 步给 30 金');
+  E.tryMove(0, 1);
+  ok(s.gold === 30, '刻数之环：非整百步不给');
+
+  // 短链之环：训练不涨价（药水照常涨）
+  E.newGame();
+  s = E.state();
+  const atkItem = D.shop.find((x) => x.id === 'atk');
+  const potItem = D.shop.find((x) => x.id === 'potion');
+  s.flags.buy_atk = 5; s.flags.buy_potion = 5;
+  const atkWithStep = E.priceOf(atkItem);
+  const potWithStep = E.priceOf(potItem);
+  s.flags.rings = ['chain'];
+  ok(E.priceOf(atkItem) === atkItem.price, '短链之环：训练回到原价（阶梯取消）');
+  ok(E.priceOf(atkItem) < atkWithStep, '短链之环：确实比涨价后便宜');
+  ok(E.priceOf(potItem) === potWithStep, '短链之环：药水价不受影响');
+
+  // 基石之环：残血进新层回 15%，血够不回
+  E.newGame();
+  s = E.state();
+  s.flags.rings = ['bulwark'];
+  s.maxHp = 1000; s.hp = 200; s.x = 8; s.y = 8;
+  let evB = E.tryMove(0, 1);
+  ok(evB.type === 'floor' && evB.at.heal === 150, '基石之环：残血上楼回 15%');
+  E.newGame();
+  s = E.state();
+  s.flags.rings = ['bulwark'];
+  s.maxHp = 1000; s.hp = 500; s.x = 8; s.y = 8;
+  evB = E.tryMove(0, 1);
+  ok(evB.at.heal === 0, '基石之环：血够时不触发');
+
+  // 终章之环：条件写明四位锁匠（结算在 main.emberOf，这里锁文案）
+  ok(/四位锁匠全倒/.test(D.rings.finale.desc), '终章之环：条件写明四位锁匠');
 }
 
 E.newGame('guard');

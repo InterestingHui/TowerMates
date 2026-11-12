@@ -157,6 +157,8 @@
     // 收藏图鉴：见过的遗物/锁环跨局累计（老档补空数组，不作废）
     mem.seenRelics = Array.isArray(mem.seenRelics) ? mem.seenRelics : [];
     mem.seenRings = Array.isArray(mem.seenRings) ? mem.seenRings : [];
+    // 锁环使用统计：{ id: { picks, wins } }——图鉴卡片上显示「选过 N 次 · 通关 M 次」
+    mem.ringStats = (mem.ringStats && typeof mem.ringStats === 'object') ? mem.ringStats : {};
     return {
       get ember() { return data.ember || 0; },
       get resets() { return data.resets || 0; },
@@ -172,6 +174,21 @@
         if (!id || mem.seenRings.indexOf(id) >= 0) return false;
         mem.seenRings.push(id); save(); return true;
       },
+      // 锁环被选中 / 带它通关各记一笔（统计只增不减，清档时才归零）
+      ringPicked(id) {
+        if (!id) return;
+        const st = mem.ringStats[id] || (mem.ringStats[id] = { picks: 0, wins: 0 });
+        st.picks += 1; save();
+      },
+      ringWin(ids) {
+        if (!Array.isArray(ids) || !ids.length) return;
+        ids.forEach((id) => {
+          const st = mem.ringStats[id] || (mem.ringStats[id] = { picks: 0, wins: 0 });
+          st.wins += 1;
+        });
+        save();
+      },
+      ringStat(id) { return mem.ringStats[id] || null; },
       saveMemory() { save(); },
       // 近 3 局平均，没记录时用常规通关的保守值 18
       avgEmber() {
@@ -879,7 +896,11 @@
       const ids = Object.keys(D.rings).filter((id) => D.rings[id].chapter === ch.id);
       const got = ids.filter((id) => mem.seenRings.indexOf(id) >= 0).length;
       html += `<div class="col-group"><p class="col-group-title">${ch.title} · ${got}/${ids.length}</p><div class="col-grid">`;
-      html += ids.map((id) => card('ring', id, D.rings[id], mem.seenRings.indexOf(id) >= 0, 'ring')).join('');
+      html += ids.map((id) => {
+        const st = Meta.ringStat(id);
+        const use = st && st.picks ? `<em class="cc-use">选 ${st.picks}${st.wins ? ` · 通 ${st.wins}` : ''}</em>` : '';
+        return card('ring', id, D.rings[id], mem.seenRings.indexOf(id) >= 0, 'ring').replace('</button>', use + '</button>');
+      }).join('');
       html += '</div></div>';
     });
     el.colBody.innerHTML = html;
@@ -1849,6 +1870,7 @@
     if (!curEcho) return;
     const res = Engine.pickRing(id);
     if (res.type !== 'ring') { warn(res.msg || '装不上'); return; }
+    Meta.ringPicked(id);
     const s = Engine.state();
     el.echoOverlay.classList.remove('show');
     curEcho = null;
@@ -2327,6 +2349,11 @@
       const bossesDown = ['N', 'Z', 'Y', 'U'].filter((c) => s.flags['bossKilled_' + c]).length;
       if (bossesDown > 0) parts.push({ label: `锁环·拾柴（${bossesDown} 位锁匠）`, n: bossesDown });
     }
+    // 终章之环：四位锁匠全倒才给（要求把四位都打完，比拾柴更严格）
+    if (has('finale')) {
+      const allBosses = ['N', 'Z', 'Y', 'U'].every((c) => s.flags['bossKilled_' + c]);
+      if (allBosses) parts.push({ label: '锁环·终章（四锁匠全倒）', n: 3 });
+    }
     const list = parts.filter((p) => p.n > 0);
     return { total: Math.max(1, list.reduce((a, p) => a + p.n, 0)), parts: list };
   }
@@ -2395,6 +2422,7 @@
       fullChapters: echoDone, heart: s.flags.heart || null,
       floor: sum.floor, time: sum.time, seal, ember: emberGain,
     });
+    Meta.ringWin(Engine.rings());   // 图鉴里记「带它通关过几次」
     $('endScore').innerHTML = `<span class="es-grade ${seal}" data-seal="${seal}">${sealDef.name}</span>
       <span class="es-meta">${s.ending === 'true' ? '真结局' : '普通结局'}${s.flags.heart === 'taken' ? ' · 塔心带走' : s.flags.heart === 'left' ? ' · 塔心留下' : ''} · 回响 ${echoDone}/4 · 遗物 ${relicIds.length} · 锁环 ${ringList.length}</span>
       <span class="es-num">✦ ${emberGain}<small>余烬</small></span>`;
@@ -3136,6 +3164,7 @@
       const wmem = Meta.memory;
       wmem.seenRelics = [];
       wmem.seenRings = [];
+      wmem.ringStats = {};
       Meta.saveMemory();
       collectSig = null;
       try { localStorage.removeItem('towermates_board'); } catch (e) {}
