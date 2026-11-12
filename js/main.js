@@ -1199,13 +1199,18 @@
         el.bsHero.classList.add('lunge-r');
         await wait(130);
         el.bsHero.classList.remove('lunge-r');
-        // 真实回合数比演出回合多时，前期每刀按真实伤害打，最后一刀吃掉剩余全部：
-        // 否则血条在演出里减不到 0，循环结束后直接跳 0，看起来像「血突然掉光」
+        // 演出回合数与真实回合数不一致时的切血策略——目标是血条「匀速落到底」：
+        // 每刀切 foeMax/K（均摊），最后一刀收零头。
+        // 旧逻辑两个坑：① 真实刀数 > 演出上限时前期按真实伤害打、最后一刀吃掉剩余全部，
+        // 血厚的怪会「前几刀慢慢磨、最后一瞬间清空」；② 真实刀数 < 演出上限时
+        // strikesReal < strikesLeft 一成立就整条清空，速杀怪也是「一闪血全没」。
+        // 均摊后每刀数字与真实单刀不同（纯演出），但掉血节奏与回合推进一致。
+        const per = Math.ceil(foeMax / K);
         const strikesLeft = K - i;                       // 这一刀之后还剩几刀（含本次）
         const strikesReal = Math.ceil(foeHp / Math.max(1, pred.out)); // 现在的血量还差几刀打完
         let cut;
-        if (strikesLeft === 1 || strikesReal < strikesLeft) cut = foeHp;
-        else cut = Math.min(foeHp, pred.out);
+        if (strikesLeft === 1 || strikesReal <= 1) cut = foeHp;
+        else cut = Math.min(foeHp, per);
         foeHp = Math.max(0, foeHp - cut);
         bars();
         dmgNum(el.bsFoe, '-' + cut, '#ffd27d');
