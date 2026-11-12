@@ -1,6 +1,6 @@
 // 开放数据域榜单：纯函数单测（normalize / sortRows），不依赖 canvas
 // 跑法：node tools/opendata-test.js
-const OD = require('../wxgame/openDataContext/index.js');
+const OD = require('../wechat/wxgame/openDataContext/index.js');
 let pass = 0, fail = 0;
 function t(name, fn) {
   try { fn(); pass++; console.log('✓ ' + name); }
