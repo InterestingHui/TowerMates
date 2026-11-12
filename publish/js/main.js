@@ -886,7 +886,8 @@
     return '<div class="col-stat col-margin"><p class="col-group-title">决 战 余 裕 · 共 ' + total + ' 次结局</p>'
       + '<div class="col-stat-row"><span class="cs-label">最好</span>'
       + `<em class="mg-${mem.marginBest || 'C'}">${mem.marginBest || '—'}</em>${tally}</div>`
-      + (mc.S ? '' : '<div class="col-stat-row"><span class="cs-label">还差</span><em class="cs-dim">少打几只怪，把血留到碑魔，就能拿一次 S</em></div>')
+      + '<div class="col-stat-row"><span class="cs-label">两条路</span><em class="cs-dim">清塔攒战意（决战减伤）· 绕道省血——塔不规定你怎么走</em></div>'
+      + (mc.S ? '' : '<div class="col-stat-row"><span class="cs-label">拿 S</span><em class="cs-dim">击杀 ≥40 吃满战意，或把能绕的怪全绕开</em></div>')
       + '</div>';
   }
 
@@ -1514,6 +1515,13 @@
     el.battleScene.classList.remove('hero-win');
     el.bsPhase.classList.remove('show');
     el.bsPanel.classList.remove('p2', 'p3');
+    // 战意：只有最终决战会亮，把「打怪有收益」当场说给玩家看
+    const zealEl = $('bsZeal');
+    if (zealEl) {
+      const z = info.dmgBase && info.dmgBase.zeal ? info.dmgBase.zeal : 1;
+      zealEl.hidden = z >= 1;
+      if (z < 1) zealEl.textContent = `⚔ 战意 −${Math.round((1 - z) * 100)}% · 已击败 ${Engine.state().flags.killCount || 0} 只`;
+    }
 
     // 格挡：每层一次，按下后整场承伤 ×0.6（引擎按同样比例结算，数字对得上）
     let blockScale = 1;
@@ -2526,7 +2534,7 @@
     const margin = Engine.battleMargin();
     if (margin) {
       // 不到 S 就把话说明白，但别把整句塞进胶囊（摘要区已经很密）——短标签 + ⓘ 悬停
-      const hint = margin.grade === 'S' ? '' : ' · <i class="brief-tip" title="少打不必要的怪，把血留到碑魔，别为了全清硬打">避战可上 S ⓘ</i>';
+      const hint = margin.grade === 'S' ? '' : ' · <i class="brief-tip" title="两条路都能上 S：少打怪把血留到碑魔，或打到 40 只以上攒满战意（决战减伤 36%）">上 S 有两条路 ⓘ</i>';
       brief.push(`决战余裕 <b>${margin.grade}</b> · ${margin.label}（剩 ${margin.pct}%）${hint}`);
     }
     // 榜单排序用：同层同结局时，余裕高的排前面
@@ -2593,7 +2601,7 @@
     const unWon = Object.keys(D.vows).filter((id) => id !== 'none' && !D.vows[id].ember && !(mem.vowWins || {})[id]);
     if (unWon.length) goals.push(`带着「${D.vows[unWon[0]].name}」走到一次结局`);
     // 3) 决战余裕还没拿过 S：把「避战流」钉进前三，别让这条隐藏策略永远没人试
-    if (!(mc.S || 0)) goals.splice(2, 0, '少打几只怪，把血留到碑魔——拿一次决战余裕 S');
+    if (!(mc.S || 0)) goals.splice(2, 0, '拿一次决战余裕 S：清塔攒战意，或绕道省血');
     // 4) 没满过的章回响
     if ((mem.fullChapters || 0) < 4) goals.push(`把回响拿满的章推进到 ${(mem.fullChapters || 0) + 1}/4`);
     // 5) 双结局收集

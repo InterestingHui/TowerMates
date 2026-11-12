@@ -34,6 +34,8 @@
     { id: 'ring_first', name: '第一道环', emoji: '⭕', desc: '装上第一枚锁环' },
     { id: 'ring_four', name: '四环齐备', emoji: '🔗', desc: '一局内四章各装上一枚锁环' },
     { id: 'bare', name: '一口空气', emoji: '🌬️', desc: '一件遗物都不拿，走到结局' },
+    { id: 'dodger', name: '绕道者', emoji: '💨', desc: '击败不超过 10 只怪，走到结局' },
+    { id: 'sweeper', name: '清塔者', emoji: '⚔️', desc: '击败至少 50 只怪，走到结局' },
   ];
 
   let unlocked = {};
@@ -99,6 +101,9 @@
     if (chapters.size >= 4) unlock('ring_four', notify);
     // 一口空气：一件遗物都没拿，走到结局（4.6% 的那种打法）
     if (s.ending && !Object.keys(f).some((k) => k.indexOf('relic_') === 0)) unlock('bare', notify);
+    // 两条路线各有勋章：绕道者靠省血、清塔者靠战意（战意只在最终决战生效）
+    if (s.ending && (f.killCount || 0) <= 10) unlock('dodger', notify);
+    if (s.ending && (f.killCount || 0) >= 50) unlock('sweeper', notify);
   }
 
   function reset() {

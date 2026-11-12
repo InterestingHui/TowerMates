@@ -118,6 +118,14 @@
   // 后半部学到手：格挡反击——挡下的那场，被卸掉的伤的三成化为经验
   const blockRiposte = () => !!(s && s.flags.hasBlock2);
 
+  // 战意：打得越多越懂碑魔。只在最终决战生效，是「清塔路线」的独占收益——
+  // 绕路省血、清塔减伤，两条路都能走到 S，但走法不同。普通怪/章节 Boss 不吃这个。
+  function zealScale(m) {
+    if (!m || !m.finalBoss || !s) return 1;
+    const k = s.flags.killCount || 0;
+    return k >= 40 ? 0.64 : k >= 25 ? 0.84 : 1;
+  }
+
   // 战斗的「真实承伤」：格挡、誓约、锁环都在这里算一次，演出与结算共用同一份
   function fightDamage(ch, blocked) {
     const p = predict(ch);
@@ -128,7 +136,9 @@
     if (hasRing('ward2')) dmg = Math.round(dmg * 0.94);
     if (hasRing('bell') && m && m.boss) dmg = Math.round(dmg * 0.85);
     if (blocked) dmg = Math.round(dmg * ringBlockScale());
-    return { damage: dmg, raw: p.damage, per: p.per, rounds: p.rounds, out: p.out, blockScale: blocked ? ringBlockScale() : 1 };
+    const zeal = zealScale(m);
+    if (zeal < 1) dmg = Math.round(dmg * zeal);
+    return { damage: dmg, raw: p.damage, per: p.per, rounds: p.rounds, out: p.out, blockScale: blocked ? ringBlockScale() : 1, zeal };
   }
 
   // 每局从 Boss 的两个台词池各抽一段；结果写进存档，同一局重进战斗不会变
@@ -1266,6 +1276,6 @@
     },
     tryMove, fight, canBlock, grantBlock, vowForbidsBlock, buy, priceOf, shopStock, floorMonsterCount, floorPickupCount, battleMargin, potionHeal, finish, altarChoices, pickRelic, pathTo, pathThrough, pathToNear, pathsTo,
     nextLevelExp, margin, keyName, summary, hasRelic, ownedRelics, beginFloor, restoreFloor, revealCore, heartState, heartTake, heartLeave, vow, pickEvent, eventPool, eventCost, resolveEvent, applyEffect, jumpTo, visitedMax, gateForth, sealPlan,
-    rings, hasRing, ringBlockScale, fightDamage, bossPhases, settleChapter, ringChoices, pendingRing, pickRing,
+    rings, hasRing, ringBlockScale, zealScale, fightDamage, bossPhases, settleChapter, ringChoices, pendingRing, pickRing,
   };
 })();
