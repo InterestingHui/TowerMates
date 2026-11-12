@@ -426,7 +426,7 @@
     stage: $('stage'), canvas: $('game'),
     floorName: $('floorName'), floorDots: $('floorDots'),
     statAtk: $('statAtk'), statDef: $('statDef'), statGold: $('statGold'),
-    statLv: $('statLv'), statExp: $('statExp'),
+    statLv: $('statLv'),
     keyY: $('keyY'), keyR: $('keyR'), relicRow: $('relicRow'),
     log: $('log'),
     startOverlay: $('startOverlay'), shopOverlay: $('shopOverlay'),
@@ -802,7 +802,9 @@
     el.statDef.textContent = s.def;
     el.statGold.textContent = s.gold;
     el.statLv.textContent = 'Lv.' + s.level;
-    el.statExp.textContent = next ? `${s.exp}/${next}` : `${s.exp} · MAX`;
+    // 经验进度收进 hover 提示：顶栏少一个常驻数字，想知道差多少时悬停等级即可
+    el.statLv.title = next ? `经验 ${s.exp}/${next}` : `经验 ${s.exp} · 已满级`;
+    el.statLv.parentElement.title = el.statLv.title;
     el.keyY.textContent = s.keys.y;
     el.keyR.textContent = s.keys.r;
     $('btnCodex').style.display = s.flags.codex ? '' : 'none';
@@ -2662,19 +2664,31 @@
   // 首屏只回答一个问题：这局按哪条规矩走。余烬余额、还差几局、首通奖励一律不讲——
   // 想解锁的人会去点下面那排小 chip，不想的人不该开屏就被一串数字埋掉。
   function openVow() {
-    const emberLine = $('vowEmber');
-    if (emberLine) { emberLine.hidden = true; emberLine.textContent = ''; }
-
     const all = Object.keys(D.vows);
     const lockedIds = all.filter((id) => D.vows[id].ember && !Meta.has(id));
     const shown = all.filter((id) => lockedIds.indexOf(id) < 0);
+    // 余额一行：当前有多少 ✦。锁着的才补一句「还差 N」，够换的直接写「可解锁」
+    const emberLine = $('vowEmber');
+    if (emberLine) {
+      if (Meta.ember > 0 || lockedIds.length) {
+        emberLine.textContent = `✦ 余烬 ${Meta.ember}${lockedIds.length ? ` · 可攒着解锁下面的锁条` : ''}`;
+        emberLine.hidden = false;
+      } else {
+        emberLine.hidden = true;
+      }
+    }
     el.vowCards.innerHTML = shown.map((id) => {
       const v = D.vows[id];
       const line = v.reward ? `通关 +${v.reward} ✦` : '';
+      // 代价高亮：desc 里「不能 / −N」这类负面词挑出来染红，选之前先看见失去什么
+      const costRe = /不能[^；;]*|攻击 −\d+|物价 \+\d+%|(?:秤的)?价目 \+\d+%/g;
+      const cost = (v.desc.match(costRe) || []).join(' · ');
+      const rest = cost ? v.desc.split(costRe).map((p) => p.replace(/^[；;、]+|[；;、]+$/g, '').trim()).filter(Boolean).join('；') : v.desc;
       return `<button class="vow-card ${id === 'none' ? 'hero' : ''}" data-vow="${id}">
         <span class="vc-emoji">${v.emoji}</span>
         <span class="vc-name">${v.name}</span>
-        <span class="vc-desc">${v.desc}</span>
+        <span class="vc-desc">${rest}</span>
+        ${cost ? `<span class="vc-cost">${cost}</span>` : ''}
         ${line ? `<span class="vc-mul">${line}</span>` : ''}
       </button>`;
     }).join('');

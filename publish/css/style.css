@@ -1402,6 +1402,8 @@ html, body {
 .vow-card .vc-desc { font-size: 10px; line-height: 1.55; color: var(--muted); min-height: 31px; }
 .vow-card .vc-mul { font-size: 9.5px; color: #7f8a9c; border: 1px solid rgba(255,255,255,0.12); border-radius: 20px; padding: 1px 7px; }
 .vow-card .vc-mul small { font-size: 9px; color: #9aa4b5; margin-left: 3px; }
+/* 代价行：誓约让你失去什么，选之前就该看见 */
+.vow-card .vc-cost { font-size: 9.5px; color: #d98a86; letter-spacing: 0.3px; }
 .vow-card.hero { border-color: rgba(232, 196, 106, 0.45); }
 .vow-card.hero .vc-name { color: #ffe6a8; }
 .vow-hint { margin-top: 13px; font-size: 10px; color: #4e5666; letter-spacing: 1px; }
@@ -1409,12 +1411,12 @@ html, body {
 .vow-locked { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 10px; }
 .vow-chip {
   font-family: inherit;
-  font-size: 10px;
+  font-size: 10.5px;
   color: #7d8698;
   border: 1px dashed rgba(255, 255, 255, 0.16);
   background: rgba(255, 255, 255, 0.02);
   border-radius: 20px;
-  padding: 3px 10px;
+  padding: 8px 14px; /* 触屏热区：上下 8px，指尖点得住 */
   cursor: pointer;
   transition: color 0.15s, border-color 0.15s;
 }

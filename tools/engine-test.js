@@ -517,7 +517,7 @@ ok(chainOk, '十三层塔每一层都能正常上楼（含隐藏门）');
 const S = global.STORY;
 const need = ['intro', 'candle1', 'candle2', 'candle3', 'candle4', 'candle5', 'journal', 'merchant', 'merchant2', 'eighthSword', 'solitude', 'ch2', 'ch3', 'ch4', 'bossYan', 'afterYan', 'bossJu', 'afterJu', 'bossDuo', 'afterDuo', 'bossHeng', 'afterHeng', 'core', 'princessPlain', 'princessTrue', 'afterChoicePlain', 'afterChoiceTrue', 'stele'];
 ok(need.every((k) => Array.isArray(S[k]) && S[k].length), '所有剧情段都存在且非空');
-ok(S.intro.length === 5, '序章 5 句（魔王掳人 → 国王请人 → 独自进塔救人）');
+ok(S.intro.length === 3, '序章 3 句（魔王掳人并递绣帕 → 立誓 → 独自进塔）');
 const introAll = S.intro.join('');
 ok(introAll.indexOf('塔在叫我') < 0 && introAll.indexOf('失踪') < 0 && introAll.indexOf('悬赏') < 0 && introAll.indexOf('她自己走上') < 0, '序章是简单的「被抓 → 去救」框架：不搞「塔在叫我 / 失踪悬赏 / 自己上来」的绕弯（反转留给塔里的对白）');
 ok(introAll.indexOf('魔王把薇拉公主抓进了') >= 0 && introAll.indexOf('一个人推开了塔门') >= 0 && introAll.indexOf('绣帕') >= 0, '序章第一句写明「魔王掳人」、有进塔动作与绣帕信物');
