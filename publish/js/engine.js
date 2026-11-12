@@ -842,7 +842,7 @@
     }
     setTile(nx, ny, '.');
     moveTo(nx, ny);
-    const goldMul = (vow() === 'greed' ? 1.7 : 1) * (hasRelic('coin') ? 2 : 1) * (hasRing('ledger2') ? 1.15 : 1);
+    const goldMul = (vow() === 'greed' ? 1.5 : 1) * (hasRelic('coin') ? 2 : 1) * (hasRing('ledger2') ? 1.15 : 1);
     const goldGain = Math.round(m.gold * goldMul);
     s.gold += goldGain;
     // 后半部盾谱的「格挡反击」：挡下的那场，被卸掉的伤的三成化为经验
@@ -910,7 +910,7 @@
     if (hasRing('thrift2')) price = Math.max(1, Math.round(price * 0.75));
     // 秤砣之环（bargain）：钥匙价目再 −25%（只影响钥匙，药水与训练照旧）
     if (item.key && hasRing('bargain')) price = Math.max(1, Math.round(price * 0.5));
-    if (vow() === 'greed') price = Math.max(1, Math.round(price * 1.3));
+    if (vow() === 'greed') price = Math.max(1, Math.round(price * 1.45));
     if (vow() === 'nameless') price = Math.max(1, Math.round(price * 1.4));
     return price;
   }

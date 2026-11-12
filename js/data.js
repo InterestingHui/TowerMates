@@ -499,7 +499,7 @@ window.GAME_DATA = (function () {
     {
       id: 3, title: '第三章 · 塔脊', theme: '被删掉的六层', from: 7, to: 9, boss: 'Y', bossFloor: 9,
       color: '#9fd8ff', accent: 'rgba(159,216,255,0.20)',
-      blurb: '锁梁上的六层不在任何图纸里。钟每十年响一次，塔就向镇上索一个人——那不是村里的规矩，是钟的账期。',
+      blurb: '锁梁上的六层不在任何图纸里。钟每十年响一次，塔就向镇上索一个人——那不是镇上的规矩，是钟的账期。',
     },
     {
       id: 4, title: '第四章 · 无名', theme: '名字的重量', from: 10, to: 12, boss: 'U', bossFloor: 12,
@@ -525,7 +525,7 @@ window.GAME_DATA = (function () {
     },
     greed: {
       name: '贪婪之誓', emoji: '🪙', tag: '重金',
-      desc: '击杀金币 +70%；秤的价目 +30%', reward: 6,
+      desc: '击杀金币 +50%；秤的价目 +45%', reward: 6,
     },
     guard: {
       name: '铁壁之誓', emoji: '🛡️', tag: '铁色',
