@@ -862,7 +862,7 @@
     if (detail) { detail.classList.remove('show'); detail._id = null; }
     el.colCount.textContent = collectionText();
     const remain = collectionRemain();
-    const hint = el.collectionOverlay.querySelector('.code-hint');
+    const hint = $('colHint');
     if (hint) {
       hint.textContent = remain > 0
         ? `还差 ${remain} 件集齐。拿过一次就记进图鉴，跨局保留；点卡片看来源。`
@@ -3291,6 +3291,8 @@
     stopWalk();
     endShown = false;
     deathShown = false; // 新一局要能重新弹死亡结算：上一局置的 true 必须清掉
+    // 收藏去重签名也要清：新局如果恰好又拿到上一局那批遗物，签名相同会让「图鉴新收录」漏记
+    collectSig = null;
     el.endOverlay.classList.remove('death-mode', 'show');
     el.log.innerHTML = '';
     el.startOverlay.classList.remove('show');
