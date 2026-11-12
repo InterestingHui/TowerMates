@@ -124,28 +124,44 @@ function priceOf(item) {
   if (VOW === 'nameless') price = Math.max(1, Math.round(price * 1.4));
   return price;
 }
-// 用层阶之钥回秤那里补药：模拟玩家在硬仗前回城，不模拟往返步数
+// 这一层的货摊摆什么（与引擎 shopStock 同口径）：minFloor 是上架层
+function shopStock(fi) {
+  return D.shop.filter((x) => !x.minFloor || fi + 1 >= x.minFloor);
+}
+// 补药：优先大瓶（单价回血更划算），阶梯价计入
 function healAtShop() {
-  let bought = 0, spent = 0;
+  let log = [];
   for (;;) {
-    const price = priceOf(D.shop.find((x) => x.id === 'potion'));
-    if (s.hp >= s.maxHp * 0.9 || s.gold < price) break;
+    if (s.hp >= s.maxHp * 0.9) break;
+    const stock = shopStock(s.floor);
+    const big = stock.find((x) => x.id === 'holywater' || x.id === 'bigpotion');
+    const small = stock.find((x) => x.id === 'potion');
+    // 大瓶每金回血更多才买大瓶，且必须买得起第一瓶
+    const pick = big && s.gold >= priceOf(big) && priceOf(big) / big.hp < priceOf(small) / small.hp ? big : small;
+    const price = priceOf(pick);
+    if (s.gold < price) break;
     s.gold -= price;
-    spent += price;
-    s.hp = Math.min(s.maxHp, s.hp + 160);
-    bought++;
+    s.hp = Math.min(s.maxHp, s.hp + pick.hp);
+    log.push(pick.name);
+    if (log.length > 60) break;
   }
-  if (bought) console.log(`  回秤那里补了 ${bought} 瓶红药水（${spent} 金）→ HP ${s.hp}/${s.maxHp}`);
+  if (log.length) {
+    const cnt = {};
+    log.forEach((n) => { cnt[n] = (cnt[n] || 0) + 1; });
+    const detail = Object.keys(cnt).map((n) => `${cnt[n]} 瓶${n}`).join('、');
+    console.log(`  补了 ${detail} → HP ${s.hp}/${s.maxHp}`);
+  }
 }
 
 function shop() {
-  let bought = 0, spent = 0;
+  let spent = 0;
   // 半部盾谱：没学过格挡时优先买（150 金，一次性）——能力优先于数值
   if (USE_BLOCK && !s.flags.hasBlock && s.gold >= 150) {
     s.gold -= 150;
     s.flags.hasBlock = true;
     console.log('  在秤那里买了半部盾谱 → 学会格挡');
   }
+  let bought = 0;
   for (;;) {
     const atk = D.shop.find((x) => x.id === 'atk');
     const price = priceOf(atk);

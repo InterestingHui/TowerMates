@@ -111,6 +111,11 @@ ok(gEv.blockLearned === true, '首次拾取带教学标记');
 ok(gEv.story === 'blockLore' && !!global.STORY.blockLore, '拾取盾谱带小传 blockLore');
 // 商店铺开：每 ~5 层一副（第 3/8/11/13 层），全部可达且不焊死在唯一通路上（check.js 已验）
 ok(D.floors.filter((f) => f.map.join('').includes('M')).length === 4, '全塔 4 副货摊（3/8/11/13 层）');
+// 货架分级：第 3 层没有蓝药/圣水，第 8 层起有蓝药，第 11 层起有圣水
+ok(E.shopStock(2).every((x) => x.id !== 'bigpotion' && x.id !== 'holywater'), '第 3 层货架没有高级药');
+ok(E.shopStock(7).some((x) => x.id === 'bigpotion') && E.shopStock(7).every((x) => x.id !== 'holywater'), '第 8 层上架蓝药水');
+ok(E.shopStock(10).some((x) => x.id === 'holywater'), '第 11 层上架圣水');
+ok(E.shopStock(12).some((x) => x.id === 'holywater'), '第 13 层（锁芯）有圣水');
 // 后半部盾谱：锁芯拾取 → 格挡强化（×0.45 + 卸伤三成化经验）
 E.newGame();
 s = E.state();

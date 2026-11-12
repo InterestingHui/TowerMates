@@ -1234,6 +1234,8 @@ html, body {
 }
 .cx-tag.boss { border-color: rgba(201, 74, 82, 0.55); color: #e09a9f; }
 .cx-tag.trait { border-color: rgba(232, 196, 106, 0.45); color: #e8c46a; background: rgba(232, 196, 106, 0.1); }
+.cx-tag { white-space: nowrap; }
+.cx-margin .cx-tag { margin: 0 4px 0 0; vertical-align: 0; }
 .cx-row.has-trait { background: rgba(232, 196, 106, 0.045); }
 .cx-margin {
   grid-column: 1 / -1;

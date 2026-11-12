@@ -673,7 +673,7 @@
         for (let y = 0; y < 11 && !pxy; y++) for (let x = 0; x < 11; x++) {
           if (E.tile(x, y) === 'A') { pxy = { x, y }; break; }
         }
-        if (pxy) T.openMonsterProbe({ name: '蝙蝠', emoji: '🦇', hp: 42, atk: 20, def: 1, gold: 3, exp: 2, kind: '兽' }, pxy.x, pxy.y);
+        if (pxy) T.openMonsterProbe(w.GAME_DATA.monsters.A, pxy.x, pxy.y);
         await wait(600);
       } else if (scene === 'dpadclosed' || scene === 'dpadopen') {
         // 方向键收起/展开态：设置已在 iframe 加载前预置好

@@ -1144,15 +1144,17 @@
       }
       const bossTag = m.boss ? `<i class="cx-tag boss">${m.chapter || 0}章</i>` : '';
       const T = D.TRAITS && m.trait ? D.TRAITS[m.trait] : null;
-      const traitTag = T ? `<i class="cx-tag trait t-${m.trait}" title="${T.tip}">${T.icon}${T.name}</i>` : '';
       const mg = Engine.margin(ch);
-      // 只给边际收益，不给结论：该加攻还是加防仍由玩家判断
-      const mgRow = mg
-        ? `<span class="cx-margin">攻 +1 省 <b>${mg.atk}</b> 血 · 防 +1 省 <b>${mg.def}</b> 血${mg.atk === 0 && mg.def === 0 ? '（已无伤）' : ''}</span>`
+      // 特性与边际收益放在同一行副信息里：第一行留给「这是谁」，
+      // 只给数字不给结论——该加攻还是加防仍由玩家判断
+      const mgRow = (T || mg)
+        ? `<span class="cx-margin">${T ? `<i class="cx-tag trait t-${m.trait}">${T.icon}${T.name}</i>` : ''}${mg
+            ? `攻 +1 省 <b>${mg.atk}</b> 血 · 防 +1 省 <b>${mg.def}</b> 血${mg.base === 0 ? '（已无伤）' : ''}`
+            : '暂时打不过，先攒属性'}</span>`
         : '';
       return `<div class="cx-row${T ? ' has-trait' : ''}">
         <span class="cx-emoji">${m.emoji}</span>
-        <span class="cx-name">${m.name}${bossTag}<i class="cx-tag">${m.kind}</i>${traitTag}</span>
+        <span class="cx-name">${m.name}${bossTag}<i class="cx-tag">${m.kind}</i></span>
         <span class="cx-stat">HP ${m.hp} · 攻 ${m.atk} · 防 ${m.def}</span>
         <span class="cx-loss ${cls}">${loss}</span>
         <span class="cx-reward">${m.gold}💰 ${m.exp}✨</span>
@@ -1577,7 +1579,7 @@
     }
     const list = $('shopList');
     list.innerHTML = '';
-    D.shop.forEach((item) => {
+    Engine.shopStock().forEach((item) => {
       const owned = (item.codex && s.flags.codex) || (item.relic && Engine.hasRelic(item.relic)) || (item.block && s.flags.hasBlock);
       // 铁壁/苦行/无名三条誓约不能格挡：盾谱置灰，别让人白花钱
       const forbidden = item.block && Engine.vowForbidsBlock();

@@ -854,6 +854,12 @@
     return price;
   }
 
+  // 这一层的货摊摆什么：minFloor 是上架层——秤走一步，货跟一步
+  function shopStock(floor) {
+    const f = floor === undefined ? (s ? s.floor : 0) : floor;
+    return D.shop.filter((x) => !x.minFloor || f + 1 >= x.minFloor);
+  }
+
   function buy(id) {
     if (!s) return { type: 'refuse', msg: '没有进行游戏' };
     const item = D.shop.find((x) => x.id === id);
@@ -1146,7 +1152,7 @@
       const ch = tile(s.x + dx, s.y + dy);
       return D.monsters[ch] ? predict(ch) : null;
     },
-    tryMove, fight, canBlock, grantBlock, vowForbidsBlock, buy, priceOf, finish, altarChoices, pickRelic, pathTo, pathThrough, pathToNear, pathsTo,
+    tryMove, fight, canBlock, grantBlock, vowForbidsBlock, buy, priceOf, shopStock, finish, altarChoices, pickRelic, pathTo, pathThrough, pathToNear, pathsTo,
     nextLevelExp, margin, keyName, summary, hasRelic, ownedRelics, beginFloor, restoreFloor, revealCore, heartState, heartTake, heartLeave, vow, pickEvent, eventPool, eventCost, resolveEvent, applyEffect, jumpTo, visitedMax, gateForth, sealPlan,
     rings, hasRing, ringBlockScale, fightDamage, bossPhases, settleChapter, ringChoices, pendingRing, pickRing,
   };

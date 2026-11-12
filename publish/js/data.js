@@ -45,7 +45,7 @@ window.GAME_DATA = (function () {
     C: { name: '骷髅兵', emoji: '💀', hp: 110, atk: 37, def: 6, gold: 8, exp: 6, kind: '亡' },
     D: { name: '僵尸', emoji: '🧟', hp: 148, atk: 47, def: 9, gold: 12, exp: 10, kind: '亡' },
     E: { name: '石像鬼', emoji: '🗿', hp: 210, atk: 60, def: 15, gold: 20, exp: 16, kind: '构' },
-    W: { name: '怨灵', emoji: '👻', hp: 126, atk: 57, def: 6, gold: 16, exp: 16, kind: '亡', trait: 'magic' },
+    W: { name: '怨灵', emoji: '👻', hp: 126, atk: 42, def: 6, gold: 16, exp: 16, kind: '亡', trait: 'magic' },
     F: { name: '狼人', emoji: '🐺', hp: 265, atk: 52, def: 19, gold: 30, exp: 24, kind: '兽', trait: 'double' },
     H: { name: '骷髅队长', emoji: '🪖', hp: 340, atk: 77, def: 25, gold: 40, exp: 30, kind: '亡' },
     V: { name: '吸血鬼', emoji: '🧛', hp: 360, atk: 77, def: 21, gold: 45, exp: 34, kind: '亡' },
@@ -54,7 +54,7 @@ window.GAME_DATA = (function () {
     R: { name: '提灯僧', emoji: '🏮', hp: 480, atk: 100, def: 30, gold: 58, exp: 65, kind: '亡' },
     1: { name: '空甲', emoji: '🛡️', hp: 560, atk: 96, def: 34, gold: 62, exp: 72, kind: '构' },
     2: { name: '锁虫', emoji: '🪱', hp: 420, atk: 102, def: 26, gold: 55, exp: 60, kind: '异' },
-    3: { name: '无面者', emoji: '👤', hp: 520, atk: 106, def: 32, gold: 66, exp: 70, kind: '魂', trait: 'magic' },
+    3: { name: '无面者', emoji: '👤', hp: 520, atk: 64, def: 32, gold: 66, exp: 70, kind: '魂', trait: 'magic' },
     4: { name: '灰烬祭司', emoji: '🧙', hp: 640, atk: 106, def: 36, gold: 72, exp: 80, kind: '亡' },
     5: { name: '锈王', emoji: '👑', hp: 760, atk: 126, def: 42, gold: 90, exp: 95, kind: '兽' },
     6: { name: '守名人', emoji: '🗿', hp: 820, atk: 132, def: 44, gold: 96, exp: 105, kind: '构' },
@@ -693,6 +693,7 @@ window.GAME_DATA = (function () {
 
   // 价格：repeat 商「每次买完下一次更贵」（step = 涨价幅度），_once 商（盾谱/镜/灯芯）固定价
   // atk/def 20、药 6、钥匙 4/8——买得越多单份越贵，逼中后期把钱花在刀刃上
+  // 货架按层分级（minFloor）：秤走一步，货跟一步——低层不摆你用不起的高级货
   const shop = [
     { id: 'key', name: '黄钥匙', emoji: '🔑', price: 20, step: 4, key: 'y' },
     { id: 'rkey', name: '红钥匙', emoji: '🗝️', price: 45, step: 8, key: 'r' },
@@ -702,6 +703,8 @@ window.GAME_DATA = (function () {
     { id: 'blockbook', name: '半部盾谱', emoji: '📖', price: 150, block: true, once: true },
     { id: 'ember', name: '余烬灯芯', emoji: '🔥', price: 120, relic: 'ember', once: true },
     { id: 'codex', name: '窥探之镜', emoji: '🔮', price: 100, codex: true, once: true },
+    { id: 'bigpotion', name: '蓝药水', emoji: '💧', price: 70, step: 10, hp: 420, minFloor: 8 },
+    { id: 'holywater', name: '圣水', emoji: '🍶', price: 150, step: 20, hp: 900, minFloor: 11 },
   ];
 
   return { LEGEND, PALETTE, kindColor, TRAITS, monsters, items, relics, altarPool, rings, ringPools, levelExp, floors, chapters, vows, events, shop };
