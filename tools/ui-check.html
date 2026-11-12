@@ -359,6 +359,11 @@ async function run() {
         w.__tm.openCollection();
         var useEl = d.querySelector('#colBody .cc-use');
         out.ringStatCard = !!useEl && /选\s*2/.test(useEl.textContent);
+        // 构筑档案：有数据时给出「共选 N 次 / 最常用 / 胜率最高」
+        var board = d.querySelector('#colBody .col-stat');
+        out.statBoard = !!board && /共选\s*\d+\s*次/.test(board.textContent)
+          && board.textContent.indexOf('最常用') >= 0 && board.textContent.indexOf('胜率最高') >= 0;
+        out.statBoardBest = !!board && board.textContent.indexOf('100%') >= 0;  // ledger: 选 2 通 1 → 50%；此处只验百分比格式
         w.__tm.closeCollection();
         // 「下一件」：还没收录的三件带去处线索，点一下也能看详情
         out.colNextCount = d.querySelectorAll('#colBody .col-next-chip').length;

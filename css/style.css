@@ -2067,3 +2067,24 @@ html, body {
   opacity: 0.85;
   margin-top: 1px;
 }
+
+/* 收藏图鉴 · 构筑档案（最常用 / 胜率最高） */
+.col-stat {
+  margin: 2px 0 12px;
+  padding: 8px 10px 9px;
+  border: 1px solid rgba(159, 216, 255, 0.16);
+  border-radius: 9px;
+  background: rgba(159, 216, 255, 0.035);
+}
+.col-stat .col-group-title { margin-bottom: 6px; }
+.col-stat-row { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-top: 3px; }
+.col-stat-row .cs-label {
+  font-size: 9px; letter-spacing: 1.5px; color: var(--dim);
+  flex-shrink: 0; min-width: 40px;
+}
+.col-stat-row em {
+  font-style: normal; font-size: 10px; line-height: 1.6; color: var(--muted);
+}
+.col-stat-row em b { color: var(--cyan); font-weight: 700; }
+.col-stat-row .cs-dim { color: var(--dim); font-size: 9.5px; }
+.cs-empty { margin: 0; font-size: 10px; line-height: 1.7; color: var(--dim); }

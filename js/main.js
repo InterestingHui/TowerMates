@@ -831,6 +831,37 @@
     return (RELIC_ORDER.length - r) + (Object.keys(D.rings).length - g);
   }
 
+  // 构筑档案：从 ringStats 里算「最常用的三枚」与「胜率最高的一枚」——
+  // 玩家能看出自己偏爱什么、什么真的带得动，也给后续调平衡留真实样本。
+  function ringStatBoard() {
+    const mem = Meta.memory;
+    const all = Object.keys(D.rings)
+      .map((id) => {
+        const st = mem.ringStats[id] || { picks: 0, wins: 0 };
+        return { id, name: D.rings[id].name, emoji: D.rings[id].emoji, picks: st.picks, wins: st.wins };
+      })
+      .filter((r) => r.picks > 0);
+    if (!all.length) {
+      return '<div class="col-stat"><p class="col-group-title">构 筑 档 案</p>'
+        + '<p class="cs-empty">还没选过锁环。打完章末的锁匠，会有三枚让你挑。</p></div>';
+    }
+    const totalPicks = all.reduce((a, r) => a + r.picks, 0);
+    const totalWins = all.reduce((a, r) => a + r.wins, 0);
+    const top = all.slice().sort((a, b) => b.picks - a.picks || b.wins - a.wins).slice(0, 3);
+    // 胜率榜要求至少选过 2 次，避免「选 1 通 1 = 100%」的噪声
+    const best = all.filter((r) => r.picks >= 2)
+      .sort((a, b) => (b.wins / b.picks) - (a.wins / a.picks) || b.picks - a.picks)[0];
+    return '<div class="col-stat"><p class="col-group-title">构 筑 档 案 · 共选 ' + totalPicks + ' 次</p>'
+      + '<div class="col-stat-row"><span class="cs-label">最常用</span>'
+      + top.map((t) => `<em>${t.emoji} ${t.name} <b>${t.picks}</b> 次</em>`).join('')
+      + '</div>'
+      + (best
+        ? `<div class="col-stat-row"><span class="cs-label">胜率最高</span><em>${best.emoji} ${best.name} <b>${Math.round(best.wins / best.picks * 100)}%</b>（${best.wins}/${best.picks} 场通关）</em></div>`
+        : '<div class="col-stat-row"><span class="cs-label">胜率最高</span><em class="cs-dim">同一枚至少选过两次才计入</em></div>')
+      + (totalWins ? `<div class="col-stat-row"><span class="cs-label">带环通关</span><em>${totalWins} 次</em></div>` : '')
+      + '</div>';
+  }
+
   // 「下一件」：还没收录的东西里挑几件给玩家看（遗物优先——来源固定、可以计划）
   function collectionNext(max) {
     const mem = Meta.memory;
@@ -887,6 +918,7 @@
             <em class="cn-from">${n.from}</em></button>`).join('')
         + '</div></div>'
       : '';
+    html += ringStatBoard();
     html += '<div class="col-group"><p class="col-group-title">遗 物 · '
       + RELIC_ORDER.filter((id) => mem.seenRelics.indexOf(id) >= 0).length + '/' + RELIC_ORDER.length
       + '</p><div class="col-grid">';
@@ -2301,6 +2333,11 @@
     const fhp = s.flags.finalHp;
     const fmhp = s.flags.finalMaxHp;
     if (fmhp > 0 && fhp / fmhp >= 0.7) parts.push({ label: '决战余裕 S', n: 2 });
+    // 「一口空气」首解锁：一件遗物都没拿走到结局，第一次额外给 5 余烬。
+    // 放在这里而不是成就回调里——结算明细要先把它算进去，余额才不会对不上
+    // （此刻成就还没解锁，evaluate('finish') 在结算面板渲染之后才跑）
+    const bareRun = !!s.ending && !Object.keys(s.flags).some((k) => k.indexOf('relic_') === 0);
+    if (bareRun && !Achievements.isUnlocked('bare')) parts.push({ label: '一口空气（首次）', n: 5 });
     if (s.flags.eventEmber) parts.push({ label: '路遇里的选择', n: s.flags.eventEmber });
     // 锁芯买的塔心碎片：带一点塔的心跳出去，结算时化为余烬
     if (s.flags.heartShard) parts.push({ label: '塔心碎片', n: 8 });
@@ -2456,7 +2493,11 @@
     if (vowDef.ember) Meta.claimFirstWin(sum.vow);
     // 决战余裕：用「打完碑魔那一刻的血」给一个 S/A/B/C，和塔印并列——塔印看的是流程，这个看的是硬实力
     const margin = Engine.battleMargin();
-    if (margin) brief.push(`决战余裕 <b>${margin.grade}</b> · ${margin.label}（剩 ${margin.pct}%）`);
+    if (margin) {
+      // 不到 S 就把话说明白：这条路靠的不是全清，是少打——把血留到碑魔
+      const hint = margin.grade === 'S' ? '' : ' · 少打不必要的怪，把血留到碑魔可上 S';
+      brief.push(`决战余裕 <b>${margin.grade}</b> · ${margin.label}（剩 ${margin.pct}%）${hint}`);
+    }
     // 榜单排序用：同层同结局时，余裕高的排前面
     sum.margin = margin ? margin.grade : null;
     brief.push(`✦ 余烬 +${emberGain}`);
@@ -3567,7 +3608,7 @@
     Settings, hintMs, openHintBook, showStuck, clearStuck,
     openMonsterProbe, showDeath, reviveFromAd, adOfferRevive, adOfferDouble,
     resetDeath: () => { deathShown = false; },
-    openCollection, closeCollection, collectionText, rememberCollection, collectionRemain, collectionNext, showColDetail,
+    openCollection, closeCollection, collectionText, rememberCollection, collectionRemain, collectionNext, showColDetail, ringStatBoard,
   };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
