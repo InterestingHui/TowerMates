@@ -953,6 +953,8 @@ html, body {
   text-align: left;
 }
 .end-stats b { color: var(--text); }
+/* 结算血量口径注释：决战结束时的血 vs 收尾买药后的现值 */
+.end-stats small { font-size: 9px; color: #7f8a9c; letter-spacing: 0.2px; }
 
 /* ================= 血条 ================= */
 .hpwrap {
@@ -1989,4 +1991,43 @@ html, body {
 .col-detail .cd-from {
   font-size: 9.5px; line-height: 1.5; color: var(--dim);
   text-align: right; max-width: 42%; flex-shrink: 0;
+}
+
+/* 罗盘之环：本层还剩几件东西没捡（只在装了这枚环时出现） */
+.compasspip {
+  height: 20px; min-width: 20px;
+  padding: 0 5px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  font-size: 10.5px;
+  border: 1px solid rgba(159, 216, 255, 0.42);
+  color: var(--cyan);
+  background: rgba(159, 216, 255, 0.1);
+  box-shadow: 0 0 10px rgba(159, 216, 255, 0.16);
+  cursor: help;
+}
+.compasspip[hidden] { display: none; }
+
+/* 收藏图鉴 · 「下一件」：还没收录的三件，带去处线索 */
+.col-next { margin: 2px 0 12px; }
+.col-next-row { display: flex; flex-direction: column; gap: 5px; }
+.col-next-chip {
+  display: flex; align-items: center; gap: 7px;
+  width: 100%; text-align: left;
+  padding: 7px 9px;
+  font: inherit;
+  border: 1px dashed rgba(232, 196, 106, 0.28);
+  border-radius: 8px;
+  background: rgba(232, 196, 106, 0.04);
+  cursor: pointer;
+}
+.col-next-chip:active { transform: scale(0.99); }
+.col-next-chip .cn-emoji { font-size: 15px; filter: grayscale(0.4); }
+.col-next-chip .cn-name { font-size: 11px; font-weight: 700; color: var(--gold); flex-shrink: 0; }
+.col-next-chip .cn-from {
+  font-style: normal; font-size: 9.5px; line-height: 1.4; color: var(--dim);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }

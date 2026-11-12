@@ -110,9 +110,9 @@
   // ---------- 锁环：章末回响给的构筑，改规则不改攻防 ----------
   const rings = () => (s && Array.isArray(s.flags.rings) ? s.flags.rings : []);
   const hasRing = (id) => rings().indexOf(id) >= 0;
-  // 格挡比例：后半部盾谱把 0.6 压到 0.45；断刃之环在其上再收一档（0.45→0.35 / 0.6→0.5）
+  // 格挡比例：基础 0.55（省下将近一半）；后半部盾谱压到 0.42；断刃之环再收 0.1
   const ringBlockScale = () => {
-    const base = s && s.flags.hasBlock2 ? 0.45 : 0.6;
+    const base = s && s.flags.hasBlock2 ? 0.42 : 0.55;
     return hasRing('parry') ? base - 0.1 : base;
   };
   // 后半部学到手：格挡反击——挡下的那场，被卸掉的伤的三成化为经验
@@ -411,9 +411,11 @@
       };
     }
     if (it.type === 'hp') {
-      s.hp += it.value;
+      // 干粮之环（ration）：药水回复量 +30%，地图上的和商店买的同口径
+      const heal = potionHeal(it.value);
+      s.hp += heal;
       if (s.hp > s.maxHp) s.maxHp = s.hp;
-      return { type: 'pickup', msg: `拾取${it.name}，生命 +${it.value}`, short: `+${it.value}❤`, good: true };
+      return { type: 'pickup', msg: `拾取${it.name}，生命 +${heal}`, short: `+${heal}❤`, good: true };
     }
     if (it.type === 'atk') { s.atk += it.value; return { type: 'pickup', msg: `拾取${it.name}，攻击 +${it.value}`, short: `+${it.value}⚔`, good: true }; }
     if (it.type === 'def') { s.def += it.value; return { type: 'pickup', msg: `拾取${it.name}，防御 +${it.value}`, short: `+${it.value}🛡`, good: true }; }
@@ -432,7 +434,7 @@
       if (s.flags.hasBlock2) return { type: 'pickup', msg: '后半部你已经背下来了', short: '已学', good: false };
       s.flags.hasBlock2 = true;
       save();
-      return { type: 'pickup', msg: `拾取${it.name}：格挡承伤降到 45%，卸掉的伤三成化为经验`, short: '+🛡后半', good: true, blockLearned2: true, story: it.story || null };
+      return { type: 'pickup', msg: `拾取${it.name}：格挡承伤降到 42%，卸掉的伤三成化为经验`, short: '+🛡后半', good: true, blockLearned2: true, story: it.story || null };
     }
     return null;
   }
@@ -758,7 +760,7 @@
     return (s && s.flags && D.vows[s.flags.vow]) ? s.flags.vow : 'none';
   }
 
-  // 每层一次「格挡」：这一战的承伤降到 60%（铁壁之誓放弃它）
+  // 每层一次「格挡」：这一战的承伤降到 55%（铁壁之誓放弃它）
   // 格挡不再是开局白送：要先学到「半部盾谱」（地图拾取 / 商店购买 / 老兵讨教）才会
   function canBlock() {
     if (!s || s.over || s.won) return false;
@@ -841,7 +843,13 @@
         s.flags['chap_' + m.chapter] = true;
         echo = settleChapter(m.chapter);
       }
-      if (m.finalBoss) s.flags.finalBossKilled = true;
+      if (m.finalBoss) {
+        s.flags.finalBossKilled = true;
+        // 决战结束这一刻的血量：结算页用它当「剩余生命」，与难度基准同一口径
+        // （玩家之后把余钱换成药水，不该让结算页看起来像「轻松通关」）
+        s.flags.finalHp = Math.round(s.hp);
+        s.flags.finalMaxHp = Math.round(s.maxHp);
+      }
     }
 
     let heal = 0;
@@ -874,9 +882,17 @@
     let price = item.price + (s.flags['buy_' + item.id] || 0) * step;
     if (hasRelic('thrift')) price = Math.max(1, Math.round(price * 0.75));
     if (hasRing('thrift2')) price = Math.max(1, Math.round(price * 0.85));
+    // 秤砣之环（bargain）：钥匙价目再 −25%（只影响钥匙，药水与训练照旧）
+    if (item.key && hasRing('bargain')) price = Math.max(1, Math.round(price * 0.75));
     if (vow() === 'greed') price = Math.max(1, Math.round(price * 1.3));
     if (vow() === 'nameless') price = Math.max(1, Math.round(price * 1.4));
     return price;
+  }
+
+  // 药水回复量：干粮之环 +30%。地图药水与商店药水共用，避免两套口径
+  function potionHeal(base) {
+    const v = Number(base) || 0;
+    return hasRing('ration') ? Math.round(v * 1.3) : v;
   }
 
   // 这一层的货摊摆什么：minFloor 是上架层——秤走一步，货跟一步
@@ -901,8 +917,28 @@
     return n;
   }
 
+  // 本层还剩几件「能捡的东西」（罗盘之环用）：道具与金币都算，
+  // 门 / 怪 / 楼梯 / 商店 / 祭坛这些「踩上去是交互」的不算——罗盘回答的是「还有没有漏拿的收益」。
+  function floorPickupCount(floor) {
+    if (!s) return 0;
+    const f = floor === undefined ? s.floor : floor;
+    const map = s.maps[f];
+    if (!map) return 0;
+    let n = 0;
+    for (let y = 0; y < SIZE; y++) {
+      for (let x = 0; x < SIZE; x++) {
+        const ch = map[y][x];
+        if (ch === '$') { n++; continue; }
+        const it = D.items[ch];
+        if (it && it.type !== 'story') n++;
+      }
+    }
+    return n;
+  }
+
   function buy(id) {
     if (!s) return { type: 'refuse', msg: '没有进行游戏' };
+    let healed = 0;
     const item = D.shop.find((x) => x.id === id);
     if (!item) return { type: 'refuse', msg: '商品不存在' };
     if (item.codex && s.flags.codex) return { type: 'refuse', msg: '已经拥有窥探之镜' };
@@ -916,8 +952,10 @@
     s.flags['buy_' + item.id] = (s.flags['buy_' + item.id] || 0) + 1;
     if (item.key) s.keys[item.key]++;
     if (item.hp) {
-      s.hp += item.hp;
+      const heal = potionHeal(item.hp);
+      s.hp += heal;
       if (s.hp > s.maxHp) s.maxHp = s.hp;
+      healed = heal; // 供 UI 显示实际回复量（含干粮之环加成）
     }
     if (item.atk) s.atk += item.atk;
     if (item.def) s.def += item.def;
@@ -936,7 +974,7 @@
           : item.heartShard
             ? '秤用绒布包起那枚碎片：「塔的心跳，带一点出去也无妨。」——通关时它会化为余烬'
             : `购买了${item.name}`;
-    return { type: 'buy', item, price, msg };
+    return { type: 'buy', item, price, healed, msg };
   }
 
   // ---------- 祭坛：前八位勇者的行李，三选一 ----------
@@ -1197,7 +1235,7 @@
       const ch = tile(s.x + dx, s.y + dy);
       return D.monsters[ch] ? predict(ch) : null;
     },
-    tryMove, fight, canBlock, grantBlock, vowForbidsBlock, buy, priceOf, shopStock, floorMonsterCount, finish, altarChoices, pickRelic, pathTo, pathThrough, pathToNear, pathsTo,
+    tryMove, fight, canBlock, grantBlock, vowForbidsBlock, buy, priceOf, shopStock, floorMonsterCount, floorPickupCount, potionHeal, finish, altarChoices, pickRelic, pathTo, pathThrough, pathToNear, pathsTo,
     nextLevelExp, margin, keyName, summary, hasRelic, ownedRelics, beginFloor, restoreFloor, revealCore, heartState, heartTake, heartLeave, vow, pickEvent, eventPool, eventCost, resolveEvent, applyEffect, jumpTo, visitedMax, gateForth, sealPlan,
     rings, hasRing, ringBlockScale, fightDamage, bossPhases, settleChapter, ringChoices, pendingRing, pickRing,
   };

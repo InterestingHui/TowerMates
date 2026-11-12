@@ -227,14 +227,20 @@ window.GAME_DATA = (function () {
 
     coin2:    { name: '夜市之环', emoji: '🪙', short: '市', chapter: 4, desc: '立刻获得 300 金币' },
     lamp2:    { name: '长明之环', emoji: '🕯️', short: '明', chapter: 4, desc: '每上一层回复 4% 生命' },
+
+    // ---- 扩容池（每章 6→7，组合数 20→35）：只改资源与信息，不碰攻防 ----
+    ration:   { name: '干粮之环', emoji: '🍞', short: '粮', chapter: 1, desc: '所有药水回复量 +30%' },
+    bargain:  { name: '秤砣之环', emoji: '⚖️', short: '秤', chapter: 2, desc: '钥匙价目 −25%' },
+    compass:  { name: '罗盘之环', emoji: '🧭', short: '盘', chapter: 3, desc: '顶栏显示本层还剩几件东西没捡' },
+    signature:{ name: '落款之环', emoji: '🖊️', short: '款', chapter: 4, desc: '图鉴每新收录 1 件，通关额外 +1 余烬（最多 5）' },
   };
 
-  // 每章抽 3 个给玩家选（池 6 个 → 每局的构筑起点不同）
+  // 每章抽 3 个给玩家选（池 7 个 → 每局的构筑起点不同）
   const ringPools = {
-    1: ['ledger', 'lamp', 'coin', 'keyring', 'pace', 'ward2'],
-    2: ['parry', 'cinder', 'thrift2', 'vitality', 'ash', 'scout2'],
-    3: ['bell', 'stair', 'scope', 'hour', 'ledger2', 'vitality2'],
-    4: ['seventh', 'chisel', 'heart', 'oath', 'coin2', 'lamp2'],
+    1: ['ledger', 'lamp', 'coin', 'keyring', 'pace', 'ward2', 'ration'],
+    2: ['parry', 'cinder', 'thrift2', 'vitality', 'ash', 'scout2', 'bargain'],
+    3: ['bell', 'stair', 'scope', 'hour', 'ledger2', 'vitality2', 'compass'],
+    4: ['seventh', 'chisel', 'heart', 'oath', 'coin2', 'lamp2', 'signature'],
   };
 
   // 升到下一级所需经验（索引 = 当前等级-1）
