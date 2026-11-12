@@ -22,34 +22,40 @@ function run(cmd, args) {
   return { code: r.status, out: (r.stdout || '') + (r.stderr || '') };
 }
 
-console.log('== 1/5 地图与数据校验 ==');
+console.log('== 1/6 地图与数据校验 ==');
 const check = run(process.execPath, ['tools/check.js']);
 const okCheck = check.code === 0;
 console.log((okCheck ? '✓' : '✗') + ' check.js' + (okCheck ? '' : '\n' + check.out));
 
-console.log('== 2/5 平衡模拟 ==');
+console.log('== 2/6 平衡模拟 ==');
 const sim = run(process.execPath, ['tools/sim.js']);
 const simLine = sim.out.split('\n').filter((l) => l.includes('总承伤')).pop() || '';
 const okSim = sim.code === 0 && sim.out.includes('通关成功');
 console.log((okSim ? '✓' : '✗') + ' sim.js ' + simLine.trim());
 
-console.log('== 3/5 引擎单测 ==');
+console.log('== 3/6 引擎单测 ==');
 const test = run(process.execPath, ['tools/engine-test.js']);
 const passed = (test.out.match(/^✓/gm) || []).length;
 const okTest = test.code === 0;
 console.log((okTest ? '✓' : '✗') + ` engine-test.js ${passed} 项`);
 
-console.log('== 4/5 挑战码与触控单测 ==');
+console.log('== 4/6 挑战码与触控单测 ==');
 const code = run(process.execPath, ['tools/code-test.js']);
 const codePassed = (code.out.match(/(\d+) 项通过/) || [])[1] || 0;
 const okCode = code.code === 0;
 console.log((okCode ? '✓' : '✗') + ` code-test.js ${codePassed} 项` + (okCode ? '' : '\n' + code.out));
 
-console.log('== 5/5 战斗演出分摊单测 ==');
+console.log('== 5/6 战斗演出分摊单测 ==');
 const bsim = run(process.execPath, ['tools/battle-sim-test.js']);
 const bsimPassed = (bsim.out.match(/(\d+) 项通过/) || [])[1] || 0;
 const okBsim = bsim.code === 0;
 console.log((okBsim ? '✓' : '✗') + ` battle-sim-test.js ${bsimPassed} 项` + (okBsim ? '' : '\n' + bsim.out));
+
+console.log('== 6/6 开放数据域榜单单测 ==');
+const od = run(process.execPath, ['tools/opendata-test.js']);
+const odPassed = (od.out.match(/(\d+) 项通过/) || [])[1] || 0;
+const okOd = od.code === 0;
+console.log((okOd ? '✓' : '✗') + ` opendata-test.js ${odPassed} 项` + (okOd ? '' : '\n' + od.out));
 
 let okShots = true;
 if (!process.argv.includes('--no-shot')) {
@@ -80,6 +86,20 @@ if (!process.argv.includes('--no-shot')) {
         const good = size > 8000;
         if (!good) bad++;
         console.log((good ? '✓' : '✗') + ` scene ${scene} ${(size / 1024).toFixed(0)}KB`);
+      }
+      // 开放数据域榜单：三态排版截图（子域代码与 H5 调试页共用同一份绘制实现）
+      for (const cs of ['full', 'empty', 'loading']) {
+        const file = path.join(OUT, 'od-' + cs + '.png');
+        const r = spawnSync(chrome, [
+          '--headless=new', '--disable-gpu', '--hide-scrollbars',
+          '--window-size=430,620', '--virtual-time-budget=4000',
+          '--screenshot=' + file,
+          `http://127.0.0.1:${PORT}/tools/opendata-check.html?case=${cs}`,
+        ], { encoding: 'utf8' });
+        const size = fs.existsSync(file) ? fs.statSync(file).size : 0;
+        const good = r.status === 0 && size > 8000;
+        if (!good) bad++;
+        console.log((good ? '✓' : '✗') + ` opendata ${cs} ${(size / 1024).toFixed(0)}KB`);
       }
       // 手感探针：跳过必须当场生效（曾经点一下要白等 528ms / Boss 过场 950ms）
       console.log('== 附加 · 手感探针（战斗跳过延迟）==');
@@ -129,6 +149,30 @@ if (!process.argv.includes('--no-shot')) {
         adsLine = r.bits ? `${(r.bits.match(/1/g) || []).length}/${r.bits.length} 项` : '读数失败';
         console.log((okAds ? '✓' : '✗') + ` 广告卡点 ${adsLine}`);
       }
+      // 序章只播一次：首次必播、老玩家跳过、设置里能重看
+      console.log('== 附加 · 序章重播自检 ==');
+      let okIntro = true, introLine = '';
+      {
+        const os = require('os');
+        const args = [
+          '--headless=new', '--disable-gpu', '--no-sandbox', '--no-first-run', '--disable-extensions',
+          '--user-data-dir=' + path.join(os.tmpdir(), 'tm-intro-' + process.pid),
+          '--virtual-time-budget=60000',
+          '--dump-dom', `http://127.0.0.1:${PORT}/tools/intro-check.html?gate=1`,
+        ];
+        const read = () => {
+          const p = spawnSync(chrome, args, { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+          const t = p.stdout || '';
+          const pass = /ALLPASS\|1+/.test(t);
+          const bits = /(?:ALLPASS|HASFAIL|ERR)\|([01]+)/.exec(t);
+          return { pass, bits: bits ? bits[1] : '' };
+        };
+        let r = read();
+        if (!r.bits) r = read();
+        okIntro = r.pass;
+        introLine = r.bits ? `${(r.bits.match(/1/g) || []).length}/${r.bits.length} 项` : '读数失败';
+        console.log((okIntro ? '✓' : '✗') + ` 序章重播 ${introLine}`);
+      }
       server.kill();
       console.log(bad === 0 ? `\n✓ 截图全部生成（${SCENES.length} 张，见 tools/out/）` : `\n✗ ${bad} 张截图异常`);
 
@@ -136,13 +180,13 @@ if (!process.argv.includes('--no-shot')) {
       const ui = run(process.execPath, ['tools/ui-test.js']);
       const okUi = ui.code === 0;
       console.log((okUi ? '✓' : '✗') + ' ui-test.js' + (okUi ? '' : '\n' + ui.out));
-      const all = okCheck && okSim && okTest && okCode && okBsim && okUi && okProbe && okAds && bad === 0;
-      if (!all) console.log('  闸门明细:', JSON.stringify({ okCheck, okSim, okTest, okCode, okBsim, okUi, okProbe, probeA3, okAds, adsLine, bad }));
+      const all = okCheck && okSim && okTest && okCode && okBsim && okOd && okUi && okProbe && okAds && okIntro && bad === 0;
+      if (!all) console.log('  闸门明细:', JSON.stringify({ okCheck, okSim, okTest, okCode, okBsim, okOd, okUi, okProbe, probeA3, okAds, adsLine, okIntro, introLine, bad }));
       console.log(all ? '✓ 质量闸门通过' : '✗ 质量闸门有失败项');
       process.exit(all ? 0 : 1);
     })();
     return;
   }
 }
-console.log(okCheck && okSim && okTest && okCode && okBsim ? "\n✓ 质量闸门通过" : "\n✗ 有失败项");
-process.exit(okCheck && okSim && okTest && okCode && okBsim ? 0 : 1);
+console.log(okCheck && okSim && okTest && okCode && okBsim && okOd ? "\n✓ 质量闸门通过" : "\n✗ 有失败项");
+process.exit(okCheck && okSim && okTest && okCode && okBsim && okOd ? 0 : 1);

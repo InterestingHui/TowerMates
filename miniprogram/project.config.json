@@ -1,0 +1,14 @@
+{
+  "description": "TowerMates 小程序壳（web-view 嵌 H5）",
+  "miniprogramRoot": "./",
+  "compileType": "miniprogram",
+  "appid": "",
+  "projectname": "towermates-h5",
+  "setting": {
+    "urlCheck": true,
+    "es6": true,
+    "enhance": true,
+    "minified": true,
+    "postcss": true
+  }
+}

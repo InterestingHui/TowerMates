@@ -195,7 +195,7 @@ function bfs() {
       if (ch === '#') continue;
       if (D.monsters[ch] && !D.monsters[ch].ghost && !predict(ch).win) {
         const mb = D.monsters[ch];
-        const canBlockBoss = mb.boss && s.flags.hasBlock && !s.flags['block_f' + s.floor] && Math.round(predict(ch).damage * 0.6) < s.hp;
+        const canBlockBoss = mb.boss && s.flags.hasBlock && !s.flags['block_f' + s.floor] && Math.round(predict(ch).damage * (s.flags.hasBlock2 ? 0.42 : 0.55)) < s.hp;
         if (!canBlockBoss) continue;
       }
       if ((ch === 'y' || ch === 'r') && s.keys[ch] <= 0) continue;
@@ -253,7 +253,11 @@ function floorLoop(fi) {
       const ch = s.maps[s.floor][y][x];
       if (!D.monsters[ch] || D.monsters[ch].ghost) continue;
       const p = predict(ch);
-      if (p.win) targets.push({ x, y, ch, damage: p.damage });
+      // 打得过，或者「Boss 靠格挡能换命」——后者必须真打一场，
+      // 不能只在 bfs 里当通路（否则会出现「没碰 Boss 就判通关」的假通关）
+      const bossSave = !!D.monsters[ch].boss && s.flags.hasBlock && !s.flags['block_f' + s.floor]
+        && Math.round(p.damage * (s.flags.hasBlock2 ? 0.42 : 0.55)) < s.hp;
+      if (p.win || bossSave) targets.push({ x, y, ch, damage: p.damage });
     }
     if (!targets.length) {
       // 卡死自救（与玩家真实行为同口径）：
@@ -290,7 +294,7 @@ function floorLoop(fi) {
     if (VOW === 'guard') take = Math.round(take * 1.18);
     if (USE_BLOCK && s.flags.hasBlock && VOW !== 'guard' && VOW !== 'ascetic' && VOW !== 'nameless' && (isBoss || !D.floors[fi].boss) && !s.flags['block_f' + s.floor] && take >= s.maxHp * 0.15) {
       s.flags['block_f' + s.floor] = true;
-      const scale = s.flags.hasBlock2 ? 0.45 : 0.6;
+      const scale = s.flags.hasBlock2 ? 0.42 : 0.55;
       take = Math.round(take * scale);
       if (s.flags.hasBlock2) s.exp += Math.max(1, Math.round((t.damage - take) * 0.3));
       console.log(`  ▣ 格挡：${m.name} 承伤 ${t.damage} → ${take}${s.flags.hasBlock2 ? '（反击+' + Math.max(1, Math.round((t.damage - take) * 0.3)) + ' 经验）' : ''}`);

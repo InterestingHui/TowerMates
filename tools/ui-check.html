@@ -162,6 +162,71 @@ async function run() {
       out.shopChain.push(rec);
     }
 
+    // 锁芯碎片保底提示：钱不够要报「还差多少 + 本层还剩几只可刷」，
+    // 钱够能买（变已拥有、按钮置灰），本层清空要指路回下层找钱。
+    out.shard = {};
+    (function () {})();
+    E.newGame();
+    var sS = E.state();
+    sS.floor = 12;
+    out.shard.left = E.floorMonsterCount();
+    var pullShardRow = function () {
+      var rows = d.querySelectorAll('#shopList .shop-item');
+      return rows.length ? rows[rows.length - 1] : null;
+    };
+    var rowTxt = function (row) { return row ? row.textContent.replace(/\s+/g, ' ').trim() : ''; };
+    // A. 钱不够
+    sS.gold = 10;
+    w.__tm.refreshHud();
+    w.__tm.openShop();
+    await new Promise(function (r) { setTimeout(r, 120); });
+    var rA = pullShardRow();
+    out.shard.poorTxt = rowTxt(rA);
+    out.shard.poorGap = /还差\s*250/.test(out.shard.poorTxt);
+    out.shard.poorFarm = out.shard.left > 0
+      ? new RegExp('还剩\\s*' + out.shard.left + '\\s*只怪可刷').test(out.shard.poorTxt)
+      : /已经清空/.test(out.shard.poorTxt);
+    out.shard.poorNoRawMark = out.shard.poorTxt.indexOf('**') < 0;
+    // 整张货架都不许漏裸星号（不只碎片那行）
+    out.shard.anyRawMark = d.getElementById('shopList').textContent.indexOf('**') >= 0;
+    out.shard.poorDisabled = rA ? !!rA.querySelector('.si-buy[disabled]') : null;
+    // B. 钱够：买完扣钱、变已拥有
+    sS.gold = 300;
+    w.__tm.refreshHud();
+    w.__tm.openShop();
+    await new Promise(function (r) { setTimeout(r, 120); });
+    var rB = pullShardRow();
+    out.shard.richEnabled = rB ? !rB.querySelector('.si-buy[disabled]') : null;
+    var bB = rB && rB.querySelector('.si-buy');
+    if (bB) bB.click();
+    await new Promise(function (r) { setTimeout(r, 200); });
+    var sS2 = E.state();
+    out.shard.bought = !!sS2.flags.heartShard;
+    out.shard.goldAfter = sS2.gold;
+    var rB2 = pullShardRow();
+    out.shard.ownedTxt = rowTxt(rB2).slice(0, 40);
+    out.shard.ownedDisabled = rB2 ? !!rB2.querySelector('.si-buy[disabled]') : null;
+    d.getElementById('shopClose').click();
+    await new Promise(function (r) { setTimeout(r, 120); });
+    // C. 本层清空 → 指路回下层
+    E.newGame();
+    var sS3 = E.state();
+    sS3.floor = 12;
+    sS3.gold = 0;
+    sS3.maps[12] = sS3.maps[12].map(function (row) {
+      return row.map(function (ch) {
+        var mm = w.GAME_DATA.monsters[ch];
+        return mm && !mm.ghost ? '.' : ch;
+      });
+    });
+    w.__tm.refreshHud();
+    w.__tm.openShop();
+    await new Promise(function (r) { setTimeout(r, 120); });
+    out.shard.emptyTxt = rowTxt(pullShardRow());
+    out.shard.emptyHint = /已经清空/.test(out.shard.emptyTxt);
+    d.getElementById('shopClose').click();
+    await new Promise(function (r) { setTimeout(r, 120); });
+
     // 第 3 层关键通道：商店不再焊在「打墨妖 → 上楼」的唯一立足格上
     E.newGame();
     var s5 = E.state();
@@ -263,6 +328,9 @@ async function run() {
         out.colCards = d.querySelectorAll('#colBody .col-card').length;
         out.colGot = d.querySelectorAll('#colBody .col-card.got').length;
         out.colGroups = d.querySelectorAll('#colBody .col-group').length;
+        // 全表尺寸从数据里取，别把 11/24 硬编码进断言（加一件藏品就红）
+        out.colTotalRelics = Object.keys(w.GAME_DATA.relics).length;
+        out.colTotalRings = Object.keys(w.GAME_DATA.rings).length;
         w.__tm.closeCollection();
         out.colClosed = !colOv.classList.contains('show');
         // HUD 遗物 chip 全表（cross/coin 曾漏在 RELIC_ORDER 外，不显示）
@@ -281,6 +349,16 @@ async function run() {
         var offCard = d.querySelector('#colBody .col-card.off');
         if (offCard) offCard.click();
         out.colDetailOff = cd.textContent.indexOf('未获得') >= 0;
+        // 「下一件」：还没收录的三件带去处线索，点一下也能看详情
+        out.colNextCount = d.querySelectorAll('#colBody .col-next-chip').length;
+        var nextChip = d.querySelector('#colBody .col-next-chip');
+        out.colNextHasFrom = !!(nextChip && nextChip.querySelector('.cn-from') && nextChip.querySelector('.cn-from').textContent.length > 4);
+        // 同一张卡连点会收起详情（设计行为）：重开面板再点，避免被上一步的 _id 命中
+        w.__tm.closeCollection();
+        w.__tm.openCollection();
+        var nc2 = d.querySelector('#colBody .col-next-chip');
+        if (nc2) nc2.click();
+        out.colNextDetail = cd.classList.contains('show') && cd.textContent.indexOf('未获得') >= 0;
         w.__tm.closeCollection();
         // 渲染异常探针：整轮 UI 自检跑下来一次都不许有
         out.renderErrors = (w.__tmRenderErrors || []).length;

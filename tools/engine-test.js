@@ -84,6 +84,25 @@ E.buy('key');
 const k1 = E.priceOf(D.shop.find((x) => x.id === 'key'));
 ok(k1 === 24, '黄钥匙买后 20→24');
 
+// ---------- 6a-3. 药水回血口径：金币是唯一闸门，且必须花到买不起为止 ----------
+// 药水可反复买（不是漏洞的一部分）：每次涨价、金币扣完就买不动，靠经济收敛。
+E.newGame();
+s = E.state();
+s.gold = 100;
+s.hp = 100; s.maxHp = 1000;
+const potRes1 = E.buy('potion');
+ok(potRes1.type === 'buy' && potRes1.healed > 0 && s.gold === 70, '买药水扣 30 金并回血');
+const potRes2 = E.buy('potion');
+ok(potRes2.type === 'buy' && s.gold === 34, '第二瓶涨价到 36（金币 100→34）');
+const potRes3 = E.buy('potion');
+ok(potRes3.type === 'refuse' && s.gold === 34, '钱不够时拒绝购买且金币不变');
+// 满血买药：允许溢出并顶高上限（设计取舍，写进断言防悄悄改口径）
+s.hp = s.maxHp; s.gold = 999;
+const potFull = E.buy('potion');
+ok(potFull.type === 'buy' && s.maxHp > 1000, '满血买药会把生命上限顶高（设计如此：药水兼作上限投资）');
+// 金币来源全表有限：本局金币只来自击杀/拾取/事件/锁环，没有无中生有的循环
+ok(E.shopStock().every((it) => !it.sell), '商店没有回收/卖出接口（不能靠买卖套利）');
+
 // ---------- 6b. 半部盾谱：商店购买 / 地图拾取 ----------
 E.newGame();
 s = E.state();
@@ -140,13 +159,22 @@ ok(hs2.type === 'refuse', '碎片唯一：第二枚被拒');
 ok(!E.shopStock(2).some((x) => x.id === 'heartshard'), '第 3 层买不到碎片');
 // 保底提示的数据源：本层剩余怪数（幽灵 NPC 不算）
 ok(E.floorMonsterCount(1) > 0, '第 2 层还有怪可刷（剩余计数可用）');
+// 决战结束时的血量会被记档，供结算页按「难度基准」口径展示
+E.newGame();
+s = E.state();
+s.floor = 11; s.x = 5; s.y = 4; s.hp = 99999; s.maxHp = 99999; s.atk = 999; s.def = 999;
+const hpBeforeFinal = s.hp;
+E.fight(0, 1); // 首次接触只播 Boss 剧情
+const finalEv = E.fight(0, 1);
+ok(finalEv.type === 'fight' && s.flags.finalHp === hpBeforeFinal - finalEv.damage,
+  '击败最终 Boss 时记下决战结束血量（不含随后升级回血）');
 E.newGame();
 s = E.state();
 const cnt0 = E.floorMonsterCount(0);
 s.x = 1; s.y = 2;
 const killEv = E.fight(1, 0); // (2,2) 的蝙蝠
 ok(killEv.type === 'fight' && E.floorMonsterCount(0) === cnt0 - 1, '杀掉一只后剩余计数 −1');
-// 后半部盾谱：锁芯拾取 → 格挡强化（×0.45 + 卸伤三成化经验）
+// 后半部盾谱：锁芯拾取 → 格挡强化（×0.42 + 卸伤三成化经验）
 E.newGame();
 s = E.state();
 const vPos = (() => {
@@ -168,7 +196,7 @@ const vEv = s.x === vPos.x && s.y === vPos.y - 1 ? E.tryMove(0, 1) : (function (
   return E.tryMove(0, 1);
 })();
 ok(vEv.type === 'pickup' && s.flags.hasBlock2 === true, '先学前半部再拾取 → 学会后半部');
-ok(Math.abs(E.ringBlockScale() - 0.45) < 1e-9, '后半部把格挡比例压到 0.45');
+ok(Math.abs(E.ringBlockScale() - 0.42) < 1e-9, '后半部把格挡比例压到 0.42');
 // 格挡反击：挡下的那场多给经验
 E.newGame();
 s = E.state();
@@ -179,7 +207,7 @@ const rawPred = E.predict('A');
 const mExp = D.monsters.A.exp;
 const rRip = E.fight(0, -1, { block: true });
 ok(rRip.blocked === true && rRip.riposte > 0 && s.exp === expBefore + rRip.riposte + mExp, '格挡反击：卸掉的伤三成化为经验');
-ok(rRip.damage === Math.round(rawPred.damage * 0.45), '承伤按 45% 结算');
+ok(rRip.damage === Math.round(rawPred.damage * 0.42), '承伤按 42% 结算');
 // 铁壁之誓不能格挡：商店不卖，拾取也学不会
 E.newGame('guard');
 s = E.state();
@@ -495,6 +523,65 @@ s.hp = 500; s.x = 8; s.y = 8;
 ev = E.tryMove(0, 1);
 ok(ev.at.heal === Math.round(s.maxHp * 0.13), '三枚回血环叠加：首访回 13%');
 
+// ---------- 9h++. 扩容池 4 枚新锁环：干粮 / 秤砣 / 罗盘 / 落款 ----------
+// 池子每章 7 抽 3（组合数 20→35），新环只改资源与信息，不碰攻防
+{
+  [1, 2, 3, 4].forEach((c) => {
+    const pool = D.ringPools[c];
+    ok(pool.length === 7, `第 ${c} 章锁环池 7 枚`);
+    ok(pool.every((id) => D.rings[id] && D.rings[id].chapter === c), `第 ${c} 章池内 id 与章号一致`);
+  });
+
+  // 干粮之环：药水回复 +30%（地图与商店同口径）
+  E.newGame();
+  s = E.state();
+  s.hp = 100; s.maxHp = 5000;
+  s.maps[0][8][3] = 'p';             // (3,8) 放一瓶红药水（160）
+  s.x = 2; s.y = 8;
+  ev = E.tryMove(1, 0);
+  ok(ev.type === 'pickup' && ev.short === '+160❤', '无干粮之环：红药水 +160');
+  E.newGame();
+  s = E.state();
+  s.flags.rings = ['ration'];
+  s.hp = 100; s.maxHp = 5000;
+  s.maps[0][8][3] = 'p';
+  s.x = 2; s.y = 8;
+  ev = E.tryMove(1, 0);
+  ok(ev.type === 'pickup' && ev.short === '+208❤', '干粮之环：红药水 +208（160×1.3）');
+  // 商店买的药水同口径
+  s.gold = 999;
+  const buyRes = E.buy('potion');
+  ok(buyRes.type === 'buy' && buyRes.healed === 208, '干粮之环：商店药水也按 +30% 结算');
+
+  // 秤砣之环：钥匙价目 −25%（药水不降价）
+  E.newGame();
+  s = E.state();
+  const keyItem = D.shop.find((x) => x.id === 'key');
+  const potionItem = D.shop.find((x) => x.id === 'potion');
+  const keyBase = E.priceOf(keyItem);
+  const potionBase = E.priceOf(potionItem);
+  s.flags.rings = ['bargain'];
+  ok(E.priceOf(keyItem) === Math.round(keyBase * 0.75), '秤砣之环：黄钥匙价 −25%');
+  ok(E.priceOf(D.shop.find((x) => x.id === 'rkey')) === Math.round(45 * 0.75), '秤砣之环：红钥匙价也 −25%');
+  ok(E.priceOf(potionItem) === potionBase, '秤砣之环：药水价不动');
+
+  // 罗盘之环：本层剩余可捡数只数道具与金币
+  E.newGame();
+  s = E.state();
+  const n0 = E.floorPickupCount();
+  ok(n0 > 0, '罗盘：首层能数出可捡的东西');
+  // 动态找一格可捡的（地图会调整，不写死坐标）
+  let pickAt = null;
+  for (let yy = 0; yy < 11 && !pickAt; yy++) {
+    for (let xx = 0; xx < 11 && !pickAt; xx++) {
+      const ch = s.maps[0][yy][xx];
+      if (ch === '$' || (D.items[ch] && D.items[ch].type !== 'story')) pickAt = [xx, yy];
+    }
+  }
+  s.maps[0][pickAt[1]][pickAt[0]] = '.';
+  ok(E.floorPickupCount() === n0 - 1, '罗盘：拿走一件，计数 −1');
+}
+
 E.newGame('guard');
 s = E.state();
 E.grantBlock();
@@ -552,7 +639,7 @@ s.hp = 5000; s.x = 2; s.y = 3;
 ok(E.canBlock(), '新的一层可以格挡');
 const rawDmg = E.predict('A').damage;
 const rBlock = E.fight(0, -1, { block: true });
-ok(rBlock.blocked === true && rBlock.damage === Math.round(rawDmg * 0.6), '格挡后承伤按 60% 结算');
+ok(rBlock.blocked === true && rBlock.damage === Math.round(rawDmg * 0.55), '格挡后承伤按 55% 结算');
 ok(rBlock.raw === rawDmg, '同时保留原始承伤供界面显示');
 ok(!E.canBlock(), '本层格挡用掉后不可再用');
 s.floor = 1;
@@ -577,7 +664,7 @@ s.hp = batRaw - 1;                      // 不挡必死
 ok(!E.predict('A').win, '残血时普通预测：必死');
 const pOpt = E.predictOpt('A', true);
 ok(pOpt && pOpt.win === true && pOpt.blockSave === true, '残血但可用格挡：predictOpt 给出活路');
-ok(E.fight(0, -1, { block: true }).damage === Math.round(batRaw * 0.6), '按格挡结算，血量确实撑得住');
+ok(E.fight(0, -1, { block: true }).damage === Math.round(batRaw * 0.55), '按格挡结算，血量确实撑得住');
 // 格挡用掉后，同样的残血不再有活路
 s.hp = Math.round(batRaw * 0.6) - 1;
 ok(!E.predictOpt('A', true).win, '格挡用尽后残血：无活路');
@@ -742,9 +829,9 @@ if (ringOpts[0] === 'coin') ok(s.gold === ringGold0 + 200, '铜币之环立即�
 
 s.flags.rings = ['parry'];
 s.atk = 60; s.def = 30; s.hp = 5000; s.maxHp = 5000;
-ok(E.ringBlockScale() === 0.5, '断刃之环把格挡比例改成 0.5');
+ok(Math.abs(E.ringBlockScale() - 0.45) < 1e-9, '断刃之环把格挡比例再收 0.1（0.55→0.45）');
 const dBase = E.fightDamage('F', false).damage;
-ok(E.fightDamage('F', true).damage === Math.round(dBase * 0.5), '演出用的真实承伤与格挡比例一致');
+ok(E.fightDamage('F', true).damage === Math.round(dBase * 0.45), '演出用的真实承伤与格挡比例一致');
 ok(dBase === E.predict('F').damage, '无修正时真实承伤等于预测承伤');
 ok(E.hasRing('parry') && E.rings().indexOf('parry') >= 0, '锁环查询接口一致');
 

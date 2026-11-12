@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>opendata-check</title>
+<style>
+html,body{margin:0;background:#05070c}
+#c{display:block;width:430px;height:620px}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script src="../wxgame/openDataContext/index.js"></script>
+<script>
+// 开放数据域榜单的 H5 调试页：注入假好友数据，检查排版、截断、空状态
+// 用法：?case=full|empty|loading|error|few（默认 full）
+const q = new URLSearchParams(location.search);
+const kase = q.get('case') || 'full';
+const canvas = document.getElementById('c');
+
+// 微信 getFriendCloudStorage 的原始形状：nickname + KVDataList，正好测 normalize
+const full = [
+  { nickname: '沈知白', KVDataList: [
+    { key: 'tm_floor', value: '13' }, { key: 'tm_time', value: '1120' },
+    { key: 'tm_vow', value: 'guard' }, { key: 'tm_ending', value: 'true' },
+    { key: 'tm_seal', value: 'name' }, { key: 'tm_goals', value: '4' }] },
+  { nickname: '一个名字特别长的塔友', KVDataList: [
+    { key: 'tm_floor', value: '12' }, { key: 'tm_time', value: '980' },
+    { key: 'tm_vow', value: 'greed' }, { key: 'tm_ending', value: 'plain' },
+    { key: 'tm_seal', value: 'clear' }, { key: 'tm_goals', value: '3' }] },
+  { nickname: '阿箬', KVDataList: [
+    { key: 'tm_floor', value: '12' }, { key: 'tm_time', value: '1340' },
+    { key: 'tm_vow', value: 'mercy' }, { key: 'tm_ending', value: 'plain' },
+    { key: 'tm_seal', value: 'ward' }, { key: 'tm_goals', value: '2' }] },
+  { nickname: '老秤', KVDataList: [
+    { key: 'tm_floor', value: '9' }, { key: 'tm_time', value: '760' },
+    { key: 'tm_vow', value: 'none' }, { key: 'tm_ending', value: 'plain' }, { key: 'tm_seal', value: '' }] },
+  { nickname: '咸鱼', KVDataList: [
+    { key: 'tm_floor', value: '8' }, { key: 'tm_time', value: '95' },
+    { key: 'tm_vow', value: 'ascetic' }, { key: 'tm_ending', value: 'plain' }, { key: 'tm_seal', value: '' }] },
+  { nickname: '蜡', KVDataList: [
+    { key: 'tm_floor', value: '6' }, { key: 'tm_time', value: '540' },
+    { key: 'tm_vow', value: 'none' }, { key: 'tm_ending', value: 'plain' }, { key: 'tm_seal', value: '' }] },
+  { nickname: '看塔人', KVDataList: [
+    { key: 'tm_floor', value: '3' }, { key: 'tm_time', value: '210' },
+    { key: 'tm_vow', value: 'mercy' }, { key: 'tm_ending', value: 'plain' }, { key: 'tm_seal', value: '' }] },
+  // 没进过塔的名录：层数 0 应被过滤（不占榜位）
+  { nickname: '路过的人', KVDataList: [{ key: 'tm_floor', value: '0' }, { key: 'tm_time', value: '0' }] },
+];
+
+if (kase === 'empty') TMOpenData.draw(canvas, [], { w: 430, h: 620, dpr: 2 });
+else if (kase === 'loading') TMOpenData.draw(canvas, [], { w: 430, h: 620, dpr: 2, loading: true });
+else if (kase === 'error') TMOpenData.draw(canvas, [], { w: 430, h: 620, dpr: 2, error: true });
+else if (kase === 'few') TMOpenData.draw(canvas, full.slice(0, 2), { w: 430, h: 620, dpr: 2 });
+else {
+  const r = TMOpenData.draw(canvas, full, { w: 430, h: 620, dpr: 2 });
+  // 结果写 title 供无头脚本断言：榜位数 + 过滤后的条数
+  document.title = 'OD|rows=' + r.rows.length + '|shown=' + r.shown;
+}
+</script>
+</body>
+</html>

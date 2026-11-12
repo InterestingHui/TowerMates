@@ -1,0 +1,2 @@
+<!-- H5 全屏承载页：不做任何包装 UI，避免和游戏内 HUD 打架 -->
+<web-view src="{{url}}" bindload="onViewLoad" binderror="onError" bindmessage="onMessage" />

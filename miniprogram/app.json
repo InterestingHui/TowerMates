@@ -1,0 +1,12 @@
+{
+  "pages": ["pages/index/index"],
+  "window": {
+    "navigationBarTitleText": "TowerMates",
+    "navigationBarBackgroundColor": "#07090f",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#07090f",
+    "backgroundTextStyle": "dark"
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

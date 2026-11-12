@@ -1,0 +1,2 @@
+/* 页面本身不需要样式：web-view 会铺满整屏 */
+page { background: #07090f; }
