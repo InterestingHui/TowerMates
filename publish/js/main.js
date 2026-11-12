@@ -1309,14 +1309,21 @@
     const rows = boardFilter === 'all' ? all : all.filter((r) => (r.vow || 'none') === boardFilter);
     const myFloor = mine.length ? Math.max.apply(null, mine.map((x) => x.floor || 0)) : 0;
     const crushed = myFloor > 0 && all[0] && all[0].mine !== true && (all[0].floor || 0) < myFloor;
+    // 影子勇者的脚注：名字后面带一句他们的终点——川那句与断剑小传、薇拉台词三方互证
+    const RIVAL_NOTE = {
+      '第二位勇者·鸦': '停在第 2 层',
+      '第五位勇者·岩': '停在第 3 层',
+      '第八位勇者·川': '剑断在第五层',
+    };
     $('boardList').innerHTML = (rows.length ? (crushed && boardFilter === 'all'
       ? '<div class="bd-note">影子勇者都停在前五层。你已经走到他们没到过的地方。</div>'
       : '') + rows.slice(0, 10).map((r, i) => {
       const v = D.vows[r.vow] || D.vows.none;
       const name = r.mine ? '你' : r.rival ? `挑战·朋友 第 ${r.floor} 层` : r.name;
+      const note = !r.mine && !r.rival && RIVAL_NOTE[r.name] ? `<i class="bd-rnote">${RIVAL_NOTE[r.name]}</i>` : '';
       return `<div class="bd-row ${r.mine ? 'mine' : ''} ${r.rival ? 'rival' : ''}">
         <span class="bd-rank">${i + 1}</span>
-        <span class="bd-name">${name}${v.name === '不立誓' ? '' : `<i class="bd-vowtag">${v.tag[0]}</i>`}</span>
+        <span class="bd-name">${name}${note}${v.name === '不立誓' ? '' : `<i class="bd-vowtag">${v.tag[0]}</i>`}</span>
         <span class="bd-end ${r.ending === 'true' ? 't' : ''}">${endName(r.ending)}</span>
         ${r.margin ? `<span class="bd-margin" title="决战余裕：打完碑魔剩下多少血">${r.margin}</span>` : ''}
         <span class="bd-floor">${r.floor}层</span>
@@ -2466,6 +2473,16 @@
         ? '你把签好的盾谱留在了塔里。名字还没有传出去，但招式会。'
         : '';
     $('endEpi').textContent = (E.epilogue || '') + (heartLine ? ' ' + heartLine : '');
+    // 先清掉上一局可能插入的动态行（秤的纸条 / 断剑去处）——textContent 重写不会移除兄弟节点
+    el.endOverlay.querySelectorAll('.end-epi-scale, .end-epi-sword').forEach((n) => n.remove());
+    // 断剑的去处（带剑通关才有）：结局正文追加一句，剑跟着后日谈走
+    // 平结局=熔剑入灯，刻上他的名字；真结局=王冠成了灯座，剑立在海崖，剑尖指着塔顶
+    const swordLine = s.flags.relic_edge
+      ? (s.ending === 'true'
+        ? '断剑没有跟你下山。它立在海崖上，剑尖朝着塔顶——川没能走完的路，从今往后有人替他看着。'
+        : '那半截断剑，你熔灯的那天一起投进了火里。灯座上多刻了一个「川」字——剑沉，灯座要厚一点才稳。')
+      : '';
+    if (swordLine) $('endEpi').textContent += ' ' + swordLine;
     // 秤的告别：第八位勇者的军需官跟了你一路，结局这一刻他的账清了。
     // 真结局才亮（普通结局没人替川收尾）；带过断剑时，纸条直接写给他等了八十年的人。
     const scaleNote = s.ending === 'true' && s.flags.relic_edge
@@ -2539,6 +2556,8 @@
       const head = newly.slice(0, 4).join('、') + (newly.length > 4 ? ` 等 ${newly.length} 件` : '');
       brief.push(`图鉴新收录：${head}（还差 ${collectionRemain()} 件集齐）`);
     }
+    // 带着川的断剑走到结局：给他一个名分（收集向的隐性认可，不加余烬）
+    if (s.flags.relic_edge) brief.push(`<i class="brief-tip" title="第八位勇者川的断剑，一直在你腰上。他没能走完的路，你替他走完了。">替川走到了塔顶 ⓘ</i>`);
     Meta.add(emberGain);
     // IAA 卡点：余烬翻倍（Ads 未接入时按钮不出现，见 adOfferDouble）
     adOfferDouble(emberGain, ed);
@@ -3681,6 +3700,8 @@
     Settings, hintMs, openHintBook, showStuck, clearStuck,
     openMonsterProbe, showDeath, reviveFromAd, adOfferRevive, adOfferDouble,
     resetDeath: () => { deathShown = false; },
+    // 测试专用：showEnd 有 endShown 单次门，自动化要重播结算页时先解开门（玩家路径不经过它）
+    resetEndShown: () => { endShown = false; },
     openCollection, closeCollection, collectionText, rememberCollection, collectionRemain, collectionNext, showColDetail, ringStatBoard,
   };
 

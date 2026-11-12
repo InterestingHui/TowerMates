@@ -106,6 +106,27 @@ function clickEl(el) { el.dispatchEvent(new MouseEvent('click', { bubbles: true,
         rec('C2 点击后余烬增加', after > before, `${before} → ${after}`);
         rec('C3 按钮换成已入账标记', !!done, done ? done.textContent.trim() : '没有');
       }
+      // D. 结局动态行清理：真结局+断剑留下秤的纸条/断剑去处，切平结局重播不得残留
+      {
+        const s2 = w.Engine.state();
+        s2.ending = 'true'; s2.flags.relic_edge = true;
+        w.__tm.resetEndShown();          // 解开 endShown 单次门（C 段已消费过一次）
+        w.__tm.showEnd();
+        await wait(400);
+        const hadNote = !!d.querySelector('.end-epi-scale');
+        rec('D1 真结局+断剑出现秤的纸条', hadNote, hadNote ? d.querySelector('.end-epi-scale').textContent.slice(0, 16) : 'MISSING');
+        const epiTxt = d.getElementById('endEpi').textContent;
+        rec('D1b 断剑去处写进后日谈', epiTxt.includes('川') && epiTxt.includes('断剑'), epiTxt.slice(-24));
+        // 切平结局重播——上一局的纸条与断剑句必须被清干净
+        w.__tm.resetEndShown();
+        s2.ending = 'plain'; s2.flags.relic_edge = false;
+        s2.flags.hasBlock = false; s2.flags.hasBlock2 = false;
+        w.__tm.showEnd();
+        await wait(400);
+        const stale = d.querySelector('.end-epi-scale');
+        rec('D2 切平结局后纸条不残留', !stale, stale ? '残留：' + stale.textContent.slice(0, 16) : '已清');
+        rec('D2b 断剑去处不残留', !d.getElementById('endEpi').textContent.includes('断剑'), d.getElementById('endEpi').textContent.slice(-20));
+      }
     }
 
     out.textContent = R.map((r) => `${r.ok ? '✓' : '✗'} ${r.name}${r.note ? ' — ' + r.note : ''}`).join('\n')

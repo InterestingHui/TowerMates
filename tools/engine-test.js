@@ -907,6 +907,7 @@ ok(String(S.princessPlain[1][1]).includes('第五层'), '薇拉台词与他死�
 ok(String(S.princessPlain[3][1]).includes('窗台') && String(S.princessPlain[3][1]).includes('海崖'), '绣帕传递链在薇拉台词里点破（窗台 → 风 → 海崖 → 国王）');
 ok(Array.isArray(S.princessPlainSword) && S.princessPlainSword.length === S.princessPlain.length && /半截剑|断剑/.test(String(S.princessPlainSword[1][1])), 'princessPlainSword 变体存在：带断剑时薇拉认出剑，行数与原段一致');
 ok(String(S.merchant[2][1]).includes('死在了上面'), '秤的铺垫仍在（断剑小传引用它）');
+ok(S.shadowRivals.some((r) => r.name === '第八位勇者·川' && r.floor === 5), '榜单第八勇者·川 floor:5（断剑层/薇拉台词互证）');
 
 // 生僻字闸门：文案里不再出现玩家基本不认识的字（2026-11-12 用户反馈「门闩」的「闩」；同日用户再次点名：Boss 名也不许用生僻字，砚/炬/铎/砧/磐/岚 已全部改名并拉黑）
 const RARE_CHARS = ['闩', '掳', '蛭', '饯', '掸', '龛', '薪', '砚', '炬', '铎', '砧', '磐', '岚'];

@@ -48,6 +48,8 @@
   f.src = src;
 
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const Q2 = [];   // 场景内往 #err 追加输出（dump-dom 不展开 iframe 内 DOM），onload 尾部统一落盘
+  const q2push = (t) => Q2.push(t);
 
   f.onload = async () => {
     const w = f.contentWindow, d = f.contentDocument;
@@ -168,6 +170,9 @@
         } catch (e) {}
         T.openBoard();
         await wait(400);
+        // 脚注验证写进外层 #err（dump-dom 不展开 iframe 内部 DOM）
+        q2push('rnoteChuan=' + (d.getElementById('boardList').textContent.includes('剑断在第五层') ? 'in' : 'MISS')
+          + ' rnoteYan=' + (d.getElementById('boardList').textContent.includes('停在第 3 层') ? 'in' : 'MISS'));
       } else if (scene === 'codex') {
         d.getElementById('btnNew').click();
         await wait(200);
@@ -749,6 +754,13 @@
         await wait(260);
         const se = E.state();
         se.ending = 'plain'; se.won = true; se.floor = 11; se.flags.killCount = 40;
+        // 先用「真结局+断剑」播一次（留下秤的纸条与断剑去处），再切平结局重播——
+        // 验证动态行被正确清理，不残留到第二局（6592dc7 曾埋过这个 bug）
+        se.ending = 'true'; se.flags.relic_edge = true;
+        T.showEnd();
+        await wait(400);
+        se.ending = 'plain';
+        se.flags.relic_edge = false; se.flags.hasBlock = false; se.flags.hasBlock2 = false;
         T.showEnd();
         await wait(600);
       } else if (scene === 'collection') {
@@ -773,7 +785,7 @@
         await wait(200);
       }
       await wait(600);
-      const q2 = [];
+      const q2 = Q2.slice();   // 场景分支里可能已经 q2push 过
       if (q.get('measure') === '1') ['bsHeroBar','bsFoeBar','bsHero','bsFoe','bsName','battleScene'].forEach((id) => {
         const n = d.getElementById(id);
         if (!n) return;
@@ -782,7 +794,8 @@
       });
       if (q.get('scene') === 'end') {
         const p = d.querySelector('.end-epi-scale');
-        q2.push('scaleNote=' + (p ? p.textContent.slice(0, 24) : 'MISSING'));
+        q2.push('scaleNote=' + (p ? p.textContent.slice(0, 24) : 'MISSING')
+          + ' swordLine=' + (d.getElementById('endEpi').textContent.includes('断剑') ? 'in' : 'MISS'));
       }
       errBox.textContent = (errs.length ? 'JS 错误：\n' + errs.join('\n') : '') + (q2.length ? '\n' + q2.join('\n') : '');
     } catch (e) {
