@@ -101,7 +101,7 @@ if (!fs.existsSync(GAME)) {
 // web 版源码是 js/ 那一份唯一真相；微信壳要么 web-view 引 H5，要么另写 canvas 版。
 // 如果这里出现 data.js / engine.js / main.js 的副本，两边必然漂移——直接判红。
 console.log('== 源码单一真相 ==');
-const GAME_SRC = ['data.js', 'engine.js', 'main.js', 'render.js', 'story.js', 'achievements.js'];
+const GAME_SRC = ['data.js', 'engine.js', 'main.js', 'render.js', 'story.js', 'achievements.js', 'challenge.js'];
 const dupes = [];
 (function walk(d) {
   if (!fs.existsSync(d)) return;
@@ -113,6 +113,18 @@ const dupes = [];
 })(WX);
 if (dupes.length) err(`wechat/ 里出现游戏源码副本（会和 js/ 漂移）：${dupes.join('、')}`);
 else okk('wechat/ 只放壳与开放数据域，游戏源码仍以 js/ 为唯一真相');
+
+// ---------- 4. 挑战码必须是「能直接搬进微信壳」的纯函数 ----------
+// 挑战码（含 v4 的决战余裕）将来要在小游戏里编解码：它不许碰 DOM，
+// 否则微信版接榜单那天又得重写一份——这就是「余裕同步」的前置条件。
+console.log('== 挑战码可移植性 ==');
+const chPath = path.join(ROOT, 'js', 'challenge.js');
+const chSrc = fs.existsSync(chPath) ? fs.readFileSync(chPath, 'utf8') : '';
+if (!chSrc) err('找不到 js/challenge.js');
+else if (/\bdocument\b|\bwindow\.document\b/.test(chSrc)) err('js/challenge.js 里出现 document，微信壳没法直接复用');
+else okk('js/challenge.js 不依赖 DOM，可被小游戏直接 require');
+if (chSrc && !/TM4\./.test(chSrc)) err('挑战码没有 v4 前缀（决战余裕字段会丢）');
+else if (chSrc) okk('挑战码带 v4（余裕字段）');
 
 console.log(
   bad === 0
