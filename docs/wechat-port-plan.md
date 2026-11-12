@@ -42,15 +42,15 @@
 web-view 只能打开**已配置的业务域名**，配置时要往该域名根目录放一个微信校验文件。
 而现在的 H5 挂在 `towermates.app.workbuddy.host`（托管域名，根目录不可写）
 → **B 路线也需要一个自己的已备案域名反代**，卡点从「资质」变成「域名备案 1–20 个工作日」。
-代码侧的壳已经备好（`miniprogram/`），域名到位后填 AppID + 换 H5 地址即可。
+代码侧的壳已经备好（`wechat/miniprogram/`），域名到位后填 AppID + 换 H5 地址即可。
 
 ## 四、提审前可以先干的技术项（不依赖资质）
 
-- [x] 开放数据域榜单绘制（2026-11-12）：`wxgame/openDataContext/index.js` 一套绘制 + 排序 + 空态，
+- [x] 开放数据域榜单绘制（2026-11-12）：`wechat/wxgame/openDataContext/index.js` 一套绘制 + 排序 + 空态，
       H5 调试页 `tools/opendata-check.html` 出三态截图，10 项纯函数单测
 - [ ] 把 `render.js` 与 `main.js` 的边界再切一刀：抽出「画什么」与「怎么交互」，为 A 路线留接口（半天）
 - [ ] 开放数据域子域的榜单绘制实现（纯 canvas，可先在 H5 用同一份代码画调试）(1 天)
-- [x] 小程序壳骨架（`miniprogram/`，2026-11-12）：app.json + web-view 页 + 配置说明与五个坑。
+- [x] 小程序壳骨架（`wechat/miniprogram/`，2026-11-12）：app.json + web-view 页 + 配置说明与五个坑。
       待 AppID 与备案域名，填两个值即可提审
 - [ ] 小游戏工程壳骨架（`game.json` 只需 `deviceOrientation` + `showStatusBar`，半天；没有 A 路线决策就先不建）
 - [ ] 首次进入的微信环境探测与降级提示（已由 `WXBridge.available()` 覆盖，无需改动）
@@ -65,3 +65,10 @@ web-view 只能打开**已配置的业务域名**，配置时要往该域名根�
 
 「微信版提审包」这条待办**不能整体推进**——它卡在路线选择上，而路线选择取决于你想先验证什么
 （社交红利 vs 微信内可玩）。已把可做的技术项拆出来（第四节），其余等路线定了再动。
+
+## 目录位置（2026-11-12 调整）
+
+小程序壳与小游戏工程统一放在 `wechat/` 下（`wechat/miniprogram/`、`wechat/wxgame/`），
+**不要挪回仓库根**：发布工具会把根的任意一级子目录里带 `project.config.json` / `app.json` 的工程
+识别为「小程序工程」，从而把整站的 Web 发布误判成小程序发布，报
+`SITES_APP_CREATE_FAILED · 云端类型不是 miniprogram`。收进一层目录后 Web 发布恢复正常。
