@@ -2539,7 +2539,7 @@
     }
     // 榜单排序用：同层同结局时，余裕高的排前面
     sum.margin = margin ? margin.grade : null;
-    brief.push(`✦ 余烬 +${emberGain}`);
+    brief.push(`✦ +${emberGain}`);
     // 摘要区默认收起后半段（现在常有 6–8 枚胶囊，全铺开会把结算面板顶得很长）
     const BRIEF_SHOW = 4;
     const briefEl = $('endBrief');
@@ -2617,7 +2617,7 @@
       const paint = () => {
         // 誓约全解锁后，余烬改去点亮层灯：一层一盏，纯收藏，不加战力
         const lampRow = !lockedVow
-          ? `<div class="mem-lamps"><span>✦ 余烬 ${Meta.ember} · 层灯 ${Meta.lamps}/${LAMP_MAX}</span>
+          ? `<div class="mem-lamps"><span>✦ ${Meta.ember} · 层灯 ${Meta.lamps}/${LAMP_MAX}</span>
               <button class="lamp-btn" data-lamp="1" ${Meta.ember < LAMP_COST || Meta.lamps >= LAMP_MAX ? 'disabled' : ''}>点亮一盏（${LAMP_COST} ✦）</button></div>`
           : '';
         memWrap.innerHTML = `<div class="mem-grid">${memItems.map((t) => `<div>${t}</div>`).join('')}</div>`
@@ -2667,7 +2667,7 @@
       const mem = Meta.memory;
       const parts = [];
       if ((mem.runs || 0) > 0) parts.push(`第 ${mem.runs + 1} 次进塔 · 最远第 ${mem.deepest || 0} 层`);
-      if (Meta.ember > 0) parts.push(`✦ 余烬 ${Meta.ember}`);
+      if (Meta.ember > 0) parts.push(`✦ ${Meta.ember}`);
       if (Meta.lamps > 0) parts.push(`层灯 ${Meta.lamps}/${LAMP_MAX}`);
       em.textContent = parts.length ? parts.join(' · ') : '';
     }
@@ -3461,7 +3461,8 @@
     const emberLine = $('vowEmber');
     if (emberLine) {
       if (Meta.ember > 0 || lockedIds.length) {
-        emberLine.textContent = `✦ 余烬 ${Meta.ember}${lockedIds.length ? ` · 可攒着解锁下面的锁条` : ''}`;
+        // 只显示数量本身，不带任何附注（用户要求：展示余烬后不加乱七八糟的文字）
+        emberLine.textContent = `✦ ${Meta.ember}`;
         emberLine.hidden = false;
       } else {
         emberLine.hidden = true;

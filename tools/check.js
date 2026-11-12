@@ -178,13 +178,24 @@ D.shop.forEach((it) => {
 // 老分数制时代留的 60/120 要 7~20 局，PROGRESS P-1 记过这个断头问题。
 const RUN_EMBER = 16;
 const vowIds = Object.keys(D.vows);
-const freeMax = Math.max(...vowIds.filter((id) => !D.vows[id].ember).map((id) => D.vows[id].reward || 0));
+// 守门改为「回报随难度单调递增」：锁定誓约必须比所有更简单的誓约回报高。
+// 旧规则（锁定誓约回报 > 免费誓约最高回报）已废——2026-11-13 起难度排序以
+// sim「真实终局血量比」实测为准，ascetic(65.7%) 比 guard(50.4%) 简单，回报就该更低，
+// 哪怕 ascetic 是余烬解锁的、guard 是免费的。
+const sorted = vowIds.slice().sort((a, b) => (D.vows[a].reward || 0) - (D.vows[b].reward || 0));
+const rewardRank = new Map(sorted.map((id, i) => [id, i]));
+const diffRank = new Map(vowIds
+  .slice().sort((a, b) => (D.vows[a].diff || 0) - (D.vows[b].diff || 0))
+  .map((id, i) => [id, i]));
 vowIds.forEach((id) => {
   const v = D.vows[id];
   if (typeof v.reward !== 'number' || v.reward < 0) err(`誓约 ${id} 缺通关额外余烬`);
   if (!v.ember) return;
   if (v.ember > RUN_EMBER * 3) err(`「${v.name}」解锁成本 ${v.ember} 超过 3 局常规通关（${RUN_EMBER}×3）`);
-  if (v.reward <= freeMax) err(`「${v.name}」回报 ${v.reward} 不该低于免费誓约上限 ${freeMax}`);
+});
+// 回报次序必须与难度次序完全一致（D.vows 键序即难度序，diff 字段显式声明）
+vowIds.forEach((id, i) => {
+  if (rewardRank.get(id) !== i) err(`「${D.vows[id].name}」回报 ${v.reward} 与难度序不一致（应排第 ${i + 1}，实际第 ${rewardRank.get(id) + 1}）`.replace('v.reward', String(D.vows[id].reward)));
 });
 
 console.log(bad === 0 ? '\n✓ 地图校验通过' : `\n✗ 共 ${bad} 个问题`);
