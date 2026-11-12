@@ -58,7 +58,9 @@ function predict(ch) {
   let damage = hits * per;
   if (damage > 0 && hasRelic('ward')) damage = Math.max(1, Math.floor(damage * 0.88));
   if (damage > 0 && hasRing('bell') && m.boss) damage = Math.round(damage * 0.92);
-  return { win: s.hp > damage, damage, rounds };
+  // 铁壁之誓：真实承伤 ×1.18，生死判定与引擎一致（放行的战斗必然存活）
+  const real = VOW === 'guard' && damage > 0 ? Math.round(damage * 1.18) : damage;
+  return { win: s.hp > real, damage, real, rounds };
 }
 
 function levelUp() {

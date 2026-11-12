@@ -1405,6 +1405,49 @@
     }
     Achievements.evaluate('kill', s2, notifyAchievement);
     refreshHud();
+    // 战后死亡结算：誓约乘区可能让真实承伤超出预判（引擎已把血钳到 0、置 over）
+    if (s2.over && s2.hp <= 0) showDeath(res.monster, res.damage);
+  }
+
+  // ---------- 死亡：塔收下了这一局 ----------
+  let deathShown = false;
+  function showDeath(monster, damage) {
+    if (deathShown) return;
+    deathShown = true;
+    stopWalk();
+    Sound.stopMusic();
+    Sound.stopMotif();
+    Sound.play('hitBig');
+    const s = Engine.state();
+    if (!REDUCED()) {
+      Renderer.shake(500, 8);
+      Renderer.burst(s.x * TN() + TN() / 2, s.y * TN() + TN() / 2, {
+        count: 26, colors: ['#ff8f8f', '#c9524a', '#5a2020'], speed: 120, life: [500, 1100], grav: 70, size: [2, 4],
+      });
+    }
+    $('endEmoji').textContent = '💀';
+    $('endTitle').textContent = '塔收下了你';
+    $('endDesc').textContent = `你倒在了${monster ? monster.name : '塔里'}的手里。塔把这一局的余烬收进墙上，等下一个人。`;
+    $('endBody').textContent = '';
+    $('endEpi').textContent = `第 ${s.floor + 1} 层 · 挨了 ${damage} 点。塔不怪你——它只是照章办事。`;
+    $('endScore').innerHTML = `<span class="es-meta">第 ${s.floor + 1} 层 · 击杀 ${s.flags.killCount || 0} · 用时 ${fmtTime(Engine.summary().time)}</span>
+      <span class="es-num">✦ ${Math.floor((s.flags.killCount || 0) / 5)}<small>余烬</small></span>`;
+    $('endEmberDetail').innerHTML = '';
+    $('endTag').textContent = '';
+    $('endBrief').innerHTML = '<span>败局也算履历：击杀折成余烬带回。</span>';
+    $('endMemory').innerHTML = '';
+    $('endStats').innerHTML = `
+      <div>倒在 <b>${monster ? monster.name : '塔里'}</b></div>
+      <div>深度 <b>第 ${s.floor + 1} 层</b></div>
+      <div>击杀 <b>${s.flags.killCount || 0}</b></div>
+      <div>誓约 <b>${(D.vows[s.flags.vow] || D.vows.none).name}</b></div>
+    `;
+    $('endCode').textContent = '—— 未达结局 ——';
+    const emberGain = Math.floor((s.flags.killCount || 0) / 5);
+    Meta.recordRun({ ending: null, won: false, vow: s.flags.vow || 'none', fullChapters: 0, heart: null, floor: s.floor, time: Engine.summary().time, seal: 'rough', ember: emberGain });
+    Meta.add(emberGain);
+    refreshStartBadges();
+    el.endOverlay.classList.add('show');
   }
 
   // ---------- 章末回响：击败章末锁匠 → 锁环三选一 ----------

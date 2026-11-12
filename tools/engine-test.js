@@ -392,6 +392,25 @@ const guardRaw = E.predict('A').damage;
 const gRes = E.fight(0, -1);
 ok(gRes.damage === Math.round(guardRaw * 1.18), '铁壁之誓：承伤按 +18% 结算');
 
+// ---------- 9h+. 铁壁生死口径：真实承伤超出预判时必须拦住（防负血走塔） ----------
+E.newGame('guard');
+s = E.state();
+s.flags.relic_ward = true;            // 借守誓之盾造出「raw < hp < raw×1.18」的夹缝
+s.atk = 57; s.def = 37;
+s.flags.kill_A = true;
+const rawWard = Math.floor(700 * 0.88);   // 锈犬 700 → 616
+s.hp = rawWard + 20;                      // 636：raw 616 < 636 < 727
+s.maps[s.floor][3][2] = 'I'; s.x = 2; s.y = 4;
+const gapPred = E.predictOpt('I', true);
+ok(gapPred.win === false, '铁壁夹缝：预判用真实承伤，不放行（636 < 616×1.18）');
+const gapFight = E.fight(0, -1);
+ok(gapFight.type === 'refuse', '铁壁夹缝：fight 拒绝，不会把玩家打进负血');
+s.hp = Math.round(rawWard * 1.18) + 1;    // 728：真实承伤也扛得住
+const okPred = E.predictOpt('I', true);
+ok(okPred.win === true, '血过真实承伤线后预判放行');
+const okFight = E.fight(0, -1);
+ok(okFight.type === 'fight' && s.hp > 0 && !s.over, '放行后正常结算，血不为负');
+
 E.newGame('greed');
 s = E.state();
 ok(E.priceOf(D.shop.find((x) => x.id === 'atk')) === 78, '贪婪之誓：价目 +30%（60 → 78）');

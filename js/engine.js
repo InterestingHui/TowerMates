@@ -318,16 +318,20 @@
 
   // 带格挡视角的预测：残血玩家可以用"这一层还没用过的格挡"换命——
   // 以前 win 判定不含格挡，会被"这场战斗会要你的命"拦住，玩家明明算得出活路
+  // 生死口径与 fight 一致：用「真实承伤」（誓约/锁环乘区在内）判定，
+  // 避免出现「预判能赢、开打被拒」的演出落差（铁壁 ×1.18 下会出现）
   function predictOpt(ch, allowBlock) {
     const p = predictBase(ch);
-    if (!p || p.damage === null || p.win) return p;
+    if (!p || p.damage === null) return p;
+    const fd = fightDamage(ch, false);
+    if (fd && s.hp > fd.damage) return p;
     if (allowBlock && canBlock()) {
       const b = fightDamage(ch, true);
       if (b && s.hp > b.damage) {
         return Object.assign({}, p, { win: true, reason: '', blockSave: true, blockDamage: b.damage });
       }
     }
-    return p;
+    return Object.assign({}, p, { win: false, reason: p.reason || '生命不足，这场战斗会要你的命' });
   }
 
   // 图鉴用：加 1 点攻 / 1 点防，各能少挨多少血（含十字架、守誓之盾等乘区）
@@ -796,6 +800,14 @@
     const fd = fightDamage(ch, blocked);
     const dmg = fd.damage;
     s.hp -= dmg;
+    // 誓约/锁环乘区可能让真实承伤超出预判（如铁壁 ×1.18）：扣到 0 以下就是死，
+    // 钳住并置 over，主循环据此弹死亡结算——绝不允许负血继续走塔
+    if (s.hp <= 0) {
+      s.hp = 0;
+      s.over = true;
+      save();
+      emit('dead', { name: m.name, damage: dmg });
+    }
     setTile(nx, ny, '.');
     moveTo(nx, ny);
     const goldMul = (vow() === 'greed' ? 1.7 : 1) * (hasRelic('coin') ? 2 : 1);
