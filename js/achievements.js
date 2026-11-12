@@ -33,6 +33,7 @@
     { id: 'vow_all', name: '三誓皆立', emoji: '📜', desc: '三条誓约各走到一次结局' },
     { id: 'ring_first', name: '第一道环', emoji: '⭕', desc: '装上第一枚锁环' },
     { id: 'ring_four', name: '四环齐备', emoji: '🔗', desc: '一局内四章各装上一枚锁环' },
+    { id: 'bare', name: '一口空气', emoji: '🌬️', desc: '一件遗物都不拿，走到结局' },
   ];
 
   let unlocked = {};
@@ -96,6 +97,8 @@
     if (rings.length >= 1) unlock('ring_first', notify);
     const chapters = new Set(rings.map((id) => (window.GAME_DATA.rings[id] || {}).chapter));
     if (chapters.size >= 4) unlock('ring_four', notify);
+    // 一口空气：一件遗物都没拿，走到结局（4.6% 的那种打法）
+    if (s.ending && !Object.keys(f).some((k) => k.indexOf('relic_') === 0)) unlock('bare', notify);
   }
 
   function reset() {

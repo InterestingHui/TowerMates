@@ -1171,6 +1171,7 @@
       time: d.time,
       seal: d.seal || '',
       goals: d.goals || 0,
+      margin: d.margin || '',
       vow: D.vows[d.vow] ? d.vow : 'none',
     };
     if (!rec.floor || rec.floor > D.floors.length) return null;
@@ -1189,9 +1190,13 @@
     try { return JSON.parse(localStorage.getItem('towermates_board') || '[]'); } catch (e) { return []; }
   }
   // 名录按「爬到多深 → 有没有走到真结局 → 谁更快」排，不再比一个算出来的分数
+  // 榜单排序：走到哪层 → 结局 → 决战余裕（同层同结局时，打得干净的人在前）→ 用时 → 步数
+  const MARGIN_RANK = { S: 4, A: 3, B: 2, C: 1 };
+  const marginRank = (r) => MARGIN_RANK[r && r.margin] || 0;
   function cmpBoard(a, b) {
     return (b.floor || 0) - (a.floor || 0)
       || (b.ending === 'true' ? 1 : 0) - (a.ending === 'true' ? 1 : 0)
+      || marginRank(b) - marginRank(a)
       || (a.time || 999999) - (b.time || 999999)
       || (a.steps || 0) - (b.steps || 0);
   }
@@ -1230,6 +1235,7 @@
         <span class="bd-rank">${i + 1}</span>
         <span class="bd-name">${name}${v.name === '不立誓' ? '' : `<i class="bd-vowtag">${v.tag[0]}</i>`}</span>
         <span class="bd-end ${r.ending === 'true' ? 't' : ''}">${endName(r.ending)}</span>
+        ${r.margin ? `<span class="bd-margin" title="决战余裕：打完碑魔剩下多少血">${r.margin}</span>` : ''}
         <span class="bd-floor">${r.floor}层</span>
         <span class="bd-steps">${r.steps}步</span>
         <span class="bd-time">${r.time ? fmtTime(r.time) : '—'}</span>
@@ -2269,6 +2275,10 @@
     const kills = Math.floor((s.flags.killCount || 0) / 10);
     if (kills) parts.push({ label: `击杀 ${s.flags.killCount} 只`, n: kills });
     if (s.flags.heart === 'left') parts.push({ label: '塔心留在原处', n: 3 });
+    // 决战余裕 S（打完碑魔还剩 70% 以上）：替「打得干净」记一笔，只此一档，其余不加
+    const fhp = s.flags.finalHp;
+    const fmhp = s.flags.finalMaxHp;
+    if (fmhp > 0 && fhp / fmhp >= 0.7) parts.push({ label: '决战余裕 S', n: 2 });
     if (s.flags.eventEmber) parts.push({ label: '路遇里的选择', n: s.flags.eventEmber });
     // 锁芯买的塔心碎片：带一点塔的心跳出去，结算时化为余烬
     if (s.flags.heartShard) parts.push({ label: '塔心碎片', n: 8 });
@@ -2419,6 +2429,8 @@
     // 决战余裕：用「打完碑魔那一刻的血」给一个 S/A/B/C，和塔印并列——塔印看的是流程，这个看的是硬实力
     const margin = Engine.battleMargin();
     if (margin) brief.push(`决战余裕 <b>${margin.grade}</b> · ${margin.label}（剩 ${margin.pct}%）`);
+    // 榜单排序用：同层同结局时，余裕高的排前面
+    sum.margin = margin ? margin.grade : null;
     brief.push(`✦ 余烬 +${emberGain}`);
     $('endBrief').innerHTML = brief.map((t) => `<span>${t}</span>`).join('');
     const ringShorts = ringList.map((id) => D.rings[id].short).join(' ') || '无';

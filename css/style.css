@@ -663,6 +663,18 @@ html, body {
 .bd-end { color: var(--dim); font-size: 10.5px; }
 .bd-end.t { color: var(--cyan); }
 .bd-floor, .bd-steps { color: #a2abbd; text-align: right; font-variant-numeric: tabular-nums; }
+/* 决战余裕徽记（S/A/B/C）：金色留给 S，其余走中性，别抢塔印的重点 */
+.bd-margin {
+  font-size: 9.5px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 4px;
+  color: #cbb997;
+  background: rgba(232, 196, 106, 0.12);
+  border: 1px solid rgba(232, 196, 106, 0.28);
+}
+.bd-margin:not(:empty):where([title]) { letter-spacing: 0.4px; }
 .bd-time { color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
 
 .code-row {

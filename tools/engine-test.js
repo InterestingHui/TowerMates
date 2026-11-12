@@ -9,6 +9,7 @@ global.localStorage = {
 require('../js/data.js');
 require('../js/story.js');
 require('../js/engine.js');
+require('../js/achievements.js');
 
 let fail = 0;
 function ok(cond, msg) {
@@ -1118,6 +1119,22 @@ if (mTarget) ok(E.pathsTo(mTarget.x, mTarget.y) === null, '怪物目标返回 nu
   ok(st1.hp === 1 && !st1.over, '事件扣血：钳到 1，不会致死');
   E.applyEffect({ maxHp: -5000 });
   ok(st1.maxHp === 100 && st1.hp <= st1.maxHp, '事件扣上限：钳到 100，hp 不超上限');
+}
+
+// ---------- 成就：一口空气（一件遗物都不拿走到结局） ----------
+{
+  const A = window.Achievements;
+  ok(A.DEFS.length === 30, '成就总数 30 项');
+  E.newGame();
+  const sm = E.state();
+  sm.ending = 'true'; sm.flags.relic_edge = true;
+  A.evaluate('end', sm, () => {});
+  ok(!A.isUnlocked('bare'), '拿了遗物不解锁「一口空气」');
+  E.newGame();
+  const sn = E.state();
+  sn.ending = 'plain';
+  A.evaluate('end', sn, () => {});
+  ok(A.isUnlocked('bare'), '一件遗物没拿走到结局 → 解锁「一口空气」');
 }
 
 console.log(fail === 0 ? '\n✓ 全部通过' : `\n✗ ${fail} 项失败`);

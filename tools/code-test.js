@@ -5,13 +5,14 @@ function ok(cond, label) {
   if (cond) { pass++; } else { bad++; console.log('✗ ' + label); }
 }
 
-const sum = { ending: 'true', vow: 'ascetic', floor: 13, level: 18, steps: 640, time: 512, seal: 'clear', goals: 13 };
+const sum = { ending: 'true', vow: 'ascetic', floor: 13, level: 18, steps: 640, time: 512, seal: 'clear', goals: 13, margin: 'A' };
 const code = C.encode(sum);
-ok(code.indexOf(C.PREFIX) === 0 && C.PREFIX === 'TM3.', '新码带 v3 版本前缀');
+ok(code.indexOf(C.PREFIX) === 0 && C.PREFIX === 'TM4.', '新码带 v4 版本前缀');
 const d = C.decode(code);
-ok(!!d && d.version === 3 && !d.legacy, '新码可解');
+ok(!!d && d.version === 4 && !d.legacy, '新码可解');
 ok(d.vow === 'ascetic', '誓约写入');
 ok(d.seal === 'clear' && d.goals === 13, '塔印与塔规数写入');
+ok(d.margin === 'A', '决战余裕写入');
 ok(d.score === undefined && d.grade === undefined, '码里已无结算分与评级字段');
 ok(d.ending === 'true' && d.floor === 13 && d.level === 18 && d.steps === 640 && d.time === 512, '层数/用时/步数往返一致');
 ok(C.decode(' ' + code + '\n').seal === 'clear', '容忍首尾空白/换行');
