@@ -188,4 +188,28 @@ vowIds.forEach((id) => {
 });
 
 console.log(bad === 0 ? '\n✓ 地图校验通过' : `\n✗ 共 ${bad} 个问题`);
+
+// ---------- 仓库布局：Web 发布不许被误判成小程序 ----------
+// 2026-11-12 踩过：小程序工程曾经放在仓库根（app.json + pages/），
+// 发布工具把整个工作区判成小程序，Web 发布直接失败（SITES_APP_CREATE_FAILED）。
+// 微信工程必须留在 wechat/ 一层，根目录不许出现小程序清单。
+const fs = require('fs');
+const path = require('path');
+const ROOT = path.resolve(__dirname, '..');
+['app.json', 'app.js', 'project.config.json', 'game.json'].forEach((f) => {
+  if (fs.existsSync(path.join(ROOT, f))) {
+    err(`仓库根出现小程序清单 ${f}——Web 发布会被误判成小程序，请移到 wechat/`);
+  }
+});
+['pages', 'miniprogram', 'wxgame'].forEach((d) => {
+  const p = path.join(ROOT, d);
+  if (fs.existsSync(p) && fs.statSync(p).isDirectory()) {
+    err(`仓库根出现小程序目录 ${d}/——Web 发布会被误判成小程序，请移到 wechat/`);
+  }
+});
+if (fs.existsSync(path.join(ROOT, 'wechat'))) {
+  console.log('✓ 微信工程收在 wechat/，根目录保持纯 Web 结构');
+}
+
+console.log(bad === 0 ? '✓ 闸门自检通过' : `✗ 共 ${bad} 个问题`);
 process.exit(bad === 0 ? 0 : 1);
