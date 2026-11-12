@@ -58,6 +58,12 @@ const okOd = od.code === 0;
 console.log((okOd ? '✓' : '✗') + ` opendata-test.js ${odPassed} 项` + (okOd ? '' : '\n' + od.out));
 
 let okShots = true;
+
+// 微信工程静态校验：清单能被开发者工具接受、页面文件齐、壳里不许藏游戏源码副本
+console.log('== 附加 · 微信工程静态校验 ==');
+const wx = run(process.execPath, ['tools/wechat-check.js']);
+const okWx = wx.code === 0;
+console.log((okWx ? '✓' : '✗') + ' wechat-check.js' + (okWx ? '' : '\n' + wx.out));
 if (!process.argv.includes('--no-shot')) {
   const chrome = CHROME_CANDIDATES.find((p) => fs.existsSync(p));
   if (!chrome) {
@@ -203,13 +209,14 @@ if (!process.argv.includes('--no-shot')) {
       const ui = run(process.execPath, ['tools/ui-test.js']);
       const okUi = ui.code === 0;
       console.log((okUi ? '✓' : '✗') + ' ui-test.js' + (okUi ? '' : '\n' + ui.out));
-      const all = okCheck && okSim && okTest && okCode && okBsim && okOd && okUi && okProbe && okAds && okIntro && okWxb && bad === 0;
-      if (!all) console.log('  闸门明细:', JSON.stringify({ okCheck, okSim, okTest, okCode, okBsim, okOd, okUi, okProbe, probeA3, okAds, adsLine, okIntro, introLine, okWxb, wxbLine, bad }));
+      const all = okCheck && okSim && okTest && okCode && okBsim && okOd && okUi && okProbe && okAds && okIntro && okWxb && okWx && bad === 0;
+      if (!all) console.log('  闸门明细:', JSON.stringify({ okCheck, okSim, okTest, okCode, okBsim, okOd, okUi, okProbe, probeA3, okAds, adsLine, okIntro, introLine, okWxb, wxbLine, okWx, bad }));
       console.log(all ? '✓ 质量闸门通过' : '✗ 质量闸门有失败项');
       process.exit(all ? 0 : 1);
     })();
     return;
   }
 }
-console.log(okCheck && okSim && okTest && okCode && okBsim && okOd ? "\n✓ 质量闸门通过" : "\n✗ 有失败项");
-process.exit(okCheck && okSim && okTest && okCode && okBsim && okOd ? 0 : 1);
+const okNoShot = okCheck && okSim && okTest && okCode && okBsim && okOd && okWx;
+console.log(okNoShot ? "\n✓ 质量闸门通过" : "\n✗ 有失败项");
+process.exit(okNoShot ? 0 : 1);
