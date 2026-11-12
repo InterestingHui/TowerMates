@@ -254,29 +254,37 @@ function floorLoop(fi) {
       if (p.win) targets.push({ x, y, ch, damage: p.damage });
     }
     if (!targets.length) {
-      // 卡死自救（与玩家真实行为同口径）：商店层有金币 → 补药+训练后重试
-      if (D.floors[fi].map.join('').includes('M') && s.gold >= priceOf(D.shop.find((x) => x.id === 'atk'))) {
+      // 卡死自救（与玩家真实行为同口径）：
+      // ① 商店层：直接补药+训练
+      // ② 非商店层：花 50 金路费回秤那里（层阶之钥回城），补药+训练后再战
+      if (s.gold >= priceOf(D.shop.find((x) => x.id === 'atk')) + 50) {
         if (s.hp < s.maxHp * 0.5) healAtShop();
+        s.gold -= 50; // 回城路费（模拟往返与时间成本）
         shop();
         continue;
       }
       break;
     }
     // 非Boss层：格挡留给本层最疼的一场（不是第一场）——与玩家「留刀」习惯同口径
+    let t;
     if (USE_BLOCK && s.flags.hasBlock && !D.floors[fi].boss && !s.flags['block_f' + s.floor]) {
       const worst = targets.reduce((a, b) => (b.damage > a.damage ? b : a));
       if (worst.damage >= s.maxHp * 0.15) {
-        targets.sort((a, b) => (a.ch === worst.ch ? -1 : b.ch === worst.ch ? 1 : a.damage - b.damage));
+        t = worst;
+      } else {
+        targets.sort((a, b) => a.damage - b.damage);
+        t = targets[0];
       }
+    } else {
+      targets.sort((a, b) => a.damage - b.damage);
+      t = targets[0];
     }
-    targets.sort((a, b) => a.damage - b.damage);
-    const t = targets[0];
     const m = D.monsters[t.ch];
     const isBoss = !!m.boss;
-    // 格挡：Boss 层留给 Boss，普通层用在本层第一场"够疼"的战斗上
+    // 格挡：Boss 层留给 Boss；普通层已把「本层最疼的怪」排到最前，够疼就挡
     let take = t.damage;
     if (VOW === 'guard') take = Math.round(take * 1.18);
-    if (USE_BLOCK && s.flags.hasBlock && VOW !== 'guard' && VOW !== 'ascetic' && VOW !== 'nameless' && (isBoss || !D.floors[fi].boss) && !s.flags['block_f' + s.floor] && take >= s.maxHp * 0.08) {
+    if (USE_BLOCK && s.flags.hasBlock && VOW !== 'guard' && VOW !== 'ascetic' && VOW !== 'nameless' && (isBoss || !D.floors[fi].boss) && !s.flags['block_f' + s.floor] && take >= s.maxHp * 0.15) {
       s.flags['block_f' + s.floor] = true;
       const scale = s.flags.hasBlock2 ? 0.45 : 0.6;
       take = Math.round(take * scale);
