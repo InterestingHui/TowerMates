@@ -68,7 +68,11 @@ function predict(ch) {
   if (damage > 0 && hasRing('bell') && m.boss) damage = Math.round(damage * 0.92);
   // 铁壁之誓：真实承伤 ×1.18，生死判定与引擎一致（放行的战斗必然存活）
   const real = VOW === 'guard' && damage > 0 ? Math.round(damage * 1.18) : damage;
-  return { win: s.hp > real, damage, real, rounds };
+  // 战意：只影响「真实承伤」与生死判定，不进 predict 的 damage——
+  // 否则格挡触发阈值（按原始承伤判）会被它压低，反而少挡一次，得不偿失
+  const zeal = m.finalBoss ? ((s.flags.killCount || 0) >= 40 ? 0.64 : (s.flags.killCount || 0) >= 25 ? 0.84 : 1) : 1;
+  const realZeal = Math.round(real * zeal);
+  return { win: s.hp > realZeal, damage, real: realZeal, rounds, zeal };
 }
 
 function levelUp() {
@@ -332,7 +336,7 @@ function floorLoop(fi) {
       // 不能只在 bfs 里当通路（否则会出现「没碰 Boss 就判通关」的假通关）
       const bossSave = !!D.monsters[ch].boss && s.flags.hasBlock && !s.flags['block_f' + s.floor]
         && Math.round(p.damage * (s.flags.hasBlock2 ? 0.42 : 0.55)) < s.hp;
-      if (p.win || bossSave) targets.push({ x, y, ch, damage: p.damage });
+      if (p.win || bossSave) targets.push({ x, y, ch, damage: p.damage, zeal: p.zeal || 1 });
     }
     if (!targets.length) {
       // 卡死自救（与玩家真实行为同口径）：
@@ -373,6 +377,12 @@ function floorLoop(fi) {
       take = Math.round(take * scale);
       if (s.flags.hasBlock2) s.exp += Math.max(1, Math.round((t.damage - take) * 0.3));
       console.log(`  ▣ 格挡：${m.name} 承伤 ${t.damage} → ${take}${s.flags.hasBlock2 ? '（反击+' + Math.max(1, Math.round((t.damage - take) * 0.3)) + ' 经验）' : ''}`);
+    }
+    // 战意：格挡之后再乘，和 engine.fightDamage 完全同序
+    if (t.zeal && t.zeal < 1) {
+      const before = take;
+      take = Math.round(take * t.zeal);
+      console.log(`  ⚔ 战意：击杀 ${s.flags.killCount || 0} 只，决战承伤 ${before} → ${take}`);
     }
     s.hp -= take;
     s.damageTaken += take;

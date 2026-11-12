@@ -1167,7 +1167,7 @@ if (mTarget) ok(E.pathsTo(mTarget.x, mTarget.y) === null, '怪物目标返回 nu
 // ---------- 成就：一口空气（一件遗物都不拿走到结局） ----------
 {
   const A = window.Achievements;
-  ok(A.DEFS.length === 30, '成就总数 30 项');
+  ok(A.DEFS.length === 32, '成就总数 32 项');
   E.newGame();
   const sm = E.state();
   sm.ending = 'true'; sm.flags.relic_edge = true;
@@ -1179,6 +1179,31 @@ if (mTarget) ok(E.pathsTo(mTarget.x, mTarget.y) === null, '怪物目标返回 nu
   A.evaluate('end', sn, () => {});
   ok(A.isUnlocked('bare'), '一件遗物没拿走到结局 → 解锁「一口空气」');
 }
+// 战意：只在最终决战生效，按累计击杀分档（清塔路线的独占收益）
+E.newGame();
+s = E.state();
+const U = D.monsters.U;
+s.flags.killCount = 6;
+ok(E.zealScale(U) === 1 && E.zealScale(D.monsters['5']) === 1, '击杀少 / 普通怪都不吃战意');
+s.flags.killCount = 30;
+ok(Math.abs(E.zealScale(U) - 0.84) < 1e-9, '击杀 30 → 战意 0.84');
+s.flags.killCount = 52;
+ok(Math.abs(E.zealScale(U) - 0.64) < 1e-9, '击杀 52 → 战意 0.64');
+s.atk = 999; s.def = 999; s.hp = 99999; s.maxHp = 99999;
+const zf = E.fightDamage('U', false);
+ok(zf && Math.abs(zf.zeal - 0.64) < 1e-9, 'fightDamage 带上战意比例供演出显示');
+// 两条路线的勋章
+const A = window.Achievements;
+E.newGame();
+s = E.state();
+s.ending = 'true'; s.flags.killCount = 6;
+A.evaluate('end', s, () => {});
+ok(A.isUnlocked('dodger') && !A.isUnlocked('sweeper'), '6 杀 → 绕道者，不给清塔者');
+E.newGame();
+s = E.state();
+s.ending = 'true'; s.flags.killCount = 52;
+A.evaluate('end', s, () => {});
+ok(A.isUnlocked('sweeper') && !isNaN(1), '52 杀 → 清塔者');
 
 console.log(fail === 0 ? '\n✓ 全部通过' : `\n✗ ${fail} 项失败`);
 process.exit(fail ? 1 : 0);

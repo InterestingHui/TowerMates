@@ -773,6 +773,16 @@ html, body {
   vertical-align: 1px;
 }
 .bs-hint { text-align: center; font-size: 10px; color: #555d6d; margin-top: 7px; }
+/* 战意：最终决战才出现，金色的「打怪有回报」提示 */
+.bs-zeal {
+  text-align: center;
+  font-size: 10.5px;
+  color: #e8c46a;
+  margin-top: 4px;
+  letter-spacing: 0.3px;
+  text-shadow: 0 0 10px rgba(232, 196, 106, 0.35);
+}
+.bs-zeal[hidden] { display: none; }
 .bs-numbers { position: fixed; inset: 0; pointer-events: none; }
 .bs-dmg {
   position: absolute;
