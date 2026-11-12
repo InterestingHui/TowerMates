@@ -210,6 +210,7 @@ function floorLoop(fi) {
   // 商店层（M）：低血先补药——与玩家真实行为同口径，把补给计入承伤模型
   if (D.floors[fi].map.join('').includes('M') && s.hp < s.maxHp * 0.55) healAtShop();
   let guard = 0;
+  let rescue = 0;
   while (guard++ < 300) {
     const cells = bfs();
     let picked = 0;
@@ -257,8 +258,10 @@ function floorLoop(fi) {
       // 卡死自救（与玩家真实行为同口径）：
       // ① 商店层：直接补药+训练
       // ② 非商店层：花 50 金路费回秤那里（层阶之钥回城），补药+训练后再战
-      if (s.gold >= priceOf(D.shop.find((x) => x.id === 'atk')) + 50) {
-        if (s.hp < s.maxHp * 0.5) healAtShop();
+      // 上限 6 次：钱花光还没补齐就认输（真实玩家此时也只会放弃/重开）
+      if (rescue < 6 && s.gold >= priceOf(D.shop.find((x) => x.id === 'atk')) + 50) {
+        rescue++;
+        if (s.hp < s.maxHp * 0.6) healAtShop();
         s.gold -= 50; // 回城路费（模拟往返与时间成本）
         shop();
         continue;

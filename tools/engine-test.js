@@ -116,6 +116,15 @@ ok(E.shopStock(2).every((x) => x.id !== 'bigpotion' && x.id !== 'holywater'), '�
 ok(E.shopStock(7).some((x) => x.id === 'bigpotion') && E.shopStock(7).every((x) => x.id !== 'holywater'), '第 8 层上架蓝药水');
 ok(E.shopStock(10).some((x) => x.id === 'holywater'), '第 11 层上架圣水');
 ok(E.shopStock(12).some((x) => x.id === 'holywater'), '第 13 层（锁芯）有圣水');
+ok(E.shopStock(10).every((x) => x.id !== 'heartshard'), '塔心碎片只在锁芯上架');
+E.newGame();
+s = E.state();
+s.floor = 12; s.gold = 400;
+const hs1 = E.buy('heartshard');
+ok(hs1.type === 'buy' && s.flags.heartShard === true, '买塔心碎片 → 标记在档');
+const hs2 = E.buy('heartshard');
+ok(hs2.type === 'refuse', '碎片唯一：第二枚被拒');
+ok(!E.shopStock(2).some((x) => x.id === 'heartshard'), '第 3 层买不到碎片');
 // 后半部盾谱：锁芯拾取 → 格挡强化（×0.45 + 卸伤三成化经验）
 E.newGame();
 s = E.state();
@@ -393,17 +402,22 @@ ev = E.tryMove(0, 1);
 ok(ev.type === 'floor' && ev.at.heal === Math.round(s.maxHp * 0.12), '慈悲之誓：上一层回 12% 生命');
 ok(s.hp === 500 + Math.round(s.maxHp * 0.12), '回血真的加到了生命上');
 const hpAfterUp = s.hp;
-s.x = 8; s.y = 8;
-E.tryMove(0, -1);
-ok(s.hp === hpAfterUp, '下楼不回血');
-// 刷血堵漏：同一层只结算一次（floor_healed_f 标记）。下楼再上来，不再回第二口。
-s.x = 8; s.y = 8;
-const evRe = E.tryMove(0, 1);
-ok(evRe.at.heal === 0 && s.hp === hpAfterUp, '重上同一层不再回血（堵上下楼刷血漏洞）');
-// 新楼层照常回血
+// 现在在第 2 层 (1,9)=n。下楼回去：踩 n（脚下）不行，走出去再踩回：
+s.x = 1; s.y = 9;
+E.tryMove(0, -1); // 走到 (1,8)
+const evDown = E.tryMove(0, 1); // 踩回 n → 下楼回第 1 层
+ok(evDown.type === 'floor' && evDown.at.heal === 0, '下楼不回血');
+ok(s.floor === 0, '回到第 1 层');
+// 刷血堵漏：再上第 2 层（floor_healed_f1 已标记）→ 不再回第二口
 s.hp = 500; s.x = 8; s.y = 8;
-const evNew = E.tryMove(0, 1);
-ok(evNew.at.heal === Math.round(s.maxHp * 0.12), '新的一层照常回血');
+const evRe = E.tryMove(0, 1);
+ok(evRe.type === 'floor' && evRe.at.heal === 0 && s.hp === 500, '重上同一层不再回血（堵上下楼刷血漏洞）');
+// 新楼层照常回血：第 2 层 (1,1)=u 上第 3 层（首次踏足）。走开 (1,2) 再踩回 u
+s.x = 1; s.y = 1;
+E.tryMove(0, 1);
+s.hp = 500;
+const evNew = E.tryMove(0, -1);
+ok(evNew.type === 'floor' && evNew.at.heal === Math.round(s.maxHp * 0.12), '新的一层照常回血');
 
 E.newGame('guard');
 s = E.state();

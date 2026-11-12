@@ -889,6 +889,7 @@
     if (item.relic && hasRelic(item.relic)) return { type: 'refuse', msg: '这条灯芯已经在你胸口了' };
     if (item.block && s.flags.hasBlock) return { type: 'refuse', msg: '你已经学过格挡了' };
     if (item.block && vowForbidsBlock()) return { type: 'refuse', msg: '这条誓约不能格挡，买它没用' };
+    if (item.heartShard && s.flags.heartShard) return { type: 'refuse', msg: '塔心碎片一枚就够——它认主' };
     const price = priceOf(item);
     if (s.gold < price) return { type: 'refuse', msg: '金币不够' };
     s.gold -= price;
@@ -903,6 +904,7 @@
     if (item.relic) s.flags['relic_' + item.relic] = true;
     if (item.codex) s.flags.codex = true;
     if (item.block) grantBlock();
+    if (item.heartShard) s.flags.heartShard = true;
     s.flags.shopCount = (s.flags.shopCount || 0) + 1;
     save();
     const msg = item.codex
@@ -911,7 +913,9 @@
         ? `获得遗物「${item.name}」· ${D.relics[item.relic].desc}`
         : item.block
           ? '秤把盾谱后半卷摊开：「学不会就再来。」——你学会了**格挡**'
-          : `购买了${item.name}`;
+          : item.heartShard
+            ? '秤用绒布包起那枚碎片：「塔的心跳，带一点出去也无妨。」——通关时它会化为余烬'
+            : `购买了${item.name}`;
     return { type: 'buy', item, price, msg };
   }
 

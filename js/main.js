@@ -124,6 +124,8 @@
       },
       mark(key) { if (seen[key]) return false; seen[key] = 1; save(); return true; },
       seen(key) { return !!seen[key]; },
+      // walk 教学走 banner 不走对白，但同样只出一次（与 seen 库同源）
+      showWalkBanner() { if (seen.walk) return false; seen.walk = 1; save(); this.banner('walk'); return true; },
       reset() { seen = {}; try { localStorage.removeItem(KEY); } catch (e) {} },
     };
   })();
@@ -844,7 +846,7 @@
       const v = D.vows[s.flags.vow] || D.vows.none;
       el.vowTag.hidden = v.name === '不立誓';
       el.vowTag.textContent = v.tag;
-      el.vowTag.title = `${v.name}：${v.desc}（归途余烬 +${v.reward || 0}）`;
+      el.vowTag.title = `${v.name}：${v.desc}`;
     }
     if (el.blockPip) {
       const owned = !!(s.flags.hasBlock);
@@ -890,7 +892,17 @@
       if (Array.isArray(row)) return { who: row[0] || '', text: row[1] || '', mood: row[2] || '' };
       return { who: '', text: String(row), mood: '' };
     });
-    typing = { lines, idx: 0, cb: cb || null, cue: cue || '', variant: variant || null };
+    // 新对白打断旧对白时，旧回调不能丢——不然「商店对白 → openShop」这类链
+    // 被后来的提示对白覆盖后，商店永远不弹（玩家看到的就是'点完对话卡住'）。
+    // 旧 cb 挂到新对白的 finally 链上，关闭时依次执行。
+    const prevCb = typing && typing.cb;
+    const chainedCb = cb || prevCb
+      ? () => {
+          if (cb) cb();
+          if (prevCb) prevCb();
+        }
+      : null;
+    typing = { lines, idx: 0, cb: chainedCb, cue: cue || '', variant: variant || null };
     el.dialogOverlay.classList.add('show');
     renderLine();
   }
@@ -1638,12 +1650,12 @@
     const list = $('shopList');
     list.innerHTML = '';
     Engine.shopStock().forEach((item) => {
-      const owned = (item.codex && s.flags.codex) || (item.relic && Engine.hasRelic(item.relic)) || (item.block && s.flags.hasBlock);
+      const owned = (item.codex && s.flags.codex) || (item.relic && Engine.hasRelic(item.relic)) || (item.block && s.flags.hasBlock) || (item.heartShard && s.flags.heartShard);
       // 铁壁/苦行/无名三条誓约不能格挡：盾谱置灰，别让人白花钱
       const forbidden = item.block && Engine.vowForbidsBlock();
       const price = Engine.priceOf(item);
       const afford = s.gold >= price;
-      let tip = item.relic ? D.relics[item.relic].desc : item.key ? (item.key === 'y' ? '开黄门' : '开红门') : item.hp ? `回复 ${item.hp} 生命` : item.atk ? '攻击 +2' : item.def ? '防御 +2' : item.block ? '学会格挡：每层一次，战斗中点盾把承伤降到 60%' : '怪物情报';
+      let tip = item.relic ? D.relics[item.relic].desc : item.key ? (item.key === 'y' ? '开黄门' : '开红门') : item.hp ? `回复 ${item.hp} 生命` : item.atk ? '攻击 +2' : item.def ? '防御 +2' : item.block ? '学会格挡：每层一次，战斗中点盾把承伤降到 60%' : item.heartShard ? '带一点塔的心跳出去：**通关余烬 +8**（唯一）' : '怪物情报';
       if (forbidden) tip = '**这条誓约不能格挡**，买了也用不上';
       if (item.atk && needAtk) {
         const gap = needAtk.def + 1 - s.atk;
@@ -1680,6 +1692,10 @@
             Renderer.ring(before.x, before.y, 'rgba(159,216,255,0.9)', TN() * 2.4, 600);
             Tips.show('block');
             warn('**格挡已学会**：每层一次，战斗中点盾。');
+          }
+          if (res.item.heartShard) {
+            Renderer.ring(before.x, before.y, 'rgba(255,180,200,0.9)', TN() * 2.6, 620);
+            warn('**塔心碎片**已收好——结算时化为 **余烬 +8**。');
           }
           if (res.item.relic) {
             Renderer.ring(before.x, before.y, 'rgba(255,225,150,0.9)', TN() * 2.6, 620);
@@ -1920,6 +1936,8 @@
     if (kills) parts.push({ label: `击杀 ${s.flags.killCount} 只`, n: kills });
     if (s.flags.heart === 'left') parts.push({ label: '塔心留在原处', n: 3 });
     if (s.flags.eventEmber) parts.push({ label: '路遇里的选择', n: s.flags.eventEmber });
+    // 锁芯买的塔心碎片：带一点塔的心跳出去，结算时化为余烬
+    if (s.flags.heartShard) parts.push({ label: '塔心碎片', n: 8 });
     if (vowDef.reward) parts.push({ label: `「${vowDef.name}」`, n: vowDef.reward });
     // 解锁誓约第一次通关：额外给解锁成本的一半，让「解锁 → 真的用它」当场回本一半
     // 按 vowDef 反查 id，不用 s.flags.vow，避免结算与自动化取到不同口径
@@ -1962,7 +1980,14 @@
     $('endDesc').textContent = E.desc;
     $('endBody').textContent = E.body;
     const heartLine = s.flags.heart === 'taken' ? E.coreTake : s.flags.heart === 'left' ? E.coreLeave : (s.flags.coreClear ? E.core : '');
-    $('endEpi').textContent = (E.epilogue || '') + (heartLine ? ' ' + heartLine : '');
+    // 盾谱集齐（前半 + 后半）的签名彩蛋：名册上那一行空格，终于有人签了
+    const signed = !!(s.flags.hasBlock && s.flags.hasBlock2);
+    const signLine = signed && s.ending === 'true'
+      ? '名册的最后一页，你把自己的名字签在了持谱人的空位上。字迹与那半册盾谱上的转腕一样，稳。'
+      : signed
+        ? '你把签好的盾谱留在了塔里。名字还没有传出去，但招式会。'
+        : '';
+    $('endEpi').textContent = (E.epilogue || '') + (heartLine ? ' ' + heartLine : '') + (signLine ? ' ' + signLine : '');
     const relicIds = Engine.ownedRelics();
     const relics = relicIds.map((id) => D.relics[id].short).join(' ') || '无';
     sum.vow = s.flags.vow || 'none';
@@ -2020,6 +2045,7 @@
       <div>章回响 <b>${echoDone}/4 章</b></div>
       <div>塔心 <b>${s.flags.heart === 'taken' ? '带走' : s.flags.heart === 'left' ? '留下' : '未至'}</b></div>
       <div>誓约 <b>${(D.vows[s.flags.vow] || D.vows.none).name}</b></div>
+      ${signed ? '<div>盾谱 <b>📖+📕 已集齐 · 名册有你的签名</b></div>' : ''}
       <div>步数 <b>${sum.steps} 步</b></div>
       <div>用时 <b>${fmtTime(sum.time)}</b></div>
     `;
@@ -2267,7 +2293,10 @@
   function clickMove(cx, cy) {
     const s = Engine.state();
     if (!s) return;
-    Tips.show('walk');
+    // 「怎么走」教学改为底部横幅（Tips.banner）：它以前是全屏对白，
+    // 会在寻路启动的同一瞬间打断 walkAlong（step 见 typing 即停）——
+    // 玩家第一次点商店就'点完对白人物不动'，看起来像卡死。
+    Tips.showWalkBanner();
     if (cx === s.x && cy === s.y) { stopWalk(); return; }
     const dx = cx - s.x;
     const dy = cy - s.y;
@@ -2892,8 +2921,7 @@
     }
     el.vowCards.innerHTML = shown.map((id) => {
       const v = D.vows[id];
-      const line = v.reward ? `归途 +${v.reward} ✦` : '';
-      // 档位暗语：不直说难不难，只给一抹随档位加深的颜色
+      // 用户明确要求：开局不展示每局预计余烬收益——那是结算页才该出现的数字
       const tierCls = { '轻羽': 't-easy', '无名之分': 't-normal', '重金': 't-hard', '铁色': 't-nightmare' }[v.tag] || '';
       const tier = `<span class="vc-tier ${tierCls}">${v.tag}</span>`;
       // 代价高亮：desc 里「不能 / −N」这类负面词挑出来染红，选之前先看见失去什么
@@ -2905,7 +2933,6 @@
         <span class="vc-name">${v.name}</span>
         <span class="vc-desc">${rest}</span>
         ${cost ? `<span class="vc-cost">${cost}</span>` : ''}
-        ${line ? `<span class="vc-mul">${line}</span>` : ''}
       </button>`;
     }).join('');
     const lockBox = $('vowLocked');
@@ -2914,7 +2941,7 @@
       lockBox.innerHTML = lockedIds.map((id) => {
         const v = D.vows[id];
         const short = Math.max(0, v.ember - Meta.ember);
-        return `<button class="vow-chip ${short > 0 ? 'poor' : ''}" data-lock="${id}" title="${v.desc}">🔒 ${v.name} · ${short > 0 ? `还差 ${short} ✦（每局归途 +${v.reward} ✦）` : `可解锁 ${v.ember} ✦ · 每局归途 +${v.reward} ✦`}</button>`;
+        return `<button class="vow-chip ${short > 0 ? 'poor' : ''}" data-lock="${id}" title="${v.desc}">🔒 ${v.name} · ${short > 0 ? `还差 ${short} ✦` : `可解锁 ${v.ember} ✦`}</button>`;
       }).join('');
       lockBox.querySelectorAll('.vow-chip').forEach((b) => {
         b.addEventListener('click', () => chooseVow(b.dataset.lock));

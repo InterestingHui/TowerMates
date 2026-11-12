@@ -125,7 +125,7 @@
       mark(key) { if (seen[key]) return false; seen[key] = 1; save(); return true; },
       seen(key) { return !!seen[key]; },
       // walk 教学走 banner 不走对白，但同样只出一次（与 seen 库同源）
-      showWalkBanner() { if (seen.walk) return false; seen.walk = 1; save(); banner('walk'); return true; },
+      showWalkBanner() { if (seen.walk) return false; seen.walk = 1; save(); this.banner('walk'); return true; },
       reset() { seen = {}; try { localStorage.removeItem(KEY); } catch (e) {} },
     };
   })();
@@ -1650,12 +1650,12 @@
     const list = $('shopList');
     list.innerHTML = '';
     Engine.shopStock().forEach((item) => {
-      const owned = (item.codex && s.flags.codex) || (item.relic && Engine.hasRelic(item.relic)) || (item.block && s.flags.hasBlock);
+      const owned = (item.codex && s.flags.codex) || (item.relic && Engine.hasRelic(item.relic)) || (item.block && s.flags.hasBlock) || (item.heartShard && s.flags.heartShard);
       // 铁壁/苦行/无名三条誓约不能格挡：盾谱置灰，别让人白花钱
       const forbidden = item.block && Engine.vowForbidsBlock();
       const price = Engine.priceOf(item);
       const afford = s.gold >= price;
-      let tip = item.relic ? D.relics[item.relic].desc : item.key ? (item.key === 'y' ? '开黄门' : '开红门') : item.hp ? `回复 ${item.hp} 生命` : item.atk ? '攻击 +2' : item.def ? '防御 +2' : item.block ? '学会格挡：每层一次，战斗中点盾把承伤降到 60%' : '怪物情报';
+      let tip = item.relic ? D.relics[item.relic].desc : item.key ? (item.key === 'y' ? '开黄门' : '开红门') : item.hp ? `回复 ${item.hp} 生命` : item.atk ? '攻击 +2' : item.def ? '防御 +2' : item.block ? '学会格挡：每层一次，战斗中点盾把承伤降到 60%' : item.heartShard ? '带一点塔的心跳出去：**通关余烬 +8**（唯一）' : '怪物情报';
       if (forbidden) tip = '**这条誓约不能格挡**，买了也用不上';
       if (item.atk && needAtk) {
         const gap = needAtk.def + 1 - s.atk;
@@ -1692,6 +1692,10 @@
             Renderer.ring(before.x, before.y, 'rgba(159,216,255,0.9)', TN() * 2.4, 600);
             Tips.show('block');
             warn('**格挡已学会**：每层一次，战斗中点盾。');
+          }
+          if (res.item.heartShard) {
+            Renderer.ring(before.x, before.y, 'rgba(255,180,200,0.9)', TN() * 2.6, 620);
+            warn('**塔心碎片**已收好——结算时化为 **余烬 +8**。');
           }
           if (res.item.relic) {
             Renderer.ring(before.x, before.y, 'rgba(255,225,150,0.9)', TN() * 2.6, 620);
@@ -1932,6 +1936,8 @@
     if (kills) parts.push({ label: `击杀 ${s.flags.killCount} 只`, n: kills });
     if (s.flags.heart === 'left') parts.push({ label: '塔心留在原处', n: 3 });
     if (s.flags.eventEmber) parts.push({ label: '路遇里的选择', n: s.flags.eventEmber });
+    // 锁芯买的塔心碎片：带一点塔的心跳出去，结算时化为余烬
+    if (s.flags.heartShard) parts.push({ label: '塔心碎片', n: 8 });
     if (vowDef.reward) parts.push({ label: `「${vowDef.name}」`, n: vowDef.reward });
     // 解锁誓约第一次通关：额外给解锁成本的一半，让「解锁 → 真的用它」当场回本一半
     // 按 vowDef 反查 id，不用 s.flags.vow，避免结算与自动化取到不同口径
@@ -1974,7 +1980,14 @@
     $('endDesc').textContent = E.desc;
     $('endBody').textContent = E.body;
     const heartLine = s.flags.heart === 'taken' ? E.coreTake : s.flags.heart === 'left' ? E.coreLeave : (s.flags.coreClear ? E.core : '');
-    $('endEpi').textContent = (E.epilogue || '') + (heartLine ? ' ' + heartLine : '');
+    // 盾谱集齐（前半 + 后半）的签名彩蛋：名册上那一行空格，终于有人签了
+    const signed = !!(s.flags.hasBlock && s.flags.hasBlock2);
+    const signLine = signed && s.ending === 'true'
+      ? '名册的最后一页，你把自己的名字签在了持谱人的空位上。字迹与那半册盾谱上的转腕一样，稳。'
+      : signed
+        ? '你把签好的盾谱留在了塔里。名字还没有传出去，但招式会。'
+        : '';
+    $('endEpi').textContent = (E.epilogue || '') + (heartLine ? ' ' + heartLine : '') + (signLine ? ' ' + signLine : '');
     const relicIds = Engine.ownedRelics();
     const relics = relicIds.map((id) => D.relics[id].short).join(' ') || '无';
     sum.vow = s.flags.vow || 'none';
@@ -2032,6 +2045,7 @@
       <div>章回响 <b>${echoDone}/4 章</b></div>
       <div>塔心 <b>${s.flags.heart === 'taken' ? '带走' : s.flags.heart === 'left' ? '留下' : '未至'}</b></div>
       <div>誓约 <b>${(D.vows[s.flags.vow] || D.vows.none).name}</b></div>
+      ${signed ? '<div>盾谱 <b>📖+📕 已集齐 · 名册有你的签名</b></div>' : ''}
       <div>步数 <b>${sum.steps} 步</b></div>
       <div>用时 <b>${fmtTime(sum.time)}</b></div>
     `;

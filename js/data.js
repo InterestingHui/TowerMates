@@ -497,7 +497,7 @@ window.GAME_DATA = (function () {
     // 难度越高，通关余烬反馈越高——塔替你的胆量记账。
     none: {
       name: '不立誓', emoji: '○', tag: '无名之分',
-      desc: '塔是什么样就什么样。第一次爬塔就选它。', reward: 0,
+      desc: '塔是什么样就什么样。第一次爬塔就选它。', reward: 1,
     },
     mercy: {
       name: '慈悲之誓', emoji: '🕊️', tag: '轻羽',
@@ -705,6 +705,7 @@ window.GAME_DATA = (function () {
     { id: 'codex', name: '窥探之镜', emoji: '🔮', price: 100, codex: true, once: true },
     { id: 'bigpotion', name: '蓝药水', emoji: '💧', price: 70, step: 10, hp: 420, minFloor: 8 },
     { id: 'holywater', name: '圣水', emoji: '🍶', price: 150, step: 20, hp: 900, minFloor: 11 },
+    { id: 'heartshard', name: '塔心碎片', emoji: '🩷', price: 260, heartShard: true, once: true, minFloor: 13 },
   ];
 
   return { LEGEND, PALETTE, kindColor, TRAITS, monsters, items, relics, altarPool, rings, ringPools, levelExp, floors, chapters, vows, events, shop };
