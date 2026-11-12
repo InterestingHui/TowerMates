@@ -103,9 +103,9 @@ function altar(fi) {
   }
 }
 
-// 商店：只在有商人的层（第 3 层）把金币换成成长
+// 商店：可重复商品每次购买后涨价 item.step（与引擎 priceOf 同口径）
 function priceOf(item) {
-  const step = item.id === 'atk' || item.id === 'def' ? 20 : 0;
+  const step = item.step || 0;
   let price = item.price + (s.flags['buy_' + item.id] || 0) * step;
   if (USE_RELIC && s.flags.relic_thrift) price = Math.max(1, Math.round(price * 0.75));
   if (VOW === 'greed') price = Math.max(1, Math.round(price * 1.3));
@@ -114,17 +114,20 @@ function priceOf(item) {
 }
 // 用层阶之钥回秤那里补药：模拟玩家在硬仗前回城，不模拟往返步数
 function healAtShop() {
-  let bought = 0;
-  while (s.hp < s.maxHp * 0.9 && s.gold >= 30) {
-    s.gold -= 30;
+  let bought = 0, spent = 0;
+  for (;;) {
+    const price = priceOf(D.shop.find((x) => x.id === 'potion'));
+    if (s.hp >= s.maxHp * 0.9 || s.gold < price) break;
+    s.gold -= price;
+    spent += price;
     s.hp = Math.min(s.maxHp, s.hp + 160);
     bought++;
   }
-  if (bought) console.log(`  回秤那里补了 ${bought} 瓶红药水 → HP ${s.hp}/${s.maxHp}`);
+  if (bought) console.log(`  回秤那里补了 ${bought} 瓶红药水（${spent} 金）→ HP ${s.hp}/${s.maxHp}`);
 }
 
 function shop() {
-  let bought = 0;
+  let bought = 0, spent = 0;
   // 半部盾谱：没学过格挡时优先买（150 金，一次性）——能力优先于数值
   if (USE_BLOCK && !s.flags.hasBlock && s.gold >= 150) {
     s.gold -= 150;
@@ -136,12 +139,13 @@ function shop() {
     const price = priceOf(atk);
     if (s.gold < price) break;
     s.gold -= price;
+    spent += price;
     s.flags['buy_atk'] = (s.flags['buy_atk'] || 0) + 1;
     s.atk += atk.atk;
     bought++;
     if (bought > 40) break;
   }
-  if (bought) console.log(`  在秤那里训练了 ${bought} 次 → ATK ${s.atk}，余 ${s.gold} 金`);
+  if (bought) console.log(`  在秤那里训练了 ${bought} 次（${spent} 金）→ ATK ${s.atk}，余 ${s.gold} 金`);
 }
 
 function bfs() {

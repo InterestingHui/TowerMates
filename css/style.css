@@ -1398,6 +1398,12 @@ html, body {
 }
 .vow-card:hover { transform: translateY(-3px); border-color: rgba(232, 196, 106, 0.62); box-shadow: 0 14px 34px rgba(232, 196, 106, 0.14); }
 .vow-card .vc-emoji { font-size: 22px; }
+.vow-card .vc-head { display: flex; align-items: center; gap: 7px; }
+.vc-tier { font-size: 9px; letter-spacing: 1.5px; padding: 2px 8px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.16); color: #9aa4b5; }
+.vc-tier.t-easy { color: #7ec9a2; border-color: rgba(126, 201, 162, 0.45); background: rgba(126, 201, 162, 0.08); }
+.vc-tier.t-normal { color: #9fb6d8; border-color: rgba(159, 182, 216, 0.4); background: rgba(159, 182, 216, 0.07); }
+.vc-tier.t-hard { color: #e0b56a; border-color: rgba(224, 181, 106, 0.45); background: rgba(224, 181, 106, 0.08); }
+.vc-tier.t-nightmare { color: #e07a6a; border-color: rgba(224, 122, 106, 0.5); background: rgba(224, 122, 106, 0.1); }
 .vow-card .vc-name { font-size: 12.5px; font-weight: 700; color: var(--gold); letter-spacing: 0.5px; }
 .vow-card .vc-desc { font-size: 10px; line-height: 1.55; color: var(--muted); min-height: 31px; }
 .vow-card .vc-mul { font-size: 9.5px; color: #7f8a9c; border: 1px solid rgba(255,255,255,0.12); border-radius: 20px; padding: 1px 7px; }

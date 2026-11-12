@@ -157,7 +157,7 @@ window.GAME_DATA = (function () {
     S: { name: '断裂佩剑', emoji: '⚔️', type: 'relic', relic: 'edge', story: 'eighthSword' },
     K: { name: '塔心石', emoji: '💗', type: 'heart' },
     Q: { name: '层阶之钥', emoji: '🗝️', type: 'relic', relic: 'gate', story: 'gateLore' },
-    j: { name: '半部盾谱', emoji: '📖', type: 'block' },
+    j: { name: '半部盾谱', emoji: '📖', type: 'block', story: 'blockLore' },
   };
 
   // 遗物说明（HUD / 设置页 / 结算都用它）
@@ -404,7 +404,7 @@ window.GAME_DATA = (function () {
       tip: '刻刀摆在桌上，刀刃朝着门。有人刚刚离开，或者一直没走。',
       map: [
         '###########',
-        '#u..a...$.#',
+        '#u..a.M.$.#',
         '#.#######.#',
         '#.#..G..5.#',
         '#.#.###.#.#',
@@ -440,7 +440,7 @@ window.GAME_DATA = (function () {
       map: [
         '###########',
         '#....#....#',
-        '#.3..#..4.#',
+        '#.3..M..4.#',
         '#....#....#',
         '#.##...##.#',
         '#....K....#',
@@ -482,30 +482,32 @@ window.GAME_DATA = (function () {
   // 解锁线按单局实测量级定：常规一局约 18~30 余烬，两条解锁分别约 1~2 局 / 再 2 局，
   // 不再是老分数制时代遗留的 60/120（那条线要 7~20 局，等于把跨局循环掐断）。
   const vows = {
+    // 四条开局誓约 = 四档难度：容易(慈悲) / 普通(不立誓) / 困难(贪婪) / 噩梦(铁壁)。
+    // 难度越高，通关余烬反馈越高——塔替你的胆量记账。
     none: {
-      name: '不立誓', emoji: '○', tag: '如常',
-      desc: '什么都不改。第一次爬塔就选它。', reward: 0,
+      name: '不立誓', emoji: '○', tag: '普通',
+      desc: '塔是什么样就什么样。第一次爬塔就选它。', reward: 0,
     },
     mercy: {
-      name: '慈悲之誓', emoji: '🕊️', tag: '手软',
-      desc: '攻击 −3；每上一层回复 12% 生命', reward: 3,
+      name: '慈悲之誓', emoji: '🕊️', tag: '容易',
+      desc: '攻击 −3；每上一层回复 12% 生命', reward: 2,
     },
     greed: {
-      name: '贪婪之誓', emoji: '🪙', tag: '贪财',
-      desc: '击杀金币 +70%；秤的价目 +30%', reward: 4,
+      name: '贪婪之誓', emoji: '🪙', tag: '困难',
+      desc: '击杀金币 +70%；秤的价目 +30%', reward: 6,
     },
     guard: {
-      name: '铁壁之誓', emoji: '🛡️', tag: '死守',
-      desc: '不能格挡；每场战斗承伤 −18%', reward: 5,
+      name: '铁壁之誓', emoji: '🛡️', tag: '噩梦',
+      desc: '不能格挡；每场战斗承伤 −18%', reward: 10,
     },
-    // 以下两条要用余烬解锁（塔的记忆）
+    // 以下两条要用余烬解锁（塔的记忆）：比噩梦更陡的规则，反馈也更高
     ascetic: {
       name: '苦行之誓', emoji: '🪵', tag: '苦行',
-      desc: '不能格挡；每上一层回复 10% 生命', reward: 8, ember: 24,
+      desc: '不能格挡；每上一层回复 10% 生命', reward: 12, ember: 10,
     },
     nameless: {
       name: '无名之誓', emoji: '🕳️', tag: '无名',
-      desc: '不能格挡、物价 +40%；每上一层回复 10% 生命', reward: 14, ember: 48,
+      desc: '不能格挡、物价 +40%；每上一层回复 10% 生命', reward: 18, ember: 20,
     },
   };
 
@@ -678,12 +680,14 @@ window.GAME_DATA = (function () {
     },
   ];
 
+  // 价格：repeat 商「每次买完下一次更贵」（step = 涨价幅度），_once 商（盾谱/镜/灯芯）固定价
+  // atk/def 20、药 6、钥匙 4/8——买得越多单份越贵，逼中后期把钱花在刀刃上
   const shop = [
-    { id: 'key', name: '黄钥匙', emoji: '🔑', price: 20, key: 'y' },
-    { id: 'rkey', name: '红钥匙', emoji: '🗝️', price: 45, key: 'r' },
-    { id: 'potion', name: '红药水', emoji: '🧪', price: 30, hp: 160 },
-    { id: 'atk', name: '力量训练', emoji: '⚔️', price: 60, atk: 2 },
-    { id: 'def', name: '护甲强化', emoji: '🛡️', price: 60, def: 2 },
+    { id: 'key', name: '黄钥匙', emoji: '🔑', price: 20, step: 4, key: 'y' },
+    { id: 'rkey', name: '红钥匙', emoji: '🗝️', price: 45, step: 8, key: 'r' },
+    { id: 'potion', name: '红药水', emoji: '🧪', price: 30, step: 6, hp: 160 },
+    { id: 'atk', name: '力量训练', emoji: '⚔️', price: 60, step: 20, atk: 2 },
+    { id: 'def', name: '护甲强化', emoji: '🛡️', price: 60, step: 20, def: 2 },
     { id: 'blockbook', name: '半部盾谱', emoji: '📖', price: 150, block: true, once: true },
     { id: 'ember', name: '余烬灯芯', emoji: '🔥', price: 120, relic: 'ember', once: true },
     { id: 'codex', name: '窥探之镜', emoji: '🔮', price: 100, codex: true, once: true },

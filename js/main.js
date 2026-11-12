@@ -759,15 +759,19 @@
     const vars = { need, atk: s.atk, gap, dmg: pred.damage || 0, hp: s.hp,
       defNow: s.def, defGap: defNeed ? defNeed.to - defNeed.from : 0, per: pred.per || 0, rounds: pred.rounds || 0 };
     const key = defBreak ? 'stuckDef' : 'stuckHp';
+    // 还没学格挡时，把「学格挡」作为第三个解法一起给出——尤其血量型卡关
+    const blockTip = !s.flags.hasBlock && !Engine.vowForbidsBlock() && s.floor <= 4;
     renderRich(el.stuckText, defBreak
       ? `卡在${m.name}这儿？攻击还差 **${gap}** 点（要 ≥ **${need}**）`
-      : `这一战预计掉 **${vars.dmg}** 血，你只有 **${vars.hp}**${defNeed ? ` · 防御再加 **${defNeed.to - defNeed.from}** 就能扛住` : ''}`);
+      : `这一战预计掉 **${vars.dmg}** 血，你只有 **${vars.hp}**${defNeed ? ` · 防御再加 **${defNeed.to - defNeed.from}** 就能扛住` : ''}${blockTip ? ' · 学了**格挡**能省下三成血' : ''}`);
     el.stuckBar.hidden = false;
-    stuckInfo = { key, vars, floor: s.floor, monster: m.name };
+    stuckInfo = { key, vars, floor: s.floor, monster: m.name, blockTip };
     const now = Date.now();
     if (now - stuckSayAt > 12000) {
       stuckSayAt = now;
-      sayHint(key, vars);
+      if (blockTip && Tips.mark('stuckblock')) {
+        say([['烛', '这一战有点疼。你**还没学格挡**——第 2 层回廊有半部盾谱，或去第 3 层找秤买。学会后每层能挡一次。', 'calm']]);
+      } else sayHint(key, vars);
     }
   }
   function clearStuck() {
@@ -2265,8 +2269,11 @@
         Sound.play('pick');
         Renderer.addFloat(ev.short || ev.msg, Engine.state().x * T + T / 2, Engine.state().y * T, '#9fe8b0');
         log(ev.msg, ev.good === false ? 'warn' : 'good');
-        // 学会格挡的第一次：让烛把用法说完（老玩家读过的不再复读）
-        if (ev.blockLearned) Tips.show('block');
+        // 学会格挡：先播盾谱小传，接烛的用法教学（老玩家读过的不再复读）
+        if (ev.blockLearned) {
+          if (ev.story) playStory(ev.story, () => Tips.show('block'));
+          else Tips.show('block');
+        }
         break;
       case 'altar':
         openAltar();
@@ -2277,19 +2284,19 @@
       case 'event':
         openEvent(ev.eventId);
         break;
-      case 'shop':
-        if (s.floor === 2 && !s.flags.merchant) {
-          s.flags.merchant = true;
+      case 'shop': {
+        // 每副货摊的首次对白：层号 → 剧情键（merchant = 第 3 层起，往后每 5 层一副）
+        const firstMeet = { 2: 'merchant', 7: 'merchant2', 10: 'merchant3', 12: 'merchant4' };
+        const intro = firstMeet[s.floor];
+        if (intro && !s.flags[intro]) {
+          s.flags[intro] = true;
           Engine.save();
-          playStory('merchant', () => { Sound.play('buy'); openShop(); });
-        } else if (s.floor === 7 && !s.flags.merchant2) {
-          s.flags.merchant2 = true;
-          Engine.save();
-          playStory('merchant2', () => { Sound.play('buy'); openShop(); });
+          playStory(intro, () => { Sound.play('buy'); openShop(); });
         } else {
           openShop();
         }
         break;
+      }
       case 'princess':
         if (ev.hasJournal) playStory('princessTrue', () => showEndingChoice());
         else playStory('princessPlain', () => completeEnding('plain', false), null, 'veiled');
@@ -2680,12 +2687,15 @@
     el.vowCards.innerHTML = shown.map((id) => {
       const v = D.vows[id];
       const line = v.reward ? `通关 +${v.reward} ✦` : '';
+      // 难度档位：tag 直接写容易/普通/困难/噩梦，配色随档位加深
+      const tierCls = { '容易': 't-easy', '普通': 't-normal', '困难': 't-hard', '噩梦': 't-nightmare' }[v.tag] || '';
+      const tier = `<span class="vc-tier ${tierCls}">${v.tag}</span>`;
       // 代价高亮：desc 里「不能 / −N」这类负面词挑出来染红，选之前先看见失去什么
       const costRe = /不能[^；;]*|攻击 −\d+|物价 \+\d+%|(?:秤的)?价目 \+\d+%/g;
       const cost = (v.desc.match(costRe) || []).join(' · ');
       const rest = cost ? v.desc.split(costRe).map((p) => p.replace(/^[；;、]+|[；;、]+$/g, '').trim()).filter(Boolean).join('；') : v.desc;
       return `<button class="vow-card ${id === 'none' ? 'hero' : ''}" data-vow="${id}">
-        <span class="vc-emoji">${v.emoji}</span>
+        <span class="vc-head"><span class="vc-emoji">${v.emoji}</span>${tier}</span>
         <span class="vc-name">${v.name}</span>
         <span class="vc-desc">${rest}</span>
         ${cost ? `<span class="vc-cost">${cost}</span>` : ''}
@@ -2698,7 +2708,7 @@
       lockBox.innerHTML = lockedIds.map((id) => {
         const v = D.vows[id];
         const short = Math.max(0, v.ember - Meta.ember);
-        return `<button class="vow-chip ${short > 0 ? 'poor' : ''}" data-lock="${id}" title="${v.desc}">🔒 ${v.name} · ${short > 0 ? `还差 ${short} ✦` : `可解锁 ${v.ember} ✦`}</button>`;
+        return `<button class="vow-chip ${short > 0 ? 'poor' : ''}" data-lock="${id}" title="${v.desc}">🔒 ${v.name} · ${short > 0 ? `还差 ${short} ✦（通关 +${v.reward} ✦/局）` : `可解锁 ${v.ember} ✦ · 通关 +${v.reward} ✦/局`}</button>`;
       }).join('');
       lockBox.querySelectorAll('.vow-chip').forEach((b) => {
         b.addEventListener('click', () => chooseVow(b.dataset.lock));

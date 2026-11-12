@@ -69,6 +69,21 @@ ok(E.priceOf(D.shop.find((x) => x.id === 'atk')) === 80, '同一件商品第二�
 const poor = E.buy('atk');
 ok(poor.type === 'refuse', '金币不足时拒绝购买');
 
+// ---------- 6a-2. 阶梯定价：每次购买下一次更贵（药水 30→36→42） ----------
+E.newGame();
+s = E.state();
+s.gold = 500;
+const p0 = E.priceOf(D.shop.find((x) => x.id === 'potion'));
+E.buy('potion');
+const p1 = E.priceOf(D.shop.find((x) => x.id === 'potion'));
+E.buy('potion');
+const p2 = E.priceOf(D.shop.find((x) => x.id === 'potion'));
+ok(p0 === 30 && p1 === 36 && p2 === 42, `药水阶梯价 30→36→42（实测 ${p0}→${p1}→${p2}）`);
+// 黄钥匙 20→24→28
+E.buy('key');
+const k1 = E.priceOf(D.shop.find((x) => x.id === 'key'));
+ok(k1 === 24, '黄钥匙买后 20→24');
+
 // ---------- 6b. 半部盾谱：商店购买 / 地图拾取 ----------
 E.newGame();
 s = E.state();
@@ -93,6 +108,9 @@ s.floor = 1; s.x = gPos.x - 1; s.y = gPos.y;
 const gEv = E.tryMove(1, 0);
 ok(gEv.type === 'pickup' && s.flags.hasBlock === true, '拾取盾谱 → 学会格挡');
 ok(gEv.blockLearned === true, '首次拾取带教学标记');
+ok(gEv.story === 'blockLore' && !!global.STORY.blockLore, '拾取盾谱带小传 blockLore');
+// 商店铺开：每 ~5 层一副（第 3/8/11/13 层），全部可达且不焊死在唯一通路上（check.js 已验）
+ok(D.floors.filter((f) => f.map.join('').includes('M')).length === 4, '全塔 4 副货摊（3/8/11/13 层）');
 // 铁壁之誓不能格挡：商店不卖，拾取也学不会
 E.newGame('guard');
 s = E.state();
@@ -515,7 +533,7 @@ ok(chainOk, '十三层塔每一层都能正常上楼（含隐藏门）');
 
 // ---------- 17. 剧情文本完整性 ----------
 const S = global.STORY;
-const need = ['intro', 'candle1', 'candle2', 'candle3', 'candle4', 'candle5', 'journal', 'merchant', 'merchant2', 'eighthSword', 'solitude', 'ch2', 'ch3', 'ch4', 'bossYan', 'afterYan', 'bossJu', 'afterJu', 'bossDuo', 'afterDuo', 'bossHeng', 'afterHeng', 'core', 'princessPlain', 'princessTrue', 'afterChoicePlain', 'afterChoiceTrue', 'stele'];
+const need = ['intro', 'candle1', 'candle2', 'candle3', 'candle4', 'candle5', 'journal', 'merchant', 'merchant2', 'merchant3', 'merchant4', 'blockLore', 'eighthSword', 'solitude', 'ch2', 'ch3', 'ch4', 'bossYan', 'afterYan', 'bossJu', 'afterJu', 'bossDuo', 'afterDuo', 'bossHeng', 'afterHeng', 'core', 'princessPlain', 'princessTrue', 'afterChoicePlain', 'afterChoiceTrue', 'stele'];
 ok(need.every((k) => Array.isArray(S[k]) && S[k].length), '所有剧情段都存在且非空');
 ok(S.intro.length === 4, '序章 4 句（魔王掳人 → 国王恳求 → 立誓 → 独自进塔）');
 const introAll = S.intro.join('');

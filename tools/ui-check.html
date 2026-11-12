@@ -169,14 +169,18 @@ async function run() {
         // 余烬经济四项：明细 / 近 3 局平均 / 解锁誓约首通 / 全解锁后的层灯出口
         var M = w.__tm.Meta;
         M.add(200);
-        M.buy('ascetic', 24);
-        M.buy('nameless', 48);
+        // 解锁成本随平衡调整会变（现为 10/48）：从数据表取，别把旧价硬编码进测试
+        M.buy('ascetic', w.GAME_DATA.vows.ascetic.ember || 24);
+        M.buy('nameless', w.GAME_DATA.vows.nameless.ember || 48);
         M.memory.lamps = 0;
         M.memory.firstVowWin = {};
         var eA = w.__tm.emberOf(E.state(), 0, w.GAME_DATA.vows.ascetic);
         M.claimFirstWin('ascetic');
         var eB = w.__tm.emberOf(E.state(), 0, w.GAME_DATA.vows.ascetic);
-        out.firstWinBonus = eA.total - eB.total;
+        // 首通额外 = 解锁成本的一半（emberOf 里 Math.round(ember/2)），跟表走
+        out.asceticEmber = w.GAME_DATA.vows.ascetic.ember || 24;
+        out.firstWinBonus = Math.round(out.asceticEmber / 2) === (eA.total - eB.total)
+          ? eA.total - eB.total : -1;
         M.memory.emberRuns = [10, 20, 30];
         out.avgEmber = M.avgEmber();
         M.memory.emberRuns = [];

@@ -82,7 +82,7 @@ const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-ui-'));
   ok(out.f3Ledge === '.' && out.f3ReachLedge === true, '第 3 层打砚的立足格可直达');
   ok(out.f3ShopOnPath === false, '通往砚的自动寻路不再踩到商店');
   ok(out.f3UpPath === true, '砚倒下后入口到上楼有通路');
-  ok(out.firstWinBonus === 12, '解锁誓约首通额外 +12，第二次不再给');
+  ok(out.firstWinBonus > 0 && out.firstWinBonus === Math.round(out.asceticEmber / 2), '解锁誓约首通额外 = 解锁成本一半（第二次不再给）');
   ok(out.avgEmber === 20 && out.avgFallback === 18, '余烬估算走近 3 局平均，无记录回退 18');
   ok(out.emberDetail === true, '结局页逐项展示本局余烬来源');
   ok(out.lampBtn === true && out.lampLit === true, '全解锁后余烬可点亮层灯（扣 20、灯 +1）');

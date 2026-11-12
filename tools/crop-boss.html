@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><style>body{margin:0;background:#333}</style></head>
+<body>
+<canvas id="c" width="780" height="620"></canvas>
+<script>
+// 源图 1290x2700，地图棋盘起点约 (36,952)，边长约 1218（11 格 → TILE≈110.7）
+// Boss 在地图格 (5,4)：棋盘内 (553.5,442.8)→(664.2,553.5)；加名牌向上多裁一段
+const img = new Image();
+img.onload = () => {
+  const c = document.getElementById('c');
+  const x = c.getContext('2d');
+  const sx = 620, sy = 1290, sw = 260, sh = 220;
+  x.imageSmoothingEnabled = false;
+  x.drawImage(img, sx, sy, sw, sh, 10, 10, sw * 3.2, sh * 3.2);
+  document.title = 'ok';
+};
+img.src = 'out/bossyan-zoom.png';
+</script></body></html>
