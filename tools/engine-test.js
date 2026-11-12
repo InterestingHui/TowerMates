@@ -908,6 +908,12 @@ ok(String(S.princessPlain[3][1]).includes('窗台') && String(S.princessPlain[3]
 ok(Array.isArray(S.princessPlainSword) && S.princessPlainSword.length === S.princessPlain.length && /半截剑|断剑/.test(String(S.princessPlainSword[1][1])), 'princessPlainSword 变体存在：带断剑时薇拉认出剑，行数与原段一致');
 ok(String(S.merchant[2][1]).includes('死在了上面'), '秤的铺垫仍在（断剑小传引用它）');
 ok(S.shadowRivals.some((r) => r.name === '第八位勇者·川' && r.floor === 5), '榜单第八勇者·川 floor:5（断剑层/薇拉台词互证）');
+// 第八勇者线终章锚点（2026-11-13）：结局剑去处 / 榜单脚注互证 / 小传呼应
+ok(String(S.eighthSword[1][1]).includes('第五层'), '断剑小传点破第五层');
+ok(S.shadowRivals.some((r) => r.name === '第二位勇者·鸦' && r.floor === 2) && S.shadowRivals.some((r) => r.name === '第五位勇者·岩' && r.floor === 3), '榜单鸦 floor:2 / 岩 floor:3（小传呼应的数据锚）');
+ok(String(S.relicLore.steel[0][1]).includes('第 2 层') && String(S.relicLore.vigor[0][1]).includes('第 3 层'), '鸦/岩遗物小传与榜单脚注呼应（第 2 层 / 第 3 层）');
+ok(S.princessPlainSword && S.princessPlainSword.some((l) => String(l[1]).includes('第五层')), '薇拉认剑变体保留第五层互证');
+ok(JSON.stringify(S).indexOf('剑断在第五层') < 0, '榜单脚注文本属于 main.js（RIVAL_NOTE），story.js 不重复维护');
 
 // 生僻字闸门：文案里不再出现玩家基本不认识的字（2026-11-12 用户反馈「门闩」的「闩」；同日用户再次点名：Boss 名也不许用生僻字，砚/炬/铎/砧/磐/岚 已全部改名并拉黑）
 const RARE_CHARS = ['闩', '掳', '蛭', '饯', '掸', '龛', '薪', '砚', '炬', '铎', '砧', '磐', '岚'];
@@ -1178,7 +1184,7 @@ if (mTarget) ok(E.pathsTo(mTarget.x, mTarget.y) === null, '怪物目标返回 nu
 // ---------- 成就：一口空气（一件遗物都不拿走到结局） ----------
 {
   const A = window.Achievements;
-  ok(A.DEFS.length === 32, '成就总数 32 项');
+  ok(A.DEFS.length === 33, '成就总数 33 项');
   E.newGame();
   const sm = E.state();
   sm.ending = 'true'; sm.flags.relic_edge = true;
@@ -1215,6 +1221,19 @@ s = E.state();
 s.ending = 'true'; s.flags.killCount = 52;
 A.evaluate('end', s, () => {});
 ok(A.isUnlocked('sweeper') && !isNaN(1), '52 杀 → 清塔者');
+// 执剑者：带川的断剑走到结局（第八勇者线收藏格）
+E.newGame();
+s = E.state();
+s.ending = 'true'; s.flags.relic_edge = true;
+A.evaluate('end', s, () => {});
+ok(A.isUnlocked('edge_finish'), '带断剑走到结局 → 执剑者');
+// 负例前清成就存储：unlocked 跨用例共享，不清会把上一段的解锁泄漏进来
+A.reset();
+E.newGame();
+s = E.state();
+s.ending = 'plain';
+A.evaluate('end', s, () => {});
+ok(!A.isUnlocked('edge_finish'), '没带断剑不解锁执剑者');
 
 console.log(fail === 0 ? '\n✓ 全部通过' : `\n✗ ${fail} 项失败`);
 process.exit(fail ? 1 : 0);

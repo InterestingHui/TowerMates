@@ -16,6 +16,7 @@
     { id: 'secret2', name: '守誓者', emoji: '🛡️', desc: '打开密道红门，取回守誓之盾' },
     { id: 'journal', name: '工匠手记', emoji: '📜', desc: '找到压在砖缝里的手记' },
     { id: 'edge', name: '接过断剑', emoji: '🗡️', desc: '拾起第八位勇者的断裂佩剑' },
+    { id: 'edge_finish', name: '执剑者', emoji: '🤺', desc: '带着川的断剑走到塔顶——他没能走完的路，你替他走完了' },
     { id: 'boss', name: '弑王', emoji: '🐉', desc: '击败塔顶的魔王' },
     { id: 'boss_yan', name: '账已两清', emoji: '📖', desc: '击败名册之锁的墨妖' },
     { id: 'boss_duo', name: '钟停', emoji: '🔔', desc: '击败守钟人钟妖' },
@@ -104,6 +105,8 @@
     // 两条路线各有勋章：绕道者靠省血、清塔者靠战意（战意只在最终决战生效）
     if (s.ending && (f.killCount || 0) <= 10) unlock('dodger', notify);
     if (s.ending && (f.killCount || 0) >= 50) unlock('sweeper', notify);
+    // 执剑者：带着川的断剑走到结局（第八勇者线的正式收藏格）
+    if (s.ending && f.relic_edge) unlock('edge_finish', notify);
   }
 
   function reset() {
