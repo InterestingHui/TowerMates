@@ -707,12 +707,12 @@ ok(okFight.type === 'fight' && s.hp > 0 && !s.over, '放行后正常结算，血
 
 E.newGame('greed');
 s = E.state();
-ok(E.priceOf(D.shop.find((x) => x.id === 'atk')) === 78, '贪婪之誓：价目 +30%（60 → 78）');
+ok(E.priceOf(D.shop.find((x) => x.id === 'atk')) === 87, '贪婪之誓：价目 +45%（60 → 87）');
 s.hp = 5000; s.x = 2; s.y = 3;
 const goldBefore = s.gold;
 const greedRes = E.fight(0, -1);
-ok(greedRes.gold === Math.round(D.monsters.A.gold * 1.7), '贪婪之誓：击杀金币 +70%');
-ok(s.gold === goldBefore + Math.round(D.monsters.A.gold * 1.7), '金币真的进了口袋');
+ok(greedRes.gold === Math.round(D.monsters.A.gold * 1.5), '贪婪之誓：击杀金币 +50%');
+ok(s.gold === goldBefore + Math.round(D.monsters.A.gold * 1.5), '金币真的进了口袋');
 
 // ---------- 9i. 格挡要学：没学时不可用，授予后恢复 ----------
 E.newGame();

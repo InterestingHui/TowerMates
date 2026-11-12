@@ -135,7 +135,7 @@ function priceOf(item) {
   const step = item.step || 0;
   let price = item.price + (s.flags['buy_' + item.id] || 0) * step;
   if (USE_RELIC && s.flags.relic_thrift) price = Math.max(1, Math.round(price * 0.75));
-  if (VOW === 'greed') price = Math.max(1, Math.round(price * 1.3));
+  if (VOW === 'greed') price = Math.max(1, Math.round(price * 1.45));
   if (VOW === 'nameless') price = Math.max(1, Math.round(price * 1.4));
   return price;
 }
@@ -390,7 +390,7 @@ function floorLoop(fi) {
     // 后面「把余钱换成药水」不影响难度，别用它当难度指标
     if (isBoss && m.kind === '锁' && fi === D.floors.length - 2) s.lastBattle = { hp: s.hp, maxHp: s.maxHp };
     s.exp += m.exp;
-    s.gold += VOW === 'greed' ? Math.round(m.gold * 1.7) : m.gold;
+    s.gold += VOW === 'greed' ? Math.round(m.gold * 1.5) : m.gold;
     s.flags.killCount = (s.flags.killCount || 0) + 1;
     if (hasRelic('ember') && !m.boss) {
       const heal = Math.min(Math.max(4, Math.floor(s.maxHp * 0.02)), Math.max(0, s.maxHp - s.hp));
