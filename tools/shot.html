@@ -638,6 +638,25 @@
         }
         T.refreshHud();
         await wait(500);
+      } else if (scene === 'bossdef') {
+        // 窥探之镜对「破不了防的 Boss」也要有话说的验证：攻击压到防线以下
+        d.getElementById('btnNew').click();
+        await wait(200);
+        const _vcd = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
+        if (_vcd) _vcd.click();
+        await wait(260);
+        const dlD2 = d.getElementById('dialogOverlay');
+        for (let i = 0; i < 8; i++) { dlD2.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
+        const sD = E.state();
+        sD.floor = 2; sD.atk = 10; sD.def = 5; sD.hp = 3000; sD.maxHp = 3000;
+        sD.flags.codex = true;
+        for (let y = 0; y < 11; y++) {
+          for (let x = 0; x < 11; x++) {
+            if (E.tile(x, y) === 'N') { sD.x = x; sD.y = Math.min(10, y + 1); break; }
+          }
+        }
+        T.refreshHud();
+        await wait(500);
       } else if (scene === 'dpadclosed' || scene === 'dpadopen') {
         // 方向键收起/展开态：设置已在 iframe 加载前预置好
         d.getElementById('btnNew').click();

@@ -628,7 +628,7 @@
     // 兜帽开口：脸部一块更深的洞，眼睛在里面发亮
     ctx.fillStyle = '#04060b';
     ctx.beginPath();
-    ctx.ellipse(0, -31.5, 4.4, 4.8, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, -31.5, 5.2, 5.4, 0, 0, Math.PI * 2);
     ctx.fill();
 
     // 冠饰：三尖冠（锁匠身份感），光色实心，随呼吸微亮
@@ -644,17 +644,17 @@
     ctx.closePath();
     ctx.fill();
 
-    // 亮瞳：两粒大而亮的眼睛——「有人在看路过的你」
+    // 亮瞳：两粒大而亮的眼睛——「有人在看路过的你」（画大，缩小后也要可读）
     ctx.fillStyle = light[1] + '1)';
     ctx.beginPath();
-    ctx.ellipse(-1.9, -31.6, 1.35, 1.6, 0, 0, Math.PI * 2);
-    ctx.ellipse(1.9, -31.6, 1.35, 1.6, 0, 0, Math.PI * 2);
+    ctx.ellipse(-2.3, -31.4, 2.5, 3, 0, 0, Math.PI * 2);
+    ctx.ellipse(2.3, -31.4, 2.5, 3, 0, 0, Math.PI * 2);
     ctx.fill();
     // 瞳孔辉光
-    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
     ctx.beginPath();
-    ctx.arc(-1.9, -32, 0.45, 0, Math.PI * 2);
-    ctx.arc(1.9, -32, 0.45, 0, Math.PI * 2);
+    ctx.arc(-2.3, -32.2, 0.8, 0, Math.PI * 2);
+    ctx.arc(2.3, -32.2, 0.8, 0, Math.PI * 2);
     ctx.fill();
 
     // 手臂：一只手在身前托着锁物
@@ -668,34 +668,35 @@
     ctx.stroke();
     ctx.restore();
 
-    // ===== 锁物：捧在身前的小道具（约占格 1/5），发光但不再是主角 =====
-    const itemY = py + TILE * 0.58;
+    // ===== 锁物：捧在胸前（手臂托着的位置），发光但只是配角 =====
+    const itemY = py + TILE * 0.46;
     ctx.save();
-    glow(light[1] + '0.55)', TILE * 0.26);
-    ctx.globalAlpha = 0.95;
-    drawEmoji(m.emoji, px, itemY - py, 0.22);
+    glow(light[1] + '0.55)', TILE * 0.3);
+    ctx.globalAlpha = 0.96;
+    drawEmoji(m.emoji, px, itemY - py, 0.3);
     ctx.globalAlpha = 1;
     noGlow();
     ctx.restore();
 
-    // 名字小签：Boss 格上方一条极小的光色名牌，彻底杜绝「这是道具」的误读
+    // 名字小签：挂在格子**左上角**，绝不遮住脸；彻底杜绝「这是道具」的误读
     const tag = m.name || '';
     if (tag) {
-      ctx.font = `700 ${Math.max(8, Math.floor(TILE * 0.17))}px "Microsoft YaHei",sans-serif`;
-      ctx.textAlign = 'center';
+      ctx.font = `700 ${Math.max(8, Math.floor(TILE * 0.16))}px "Microsoft YaHei",sans-serif`;
+      ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
-      const tw = ctx.measureText(tag).width + TILE * 0.14;
-      const th = TILE * 0.22;
-      const ty = py + TILE * 0.02;
+      const tw = ctx.measureText(tag).width;
+      const th = TILE * 0.2;
+      const tx = px + TILE * 0.06;            // 左上角内侧
+      const ty = py + TILE * 0.03;
       ctx.fillStyle = 'rgba(5,7,12,0.78)';
-      roundRect(cx - tw / 2, ty, tw, th, th * 0.4);
+      roundRect(tx - TILE * 0.04, ty, tw + TILE * 0.08, th, th * 0.4);
       ctx.fill();
-      ctx.strokeStyle = light[1] + '0.55)';
+      ctx.strokeStyle = light[1] + '0.5)';
       ctx.lineWidth = 1;
-      roundRect(cx - tw / 2, ty, tw, th, th * 0.4);
+      roundRect(tx - TILE * 0.04, ty, tw + TILE * 0.08, th, th * 0.4);
       ctx.stroke();
       ctx.fillStyle = light[0];
-      ctx.fillText(tag, cx, ty + th / 2 + 0.5);
+      ctx.fillText(tag, tx, ty + th / 2 + 0.5);
     }
   }
 
