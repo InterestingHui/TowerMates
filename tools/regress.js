@@ -85,13 +85,22 @@ if (!process.argv.includes('--no-shot')) {
       console.log('== 附加 · 手感探针（战斗跳过延迟）==');
       let okProbe = true, probeA3 = -1;
       {
-        const p = spawnSync(chrome, [
-          '--headless=new', '--disable-gpu', '--no-sandbox',
+        // 独立 user-data-dir：紧跟在 33 张截图之后复用默认 profile 会被锁住，
+        // 探针会静默跑出一个空 DOM（表现为「读数失败」而不是红）
+        const os = require('os');
+        const probeArgs = [
+          '--headless=new', '--disable-gpu', '--no-sandbox', '--no-first-run', '--disable-extensions',
+          '--user-data-dir=' + path.join(os.tmpdir(), 'tm-probe-' + process.pid),
           '--virtual-time-budget=90000',
           '--dump-dom', `http://127.0.0.1:${PORT}/tools/fx-probe.html?gate=1`,
-        ], { encoding: 'utf8', maxBuffer: 12 * 1024 * 1024 });
-        const m = /A3=(\d+)/.exec(p.stdout || '');
-        probeA3 = m ? Number(m[1]) : -1;
+        ];
+        const readA3 = () => {
+          const p = spawnSync(chrome, probeArgs, { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+          const m = /A3=(\d+)/.exec(p.stdout || '');
+          return m ? Number(m[1]) : -1;
+        };
+        probeA3 = readA3();
+        if (probeA3 < 0) probeA3 = readA3(); // 偶发空 DOM：重试一次再判红
         okProbe = probeA3 >= 0 && probeA3 < 150;
         console.log((okProbe ? '✓' : '✗') + ` 点跳过→面板消失 ${probeA3 < 0 ? '读数失败' : probeA3 + 'ms'}（阈值 <150ms）`);
       }
