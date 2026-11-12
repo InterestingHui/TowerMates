@@ -92,12 +92,20 @@
         say(lines);
       },
       // 战斗中不能弹全屏对白：改用底部常驻提示条，读完 6.5s 或下一条顶替
-      banner(key) {
-        const lines = (S.hints && S.hints[key]) ||
-          (S.tips && S.tips[key] ? [['烛', S.tips[key], 'calm']] : null);
-        if (!lines) return;
+      // 支持自定义文案（opts.text）与变量替换（vars）：Boss 名号横幅不走提示库
+      banner(key, vars, opts) {
+        let text = null;
+        if (opts && opts.text) {
+          text = String(opts.text);
+        } else {
+          const lines = (S.hints && S.hints[key]) ||
+            (S.tips && S.tips[key] ? [['烛', S.tips[key], 'calm']] : null);
+          if (!lines) return;
+          text = Array.isArray(lines[0]) ? lines[0][1] : lines[0];
+        }
+        if (vars) text = text.replace(/\{(\w+)\}/g, (m, k) => (vars[k] != null ? vars[k] : m));
         const g = $('guide');
-        renderRich($('guideText'), Array.isArray(lines[0]) ? lines[0][1] : lines[0]);
+        renderRich($('guideText'), text);
         g.classList.add('show');
         clearTimeout(guideTimer);
         guideTimer = setTimeout(() => g.classList.remove('show'), hintMs(6500));
@@ -832,7 +840,8 @@
       if (owned) {
         const used = !Engine.canBlock();
         el.blockPip.classList.toggle('used', used);
-        el.blockPip.title = used ? '本层格挡已用完（进下一层恢复）' : '本层还有一次格挡：战斗中可把承伤降到 60%';
+        const pct = Math.round(Engine.ringBlockScale() * 100);
+        el.blockPip.title = used ? '本层格挡已用完（进下一层恢复）' : `本层还有一次格挡：战斗中可把承伤降到 ${pct}%${s.flags.hasBlock2 ? ' · 卸伤三成化为经验' : ''}`;
       }
     }
 
@@ -1050,6 +1059,62 @@
   }
   function closeBoard() { el.boardOverlay.classList.remove('show'); }
 
+  // ---------- 怪物速查卡：长按/右键怪物格子弹出（不依赖窥探之镜，人人都可用） ----------
+  // 回答玩家最常问的三件事：这是谁 / 打得过吗 / 打赢给什么。
+  // 没买镜子时损失一栏写「??？」——镜子仍是付费情报，速查卡只给免费的基本盘。
+  function openMonsterProbe(m, tx, ty) {
+    const s = Engine.state();
+    if (!s) return;
+    const maxHp = s.maxHp || Math.max(s.hp, 1000);
+    const ch = Engine.tile(tx, ty);
+    const pred = Engine.predict(ch);
+    let lossHtml, lossCls;
+    if (pred && pred.damage != null) {
+      lossHtml = pred.damage === 0 ? '无伤' : `<b>-${pred.damage}</b> 生命`;
+      lossCls = pred.damage === 0 ? 'safe' : pred.damage >= maxHp * 0.25 ? 'danger' : 'warn';
+    } else if (pred) {
+      lossHtml = `<b>攻 +${m.def + 1 - s.atk}</b> 才能破防`;
+      lossCls = 'danger';
+    } else {
+      lossHtml = '??';
+      lossCls = 'danger';
+    }
+    const bossTag = m.boss && m.title ? `<i class="cx-tag boss">${m.title}</i>` : '';
+    const TR = D.TRAITS && m.trait ? D.TRAITS[m.trait] : null;
+    const traitTag = TR ? `<i class="cx-tag trait">${TR.icon}${TR.name}</i>` : '';
+    const card = document.createElement('div');
+    card.className = 'probe-card';
+    card.innerHTML = `
+      <div class="pb-head"><span class="pb-emoji">${m.emoji}</span>
+        <b>${m.name}</b>${bossTag}<i class="cx-tag">${m.kind}</i>${traitTag}</div>
+      <div class="pb-stats">HP <b>${m.hp}</b> · 攻 <b>${m.atk}</b> · 防 <b>${m.def}</b></div>
+      ${TR ? `<div class="pb-trait">${TR.icon} ${TR.tip}</div>` : ''}
+      <div class="pb-loss ${lossCls}">${lossHtml}</div>
+      <div class="pb-reward">打赢可得 ${m.gold}💰 ${m.exp}✨</div>
+      <div class="pb-hint">点其他地方关闭</div>`;
+    card.addEventListener('click', (e) => e.stopPropagation());
+    const dismiss = () => { card.remove(); document.removeEventListener('click', dismiss, true); };
+    setTimeout(() => document.addEventListener('click', dismiss, true), 0);
+    el.stage.appendChild(card);
+    // 定位：贴着怪物格下方（棋盘在 stage 里居中，需要算出棋盘起点），屏幕边缘时往回缩
+    const T = Renderer.getTile ? Renderer.getTile() : 48;
+    const board = T * 11;
+    const ox = (el.stage.clientWidth - board) / 2;
+    const oy = (el.stage.clientHeight - board) / 2;
+    let cx = ox + (tx + 0.5) * T;
+    let cy = oy + (ty + 1.35) * T;
+    requestAnimationFrame(() => {
+      const cw = card.offsetWidth, chh = card.offsetHeight;
+      if (cx + cw / 2 > el.stage.clientWidth - 8) cx = el.stage.clientWidth - cw / 2 - 8;
+      if (cx - cw / 2 < 8) cx = cw / 2 + 8;
+      if (cy + chh > el.stage.clientHeight - 8) cy = Math.max(8, oy + (ty + 0.5) * T - chh - 6);
+      card.style.left = Math.round(cx) + 'px';
+      card.style.top = Math.round(cy) + 'px';
+      card.classList.add('show');
+    });
+    Sound.play('talk');
+  }
+
   // ---------- 图鉴 ----------
   // 自动遍历全部怪物（v0.4 的手抄名单在扩层后丢了 8 只锁梁怪和 4 位 Boss），
   // 按「首次出现的楼层」排序——那是玩家认识它们的顺序
@@ -1078,12 +1143,20 @@
         cls = p.damage === 0 ? 'safe' : p.damage >= maxHp * 0.25 ? 'danger' : 'warn';
       }
       const bossTag = m.boss ? `<i class="cx-tag boss">${m.chapter || 0}章</i>` : '';
-      return `<div class="cx-row">
+      const T = D.TRAITS && m.trait ? D.TRAITS[m.trait] : null;
+      const traitTag = T ? `<i class="cx-tag trait t-${m.trait}" title="${T.tip}">${T.icon}${T.name}</i>` : '';
+      const mg = Engine.margin(ch);
+      // 只给边际收益，不给结论：该加攻还是加防仍由玩家判断
+      const mgRow = mg
+        ? `<span class="cx-margin">攻 +1 省 <b>${mg.atk}</b> 血 · 防 +1 省 <b>${mg.def}</b> 血${mg.atk === 0 && mg.def === 0 ? '（已无伤）' : ''}</span>`
+        : '';
+      return `<div class="cx-row${T ? ' has-trait' : ''}">
         <span class="cx-emoji">${m.emoji}</span>
-        <span class="cx-name">${m.name}${bossTag}<i class="cx-tag">${m.kind}</i></span>
+        <span class="cx-name">${m.name}${bossTag}<i class="cx-tag">${m.kind}</i>${traitTag}</span>
         <span class="cx-stat">HP ${m.hp} · 攻 ${m.atk} · 防 ${m.def}</span>
         <span class="cx-loss ${cls}">${loss}</span>
         <span class="cx-reward">${m.gold}💰 ${m.exp}✨</span>
+        ${mgRow}
       </div>`;
     }).join('');
     el.codexOverlay.classList.add('show');
@@ -1109,7 +1182,15 @@
     el.bsHero.textContent = '🧙';
     el.bsFoe.textContent = m.emoji;
     // 章末 Boss 带「第 N 章」标记，玩家能看出自己在塔里的位置
-    el.bsName.textContent = m.name + (m.boss ? ' · ' + (m.title || '塔的主人') : (m.chapter ? ` · 第 ${m.chapter} 章` : ''));
+    const bTrait = D.TRAITS && m.trait ? D.TRAITS[m.trait] : null;
+    const nameText = m.name + (m.boss ? ' · ' + (m.title || '塔的主人') : (m.chapter ? ` · 第 ${m.chapter} 章` : ''));
+    el.bsName.innerHTML = nameText + (bTrait ? ` <i class="bs-trait">${bTrait.icon}${bTrait.name}</i>` : '');
+    // 第一次碰到某种特性，把规则讲一次，之后不再打扰
+    if (bTrait && !s.flags['traitSeen_' + m.trait]) {
+      s.flags['traitSeen_' + m.trait] = true;
+      Engine.save();
+      log(`【${bTrait.name}】${bTrait.tip}`, 'warn');
+    }
     el.bsRounds.textContent = `回合 1 / ${pred.rounds}`;
     el.bsHeroHp.textContent = Math.round(heroHp);
     el.bsFoeHp.textContent = Math.round(foeHp);
@@ -1451,6 +1532,11 @@
       Engine.save();
       playStory(m.story || 'boss', () => resolveBattle(dx, dy));
       return;
+    }
+
+    // Boss 开战名号横幅：每次都报一遍「谁在拦你」——地图形象是剪影，名字必须由战斗开口说
+    if (m.boss && m.title) {
+      Tips.banner('bossIntro', { name: m.name, title: m.title }, { text: `⚔ **{name}** · {title} 拦在路上` });
     }
 
     clearStuck();
@@ -2279,6 +2365,11 @@
           if (ev.story) playStory(ev.story, () => Tips.show('block'));
           else Tips.show('block');
         }
+        // 后半部：小传播完提一句新比例
+        if (ev.blockLearned2) {
+          warn('**格挡强化**：承伤降到 **45%**，卸掉的伤三成化为经验。');
+          if (ev.story) playStory(ev.story);
+        }
         break;
       case 'altar':
         openAltar();
@@ -2442,6 +2533,38 @@
       const y = Math.floor((e.clientY - rect.top) / size);
       if (x < 0 || y < 0 || x > 10 || y > 10) return;
       clickMove(x, y);
+    });
+
+    // ---------- 怪物速查：长按（触屏）/ 右键（鼠标）怪物格子，弹一张小卡 ----------
+    // 拖动选路回退后，「了解这只怪」一直没有入口；速查卡补上——只读信息，不改变玩法
+    let probeTimer = 0;
+    const probeDown = (e) => {
+      const s = Engine.state();
+      if (!s || covered()) return;
+      const rect = el.canvas.getBoundingClientRect();
+      const size = rect.width / 11;
+      const x = Math.floor((e.clientX - rect.left) / size);
+      const y = Math.floor((e.clientY - rect.top) / size);
+      if (x < 0 || y < 0 || x > 10 || y > 10) return;
+      const ch = Engine.tile(x, y);
+      const m = D.monsters[ch];
+      if (!m || m.ghost) return;
+      // 触屏长按 420ms；鼠标右键立即弹
+      const delay = e.pointerType === 'mouse' ? 0 : 420;
+      clearTimeout(probeTimer);
+      probeTimer = setTimeout(() => {
+        if (covered() || battleBusy) return;
+        openMonsterProbe(m, x, y, e.clientX, e.clientY);
+      }, delay);
+    };
+    const probeCancel = () => clearTimeout(probeTimer);
+    el.canvas.addEventListener('pointerdown', probeDown);
+    el.canvas.addEventListener('pointermove', probeCancel);
+    el.canvas.addEventListener('pointerup', probeCancel);
+    el.canvas.addEventListener('pointercancel', probeCancel);
+    el.canvas.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      probeDown(e);
     });
 
     $('shopClose').addEventListener('click', closeShop);
@@ -2852,6 +2975,7 @@
     // 提示系统：自动化可验证「加粗渲染 + 角色提示对白」
     richInto: renderRich, say, sayHint, warn, Tips,
     Settings, hintMs, openHintBook, showStuck, clearStuck,
+    openMonsterProbe,
   };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);

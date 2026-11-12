@@ -721,6 +721,18 @@ html, body {
 .bs-num { font-size: 10.5px; color: #a2abbd; font-variant-numeric: tabular-nums; }
 .bs-vs { font-size: 17px; opacity: 0.6; color: var(--gold); }
 .bs-name { text-align: center; font-size: 12.5px; color: #e4e8f1; margin-top: 1px; letter-spacing: 1px; }
+.bs-trait {
+  font-style: normal;
+  font-size: 9.5px;
+  color: #e8c46a;
+  border: 1px solid rgba(232, 196, 106, 0.45);
+  background: rgba(232, 196, 106, 0.1);
+  border-radius: 4px;
+  padding: 0 4px;
+  margin-left: 4px;
+  letter-spacing: 0;
+  vertical-align: 1px;
+}
 .bs-hint { text-align: center; font-size: 10px; color: #555d6d; margin-top: 7px; }
 .bs-numbers { position: fixed; inset: 0; pointer-events: none; }
 .bs-dmg {
@@ -1221,6 +1233,59 @@ html, body {
   vertical-align: 1px;
 }
 .cx-tag.boss { border-color: rgba(201, 74, 82, 0.55); color: #e09a9f; }
+.cx-tag.trait { border-color: rgba(232, 196, 106, 0.45); color: #e8c46a; background: rgba(232, 196, 106, 0.1); }
+.cx-row.has-trait { background: rgba(232, 196, 106, 0.045); }
+.cx-margin {
+  grid-column: 1 / -1;
+  font-size: 10.5px;
+  color: #7d8698;
+  padding-left: 26px;
+  font-variant-numeric: tabular-nums;
+}
+.cx-margin b { color: #b9c1d1; font-weight: 700; }
+
+/* ---------- 怪物速查卡：长按/右键怪物格子弹出 ---------- */
+.probe-card {
+  position: absolute;
+  z-index: 30;
+  min-width: 150px;
+  max-width: 210px;
+  padding: 8px 11px 9px;
+  background: rgba(10, 13, 20, 0.96);
+  border: 1px solid rgba(232, 196, 106, 0.3);
+  border-radius: 10px;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.55);
+  font-size: 11px;
+  color: #dfe4ee;
+  opacity: 0;
+  transform: translateY(4px) scale(0.96);
+  transition: opacity 0.14s ease, transform 0.14s ease;
+  pointer-events: auto;
+  text-align: left;
+  line-height: 1.5;
+}
+.probe-card.show { opacity: 1; transform: translateY(0) scale(1); }
+.probe-card .pb-head { display: flex; align-items: center; gap: 6px; font-size: 12.5px; }
+.probe-card .pb-emoji { font-size: 19px; }
+.probe-card .pb-head b { letter-spacing: 0.5px; }
+.probe-card .pb-stats { margin-top: 4px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.probe-card .pb-stats b { color: #e8ecf5; }
+.probe-card .pb-loss { margin-top: 3px; font-size: 11.5px; }
+.probe-card .pb-loss.safe { color: #6fe3a0; }
+.probe-card .pb-loss.warn { color: #ffd27d; }
+.probe-card .pb-loss.danger { color: #ff8080; }
+.probe-card .pb-reward { margin-top: 3px; color: var(--gold); font-size: 10.5px; }
+.probe-card .pb-hint { margin-top: 5px; font-size: 9px; color: #555d6d; }
+.probe-card .pb-trait {
+  margin-top: 4px;
+  font-size: 10.5px;
+  line-height: 1.5;
+  color: #d9b978;
+  background: rgba(232, 196, 106, 0.08);
+  border-left: 2px solid rgba(232, 196, 106, 0.45);
+  padding: 3px 6px;
+  border-radius: 0 5px 5px 0;
+}
 
 
 

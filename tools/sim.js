@@ -4,6 +4,13 @@
 //       node tools/sim.js --no-relic 关闭遗物，用于对比遗物提供了多少强度
 //       node tools/sim.js --rings    上界：四章全拿回血型锁环，检查构筑不会打穿曲线
 global.window = global;
+// 固定随机序列（防御性）：基线必须可复现。当前 sim 不抽祭坛/路遇，
+// 但引擎里的随机若将来泄漏进来，这条能防止「同一版代码跑出两种结论」
+let SEED = Number((process.argv.find((a) => a.startsWith('--seed=')) || '').split('=')[1]) || 20261112;
+Math.random = () => {
+  SEED = (SEED * 1103515245 + 12345) % 2147483648;
+  return SEED / 2147483648;
+};
 require('../js/data.js');
 const D = global.GAME_DATA;
 const SIZE = 11;
@@ -40,10 +47,15 @@ const hasRelic = (id) => USE_RELIC && !!s.flags['relic_' + id];
 function predict(ch) {
   const m = D.monsters[ch];
   if (!m || m.ghost) return { win: false, damage: Infinity, rounds: Infinity };
-  if (s.atk <= m.def) return { win: false, damage: Infinity, rounds: Infinity };
-  const rounds = Math.ceil(m.hp / (s.atk - m.def));
-  const per = Math.max(0, m.atk - s.def);
-  let damage = (rounds - 1) * per;
+  const tr = m.trait || '';
+  const eDef = tr === 'solid' ? s.atk - 1 : m.def;
+  const effAtk = hasRelic('cross') && m.kind === '亡' ? Math.round(s.atk * 1.5) : s.atk;
+  if (effAtk <= eDef) return { win: false, damage: Infinity, rounds: Infinity };
+  const rounds = Math.ceil(m.hp / (effAtk - eDef));
+  const myDef = tr === 'magic' ? 0 : s.def;
+  const per = Math.max(0, m.atk - myDef) * (tr === 'double' ? 2 : 1);
+  const hits = tr === 'first' ? rounds : Math.max(0, rounds - 1);
+  let damage = hits * per;
   if (damage > 0 && hasRelic('ward')) damage = Math.max(1, Math.floor(damage * 0.88));
   if (damage > 0 && hasRing('bell') && m.boss) damage = Math.round(damage * 0.92);
   return { win: s.hp > damage, damage, rounds };
@@ -83,6 +95,7 @@ function applyItem(ch) {
   if (it.type === 'relic' && USE_RELIC) {
     s.flags['relic_' + it.relic] = true;
     if (it.relic === 'edge') s.atk += 6;
+    if (it.relic === 'steel') { s.atk += 3; s.def += 3; }
     console.log(`  ◈ 遗物 ${it.name}（${D.relics[it.relic].desc}）`);
   }
 }
@@ -102,7 +115,6 @@ function altar(fi) {
     console.log('  ◈ 祭坛：磐的灯油（升级额外 +80 生命）');
   }
 }
-
 // 商店：可重复商品每次购买后涨价 item.step（与引擎 priceOf 同口径）
 function priceOf(item) {
   const step = item.step || 0;
@@ -177,7 +189,8 @@ function bfs() {
 
 function floorLoop(fi) {
   console.log(`\n—— 第 ${fi + 1} 层 ${D.floors[fi].name} ——`);
-  if (fi >= 5 && s.hp < s.maxHp * 0.55) healAtShop();
+  // 商店层（M）：低血先补药——与玩家真实行为同口径，把补给计入承伤模型
+  if (D.floors[fi].map.join('').includes('M') && s.hp < s.maxHp * 0.55) healAtShop();
   let guard = 0;
   while (guard++ < 300) {
     const cells = bfs();
@@ -212,7 +225,7 @@ function floorLoop(fi) {
     }
     if (picked) {
       console.log(`  拾取 ${picked} 件 → HP ${s.hp}/${s.maxHp} ATK ${s.atk} DEF ${s.def} 金 ${s.gold} 经验 ${s.exp} Lv.${s.level}`);
-      if (fi === 2 || fi === 7) shop();
+      if (D.floors[fi].map.join('').includes('M')) shop();
       continue;
     }
     const targets = [];
@@ -222,7 +235,15 @@ function floorLoop(fi) {
       const p = predict(ch);
       if (p.win) targets.push({ x, y, ch, damage: p.damage });
     }
-    if (!targets.length) break;
+    if (!targets.length) {
+      // 卡死自救（与玩家真实行为同口径）：商店层有金币 → 补药+训练后重试
+      if (D.floors[fi].map.join('').includes('M') && s.gold >= priceOf(D.shop.find((x) => x.id === 'atk'))) {
+        if (s.hp < s.maxHp * 0.5) healAtShop();
+        shop();
+        continue;
+      }
+      break;
+    }
     targets.sort((a, b) => a.damage - b.damage);
     const t = targets[0];
     const m = D.monsters[t.ch];
@@ -232,8 +253,10 @@ function floorLoop(fi) {
     if (VOW === 'guard') take = Math.round(take * 0.82);
     if (USE_BLOCK && s.flags.hasBlock && VOW !== 'guard' && VOW !== 'ascetic' && VOW !== 'nameless' && (isBoss || !D.floors[fi].boss) && !s.flags['block_f' + s.floor] && take >= s.maxHp * 0.08) {
       s.flags['block_f' + s.floor] = true;
-      take = Math.round(take * 0.6);
-      console.log(`  ▣ 格挡：${m.name} 承伤 ${t.damage} → ${take}`);
+      const scale = s.flags.hasBlock2 ? 0.45 : 0.6;
+      take = Math.round(take * scale);
+      if (s.flags.hasBlock2) s.exp += Math.max(1, Math.round((t.damage - take) * 0.3));
+      console.log(`  ▣ 格挡：${m.name} 承伤 ${t.damage} → ${take}${s.flags.hasBlock2 ? '（反击+' + Math.max(1, Math.round((t.damage - take) * 0.3)) + ' 经验）' : ''}`);
     }
     s.hp -= take;
     s.damageTaken += take;

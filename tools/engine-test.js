@@ -111,6 +111,40 @@ ok(gEv.blockLearned === true, '首次拾取带教学标记');
 ok(gEv.story === 'blockLore' && !!global.STORY.blockLore, '拾取盾谱带小传 blockLore');
 // 商店铺开：每 ~5 层一副（第 3/8/11/13 层），全部可达且不焊死在唯一通路上（check.js 已验）
 ok(D.floors.filter((f) => f.map.join('').includes('M')).length === 4, '全塔 4 副货摊（3/8/11/13 层）');
+// 后半部盾谱：锁芯拾取 → 格挡强化（×0.45 + 卸伤三成化经验）
+E.newGame();
+s = E.state();
+const vPos = (() => {
+  const m = s.maps[12];
+  for (let y = 0; y < 11; y++) for (let x = 0; x < 11; x++) if (m[y][x] === 'v') return { x, y };
+  return null;
+})();
+ok(!!vPos, '锁芯地图上有盾谱后半 v');
+s.floor = 12; s.x = vPos.x; s.y = vPos.y + 1;
+if (s.maps[12][vPos.y + 1][vPos.x] === '#') { s.x = vPos.x - 1; s.y = vPos.y; }
+const vEvEarly = E.tryMove(s.y === vPos.y + 1 ? 0 : 1, s.y === vPos.y + 1 ? -1 : 0);
+ok(vEvEarly.type === 'pickup' && vEvEarly.good === false && !s.flags.hasBlock2, '没学前半部时读不懂后半部');
+E.grantBlock();
+if (s.maps[12][s.y][s.x] !== 'v') { s.x = vPos.x; s.y = vPos.y; s.maps[12][vPos.y][vPos.x] = 'v'; s.maps[12][vPos.y][vPos.x - 1] = '.'; }
+const vEv = s.x === vPos.x && s.y === vPos.y - 1 ? E.tryMove(0, 1) : (function () {
+  // 直接用 tile 拾取路径重放：踩回它
+  s.x = vPos.x; s.y = vPos.y - 1;
+  if (s.maps[12][vPos.y][vPos.x] !== 'v') s.maps[12][vPos.y][vPos.x] = 'v';
+  return E.tryMove(0, 1);
+})();
+ok(vEv.type === 'pickup' && s.flags.hasBlock2 === true, '先学前半部再拾取 → 学会后半部');
+ok(Math.abs(E.ringBlockScale() - 0.45) < 1e-9, '后半部把格挡比例压到 0.45');
+// 格挡反击：挡下的那场多给经验
+E.newGame();
+s = E.state();
+s.flags.hasBlock = true; s.flags.hasBlock2 = true;
+s.hp = 50000; s.x = 2; s.y = 3;
+const expBefore = s.exp;
+const rawPred = E.predict('A');
+const mExp = D.monsters.A.exp;
+const rRip = E.fight(0, -1, { block: true });
+ok(rRip.blocked === true && rRip.riposte > 0 && s.exp === expBefore + rRip.riposte + mExp, '格挡反击：卸掉的伤三成化为经验');
+ok(rRip.damage === Math.round(rawPred.damage * 0.45), '承伤按 45% 结算');
 // 铁壁之誓不能格挡：商店不卖，拾取也学不会
 E.newGame('guard');
 s = E.state();
@@ -680,6 +714,99 @@ const mTarget = (() => {
   return null;
 })();
 if (mTarget) ok(E.pathsTo(mTarget.x, mTarget.y) === null, '怪物目标返回 null（选路不接管打怪）');
+
+
+// ================= 怪物特性（先攻 / 魔攻 / 连击 / 坚固） =================
+// 特性决定「加攻还是加防」，是魔塔数值解谜的核心，必须锁住语义。
+{
+  E.newGame();
+  const st = E.state();
+  st.atk = 30; st.def = 20; st.hp = 5000; st.maxHp = 5000;
+
+  // 先攻：最后一击之前也要挨一下（hits = rounds）
+  const am = D.monsters.A;
+  const pa = E.predict('A');
+  ok(D.monsters.A.trait === 'first', '蝙蝠带先攻特性');
+  const roundsA = Math.ceil(am.hp / (st.atk - am.def));
+  ok(pa.rounds === roundsA && pa.damage === roundsA * Math.max(0, am.atk - st.def), '先攻：承伤按 rounds 次计算');
+
+  // 魔攻：防御视作 0
+  const wm = D.monsters.W;
+  const pw = E.predict('W');
+  ok(D.monsters.W.trait === 'magic', '怨灵带魔攻特性');
+  const roundsW = Math.ceil(wm.hp / (st.atk - wm.def));
+  ok(pw.damage === Math.max(0, roundsW - 1) * wm.atk, '魔攻：承伤无视防御');
+
+  // 连击：每回合两下
+  const fm = D.monsters.F;
+  const pf = E.predict('F');
+  ok(D.monsters.F.trait === 'double', '狼人带连击特性');
+  const roundsF = Math.ceil(fm.hp / (st.atk - fm.def));
+  ok(pf.damage === Math.max(0, roundsF - 1) * Math.max(0, fm.atk - st.def) * 2, '连击：承伤翻倍');
+
+  // 边际收益：魔攻怪的「加防」收益必须为 0，只攻有效
+  const mgW = E.margin('W');
+  ok(mgW && mgW.def === 0, '魔攻怪：加防收益为 0（只能加攻）');
+  ok(mgW && mgW.atk >= 0, '魔攻怪：加攻不会造成负收益');
+  const mgD = E.margin('D');
+  ok(mgD && mgD.def > 0, '普通怪：加防有收益（与魔攻怪形成对照）');
+  const mgF = E.margin('F');
+  ok(mgF && mgF.def > 0, '连击怪：加防有收益');
+
+  // 十字架：对亡灵增伤，对兽类无效
+  st.flags.relic_cross = true;
+  const pw2 = E.predict('W');
+  ok(pw2.damage < pw.damage, '旧十字架：对亡灵伤害提高');
+  const pa2 = E.predict('A');
+  ok(pa2.damage === pa.damage, '旧十字架：对兽类无效');
+  st.flags.relic_cross = false;
+}
+
+// ================= 幸运金币：战斗金币 ×2 =================
+{
+  E.newGame();
+  const st = E.state();
+  st.hp = 5000; st.maxHp = 5000; st.atk = 200; st.def = 200;
+  // 找一只相邻可打的怪
+  let found = null;
+  for (let y = 0; y < 11 && !found; y++) for (let x = 0; x < 11; x++) {
+    const ch = E.tile(x, y);
+    if (ch !== '#' && D.monsters[ch] && !D.monsters[ch].ghost && !D.monsters[ch].boss &&
+        [[0,-1],[0,1],[-1,0],[1,0]].some(([dx,dy]) => {
+          const t = E.tile(x + dx, y + dy);
+          return t && t !== '#' && !D.monsters[t];
+        })) { found = { x, y, ch }; break; }
+  }
+  if (found) {
+    const gold0 = st.gold;
+    // 站到怪旁边
+    const dirs = [[0,-1],[0,1],[-1,0],[1,0]];
+    for (const [dx, dy] of dirs) {
+      const t = E.tile(found.x + dx, found.y + dy);
+      if (t && t !== '#' && !D.monsters[t]) { st.x = found.x + dx; st.y = found.y + dy; break; }
+    }
+    const standX = st.x, standY = st.y;   // 打之前站的位置，第二局要复用
+    const gx = found.x - st.x, gy = found.y - st.y;
+    const res1 = E.fight(gx, gy);
+    const gain1 = st.gold - gold0;
+    ok(res1.type === 'fight' && gain1 === res1.gold, '战斗金币正常结算');
+
+    // 第二局带幸运金币
+    E.newGame();
+    const st2 = E.state();
+    st2.hp = 5000; st2.maxHp = 5000; st2.atk = 200; st2.def = 200;
+    st2.flags.relic_coin = true;
+    st2.x = standX; st2.y = standY;  // 站回同一个位置（地图每局一致）
+    // 重新找同一只怪（地图每局一致，坐标可用）
+    const ch2 = E.tile(found.x, found.y);
+    if (ch2 === found.ch) {
+      const gold1 = st2.gold;
+      const res2 = E.fight(gx, gy);
+      ok(res2.type === 'fight' && st2.gold - gold1 === res2.gold, '幸运金币：金币翻倍');
+      ok(res2.gold === res1.gold * 2, '幸运金币：恰好 ×2');
+    }
+  }
+}
 
 console.log(fail === 0 ? '\n✓ 全部通过' : `\n✗ ${fail} 项失败`);
 process.exit(fail ? 1 : 0);

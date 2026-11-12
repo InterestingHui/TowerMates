@@ -10,7 +10,7 @@ window.GAME_DATA = (function () {
     p: '红药水', P: '蓝药水', s: '铁剑', d: '铁盾', m: '力量宝石',
     a: '精钢剑', b: '秘银甲', c: '魂晶', h: '圣水',
     k: '黄钥匙', L: '红钥匙', $: '金币', M: '商人', T: '公主', J: '工匠手记',
-    O: '守誓之盾', S: '断裂佩剑', X: '八个人的行李', K: '塔心石', '?': '路遇', Q: '层阶之钥', j: '半部盾谱',
+    O: '守誓之盾', S: '断裂佩剑', X: '八个人的行李', K: '塔心石', '?': '路遇', Q: '层阶之钥', j: '半部盾谱', v: '盾谱·后半',
     '!': '塔的碑文',
   };
 
@@ -40,21 +40,21 @@ window.GAME_DATA = (function () {
   };
 
   const monsters = {
-    A: { name: '蝙蝠', emoji: '🦇', hp: 42, atk: 20, def: 1, gold: 3, exp: 2, kind: '兽' },
+    A: { name: '蝙蝠', emoji: '🦇', hp: 42, atk: 20, def: 1, gold: 3, exp: 2, kind: '兽', trait: 'first' },
     B: { name: '史莱姆', emoji: '🦠', hp: 78, atk: 25, def: 4, gold: 5, exp: 4, kind: '异' },
     C: { name: '骷髅兵', emoji: '💀', hp: 110, atk: 37, def: 6, gold: 8, exp: 6, kind: '亡' },
     D: { name: '僵尸', emoji: '🧟', hp: 148, atk: 47, def: 9, gold: 12, exp: 10, kind: '亡' },
     E: { name: '石像鬼', emoji: '🗿', hp: 210, atk: 60, def: 15, gold: 20, exp: 16, kind: '构' },
-    W: { name: '怨灵', emoji: '👻', hp: 126, atk: 57, def: 6, gold: 16, exp: 16, kind: '亡' },
-    F: { name: '狼人', emoji: '🐺', hp: 265, atk: 71, def: 19, gold: 30, exp: 24, kind: '兽' },
+    W: { name: '怨灵', emoji: '👻', hp: 126, atk: 57, def: 6, gold: 16, exp: 16, kind: '亡', trait: 'magic' },
+    F: { name: '狼人', emoji: '🐺', hp: 265, atk: 52, def: 19, gold: 30, exp: 24, kind: '兽', trait: 'double' },
     H: { name: '骷髅队长', emoji: '🪖', hp: 340, atk: 77, def: 25, gold: 40, exp: 30, kind: '亡' },
     V: { name: '吸血鬼', emoji: '🧛', hp: 360, atk: 77, def: 21, gold: 45, exp: 34, kind: '亡' },
     // ---- 锁梁（第 7 层起）：被名字遗弃的东西 ----
-    I: { name: '锈犬', emoji: '🐕', hp: 360, atk: 92, def: 24, gold: 50, exp: 55, kind: '兽' },
+    I: { name: '锈犬', emoji: '🐕', hp: 360, atk: 72, def: 24, gold: 50, exp: 55, kind: '兽', trait: 'double' },
     R: { name: '提灯僧', emoji: '🏮', hp: 480, atk: 100, def: 30, gold: 58, exp: 65, kind: '亡' },
     1: { name: '空甲', emoji: '🛡️', hp: 560, atk: 96, def: 34, gold: 62, exp: 72, kind: '构' },
     2: { name: '锁虫', emoji: '🪱', hp: 420, atk: 102, def: 26, gold: 55, exp: 60, kind: '异' },
-    3: { name: '无面者', emoji: '👤', hp: 520, atk: 106, def: 32, gold: 66, exp: 70, kind: '魂' },
+    3: { name: '无面者', emoji: '👤', hp: 520, atk: 106, def: 32, gold: 66, exp: 70, kind: '魂', trait: 'magic' },
     4: { name: '灰烬祭司', emoji: '🧙', hp: 640, atk: 106, def: 36, gold: 72, exp: 80, kind: '亡' },
     5: { name: '锈王', emoji: '👑', hp: 760, atk: 126, def: 42, gold: 90, exp: 95, kind: '兽' },
     6: { name: '守名人', emoji: '🗿', hp: 820, atk: 132, def: 44, gold: 96, exp: 105, kind: '构' },
@@ -139,6 +139,14 @@ window.GAME_DATA = (function () {
     G: { name: '烛', emoji: '🕯️', hp: 50, atk: 0, def: 5, gold: 0, exp: 0, ghost: true, kind: '魂' },
   };
 
+  // 怪物特性：决定「该加攻还是该加防」——图鉴、战斗面板、地图角标共用这一份
+  const TRAITS = {
+    first: { icon: '⚡', name: '先攻', tip: '开打前它先打你一下，残血时不能碰' },
+    magic: { icon: '🔮', name: '魔攻', tip: '无视你的防御——加防没用，只能加攻速杀' },
+    double: { icon: '⚔️', name: '连击', tip: '每回合打两下，于是每一点防御的收益也翻倍' },
+    solid: { icon: '🛡️', name: '坚固', tip: '它的防御视为你的攻击 −1，只能靠加防硬扛' },
+  };
+
   const items = {
     p: { name: '红药水', emoji: '🧪', type: 'hp', value: 160 },
     P: { name: '蓝药水', emoji: '💧', type: 'hp', value: 420 },
@@ -158,6 +166,7 @@ window.GAME_DATA = (function () {
     K: { name: '塔心石', emoji: '💗', type: 'heart' },
     Q: { name: '层阶之钥', emoji: '🗝️', type: 'relic', relic: 'gate', story: 'gateLore' },
     j: { name: '半部盾谱', emoji: '📖', type: 'block', story: 'blockLore' },
+    v: { name: '盾谱·后半', emoji: '📕', type: 'block2', story: 'blockLore2' },
   };
 
   // 遗物说明（HUD / 设置页 / 结算都用它）
@@ -172,10 +181,12 @@ window.GAME_DATA = (function () {
     scout: { name: '无名之镜', emoji: '🔍', short: '镜', desc: '直接获得窥探之镜' },
     heart: { name: '塔心石', emoji: '💗', short: '心', desc: '生命上限 +300（带走时结算）' },
     gate: { name: '层阶之钥', emoji: '🗝️', short: '钥', desc: '在走过的楼层间跳；头一次还能往前开一层，代价是那层两件最好的东西被封住' },
+    cross: { name: '旧十字架', emoji: '✝️', short: '架', desc: '对亡灵类（骷髅、僵尸、怨灵、吸血鬼…）伤害 ×1.5' },
+    coin: { name: '幸运金币', emoji: '🪙', short: '币', desc: '战斗获得的金币 ×2' },
   };
 
   // 祭坛的可选池（不含剧情固定的守誓之盾/断刃之锋）
-  const altarPool = ['steel', 'thrift', 'vigor', 'scout', 'ember'];
+  const altarPool = ['steel', 'thrift', 'vigor', 'scout', 'ember', 'cross', 'coin'];
 
   // ---------- 锁环：章末回响的构筑奖励 ----------
   // 规则：击败章末 Boss 必得一次三选一。
@@ -439,7 +450,7 @@ window.GAME_DATA = (function () {
       tip: '塔顶后面是一段窄梯。塔把最要紧的东西，放在最高的地方。',
       map: [
         '###########',
-        '#....#....#',
+        '#.......v.#',
         '#.3..M..4.#',
         '#....#....#',
         '#.##...##.#',
@@ -693,5 +704,5 @@ window.GAME_DATA = (function () {
     { id: 'codex', name: '窥探之镜', emoji: '🔮', price: 100, codex: true, once: true },
   ];
 
-  return { LEGEND, PALETTE, kindColor, monsters, items, relics, altarPool, rings, ringPools, levelExp, floors, chapters, vows, events, shop };
+  return { LEGEND, PALETTE, kindColor, TRAITS, monsters, items, relics, altarPool, rings, ringPools, levelExp, floors, chapters, vows, events, shop };
 })();

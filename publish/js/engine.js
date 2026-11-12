@@ -110,7 +110,13 @@
   // ---------- 锁环：章末回响给的构筑，改规则不改攻防 ----------
   const rings = () => (s && Array.isArray(s.flags.rings) ? s.flags.rings : []);
   const hasRing = (id) => rings().indexOf(id) >= 0;
-  const ringBlockScale = () => (hasRing('parry') ? 0.5 : 0.6);
+  // 格挡比例：后半部盾谱把 0.6 压到 0.45；断刃之环在其上再收一档（0.45→0.35 / 0.6→0.5）
+  const ringBlockScale = () => {
+    const base = s && s.flags.hasBlock2 ? 0.45 : 0.6;
+    return hasRing('parry') ? base - 0.1 : base;
+  };
+  // 后半部学到手：格挡反击——挡下的那场，被卸掉的伤的三成化为经验
+  const blockRiposte = () => !!(s && s.flags.hasBlock2);
 
   // 战斗的「真实承伤」：格挡、誓约、锁环都在这里算一次，演出与结算共用同一份
   function fightDamage(ch, blocked) {
@@ -282,19 +288,31 @@
   }
 
   // 基础预测（不含格挡视角）
+  // 怪物特性：first 先攻 / magic 魔攻 / double 连击 / solid 坚固
+  // 这四种属性决定「该加攻还是该加防」——魔塔数值解谜的核心
   function predictBase(ch) {
     const m = D.monsters[ch];
     if (!m || m.ghost) return null;
-    const out = s.atk - m.def;
-    if (out <= 0) return { win: false, reason: '攻击力不足，无法破防', damage: null, rounds: null, m };
+    const tr = m.trait || '';
+    // 坚固：敌人防御视为我攻 −1，回合数恒等于血量
+    const eDef = tr === 'solid' ? s.atk - 1 : m.def;
+    // 旧十字架：对亡灵的每一次攻击按攻击力 ×1.5 结算
+    const effAtk = hasRelic('cross') && m.kind === '亡' ? Math.round(s.atk * 1.5) : s.atk;
+    const out = effAtk - eDef;
+    if (out <= 0) return { win: false, reason: '攻击力不足，无法破防', damage: null, rounds: null, m, trait: tr };
     const rounds = Math.ceil(m.hp / out);
-    const per = Math.max(0, m.atk - s.def);
-    let damage = (rounds - 1) * per; // 先手：最后一击不会挨打
+    // 魔攻：你的防御视作 0，堆防在这里没有意义
+    const myDef = tr === 'magic' ? 0 : s.def;
+    // 连击：每回合打两下，于是每一点防御的收益也翻倍
+    const per = Math.max(0, m.atk - myDef) * (tr === 'double' ? 2 : 1);
+    // 先攻：连最后一击之前也要先挨一下，残血时不能碰
+    const hits = tr === 'first' ? rounds : Math.max(0, rounds - 1);
+    let damage = hits * per;
     if (damage > 0 && hasRelic('ward')) damage = Math.max(1, Math.floor(damage * 0.88));
     return {
       win: s.hp > damage,
       reason: s.hp > damage ? '' : '生命不足，这场战斗会要你的命',
-      damage, rounds, per, out, m,
+      damage, rounds, per, out, m, trait: tr,
     };
   }
 
@@ -310,6 +328,37 @@
       }
     }
     return p;
+  }
+
+  // 图鉴用：加 1 点攻 / 1 点防，各能少挨多少血（含十字架、守誓之盾等乘区）
+  // 只给边际收益，不给结论——「该加什么」仍然留给玩家判断
+  function margin(ch) {
+    const m = D.monsters[ch];
+    if (!m || m.ghost || !s) return null;
+    const tr = m.trait || '';
+    const cross = hasRelic('cross') && m.kind === '亡';
+    const calc = (atk, def) => {
+      const eDef = tr === 'solid' ? atk - 1 : m.def;
+      const eff = cross ? Math.round(atk * 1.5) : atk;
+      const out = eff - eDef;
+      if (out <= 0) return null;
+      const rounds = Math.ceil(m.hp / out);
+      const myDef = tr === 'magic' ? 0 : def;
+      const per = Math.max(0, m.atk - myDef) * (tr === 'double' ? 2 : 1);
+      const hits = tr === 'first' ? rounds : Math.max(0, rounds - 1);
+      let dmg = hits * per;
+      if (dmg > 0 && hasRelic('ward')) dmg = Math.max(1, Math.floor(dmg * 0.88));
+      return dmg;
+    };
+    const base = calc(s.atk, s.def);
+    if (base == null) return null;
+    const up = calc(s.atk + 1, s.def);
+    const dp = calc(s.atk, s.def + 1);
+    return {
+      atk: up == null ? 0 : Math.max(0, base - up),
+      def: dp == null ? 0 : Math.max(0, base - dp),
+      base,
+    };
   }
 
   function levelUp() {
@@ -361,6 +410,14 @@
       const first = grantBlock();
       if (!first) return { type: 'pickup', msg: `盾谱的残页你早就读过了`, short: '已学', good: false };
       return { type: 'pickup', msg: `拾取${it.name}，你学会了格挡`, short: '+🛡格挡', good: true, blockLearned: true, story: it.story || null };
+    }
+    if (it.type === 'block2') {
+      // 后半部：以学会前半部为前提——没学过时读不透，先记住位置
+      if (!s.flags.hasBlock) return { type: 'pickup', msg: '后半部全是口诀，你连「起手」都还没学——先去找前半部', short: '读不懂', good: false };
+      if (s.flags.hasBlock2) return { type: 'pickup', msg: '后半部你已经背下来了', short: '已学', good: false };
+      s.flags.hasBlock2 = true;
+      save();
+      return { type: 'pickup', msg: `拾取${it.name}：格挡承伤降到 45%，卸掉的伤三成化为经验`, short: '+🛡后半', good: true, blockLearned2: true, story: it.story || null };
     }
     return null;
   }
@@ -734,12 +791,20 @@
 
     const blocked = !!(opt && opt.block) && canBlock();
     if (blocked) s.flags['block_f' + s.floor] = true;
-    const dmg = fightDamage(ch, blocked).damage;
+    const fd = fightDamage(ch, blocked);
+    const dmg = fd.damage;
     s.hp -= dmg;
     setTile(nx, ny, '.');
     moveTo(nx, ny);
-    const goldGain = vow() === 'greed' ? Math.round(m.gold * 1.7) : m.gold;
+    const goldMul = (vow() === 'greed' ? 1.7 : 1) * (hasRelic('coin') ? 2 : 1);
+    const goldGain = Math.round(m.gold * goldMul);
     s.gold += goldGain;
+    // 后半部盾谱的「格挡反击」：挡下的那场，被卸掉的伤的三成化为经验
+    let riposte = 0;
+    if (blocked && blockRiposte()) {
+      riposte = Math.max(1, Math.round((p.damage - dmg) * 0.3));
+      s.exp += riposte;
+    }
     s.exp += m.exp;
     s.flags.killCount = (s.flags.killCount || 0) + 1;
     s.flags['kill_' + ch] = true;
@@ -771,7 +836,7 @@
     emit('kill', { name: m.name, boss: !!m.boss });
     return {
       type: 'fight', damage: dmg, raw: p.damage, blocked, rounds: p.rounds,
-      gold: goldGain, exp: m.exp, heal, levelUps: ups,
+      gold: goldGain, exp: m.exp, heal, levelUps: ups, riposte,
       monster: m, boss: !!m.boss, chapter: m.chapter || 0,
       after: m.after || null, finalBoss: !!m.finalBoss, echo,
     };
@@ -1082,7 +1147,7 @@
       return D.monsters[ch] ? predict(ch) : null;
     },
     tryMove, fight, canBlock, grantBlock, vowForbidsBlock, buy, priceOf, finish, altarChoices, pickRelic, pathTo, pathThrough, pathToNear, pathsTo,
-    nextLevelExp, keyName, summary, hasRelic, ownedRelics, beginFloor, restoreFloor, revealCore, heartState, heartTake, heartLeave, vow, pickEvent, eventPool, eventCost, resolveEvent, applyEffect, jumpTo, visitedMax, gateForth, sealPlan,
+    nextLevelExp, margin, keyName, summary, hasRelic, ownedRelics, beginFloor, restoreFloor, revealCore, heartState, heartTake, heartLeave, vow, pickEvent, eventPool, eventCost, resolveEvent, applyEffect, jumpTo, visitedMax, gateForth, sealPlan,
     rings, hasRing, ringBlockScale, fightDamage, bossPhases, settleChapter, ringChoices, pendingRing, pickRing,
   };
 })();

@@ -657,6 +657,24 @@
         }
         T.refreshHud();
         await wait(500);
+      } else if (scene === 'probecard') {
+        // 怪物速查卡：长按/右键怪物格子弹出的信息卡
+        d.getElementById('btnNew').click();
+        await wait(200);
+        const _vcp = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
+        if (_vcp) _vcp.click();
+        await wait(260);
+        const dlP = d.getElementById('dialogOverlay');
+        for (let i = 0; i < 8; i++) { dlP.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
+        const sP = E.state();
+        sP.floor = 0;
+        // 找到第 1 层的蝙蝠（A），在它位置弹速查卡
+        let pxy = null;
+        for (let y = 0; y < 11 && !pxy; y++) for (let x = 0; x < 11; x++) {
+          if (E.tile(x, y) === 'A') { pxy = { x, y }; break; }
+        }
+        if (pxy) T.openMonsterProbe({ name: '蝙蝠', emoji: '🦇', hp: 42, atk: 20, def: 1, gold: 3, exp: 2, kind: '兽' }, pxy.x, pxy.y);
+        await wait(600);
       } else if (scene === 'dpadclosed' || scene === 'dpadopen') {
         // 方向键收起/展开态：设置已在 iframe 加载前预置好
         d.getElementById('btnNew').click();
