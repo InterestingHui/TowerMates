@@ -60,22 +60,22 @@ window.GAME_DATA = (function () {
     6: { name: '守名人', emoji: '🗿', hp: 820, atk: 132, def: 44, gold: 96, exp: 105, kind: '构' },
     // ---- 章节 Boss：每位守一道锁，也守着上楼的唯一一条路 ----
     N: {
-      name: '砚', emoji: '📖', hp: 300, atk: 42, def: 16, gold: 200, exp: 90, boss: true, kind: '锁',
+      name: '墨妖', emoji: '📖', hp: 300, atk: 42, def: 16, gold: 200, exp: 90, boss: true, kind: '锁',
       title: '第二位工匠 · 名册之锁', story: 'bossYan', after: 'afterYan', chapter: 1,
       defeat: '名册合上了。纸页自己翻到最后一页，又慢慢停住。',
       phases: [
-        { at: 0.66, n: 2, title: '第二页 · 名字', text: '砚：这一页写的是你。别急着看结尾。' },
-        { at: 0.33, n: 3, title: '第三页 · 空行', text: '砚：空着的那一行，本来该是我。' },
+        { at: 0.66, n: 2, title: '第二页 · 名字', text: '墨妖：这一页写的是你。别急着看结尾。' },
+        { at: 0.33, n: 3, title: '第三页 · 空行', text: '墨妖：空着的那一行，本来该是我。' },
       ],
       // 每局从两个池各抽一段：同一局固定，换一局台词组合不同
       phasePool: {
         p2: [
-          { at: 0.66, n: 2, title: '第二页 · 名字', text: '砚：这一页写的是你。别急着看结尾。' },
-          { at: 0.66, n: 2, title: '第二页 · 墨', text: '砚：墨还没干。你来得比账期早了三天。' },
+          { at: 0.66, n: 2, title: '第二页 · 名字', text: '墨妖：这一页写的是你。别急着看结尾。' },
+          { at: 0.66, n: 2, title: '第二页 · 墨', text: '墨妖：墨还没干。你来得比账期早了三天。' },
         ],
         p3: [
-          { at: 0.33, n: 3, title: '第三页 · 空行', text: '砚：空着的那一行，本来该是我。' },
-          { at: 0.33, n: 3, title: '第三页 · 划掉', text: '砚：划掉一个名字，塔就会再索一条命。' },
+          { at: 0.33, n: 3, title: '第三页 · 空行', text: '墨妖：空着的那一行，本来该是我。' },
+          { at: 0.33, n: 3, title: '第三页 · 划掉', text: '墨妖：划掉一个名字，塔就会再索一条命。' },
         ],
       },
     },
@@ -99,40 +99,40 @@ window.GAME_DATA = (function () {
       },
     },
     Y: {
-      name: '铎', emoji: '🔔', hp: 780, atk: 120, def: 40, gold: 420, exp: 200, boss: true, kind: '锁',
+      name: '钟妖', emoji: '🔔', hp: 780, atk: 120, def: 40, gold: 420, exp: 200, boss: true, kind: '锁',
       title: '第五位工匠 · 时辰之锁', story: 'bossDuo', after: 'afterDuo', chapter: 3,
       defeat: '钟声停了。整座塔安静得能听见灰尘落下。',
       phases: [
-        { at: 0.66, n: 2, title: '第二声 · 钟', text: '铎：钟响第二声，镇上就该点灯了。' },
-        { at: 0.33, n: 3, title: '第三声 · 停', text: '铎：你听——停了。八十年第一次停。' },
+        { at: 0.66, n: 2, title: '第二声 · 钟', text: '钟妖：钟响第二声，镇上就该点灯了。' },
+        { at: 0.33, n: 3, title: '第三声 · 停', text: '钟妖：你听——停了。八十年第一次停。' },
       ],
       phasePool: {
         p2: [
-          { at: 0.66, n: 2, title: '第二声 · 钟', text: '铎：钟响第二声，镇上就该点灯了。' },
-          { at: 0.66, n: 2, title: '第二声 · 数', text: '铎：我数过。每一次，都比上一次短一点。' },
+          { at: 0.66, n: 2, title: '第二声 · 钟', text: '钟妖：钟响第二声，镇上就该点灯了。' },
+          { at: 0.66, n: 2, title: '第二声 · 数', text: '钟妖：我数过。每一次，都比上一次短一点。' },
         ],
         p3: [
-          { at: 0.33, n: 3, title: '第三声 · 停', text: '铎：你听——停了。八十年第一次停。' },
-          { at: 0.33, n: 3, title: '第三声 · 债', text: '铎：钟可以停。欠下的那些年，不会自己回来。' },
+          { at: 0.33, n: 3, title: '第三声 · 停', text: '钟妖：你听——停了。八十年第一次停。' },
+          { at: 0.33, n: 3, title: '第三声 · 债', text: '钟妖：钟可以停。欠下的那些年，不会自己回来。' },
         ],
       },
     },
     U: {
-      name: '衡', emoji: '🪶', hp: 1400, atk: 158, def: 52, gold: 600, exp: 260, boss: true, kind: '锁',
+      name: '碑魔', emoji: '🪶', hp: 1400, atk: 158, def: 52, gold: 600, exp: 260, boss: true, kind: '锁',
       title: '第六位工匠 · 无名之锁', story: 'bossHeng', after: 'afterHeng', chapter: 4, finalBoss: true,
       defeat: '刻刀落在桌上。刀刃还是朝着门。',
       phases: [
-        { at: 0.66, n: 2, title: '第二刀 · 深', text: '衡：刻深一点。八十年就磨平了。' },
-        { at: 0.33, n: 3, title: '第三刀 · 名', text: '衡：最后一行，你打算写谁？' },
+        { at: 0.66, n: 2, title: '第二刀 · 深', text: '碑魔：刻深一点。八十年就磨平了。' },
+        { at: 0.33, n: 3, title: '第三刀 · 名', text: '碑魔：最后一行，你打算写谁？' },
       ],
       phasePool: {
         p2: [
-          { at: 0.66, n: 2, title: '第二刀 · 深', text: '衡：刻深一点。八十年就磨平了。' },
-          { at: 0.66, n: 2, title: '第二刀 · 空', text: '衡：那一笔停了八十年。我每天替它擦一次灰。' },
+          { at: 0.66, n: 2, title: '第二刀 · 深', text: '碑魔：刻深一点。八十年就磨平了。' },
+          { at: 0.66, n: 2, title: '第二刀 · 空', text: '碑魔：那一笔停了八十年。我每天替它擦一次灰。' },
         ],
         p3: [
-          { at: 0.33, n: 3, title: '第三刀 · 名', text: '衡：最后一行，你打算写谁？' },
-          { at: 0.33, n: 3, title: '第三刀 · 交', text: '衡：刀快，石头软。难的从来不是刻，是选。' },
+          { at: 0.33, n: 3, title: '第三刀 · 名', text: '碑魔：最后一行，你打算写谁？' },
+          { at: 0.33, n: 3, title: '第三刀 · 交', text: '碑魔：刀快，石头软。难的从来不是刻，是选。' },
         ],
       },
     },
@@ -176,8 +176,8 @@ window.GAME_DATA = (function () {
     ember: { name: '余烬灯芯', emoji: '🔥', short: '烬', desc: '每次击杀回复 2% 生命（至少 4）' },
     // 前八位勇者留下的行李：在第 3 层的祭坛三选一
     steel: { name: '鸦的铁腕', emoji: '🦾', short: '腕', desc: '攻击 +3、防御 +3' },
-    thrift: { name: '岚的账本', emoji: '📒', short: '账', desc: '商店价格 −25%' },
-    vigor: { name: '磐的灯油', emoji: '🏺', short: '油', desc: '每次升级额外 +80 生命' },
+    thrift: { name: '川的账本', emoji: '📒', short: '账', desc: '商店价格 −25%' },
+    vigor: { name: '岩的灯油', emoji: '🏺', short: '油', desc: '每次升级额外 +80 生命' },
     scout: { name: '无名之镜', emoji: '🔍', short: '镜', desc: '直接获得窥探之镜' },
     heart: { name: '塔心石', emoji: '💗', short: '心', desc: '生命上限 +300（带走时结算）' },
     gate: { name: '层阶之钥', emoji: '🗝️', short: '钥', desc: '在走过的楼层间跳；头一次还能往前开一层，代价是那层两件最好的东西被封住' },
@@ -445,7 +445,7 @@ window.GAME_DATA = (function () {
       ],
     },
     {
-      // 隐藏层：击败衡后，塔顶后露出一段窄梯
+      // 隐藏层：击败碑魔后，塔顶后露出一段窄梯
       name: '锁芯', chapter: 0, ambient: 'core',
       tip: '塔顶后面是一段窄梯。塔把最要紧的东西，放在最高的地方。',
       map: [
@@ -643,7 +643,7 @@ window.GAME_DATA = (function () {
     },
     {
       id: 'debt', tier: 'c', name: '秤的欠条', emoji: '📜',
-      text: '一张欠条压在砖下，落款是「岚」。金额那一栏空着，像故意留给后来的人。',
+      text: '一张欠条压在砖下，落款是「川」。金额那一栏空着，像故意留给后来的人。',
       options: [
         { label: '替他还上', tip: '金币 −400，攻击 +3', effect: { gold: -400, atk: 3 }, msg: '你把金币压在欠条上。风把它们一起吹走了。' },
         { label: '把欠条烧掉', tip: '通关余烬 +3', effect: { ember: 3 }, msg: '纸烧得很快。你听见楼上有人叹了口气。' },

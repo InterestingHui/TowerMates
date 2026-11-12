@@ -900,10 +900,10 @@
     $('dlgWho').textContent = line.who;
     $('dlgWho').className = 'dlg-who ' + (line.who === '烛' ? 'ghost'
       : line.who === '薇拉' ? 'vera'
-        : line.who === '魔王' || line.who === '炬' ? 'boss'
-          : line.who === '砚' ? 'yan'
-            : line.who === '铎' ? 'duo'
-              : line.who === '衡' ? 'heng'
+        : line.who === '魔王' || line.who === '炎魔' ? 'boss'
+          : line.who === '墨妖' ? 'yan'
+            : line.who === '钟妖' ? 'duo'
+              : line.who === '碑魔' ? 'heng'
                 : line.who === '秤' ? 'merchant' : '');
     $('dlgWho').style.display = line.who ? '' : 'none';
     const text = $('dlgText');

@@ -112,7 +112,7 @@ function altar(fi) {
     console.log('  ◈ 祭坛：鸦的铁腕（攻 +3 / 防 +3）');
   } else {
     s.flags.relic_vigor = true;
-    console.log('  ◈ 祭坛：磐的灯油（升级额外 +80 生命）');
+    console.log('  ◈ 祭坛：岩的灯油（升级额外 +80 生命）');
   }
 }
 // 商店：可重复商品每次购买后涨价 item.step（与引擎 priceOf 同口径）
@@ -266,7 +266,7 @@ function floorLoop(fi) {
     const isBoss = !!m.boss;
     // 格挡：Boss 层留给 Boss，普通层用在本层第一场"够疼"的战斗上
     let take = t.damage;
-    if (VOW === 'guard') take = Math.round(take * 0.82);
+    if (VOW === 'guard') take = Math.round(take * 1.18);
     if (USE_BLOCK && s.flags.hasBlock && VOW !== 'guard' && VOW !== 'ascetic' && VOW !== 'nameless' && (isBoss || !D.floors[fi].boss) && !s.flags['block_f' + s.floor] && take >= s.maxHp * 0.08) {
       s.flags['block_f' + s.floor] = true;
       const scale = s.flags.hasBlock2 ? 0.45 : 0.6;
@@ -287,7 +287,7 @@ function floorLoop(fi) {
     s.x = t.x; s.y = t.y;
     const before = s.level;
     levelUp();
-    console.log(`  击败 ${m.name} 损失 ${t.damage} → HP ${s.hp} 经验 ${s.exp}${s.level > before ? ` 升到 Lv.${s.level}(ATK ${s.atk}/DEF ${s.def})` : ''}`);
+    console.log(`  击败 ${m.name} 损失 ${take} → HP ${s.hp} 经验 ${s.exp}${s.level > before ? ` 升到 Lv.${s.level}(ATK ${s.atk}/DEF ${s.def})` : ''}`);
     if (s.hp <= 0) { console.log('  ☠ 死亡'); return false; }
   }
   const cells = bfs();

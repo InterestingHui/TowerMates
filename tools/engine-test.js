@@ -227,12 +227,12 @@ const pick2 = E.pickRelic(E.altarChoices(2)[0]);
 ok(pick2.type === 'relic' && s.flags['altar_f4'] === true, '第二座祭坛的标记独立');
 ok(!s.flags.altar_f2, '拿第 5 层的不会用掉第 3 层的');
 
-// ---------- 9c. 岚的账本 / 磐的灯油 / 无名之镜 ----------
+// ---------- 9c. 川的账本 / 岩的灯油 / 无名之镜 ----------
 E.newGame();
 s = E.state();
 s.flags.relic_thrift = true;
 delete s.flags.buy_atk;
-ok(E.priceOf(D.shop.find((x) => x.id === 'atk')) === 45, '岚的账本：商店价格 −25%');
+ok(E.priceOf(D.shop.find((x) => x.id === 'atk')) === 45, '川的账本：商店价格 −25%');
 delete s.flags.relic_thrift;
 ok(E.priceOf(D.shop.find((x) => x.id === 'atk')) === 60, '没有账本时价格恢复');
 
@@ -242,20 +242,20 @@ s.flags.relic_vigor = true;
 s.exp = 9; s.hp = 1000; s.maxHp = 1000;
 s.x = 2; s.y = 3;
 const vf = E.fight(0, -1);
-ok(vf.levelUps === 1 && s.maxHp === 1210, '磐的灯油：升级额外 +80 生命');
+ok(vf.levelUps === 1 && s.maxHp === 1210, '岩的灯油：升级额外 +80 生命');
 
 E.newGame();
 s = E.state();
 E.pickRelic('scout');
 ok(s.flags.codex === true, '无名之镜：直接解锁窥探之镜');
 
-// ---------- 9d. 隐藏门「锁芯」（塔规系统已移除：击败衡即开窄梯） ----------
+// ---------- 9d. 隐藏门「锁芯」（塔规系统已移除：击败碑魔即开窄梯） ----------
 E.newGame();
 s = E.state();
 s.floor = 11;
-ok(E.revealCore() === false, '没打赢衡时塔顶后面没有路');
+ok(E.revealCore() === false, '没打赢碑魔时塔顶后面没有路');
 s.flags.bossKilled_U = true;
-ok(E.revealCore() === true && E.tile(9, 2) === 'u', '击败衡后塔顶露出窄梯');
+ok(E.revealCore() === true && E.tile(9, 2) === 'u', '击败碑魔后塔顶露出窄梯');
 ok(E.state().maps[11][2][9] === 'u', '窄梯写进地图');
 ok(D.floors.length === 13 && D.floors[12].name === '锁芯', '第十三层的锁芯存在');
 
@@ -585,8 +585,8 @@ ok(S.princessPlain.some((l) => String(l[1]).includes('魔王没抓我')) && S.pr
 ok(S.merchant.some((l) => String(l[1]).includes('铜币')), '三十枚铜币移到商人台词');
 ok(!!S.endingTrue.epilogue && !!S.endingPlain.epilogue, '两个结局都有后日谈');
 
-// 生僻字闸门：文案里不再出现玩家基本不认识的字（2026-11-12 用户反馈「门闩」的「闩」）
-const RARE_CHARS = ['闩', '掳', '蛭', '饯', '掸', '龛', '薪'];
+// 生僻字闸门：文案里不再出现玩家基本不认识的字（2026-11-12 用户反馈「门闩」的「闩」；同日用户再次点名：Boss 名也不许用生僻字，砚/炬/铎/砧/磐/岚 已全部改名并拉黑）
+const RARE_CHARS = ['闩', '掳', '蛭', '饯', '掸', '龛', '薪', '砚', '炬', '铎', '砧', '磐', '岚'];
 const allCopy = JSON.stringify(S) + JSON.stringify(D);
 const rareHit = RARE_CHARS.filter((c) => allCopy.indexOf(c) >= 0);
 ok(rareHit.length === 0, '剧情与道具文案不含生僻字' + (rareHit.length ? '（命中：' + rareHit.join('') + '）' : ''));
@@ -628,7 +628,7 @@ s.floor = 2; s.x = 5; s.y = 6;
 s.atk = 80; s.def = 40; s.hp = 6000; s.maxHp = 6000;
 s.flags.boss_seen_N = true;
 const bossRes = E.fight(0, -1);
-ok(bossRes.type === 'fight' && bossRes.boss, 'Boss 砚可正常击败');
+ok(bossRes.type === 'fight' && bossRes.boss, 'Boss 墨妖可正常击败');
 ok(bossRes.echo && bossRes.echo.chapter === 1, 'Boss 击败会返回本章回响');
 ok(bossRes.echo.pending === true, 'Boss 倒下即开三选一');
 ok(s.flags['echo_1'] === 1 && (s.flags['ringChoices_1'] || []).length === 3, '回响标记与锁环候选写进存档');

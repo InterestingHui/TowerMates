@@ -38,7 +38,7 @@ const cases = [
   ['骷髅兵(中期)', { hp: 110, atk: 37, def: 6 }, { atk: 24, def: 16 }, false],
   ['空甲(锁梁)', { hp: 560, atk: 96, def: 34 }, { atk: 40, def: 30 }, false],
   ['灰烬祭司(锁梁,格挡)', { hp: 640, atk: 106, def: 36 }, { atk: 60, def: 40 }, true],
-  ['衡(Boss)', { hp: 1400, atk: 158, def: 52 }, { atk: 107, def: 72 }, false],
+  ['碑魔(Boss)', { hp: 1400, atk: 158, def: 52 }, { atk: 107, def: 72 }, false],
 ];
 for (const [name, m, panel, blocked] of cases) {
   const r = sim(m, panel, blocked);

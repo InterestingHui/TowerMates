@@ -112,7 +112,7 @@ async function run() {
       out.clickOnTile = s4.x === target.x && s4.y === target.y;
     }
 
-    // 第 3 层关键通道：商店不再焊在「打砚 → 上楼」的唯一立足格上
+    // 第 3 层关键通道：商店不再焊在「打墨妖 → 上楼」的唯一立足格上
     E.newGame();
     var s5 = E.state();
     s5.floor = 2; s5.x = 5; s5.y = 9;
@@ -154,7 +154,7 @@ async function run() {
         out.hintAutoClose = !dl.classList.contains('show');
         // 卡关指引 / 提示停留档位 / 重看提示
         var sb = d.getElementById('stuckBar');
-        w.__tm.showStuck({ name: '砚', def: 16 }, { reason: '攻击力不足，无法破防', damage: null }, E.state());
+        w.__tm.showStuck({ name: '墨妖', def: 16 }, { reason: '攻击力不足，无法破防', damage: null }, E.state());
         out.stuckBar = !sb.hidden && sb.querySelectorAll('strong').length >= 2
           && d.getElementById('stuckText').textContent.indexOf('攻击还差') >= 0;
         w.__tm.clearStuck();

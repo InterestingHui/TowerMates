@@ -2,7 +2,7 @@
 // 半身剪影 + 边缘受光，情绪只改光色与眼神，不改构图。
 // 用法：Portraits.render('烛', 'warm') → HTML 字符串；无立绘的角色返回 ''。
 (function () {
-  const KEY = { 烛: 'candle', 炬: 'torch', 魔王: 'torch', 薇拉: 'vera', 秤: 'scale', 砚: 'yan', 铎: 'duo', 衡: 'heng' };
+  const KEY = { 烛: 'candle', 炎魔: 'torch', 魔王: 'torch', 薇拉: 'vera', 秤: 'scale', 墨妖: 'yan', 钟妖: 'duo', 碑魔: 'heng' };
 
   // 每个角色的基准光色 + 情绪偏移
   const COLORS = {
@@ -55,7 +55,7 @@
       <circle cx="92.5" cy="107" r="5.2" fill="currentColor" opacity=".8"/>
       <path d="M92.5 84c-4 4.5-4 8.5 0 10.5 4-2 4-6 0-10.5z" fill="currentColor" opacity=".62"/>
       <path d="M68 60c8 3 14 9 16 18" fill="none" stroke="currentColor" stroke-opacity=".18" stroke-width="1.2"/>`,
-    // 炬：宽肩、双角、胸口锈裂
+    // 炎魔：宽肩、双角、胸口锈裂
     torch: `
       <path d="M60 42c-25 0-41 19-45 45l-6 61h102l-6-61c-4-26-20-45-45-45z" fill="${INK}"/>
       <path d="M60 17c-11 0-18 9-18 21 0 12 8 20 18 20s18-8 18-20c0-12-7-21-18-21z" fill="${INK2}"/>
@@ -125,7 +125,7 @@
       <circle cx="24" cy="84" r="2.6" fill="currentColor" opacity=".6"/>`,
   };
 
-  // 三位锁匠共用炬的剪影，只换光色：他们本来就是一炉里出来的
+  // 三位锁匠共用炎魔的剪影，只换光色：他们本来就是一炉里出来的
   BODY.yan = BODY.torch;
   BODY.duo = BODY.torch;
   BODY.heng = BODY.torch;

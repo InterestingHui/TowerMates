@@ -722,7 +722,7 @@
     return { type: 'heart', choice: 'left', name: '塔心石', msg: '你把手收了回来 · 石头还在那儿跳' };
   }
 
-  // 击败衡后塔顶露出窄梯（塔规门槛已移除：四个锁匠全倒即可进）
+  // 击败碑魔后塔顶露出窄梯（塔规门槛已移除：四个锁匠全倒即可进）
   function revealCore() {
     if (!s) return false;
     const f = D.floors[s.floor];
@@ -775,8 +775,10 @@
     const m = D.monsters[ch];
     if (!m || m.ghost) return { type: 'idle' };
     const p = predict(ch);
+    // 生死判定用「真实承伤」：誓约/锁环乘区都在内（铁壁 ×1.18 会比基础预判更疼），
     // 残血换命：请求格挡、且挡完能活时放行（与 predictOpt 的口径一致）
-    let allowed = p.win;
+    const fdPlain = fightDamage(ch, false);
+    let allowed = !!(fdPlain && s.hp > fdPlain.damage);
     if (!allowed && opt && opt.block && canBlock()) {
       const b = fightDamage(ch, true);
       allowed = !!(b && s.hp > b.damage);

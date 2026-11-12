@@ -547,7 +547,7 @@
         w.__tm.say([['烛', '塔顶后面**露出一段窄梯**——往上还有一层。镇上从来没人说过。', 'firm']], { autoMs: 0 });
         await wait(400);
       } else if (scene === 'stuck') {
-        // 卡关指引：第 3 层攻击不够打不过砚时，顶栏钉住「还差多少攻击」
+        // 卡关指引：第 3 层攻击不够打不过墨妖时，顶栏钉住「还差多少攻击」
         d.getElementById('btnNew').click();
         await wait(200);
         const _vs = d.querySelector('#vowCards .vow-card[data-vow="none"]');
@@ -561,7 +561,7 @@
         st.floor = 2; st.x = 5; st.y = 9;
         st.atk = 11; st.def = 13; st.hp = 1450; st.maxHp = 1450;
         T.refreshHud();
-        w.__tm.showStuck({ name: '砚', def: 16 }, { reason: '攻击力不足，无法破防', damage: null }, E.state());
+        w.__tm.showStuck({ name: '墨妖', def: 16 }, { reason: '攻击力不足，无法破防', damage: null }, E.state());
         await wait(300);
       } else if (scene === 'route') {
         // 拖动选路：方向圆盘 + 候选路线预览（走 __debugRoute，不发真实指针事件）
@@ -620,7 +620,7 @@
         for (let i = 0; i < 6; i++) { d.getElementById('dialogOverlay').dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(70); }
         await wait(500);
       } else if (scene === 'bossyan') {
-        // 第 3 层Boss「砚」的地图形象：站在玩家旁边，验证锁匠剪影画法
+        // 第 3 层Boss「墨妖」的地图形象：站在玩家旁边，验证锁匠剪影画法
         d.getElementById('btnNew').click();
         await wait(200);
         const _vcy = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
@@ -630,7 +630,7 @@
         for (let i = 0; i < 8; i++) { dlY.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
         const sY = E.state();
         sY.floor = 2; sY.atk = 60; sY.def = 30; sY.hp = 3000; sY.maxHp = 3000;
-        // 站到砚（N）相邻的空地上，让 Boss 与玩家同框
+        // 站到墨妖（N）相邻的空地上，让 Boss 与玩家同框
         for (let y = 0; y < 11 && sY.floor === 2; y++) {
           for (let x = 0; x < 11; x++) {
             if (E.tile(x, y) === 'N') { sY.x = x; sY.y = Math.min(10, y + 1); break; }

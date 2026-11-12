@@ -722,7 +722,7 @@
     return { type: 'heart', choice: 'left', name: '塔心石', msg: '你把手收了回来 · 石头还在那儿跳' };
   }
 
-  // 击败衡后塔顶露出窄梯（塔规门槛已移除：四个锁匠全倒即可进）
+  // 击败碑魔后塔顶露出窄梯（塔规门槛已移除：四个锁匠全倒即可进）
   function revealCore() {
     if (!s) return false;
     const f = D.floors[s.floor];
