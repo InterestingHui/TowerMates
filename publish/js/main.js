@@ -142,7 +142,7 @@
   const LAMP_MAX = 13;    // 一层一盏，纯收藏，全解锁后的余烬出口
   const Meta = (() => {
     const KEY = 'towermates_meta';
-    const blank = () => ({ runs: 0, endings: {}, vowWins: {}, fullChapters: 0, heartTaken: 0, heartLeft: 0, deepest: 0, fastest: 0, bestSeal: '', emberRuns: [], firstVowWin: {}, lamps: 0, seenRelics: [], seenRings: [] });
+    const blank = () => ({ runs: 0, endings: {}, vowWins: {}, fullChapters: 0, heartTaken: 0, heartLeft: 0, deepest: 0, fastest: 0, bestSeal: '', emberRuns: [], firstVowWin: {}, lamps: 0, seenRelics: [], seenRings: [], marginCounts: {}, marginBest: '' });
     let data = { ember: 0, unlocked: [], resets: 0, memory: blank() };
     try { data = Object.assign(data, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) {}
     if (!data.memory) data.memory = blank();
@@ -159,6 +159,9 @@
     mem.seenRings = Array.isArray(mem.seenRings) ? mem.seenRings : [];
     // 锁环使用统计：{ id: { picks, wins } }——图鉴卡片上显示「选过 N 次 · 通关 M 次」
     mem.ringStats = (mem.ringStats && typeof mem.ringStats === 'object') ? mem.ringStats : {};
+    // 决战余裕跨局统计（老档补空，不作废）
+    mem.marginCounts = (mem.marginCounts && typeof mem.marginCounts === 'object') ? mem.marginCounts : {};
+    mem.marginBest = mem.marginBest || '';
     return {
       get ember() { return data.ember || 0; },
       get resets() { return data.resets || 0; },
@@ -228,6 +231,13 @@
         if (typeof rec.ember === 'number') {
           mem.emberRuns.push(rec.ember);
           if (mem.emberRuns.length > 3) mem.emberRuns.shift();
+        }
+        // 决战余裕：只在通关局记（败局没有 finalHp），按 S/A/B/C 累计，跨局看「打得最干净的一档」
+        if (rec.won && /^[SABC]$/.test(rec.margin || '')) {
+          const g = rec.margin;
+          mem.marginCounts[g] = (mem.marginCounts[g] || 0) + 1;
+          const rank = ['', 'C', 'B', 'A', 'S'];
+          if (rank.indexOf(g) > rank.indexOf(mem.marginBest || '')) mem.marginBest = g;
         }
         save();
       },
@@ -862,6 +872,24 @@
       + '</div>';
   }
 
+  // 决战余裕档案：跨局累计 S/A/B/C，让「打得干净」成为可追的收藏项
+  function marginStatBoard() {
+    const mem = Meta.memory;
+    const mc = mem.marginCounts || {};
+    const total = ['S', 'A', 'B', 'C'].reduce((n, g) => n + (mc[g] || 0), 0);
+    if (!total) {
+      return '<div class="col-stat col-margin"><p class="col-group-title">决 战 余 裕</p>'
+        + '<p class="cs-empty">还没走到结局。打完碑魔剩多少血，塔会替你记着。</p></div>';
+    }
+    const tally = ['S', 'A', 'B', 'C'].filter((g) => mc[g])
+      .map((g) => `<em class="mg-${g}">${g} <b>${mc[g]}</b> 次</em>`).join('');
+    return '<div class="col-stat col-margin"><p class="col-group-title">决 战 余 裕 · 共 ' + total + ' 次结局</p>'
+      + '<div class="col-stat-row"><span class="cs-label">最好</span>'
+      + `<em class="mg-${mem.marginBest || 'C'}">${mem.marginBest || '—'}</em>${tally}</div>`
+      + (mc.S ? '' : '<div class="col-stat-row"><span class="cs-label">还差</span><em class="cs-dim">少打几只怪，把血留到碑魔，就能拿一次 S</em></div>')
+      + '</div>';
+  }
+
   // 「下一件」：还没收录的东西里挑几件给玩家看（遗物优先——来源固定、可以计划）
   function collectionNext(max) {
     const mem = Meta.memory;
@@ -919,6 +947,7 @@
         + '</div></div>'
       : '';
     html += ringStatBoard();
+    html += marginStatBoard();
     html += '<div class="col-group"><p class="col-group-title">遗 物 · '
       + RELIC_ORDER.filter((id) => mem.seenRelics.indexOf(id) >= 0).length + '/' + RELIC_ORDER.length
       + '</p><div class="col-grid">';
@@ -2458,6 +2487,8 @@
       ending: s.ending, won: true, vow: sum.vow,
       fullChapters: echoDone, heart: s.flags.heart || null,
       floor: sum.floor, time: sum.time, seal, ember: emberGain,
+      // 这里比结算摘要里算余裕更早，直接问引擎，别依赖变量声明顺序
+      margin: (Engine.battleMargin() || {}).grade || '',
     });
     Meta.ringWin(Engine.rings());   // 图鉴里记「带它通关过几次」
     $('endScore').innerHTML = `<span class="es-grade ${seal}" data-seal="${seal}">${sealDef.name}</span>
@@ -2494,14 +2525,26 @@
     // 决战余裕：用「打完碑魔那一刻的血」给一个 S/A/B/C，和塔印并列——塔印看的是流程，这个看的是硬实力
     const margin = Engine.battleMargin();
     if (margin) {
-      // 不到 S 就把话说明白：这条路靠的不是全清，是少打——把血留到碑魔
-      const hint = margin.grade === 'S' ? '' : ' · 少打不必要的怪，把血留到碑魔可上 S';
+      // 不到 S 就把话说明白，但别把整句塞进胶囊（摘要区已经很密）——短标签 + ⓘ 悬停
+      const hint = margin.grade === 'S' ? '' : ' · <i class="brief-tip" title="少打不必要的怪，把血留到碑魔，别为了全清硬打">避战可上 S ⓘ</i>';
       brief.push(`决战余裕 <b>${margin.grade}</b> · ${margin.label}（剩 ${margin.pct}%）${hint}`);
     }
     // 榜单排序用：同层同结局时，余裕高的排前面
     sum.margin = margin ? margin.grade : null;
     brief.push(`✦ 余烬 +${emberGain}`);
-    $('endBrief').innerHTML = brief.map((t) => `<span>${t}</span>`).join('');
+    // 摘要区默认收起后半段（现在常有 6–8 枚胶囊，全铺开会把结算面板顶得很长）
+    const BRIEF_SHOW = 4;
+    const briefEl = $('endBrief');
+    briefEl.classList.remove('open');
+    briefEl.innerHTML = brief.map((t, i) => `<span${i >= BRIEF_SHOW ? ' class="brief-extra"' : ''}>${t}</span>`).join('')
+      + (brief.length > BRIEF_SHOW ? `<button class="brief-toggle" type="button">＋${brief.length - BRIEF_SHOW} 项 ▾</button>` : '');
+    const briefToggle = briefEl.querySelector('.brief-toggle');
+    if (briefToggle) {
+      briefToggle.addEventListener('click', () => {
+        const open = briefEl.classList.toggle('open');
+        briefToggle.textContent = open ? '收起 ▴' : `＋${brief.length - BRIEF_SHOW} 项 ▾`;
+      });
+    }
     const ringShorts = ringList.map((id) => D.rings[id].short).join(' ') || '无';
     // 「剩余生命」用决战结束那一刻（与难度基准同口径）；之后买药回的血另标「现」
     const fh = s.flags.finalHp;
@@ -2533,6 +2576,9 @@
     memItems.push(`刻下过最好的塔印：${SEALS[mem.bestSeal] ? SEALS[mem.bestSeal].name : '尚未刻下'}`);
     memItems.push(`结局：铁与霜 ×${mem.endings.plain || 0} · 第六个名字 ×${mem.endings.true || 0}`);
     memItems.push(`满回响 ${mem.fullChapters || 0}/4 章 · 塔心 带走×${mem.heartTaken || 0} 留下×${mem.heartLeft || 0}`);
+    const mc = mem.marginCounts || {};
+    const marginTally = ['S', 'A', 'B', 'C'].filter((g) => mc[g]).map((g) => `${g}×${mc[g]}`).join(' · ');
+    memItems.push(`决战余裕最好 ${mem.marginBest || '尚未记录'}${marginTally ? ` · ${marginTally}` : ''}`);
     const goals = [];
     // 1) 还没解锁的誓约：差多少余烬
     const lockedVow = Object.keys(D.vows).find((id) => D.vows[id].ember && !Meta.has(id));
@@ -2546,12 +2592,14 @@
     // 2) 没通关过的誓约
     const unWon = Object.keys(D.vows).filter((id) => id !== 'none' && !D.vows[id].ember && !(mem.vowWins || {})[id]);
     if (unWon.length) goals.push(`带着「${D.vows[unWon[0]].name}」走到一次结局`);
-    // 3) 没满过的章回响
+    // 3) 决战余裕还没拿过 S：把「避战流」钉进前三，别让这条隐藏策略永远没人试
+    if (!(mc.S || 0)) goals.splice(2, 0, '少打几只怪，把血留到碑魔——拿一次决战余裕 S');
+    // 4) 没满过的章回响
     if ((mem.fullChapters || 0) < 4) goals.push(`把回响拿满的章推进到 ${(mem.fullChapters || 0) + 1}/4`);
-    // 4) 双结局收集
+    // 5) 双结局收集
     if (!(mem.endings.true || 0)) goals.push('去念出第六个名字');
     else if (!(mem.endings.plain || 0)) goals.push('试试另一条路：铁与霜');
-    // 5) 塔心还没做过另一个选择
+    // 6) 塔心还没做过另一个选择
     if (!mem.heartTaken || !mem.heartLeft) goals.push(!mem.heartTaken ? '把塔心石带走一次' : '把塔心石留下一次');
     const goalsHtml = goals.length
       ? `<div class="mem-goals">${goals.slice(0, 3).map((g) => `<span>▸ ${g}</span>`).join('')}</div><p class="mem-note">塔在等你回来——为了上面这些。</p>`
