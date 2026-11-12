@@ -2680,12 +2680,15 @@
     el.vowCards.innerHTML = shown.map((id) => {
       const v = D.vows[id];
       const line = v.reward ? `通关 +${v.reward} ✦` : '';
+      // 难度档位：tag 直接写容易/普通/困难/噩梦，配色随档位加深
+      const tierCls = { '容易': 't-easy', '普通': 't-normal', '困难': 't-hard', '噩梦': 't-nightmare' }[v.tag] || '';
+      const tier = `<span class="vc-tier ${tierCls}">${v.tag}</span>`;
       // 代价高亮：desc 里「不能 / −N」这类负面词挑出来染红，选之前先看见失去什么
       const costRe = /不能[^；;]*|攻击 −\d+|物价 \+\d+%|(?:秤的)?价目 \+\d+%/g;
       const cost = (v.desc.match(costRe) || []).join(' · ');
       const rest = cost ? v.desc.split(costRe).map((p) => p.replace(/^[；;、]+|[；;、]+$/g, '').trim()).filter(Boolean).join('；') : v.desc;
       return `<button class="vow-card ${id === 'none' ? 'hero' : ''}" data-vow="${id}">
-        <span class="vc-emoji">${v.emoji}</span>
+        <span class="vc-head"><span class="vc-emoji">${v.emoji}</span>${tier}</span>
         <span class="vc-name">${v.name}</span>
         <span class="vc-desc">${rest}</span>
         ${cost ? `<span class="vc-cost">${cost}</span>` : ''}
@@ -2698,7 +2701,7 @@
       lockBox.innerHTML = lockedIds.map((id) => {
         const v = D.vows[id];
         const short = Math.max(0, v.ember - Meta.ember);
-        return `<button class="vow-chip ${short > 0 ? 'poor' : ''}" data-lock="${id}" title="${v.desc}">🔒 ${v.name} · ${short > 0 ? `还差 ${short} ✦` : `可解锁 ${v.ember} ✦`}</button>`;
+        return `<button class="vow-chip ${short > 0 ? 'poor' : ''}" data-lock="${id}" title="${v.desc}">🔒 ${v.name} · ${short > 0 ? `还差 ${short} ✦（通关 +${v.reward} ✦/局）` : `可解锁 ${v.ember} ✦ · 通关 +${v.reward} ✦/局`}</button>`;
       }).join('');
       lockBox.querySelectorAll('.vow-chip').forEach((b) => {
         b.addEventListener('click', () => chooseVow(b.dataset.lock));

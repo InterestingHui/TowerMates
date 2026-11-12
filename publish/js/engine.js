@@ -777,10 +777,10 @@
     };
   }
 
-  // 价格：成长类每次购买 +20，避免后期金币变无限攻防
+  // 价格：可重复商品每次购买后涨价 item.step（越买越贵）；once 商品固定价
   function priceOf(item) {
     if (!s) return item.price;
-    const step = item.id === 'atk' || item.id === 'def' ? 20 : 0;
+    const step = item.step || 0;
     let price = item.price + (s.flags['buy_' + item.id] || 0) * step;
     if (hasRelic('thrift')) price = Math.max(1, Math.round(price * 0.75));
     if (hasRing('thrift2')) price = Math.max(1, Math.round(price * 0.85));
