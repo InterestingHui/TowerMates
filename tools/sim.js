@@ -297,6 +297,9 @@ function floorLoop(fi) {
     }
     s.hp -= take;
     s.damageTaken += take;
+    // 真实终局血：最后一场战斗（碑魔）打完时的血量——玩家看到的结算血就是这个，
+    // 后面「把余钱换成药水」不影响难度，别用它当难度指标
+    if (isBoss && m.kind === '锁' && fi === D.floors.length - 2) s.lastBattle = { hp: s.hp, maxHp: s.maxHp };
     s.exp += m.exp;
     s.gold += VOW === 'greed' ? Math.round(m.gold * 1.7) : m.gold;
     s.flags.killCount = (s.flags.killCount || 0) + 1;
@@ -343,6 +346,11 @@ function climb() {
 function report() {
   const pct = (s.hp / s.maxHp * 100).toFixed(1);
   console.log(`\n总承伤 ${s.damageTaken}，最终 HP ${s.hp}/${s.maxHp}（${pct}%），Lv.${s.level}，ATK ${s.atk}，DEF ${s.def}，金币剩余 ${s.gold}，击杀 ${s.flags.killCount || 0}`);
+  // 难度看这个：打完最终 Boss 的真实血量（之后把余钱换药水只是收尾整理，不算战斗）
+  if (s.lastBattle) {
+    const lp = (s.lastBattle.hp / s.lastBattle.maxHp * 100).toFixed(1);
+    console.log(`真实终局（打完碑魔）：${Math.round(s.lastBattle.hp)}/${s.lastBattle.maxHp}（${lp}%）← 难度基准`);
+  }
   console.log(`遗物：${USE_RELIC ? Object.keys(D.relics).filter((k) => s.flags['relic_' + k]).join(' ') || '无' : '（已关闭）'}`);
   console.log(`锁环：${RINGS.length ? RINGS.map((k) => D.rings[k].name).join(' / ') : '无'}`);
 }

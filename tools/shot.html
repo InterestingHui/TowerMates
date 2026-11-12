@@ -30,6 +30,8 @@
     tower: base + '?dev=1#demo=5,5,7',
     core: base + '?dev=1#demo=12,5,8',
     stoneidle: base + '?dev=1#demo=12,5,8',
+    adsdeath: base + '?ads=1&dev=1',
+    adsend: base + '?ads=1&dev=1',
   }[scene] || base + '?dev=1';
   // 截图场景不触发新手提示对白，保持被测画面干净
   try {
@@ -726,6 +728,29 @@
         sd.flags.worstHit = 1225; sd.flags.worstName = '钟妖';
         T.showDeath({ name: '钟妖' }, 1225);
         await wait(400);
+      } else if (scene === 'adsdeath') {
+        // 广告卡点（?ads=1 才显形）：看「看视频复活」在灰调死亡面板里的位置
+        d.getElementById('btnNew').click();
+        await wait(200);
+        const _vcdA = d.querySelector('#vowCards .vow-card[data-vow="guard"]');
+        if (_vcdA) _vcdA.click();
+        await wait(260);
+        const sdA = E.state();
+        sdA.over = true; sdA.hp = 0; sdA.floor = 8; sdA.flags.killCount = 37;
+        sdA.flags.worstHit = 1225; sdA.flags.worstName = '钟妖';
+        T.showDeath({ name: '钟妖' }, 1225);
+        await wait(400);
+      } else if (scene === 'adsend') {
+        // 广告卡点（?ads=1 才显形）：结算页「余烬翻倍」按钮位置
+        d.getElementById('btnNew').click();
+        await wait(200);
+        const _vcdB = d.querySelector('#vowCards .vow-card[data-vow="guard"]');
+        if (_vcdB) _vcdB.click();
+        await wait(260);
+        const se = E.state();
+        se.ending = 'plain'; se.won = true; se.floor = 11; se.flags.killCount = 40;
+        T.showEnd();
+        await wait(600);
       } else if (scene === 'collection') {
         // 收藏图鉴：预置一批「见过」的记录，检查 11 遗物 + 24 锁环（4 章分组）的卡片排版
         d.getElementById('btnNew').click();

@@ -57,7 +57,7 @@ window.GAME_DATA = (function () {
     3: { name: '无面者', emoji: '👤', hp: 520, atk: 64, def: 32, gold: 66, exp: 70, kind: '魂', trait: 'magic' },
     4: { name: '灰烬祭司', emoji: '🧙', hp: 640, atk: 106, def: 36, gold: 72, exp: 80, kind: '亡' },
     5: { name: '锈王', emoji: '👑', hp: 760, atk: 126, def: 42, gold: 90, exp: 95, kind: '兽' },
-    6: { name: '守名人', emoji: '🗿', hp: 820, atk: 132, def: 44, gold: 96, exp: 105, kind: '构' },
+    6: { name: '守名人', emoji: '🗿', hp: 820, atk: 120, def: 44, gold: 96, exp: 105, kind: '构' },
     // ---- 章节 Boss：每位守一道锁，也守着上楼的唯一一条路 ----
     N: {
       name: '墨妖', emoji: '📖', hp: 300, atk: 42, def: 16, gold: 200, exp: 90, boss: true, kind: '锁',
@@ -118,7 +118,7 @@ window.GAME_DATA = (function () {
       },
     },
     U: {
-      name: '碑魔', emoji: '🪶', hp: 1400, atk: 158, def: 52, gold: 600, exp: 260, boss: true, kind: '锁',
+      name: '碑魔', emoji: '🪶', hp: 1330, atk: 150, def: 52, gold: 600, exp: 260, boss: true, kind: '锁',
       title: '第六位工匠 · 无名之锁', story: 'bossHeng', after: 'afterHeng', chapter: 4, finalBoss: true,
       defeat: '刻刀落在桌上。刀刃还是朝着门。',
       phases: [
@@ -167,23 +167,24 @@ window.GAME_DATA = (function () {
     Q: { name: '层阶之钥', emoji: '🗝️', type: 'relic', relic: 'gate', story: 'gateLore' },
     j: { name: '半部盾谱', emoji: '📖', type: 'block', story: 'blockLore' },
     v: { name: '盾谱·后半', emoji: '📕', type: 'block2', story: 'blockLore2' },
-    o: { name: '一袋金币', emoji: '💰', type: 'gold', value: 400 },
+    o: { name: '一袋金币', emoji: '💰', type: 'gold', value: 400, story: 'coinBagLore' },
   };
 
   // 遗物说明（HUD / 设置页 / 结算都用它）
   const relics = {
-    ward: { name: '守誓之盾', emoji: '🛡️', short: '盾', desc: '每场战斗承伤 −12%' },
-    edge: { name: '断刃之锋', emoji: '⚔️', short: '刃', desc: '攻击 +6（拾取时结算）' },
-    ember: { name: '余烬灯芯', emoji: '🔥', short: '烬', desc: '每次击杀回复 2% 生命（至少 4）' },
-    // 前八位勇者留下的行李：在第 3 层的祭坛三选一
-    steel: { name: '鸦的铁腕', emoji: '🦾', short: '腕', desc: '攻击 +3、防御 +3' },
-    thrift: { name: '川的账本', emoji: '📒', short: '账', desc: '商店价格 −25%' },
-    vigor: { name: '岩的灯油', emoji: '🏺', short: '油', desc: '每次升级额外 +80 生命' },
-    scout: { name: '无名之镜', emoji: '🔍', short: '镜', desc: '直接获得窥探之镜' },
-    heart: { name: '塔心石', emoji: '💗', short: '心', desc: '生命上限 +300（带走时结算）' },
-    gate: { name: '层阶之钥', emoji: '🗝️', short: '钥', desc: '在走过的楼层间跳；头一次还能往前开一层，代价是那层两件最好的东西被封住' },
-    cross: { name: '旧十字架', emoji: '✝️', short: '架', desc: '对亡灵类（骷髅、僵尸、怨灵、吸血鬼…）伤害 ×1.5' },
-    coin: { name: '幸运金币', emoji: '🪙', short: '币', desc: '战斗获得的金币 ×2' },
+    // from = 图鉴里的获取途径（追收集用；不参与任何数值）
+    ward: { name: '守誓之盾', emoji: '🛡️', short: '盾', desc: '每场战斗承伤 −12%', from: '第 4 层密道 · 红门之后' },
+    edge: { name: '断刃之锋', emoji: '⚔️', short: '刃', desc: '攻击 +6（拾取时结算）', from: '第 5 层狼厅 · 角落的断剑' },
+    ember: { name: '余烬灯芯', emoji: '🔥', short: '烬', desc: '每次击杀回复 2% 生命（至少 4）', from: '秤的货摊 · 120 金' },
+    // 前八位勇者留下的行李：在第 3 / 5 / 8 层的祭坛里随机三选一
+    steel: { name: '鸦的铁腕', emoji: '🦾', short: '腕', desc: '攻击 +3、防御 +3', from: '行李堆三选一（第 3 / 5 / 8 层随机）' },
+    thrift: { name: '川的账本', emoji: '📒', short: '账', desc: '商店价格 −25%', from: '行李堆三选一（第 3 / 5 / 8 层随机）' },
+    vigor: { name: '岩的灯油', emoji: '🏺', short: '油', desc: '每次升级额外 +80 生命', from: '行李堆三选一（第 3 / 5 / 8 层随机）' },
+    scout: { name: '无名之镜', emoji: '🔍', short: '镜', desc: '直接获得窥探之镜', from: '行李堆三选一（第 3 / 5 / 8 层随机）' },
+    heart: { name: '塔心石', emoji: '💗', short: '心', desc: '生命上限 +300（带走时结算）', from: '第 13 层锁芯 · 三盏灯中央' },
+    gate: { name: '层阶之钥', emoji: '🗝️', short: '钥', desc: '在走过的楼层间跳；头一次还能往前开一层，代价是那层两件最好的东西被封住', from: '第 4 层密道 · 长柄旧钥匙' },
+    cross: { name: '旧十字架', emoji: '✝️', short: '架', desc: '对亡灵类（骷髅、僵尸、怨灵、吸血鬼…）伤害 ×1.5', from: '行李堆三选一（第 3 / 5 / 8 层随机）' },
+    coin: { name: '幸运金币', emoji: '🪙', short: '币', desc: '战斗获得的金币 ×2', from: '行李堆三选一（第 3 / 5 / 8 层随机）' },
   };
 
   // 祭坛的可选池（不含剧情固定的守誓之盾/断刃之锋）

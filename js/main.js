@@ -77,6 +77,11 @@
   })();
   const REDUCED = () => Settings.fx === 'low';
   const hintMs = (base) => Math.round(base * (HINT_SCALE[Settings.hintSpeed] || 1));
+  // 走路节奏：三套基准按入口的操作方式定（点击连走 105 / 方向键长按 135 / 键盘连按 95），
+  // 开「快速模式」时一起收——不然打架压到 1.1s、走路还是老速度，刷层的手感全断在移动上。
+  // 走路不肯跟演出一样砍到 ×0.42（44ms/格会糊成一片），收到 ×0.65 为止。
+  const WALK_FAST = 0.65;
+  const walkMs = (base) => Math.round(base * (Settings.fast ? WALK_FAST : 1));
 
   // ---------- 引导：关键提示改由角色对白播放 ----------
   const Tips = (() => {
@@ -778,8 +783,15 @@
     const sig = owned + '|' + rings;
     if (sig === collectSig) return; // 没变化就不写盘
     collectSig = sig;
-    RELIC_ORDER.forEach((id) => { if (s.flags['relic_' + id]) Meta.seenRelic(id); });
-    Engine.rings().forEach((id) => Meta.seenRing(id));
+    // 本局首次收录的，记一笔到 s.flags.collectNew —— 结算页写「本局新收录 X 件」，
+    // 把「再玩一局」的动机从「通关」扩到「集齐图鉴」。
+    const fresh = [];
+    RELIC_ORDER.forEach((id) => {
+      if (!s.flags['relic_' + id]) return;
+      if (Meta.seenRelic(id)) fresh.push(D.relics[id].name);
+    });
+    Engine.rings().forEach((id) => { if (Meta.seenRing(id)) fresh.push(D.rings[id].name); });
+    if (fresh.length) s.flags.collectNew = (s.flags.collectNew || []).concat(fresh);
   }
 
   function collectionText() {
@@ -789,27 +801,73 @@
     return `遗物 ${r}/${RELIC_ORDER.length} · 锁环 ${g}/${Object.keys(D.rings).length}`;
   }
 
+  // 图鉴还差几件（遗物按全表算，锁环按数据表算）
+  function collectionRemain() {
+    const mem = Meta.memory;
+    const r = RELIC_ORDER.filter((id) => mem.seenRelics.indexOf(id) >= 0).length;
+    const g = Object.keys(D.rings).filter((id) => mem.seenRings.indexOf(id) >= 0).length;
+    return (RELIC_ORDER.length - r) + (Object.keys(D.rings).length - g);
+  }
+
+  // 点卡片看详情：拿到过的给完整规则 + 来源；没拿到的给「去哪儿找」的线索
+  function showColDetail(kind, id) {
+    const box = $('colDetail');
+    if (!box) return;
+    const on = kind === 'relic'
+      ? Meta.memory.seenRelics.indexOf(id) >= 0
+      : Meta.memory.seenRings.indexOf(id) >= 0;
+    const r = kind === 'relic' ? D.relics[id] : D.rings[id];
+    if (!r) return;
+    const from = kind === 'relic'
+      ? (r.from || '')
+      : `第 ${r.chapter} 章 · 锁匠倒下后的三选一`;
+    box.innerHTML = `<span class="cd-emoji">${on ? r.emoji : '❔'}</span>
+      <div class="cd-main"><b>${r.name}${on ? '' : ' · 未获得'}</b><span>${on ? r.desc : '还没拿到过——先照着下面的线索去试试。'}</span></div>
+      <span class="cd-from">${from}</span>`;
+    box.classList.add('show');
+    // 同一张卡再点一次收起；点别处也收起
+    box._id = kind + ':' + id;
+  }
+
   function openCollection() {
     const mem = Meta.memory;
-    const card = (r, on, extraCls) => `<div class="col-card ${on ? 'got' : 'off'}${extraCls ? ' ' + extraCls : ''}">
+    const card = (kind, id, r, on, extraCls) => `<button type="button" class="col-card ${on ? 'got' : 'off'}${extraCls ? ' ' + extraCls : ''}" data-kind="${kind}" data-id="${id}">
       <span class="cc-emoji">${on ? r.emoji : '❔'}</span>
       <span class="cc-name">${r.name}</span>
       <span class="cc-desc">${on ? r.desc : '未获得'}</span>
-    </div>`;
+    </button>`;
     let html = '<div class="col-group"><p class="col-group-title">遗 物 · '
       + RELIC_ORDER.filter((id) => mem.seenRelics.indexOf(id) >= 0).length + '/' + RELIC_ORDER.length
       + '</p><div class="col-grid">';
-    html += RELIC_ORDER.map((id) => card(D.relics[id], mem.seenRelics.indexOf(id) >= 0)).join('');
+    html += RELIC_ORDER.map((id) => card('relic', id, D.relics[id], mem.seenRelics.indexOf(id) >= 0)).join('');
     html += '</div></div>';
     D.chapters.forEach((ch) => {
       const ids = Object.keys(D.rings).filter((id) => D.rings[id].chapter === ch.id);
       const got = ids.filter((id) => mem.seenRings.indexOf(id) >= 0).length;
       html += `<div class="col-group"><p class="col-group-title">${ch.title} · ${got}/${ids.length}</p><div class="col-grid">`;
-      html += ids.map((id) => card(D.rings[id], mem.seenRings.indexOf(id) >= 0, 'ring')).join('');
+      html += ids.map((id) => card('ring', id, D.rings[id], mem.seenRings.indexOf(id) >= 0, 'ring')).join('');
       html += '</div></div>';
     });
     el.colBody.innerHTML = html;
+    el.colBody.querySelectorAll('.col-card').forEach((b) => {
+      b.addEventListener('click', () => {
+        const key = b.dataset.kind + ':' + b.dataset.id;
+        const box = $('colDetail');
+        if (box && box.classList.contains('show') && box._id === key) { box.classList.remove('show'); return; }
+        showColDetail(b.dataset.kind, b.dataset.id);
+        Sound.play('talk');
+      });
+    });
+    const detail = $('colDetail');
+    if (detail) { detail.classList.remove('show'); detail._id = null; }
     el.colCount.textContent = collectionText();
+    const remain = collectionRemain();
+    const hint = el.collectionOverlay.querySelector('.code-hint');
+    if (hint) {
+      hint.textContent = remain > 0
+        ? `还差 ${remain} 件集齐。拿过一次就记进图鉴，跨局保留；点卡片看来源。`
+        : '全部集齐了。这座塔里再没有你没见过的东西。';
+    }
     el.collectionOverlay.classList.add('show');
     Sound.play('buy');
   }
@@ -1556,7 +1614,10 @@
     $('endEmberDetail').innerHTML = '';
     $('endTag').textContent = sealDef.desc;
     $('endBrief').innerHTML = `<span>败局也算履历：击杀折成余烬带回。</span>`
-      + (s.flags.worstHit ? `<span>最狠的一场：${s.flags.worstName} −${s.flags.worstHit}</span>` : '');
+      + (s.flags.worstHit ? `<span>最狠的一场：${s.flags.worstName} −${s.flags.worstHit}</span>` : '')
+      + ((Array.isArray(s.flags.collectNew) && s.flags.collectNew.length)
+        ? `<span>图鉴新收录：${s.flags.collectNew.slice(0, 4).join('、')}${s.flags.collectNew.length > 4 ? ` 等 ${s.flags.collectNew.length} 件` : ''}（带走的东西不会因为倒下而丢失）</span>`
+        : '');
     Meta.recordRun({ ending: null, won: false, vow: s.flags.vow || 'none', fullChapters: 0, heart: null, floor: s.floor, time: sum.time, seal, ember: emberGain });
     Meta.add(emberGain);
     // 败局也给「塔的记忆」：同一套履历 + 下一局目标——死不是终点，是排队重来的理由
@@ -1597,6 +1658,90 @@
     };
     el.endOverlay.classList.add('show', 'death-mode');
     refreshStartBadges();
+    adOfferRevive();
+  }
+
+  // ---------- 激励视频卡点（IAA）：接口在 js/ads.js，默认恒不可用 ----------
+  // 提审前 Ads.available() 恒 false → 按钮不出现，玩家看到的流程一个字都没变。
+  // 接 SDK 只改 ads.js；这里的领奖动作在 mock 模式下也可完整走通（回归可测）。
+  function adOfferRevive() {
+    if (!window.Ads || !Ads.available()) return;
+    const actions = el.endOverlay.querySelector('.actions');
+    if (!actions) return;
+    const old = el.endOverlay.querySelector('#btnAdRevive');
+    if (old) old.remove(); // 重开一局后再死：别叠第二个按钮
+    const btn = document.createElement('button');
+    btn.className = 'btn ad-cta';
+    btn.id = 'btnAdRevive';
+    btn.innerHTML = '📺 看一段视频 · 从这一层重来';
+    btn.onclick = () => {
+      if (btn.disabled) return;
+      btn.disabled = true;
+      btn.textContent = '视频播放中…';
+      Ads.show('revive', (ok) => {
+        if (!ok) {
+          btn.disabled = false;
+          btn.innerHTML = '📺 看一段视频 · 从这一层重来';
+          warn('视频没看完，这次不算——塔还在等。');
+          return;
+        }
+        reviveFromAd();
+      });
+    };
+    actions.insertAdjacentElement('beforebegin', btn);
+  }
+
+  // 广告复活：回到本层入口快照（这一层的怪与进度重来，是复活的代价），血量抬到四成
+  function reviveFromAd() {
+    const s0 = Engine.state();
+    if (!s0 || !s0.over) return;
+    const floor0 = s0.floor;
+    const okSnap = Engine.restoreFloor();
+    const s = Engine.state();
+    s.over = false;
+    s.won = false;
+    if (!okSnap) {
+      // 没有本层快照（极早期死亡）：原地起身，只回血不动进度
+      s.hp = Math.max(1, Math.round((s.maxHp || 1000) * 0.4));
+    } else {
+      s.hp = Math.max(1, Math.round((s.maxHp || 1000) * 0.4));
+    }
+    s.flags.adRevived = (s.flags.adRevived || 0) + 1;
+    Engine.save();
+    deathShown = false;
+    endShown = false;
+    el.endOverlay.classList.remove('show', 'death-mode');
+    Renderer.setAmbient(s.floor);
+    refreshHud();
+    Sound.play('level');
+    warn(`**从第 ${floor0 + 1} 层重新站起来**：生命回到四成，这一层的怪也回来了。`);
+  }
+
+  // 结算页「余烬翻倍」：只在通关结算用
+  function adOfferDouble(emberGain, host) {
+    if (!window.Ads || !Ads.available() || !emberGain || !host) return;
+    const btn = document.createElement('button');
+    btn.className = 'ad-cta ad-cta-inline';
+    btn.innerHTML = `📺 看一段视频 · 这一局余烬翻倍 <b>+${emberGain} ✦</b>`;
+    btn.onclick = () => {
+      if (btn.disabled) return;
+      btn.disabled = true;
+      btn.textContent = '视频播放中…';
+      Ads.show('ember', (ok) => {
+        if (!ok) {
+          btn.disabled = false;
+          btn.innerHTML = `📺 看一段视频 · 这一局余烬翻倍 <b>+${emberGain} ✦</b>`;
+          return;
+        }
+        Meta.add(emberGain);
+        const done = document.createElement('span');
+        done.className = 'ad-done';
+        done.textContent = `✦ 余烬翻倍 +${emberGain}（已入账）`;
+        btn.replaceWith(done);
+        refreshStartBadges();
+      });
+    };
+    host.insertAdjacentElement('afterend', btn);
   }
 
   // ---------- 章末回响：击败章末锁匠 → 锁环三选一 ----------
@@ -1779,10 +1924,12 @@
       const afford = s.gold >= price;
       let tip = item.relic ? D.relics[item.relic].desc : item.key ? (item.key === 'y' ? '开黄门' : '开红门') : item.hp ? `回复 ${item.hp} 生命` : item.atk ? '攻击 +2' : item.def ? '防御 +2' : item.block ? '学会格挡：每层一次，战斗中点盾把承伤降到 60%' : item.heartShard ? '带一点塔的心跳出去：**通关余烬 +8**（唯一）' : '怪物情报';
       if (forbidden) tip = '**这条誓约不能格挡**，买了也用不上';
-      // 碎片保底提示：钱不够时告诉玩家「差多少、本层还剩几只怪可刷」，别让人以为错过了就没了
-      if (item.heartShard && !owned && !afford) {
+      // 唯一/关键品保底提示：钱不够时告诉玩家「差多少、本层还剩几只怪可刷」，
+      // 别让人以为错过这一层就再也买不到了（盾谱/镜子/灯芯/碎片都算）
+      if (!owned && !forbidden && !afford && (item.once || item.block)) {
         const left = Engine.floorMonsterCount();
-        tip = `带一点塔的心跳出去：**通关余烬 +8** · 还差 **${price - s.gold}** 金${left ? ` · 这一层还剩 **${left}** 只怪可刷` : ' · 这一层已经清空，回下层找钱'}`;
+        const what = item.block ? '学会格挡' : item.codex ? '怪物情报永久解锁' : item.heartShard ? '通关余烬 +8' : item.relic ? D.relics[item.relic].desc : '';
+        tip = `${what ? what + ' · ' : ''}还差 **${price - s.gold}** 金${left ? ` · 这一层还剩 **${left}** 只怪可刷` : ' · 这一层已经清空，回下层找钱'}`;
       }
       if (item.atk && needAtk) {
         const gap = needAtk.def + 1 - s.atk;
@@ -1797,10 +1944,12 @@
       row.className = 'shop-item' + (owned ? ' owned' : '');
       row.innerHTML = `
         <span class="si-emoji">${item.emoji}</span>
-        <span class="si-name"><b>${item.name}${item.once ? '<small class="si-tag">唯一</small>' : ''}</b><small>${tip}</small></span>
+        <span class="si-name"><b>${item.name}${item.once ? '<small class="si-tag">唯一</small>' : ''}</b><small class="si-tip"></small></span>
         <span class="si-price">${price}</span>
         <button class="si-buy" data-id="${item.id}" ${owned || forbidden || !afford ? 'disabled' : ''}>${owned ? '已拥有' : forbidden ? '不适用' : '购买'}</button>
       `;
+      // 提示里的 **重点** 走 rich 渲染：直接拼 innerHTML 会把星号原样显示出来
+      renderRich(row.querySelector('.si-tip'), tip);
       list.appendChild(row);
     });
     list.querySelectorAll('.si-buy').forEach((b) => {
@@ -2173,7 +2322,15 @@
     brief.push(s.flags.retries ? `重来本层 ${s.flags.retries} 次` : '一次没回头');
     const hint = nextSealHint(seal, s, echoDone);
     if (hint) brief.push(`下一枚塔印：${hint}`);
+    // 本局首次收录进图鉴的：把「再玩一局」的动机从通关扩到集齐
+    const newly = Array.isArray(s.flags.collectNew) ? s.flags.collectNew : [];
+    if (newly.length) {
+      const head = newly.slice(0, 4).join('、') + (newly.length > 4 ? ` 等 ${newly.length} 件` : '');
+      brief.push(`图鉴新收录：${head}（还差 ${collectionRemain()} 件集齐）`);
+    }
     Meta.add(emberGain);
+    // IAA 卡点：余烬翻倍（Ads 未接入时按钮不出现，见 adOfferDouble）
+    adOfferDouble(emberGain, ed);
     // 首通奖励只发一次：结算落袋后才标记，刷新页面也不会重发
     if (vowDef.ember) Meta.claimFirstWin(sum.vow);
     brief.push(`✦ 余烬 +${emberGain}`);
@@ -2343,7 +2500,7 @@
         stopWalk();
         return;
       }
-      walkTimer = setTimeout(step, 105);
+      walkTimer = setTimeout(step, walkMs(105));
     };
     step();
   }
@@ -2611,6 +2768,8 @@
           warn('**格挡强化**：承伤降到 **45%**，卸掉的伤三成化为经验。');
           if (ev.story) playStory(ev.story);
         }
+        // 一袋金币：第六位勇者留的过路费，播一行来历
+        if (ev.story === 'coinBagLore') playStory(ev.story);
         break;
       case 'altar':
         openAltar();
@@ -2714,7 +2873,7 @@
       if (d) {
         e.preventDefault();
         const now = performance.now();
-        if (e.repeat && now - lastKeyAt < 95) return; // 键盘重复降速，避免一步三格
+        if (e.repeat && now - lastKeyAt < walkMs(95)) return; // 键盘重复降速，避免一步三格
         lastKeyAt = now;
         stopWalk();
         act(d[0], d[1]);
@@ -2749,7 +2908,7 @@
           holdTimer = setInterval(() => {
             const d2 = dirs[b.dataset.dir];
             if (d2) act(d2[0], d2[1]);
-          }, 135);
+          }, walkMs(135));
         }, 320);
       };
       const end = () => {
@@ -3022,7 +3181,7 @@
     $('cfgVibVal').className = Settings.vib ? '' : 'off';
     $('cfgCrittersVal').textContent = Settings.critters ? '开' : '关';
     $('cfgCrittersVal').className = Settings.critters ? '' : 'off';
-    $('cfgFastVal').textContent = Settings.fast ? '开（演出 ×0.42）' : '关';
+    $('cfgFastVal').textContent = Settings.fast ? '开（演出 ×0.42 · 走路 ×0.65）' : '关';
     $('cfgFastVal').className = Settings.fast ? '' : 'off';
     $('cfgBattleSpeedVal').textContent = BATTLE_SPEED_NAME[Settings.battleSpeed];
     $('cfgFullRoundsVal').textContent = Settings.fullRounds ? '开（每刀真实伤害）' : '关';
@@ -3255,8 +3414,9 @@
     // 提示系统：自动化可验证「加粗渲染 + 角色提示对白」
     richInto: renderRich, say, sayHint, warn, Tips,
     Settings, hintMs, openHintBook, showStuck, clearStuck,
-    openMonsterProbe, showDeath,
-    openCollection, closeCollection, collectionText, rememberCollection,
+    openMonsterProbe, showDeath, reviveFromAd, adOfferRevive, adOfferDouble,
+    resetDeath: () => { deathShown = false; },
+    openCollection, closeCollection, collectionText, rememberCollection, collectionRemain, showColDetail,
   };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);

@@ -112,6 +112,56 @@ async function run() {
       out.clickOnTile = s4.x === target.x && s4.y === target.y;
     }
 
+    // 商店链：8 / 11 / 13 层的商人，单击一次就要「走到跟前 → 首会对白 → 商店面板」。
+    // 第 3 层曾因「walk 教学对白打断寻路 + playStory 覆盖丢回调」卡死，这里把整条链钉进闸门。
+    d.querySelectorAll('.overlay.show').forEach(function (o) { o.classList.remove('show'); });
+    out.shopChain = [];
+    for (var si = 0; si < 3; si++) {
+      var fi = [7, 10, 12][si];
+      E.newGame();
+      var ss = E.state();
+      ss.floor = fi;
+      ss.atk = 999; ss.def = 999; ss.hp = 99999; ss.maxHp = 99999;
+      var mx = -1, my = -1;
+      ss.maps[fi].forEach(function (row, yy) {
+        row.forEach(function (ch, xx) { if (ch === 'M') { mx = xx; my = yy; } });
+      });
+      var start = null;
+      for (var yy2 = 1; yy2 < 10 && !start; yy2++) {
+        for (var xx2 = 1; xx2 < 10 && !start; xx2++) {
+          if (ss.maps[fi][yy2][xx2] !== '.') continue;
+          if (Math.abs(xx2 - mx) + Math.abs(yy2 - my) < 2) continue;
+          ss.x = xx2; ss.y = yy2;
+          var pp2 = E.pathTo(mx, my);
+          if (pp2 && pp2.length >= 2) start = { x: xx2, y: yy2 };
+        }
+      }
+      var rec = { floor: fi + 1, hasM: mx >= 0, hasStart: !!start };
+      if (mx >= 0 && start) {
+        ss.x = start.x; ss.y = start.y;
+        w.__tm.refreshHud();
+        await new Promise(function (r) { setTimeout(r, 80); });
+        w.__tm.clickMove(mx, my);
+        await new Promise(function (r) { setTimeout(r, 1800); });
+        var s9 = E.state();
+        var dlS = d.getElementById('dialogOverlay');
+        rec.reached = s9.x === mx && s9.y === my;
+        rec.dialog = dlS.classList.contains('show');
+        for (var ci = 0; ci < 12; ci++) {
+          if (!dlS.classList.contains('show')) break;
+          dlS.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+          await new Promise(function (r) { setTimeout(r, 60); });
+        }
+        await new Promise(function (r) { setTimeout(r, 500); });
+        rec.shop = d.getElementById('shopOverlay').classList.contains('show');
+        rec.rows = d.querySelectorAll('#shopList .shop-item').length;
+        var cl9 = d.getElementById('shopClose');
+        if (cl9) cl9.click();
+        await new Promise(function (r) { setTimeout(r, 150); });
+      }
+      out.shopChain.push(rec);
+    }
+
     // 第 3 层关键通道：商店不再焊在「打墨妖 → 上楼」的唯一立足格上
     E.newGame();
     var s5 = E.state();
@@ -217,9 +267,55 @@ async function run() {
         out.colClosed = !colOv.classList.contains('show');
         // HUD 遗物 chip 全表（cross/coin 曾漏在 RELIC_ORDER 外，不显示）
         out.colHudChips = d.querySelectorAll('#relicRow .relic[data-relic]').length;
+        // 本局新收录：刚拿的两件遗物应记进 collectNew，结算页才有「图鉴新收录」
+        out.colNew = (s8.flags.collectNew || []);
+        // 剩余件数 = 35 - 已收录（这里 2 遗物 + 2 锁环 = 4 件已收录）
+        out.colRemain = w.__tm.collectionRemain();
+        // 点卡片弹详情：拿到的给规则+来源，没拿到的给去处线索
+        w.__tm.openCollection();
+        var gotCard = d.querySelector('#colBody .col-card.got');
+        if (gotCard) gotCard.click();
+        var cd = d.getElementById('colDetail');
+        out.colDetail = cd.classList.contains('show') && cd.textContent.length > 6;
+        out.colDetailHasFrom = cd.textContent.indexOf('来自') >= 0 || cd.textContent.indexOf('第') >= 0;
+        var offCard = d.querySelector('#colBody .col-card.off');
+        if (offCard) offCard.click();
+        out.colDetailOff = cd.textContent.indexOf('未获得') >= 0;
+        w.__tm.closeCollection();
         // 渲染异常探针：整轮 UI 自检跑下来一次都不许有
         out.renderErrors = (w.__tmRenderErrors || []).length;
         out.renderErrorSample = (w.__tmRenderErrors || []).slice(0, 2);
+        // 激励视频接口位（IAA 红线）：默认恒不可用 → 死亡页不出现广告按钮；
+        // 接口契约在两种状态下都要稳（不可用时立刻回调 false，绝不挂起）
+        out.adDefaultOff = !!(w.Ads && w.Ads.available() === false);
+        out.adSlots = w.Ads ? w.Ads.slots() : [];
+        var adCb = [];
+        w.Ads.show('revive', function (ok) { adCb.push(ok); });
+        out.adImmediateFalse = adCb.length === 1 && adCb[0] === false;
+        var badSlot = null;
+        w.Ads.show('nope', function (ok) { badSlot = ok; });
+        out.adBadSlot = badSlot === false;
+        d.querySelectorAll('.overlay.show').forEach(function (o) { o.classList.remove('show'); });
+        E.newGame();
+        var s9 = E.state();
+        s9.floor = 2; s9.hp = 0; s9.over = true;
+        w.__tm.resetDeath();
+        w.__tm.showDeath({ name: '墨妖' }, 500);
+        out.adNoBtn = !d.getElementById('btnAdRevive');
+        // 桩模式：按钮显形 → 点击 → 视频回调 → 原地复活（over 复位、血回到四成）
+        w.Ads.debug();
+        w.__tm.resetDeath();
+        w.__tm.showDeath({ name: '墨妖' }, 500);
+        var adBtn = d.getElementById('btnAdRevive');
+        out.adBtnShown = !!adBtn;
+        if (adBtn) adBtn.click();
+        out.adBtnPending = adBtn ? adBtn.disabled : false;
+        setTimeout(function () {
+          out.adRevived = s9.over === false && s9.hp > 0;
+          out.adRevivedHp = Math.round(s9.hp);
+          out.adReviveFlag = s9.flags.adRevived === 1;
+          document.getElementById('out').textContent = JSON.stringify(out);
+        }, 400);
         document.getElementById('out').textContent = JSON.stringify(out);
       }, 1000);
     }, 600);

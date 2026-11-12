@@ -362,6 +362,39 @@ s.x = 4; s.y = 4;
 ev = E.tryMove(0, -1);
 ok(ev.type === 'event' && !!ev.eventId, '踩到路遇点弹出事件');
 
+// ---------- 9i-2. 回血来源口径：除「本层首次踏足」外，其余回血都不许原地反复刷 ----------
+// ① 药水格踩过即清空：站上去再踩一次不会重复回血
+E.newGame();
+s = E.state();
+const potPos = (() => {
+  const m = s.maps[0];
+  for (let y = 0; y < 11; y++) for (let x = 0; x < 11; x++) if (m[y][x] === 'p') return { x, y };
+  return null;
+})();
+ok(!!potPos, '第 1 层找得到红药水');
+if (potPos) {
+  s.x = potPos.x; s.y = potPos.y - 1; s.hp = 500;
+  const hpBeforePot = s.hp;
+  const potEv = E.tryMove(0, 1);
+  const hpAfterPot = s.hp;
+  ok(potEv.type === 'pickup' && hpAfterPot > hpBeforePot, '踩药水回血');
+  ok(E.tile(potPos.x, potPos.y) === '.', '药水格被清空');
+  s.hp = 500;
+  const again = E.tryMove(0, -1) && E.tryMove(0, 1);
+  ok(s.hp === 500 && again.type === 'move', '在同一格来回走不会重复回血');
+}
+// ② 路遇事件结算后格变地面、同层不再触发（ev_f 标记）
+E.newGame();
+s = E.state();
+s.x = 4; s.y = 4;
+const ev0 = E.tryMove(0, -1);
+const optIdx = 0;
+E.resolveEvent(ev0.eventId, optIdx);
+ok(E.tile(4, 3) === '.', '事件格结算后变地面');
+s.hp = 500;
+const evAgain = E.tryMove(0, -1);
+ok(evAgain.type === 'move' && s.hp === 500, '事件格不能再踩出第二次回血');
+
 // ---------- 9m. 第一层的碑文 ----------
 // 石碑立在第 1 层 (3,3)：撞它读一遍，读过再撞只是blocked；寻路把它当墙绕开
 E.newGame();
@@ -670,7 +703,7 @@ ok(chainOk, '十三层塔每一层都能正常上楼（含隐藏门）');
 
 // ---------- 17. 剧情文本完整性 ----------
 const S = global.STORY;
-const need = ['intro', 'candle1', 'candle2', 'candle3', 'candle4', 'candle5', 'journal', 'merchant', 'merchant2', 'merchant3', 'merchant4', 'blockLore', 'eighthSword', 'solitude', 'ch2', 'ch3', 'ch4', 'bossYan', 'afterYan', 'bossJu', 'afterJu', 'bossDuo', 'afterDuo', 'bossHeng', 'afterHeng', 'core', 'princessPlain', 'princessTrue', 'afterChoicePlain', 'afterChoiceTrue', 'stele'];
+const need = ['intro', 'candle1', 'candle2', 'candle3', 'candle4', 'candle5', 'journal', 'merchant', 'merchant2', 'merchant3', 'merchant4', 'blockLore', 'blockLore2', 'coinBagLore', 'eighthSword', 'solitude', 'ch2', 'ch3', 'ch4', 'bossYan', 'afterYan', 'bossJu', 'afterJu', 'bossDuo', 'afterDuo', 'bossHeng', 'afterHeng', 'core', 'princessPlain', 'princessTrue', 'afterChoicePlain', 'afterChoiceTrue', 'stele'];
 ok(need.every((k) => Array.isArray(S[k]) && S[k].length), '所有剧情段都存在且非空');
 ok(S.intro.length === 4, '序章 4 句（魔王掳人 → 国王恳求 → 立誓 → 独自进塔）');
 const introAll = S.intro.join('');

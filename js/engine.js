@@ -399,7 +399,7 @@
     }
     if (it.type === 'gold') {
       s.gold += it.value;
-      return { type: 'pickup', msg: `拾取${it.name}，金币 +${it.value}`, short: `+${it.value}💰`, good: true };
+      return { type: 'pickup', msg: `拾取${it.name}，金币 +${it.value}`, short: `+${it.value}💰`, good: true, story: it.story || null };
     }
     if (it.type === 'relic') {
       s.flags['relic_' + it.relic] = true;

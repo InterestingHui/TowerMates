@@ -35,7 +35,7 @@ const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-ui-'));
   const args = [
     '--headless=new', '--disable-gpu', '--no-first-run',
     '--user-data-dir=' + profile,
-    '--virtual-time-budget=16000', '--dump-dom',
+    '--virtual-time-budget=40000', '--dump-dom',
     `http://127.0.0.1:${PORT}/tools/ui-check.html`,
   ];
   const dump = () => spawnSync(chrome, args, { encoding: 'utf8', maxBuffer: 20 * 1024 * 1024 });
@@ -80,6 +80,10 @@ const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-ui-'));
   ok(out.clickKills === 1, '只点一次怪物就自动走到跟前并完成战斗');
   ok(out.clickCleared === true && out.clickOnTile === true, '战斗后怪物消失、人物站上它的格子');
   ok(out.f3Ledge === '.' && out.f3ReachLedge === true, '第 3 层打墨妖的立足格可直达');
+  ok(Array.isArray(out.shopChain) && out.shopChain.length === 3, '三层商人（8/11/13）都跑过单击流程');
+  ok(out.shopChain.every((r) => r.hasM && r.hasStart), '每层商人与可走到的起点都找得到');
+  ok(out.shopChain.every((r) => r.reached), '单击商店格一次就走到商人跟前（不再被教学对白打断寻路）');
+  ok(out.shopChain.every((r) => r.dialog && r.shop && r.rows >= 9), '首会对白后商店面板打开且货架满列（回调不再被覆盖丢弃）');
   ok(out.f3ShopOnPath === false, '通往墨妖的自动寻路不再踩到商店');
   ok(out.f3UpPath === true, '墨妖倒下后入口到上楼有通路');
   ok(out.firstWinBonus > 0 && out.firstWinBonus === Math.round(out.asceticEmber / 2), '解锁誓约首通额外 = 解锁成本一半（第二次不再给）');
@@ -100,6 +104,17 @@ const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-ui-'));
   ok(out.colCards === 35 && out.colGroups === 5, '收藏面板渲染 11 遗物 + 24 锁环（4 章分组）');
   ok(out.colGot >= 2 && out.colGot <= 4, '已获得的卡片高亮，其余置灰');
   ok(out.colHudChips === 2, 'HUD 遗物栏显示全部已获遗物（含旧十字架/幸运金币）');
+  ok(Array.isArray(out.colNew) && out.colNew.length >= 2, '本局首次拿到的东西记进 collectNew（结算页「图鉴新收录」）');
+  ok(out.colRemain === 31, '收藏剩余件数按全表算（35 − 已收录 4）');
+  ok(out.colDetail === true && out.colDetailHasFrom === true, '点卡片弹详情，带获取途径');
+  ok(out.colDetailOff === true, '没拿到的卡片给「未获得」与去处线索');
+  // 激励视频（IAA 红线）：默认关闭是硬要求——线上不允许出现任何广告按钮
+  ok(out.adDefaultOff === true, '激励视频接口默认恒不可用（提审前不接 SDK）');
+  ok(Array.isArray(out.adSlots) && out.adSlots.length === 2 && out.adSlots.indexOf('revive') >= 0 && out.adSlots.indexOf('ember') >= 0, '只留两个卡点槽位（复活 / 余烬翻倍），不做插屏横幅');
+  ok(out.adImmediateFalse === true && out.adBadSlot === true, '不可用或非法槽位时立刻回调 false，不挂起调用方');
+  ok(out.adNoBtn === true, '默认状态下死亡页不出现广告按钮');
+  ok(out.adBtnShown === true && out.adBtnPending === true, '桩模式下按钮显形且点击后进入等待态');
+  ok(out.adRevived === true && out.adRevivedHp > 0 && out.adReviveFlag === true, '看完视频原地复活：血回四成、over 复位、次数入档');
   ok(out.renderErrors === 0, '整轮 UI 自检零渲染异常（rAF 兜底探针）');
 
   if (bad) console.log('  诊断：' + JSON.stringify(out).slice(0, 700));

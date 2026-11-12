@@ -170,6 +170,26 @@ function clickEl(el) {
       rec('C1 楼层卡显示总时长', now() - t0, r.v ? '标准速度' : '超时');
     }
 
+    // ===== 场景 D：走路节奏（标准 vs 快速模式）=====
+    {
+      await load('/index.html?dev=1&p=4#demo=0,4,5');
+      w = f.contentWindow; d = f.contentDocument;
+      await waitFor(() => w.__tm && w.Engine && w.Engine.state(), 10000);
+      await wait(500);
+      const hop = async (tx, ty) => {
+        const t0 = now();
+        w.__tm.clickMove(tx, ty);
+        const r = await waitFor(() => { const s = w.Engine.state(); return s.x === tx && s.y === ty; }, 6000, 4);
+        return r.v ? now() - t0 : -1;
+      };
+      const d1 = await hop(1, 5);
+      rec('D1 连走3格（标准档）', d1, d1 < 0 ? '没走到' : '期望≈210ms');
+      w.__tm.Settings.toggleFast();
+      const d2 = await hop(4, 5);
+      rec('D2 连走3格（快速模式）', d2, d2 < 0 ? '没走到' : '期望≈137ms');
+      w.__tm.Settings.toggleFast();
+    }
+
     out.textContent = R.map((r) => `${r.name.padEnd(34, '.')} ${String(r.ms).padStart(6)}ms  ${r.note}`).join('\n') + '\n\nDONE';
     document.title = 'DONE|' + R.map((r) => `${r.name.split(' ')[0]}=${r.ms}${r.v === false ? '!' : ''}`).join(' ');
   } catch (e) {

@@ -423,6 +423,27 @@ html, body {
 .rc-text { font-size: 12.5px; color: var(--dim); line-height: 1.6; margin: 0 0 14px; }
 .actions { display: flex; gap: 9px; margin-top: 12px; }
 .actions .btn { margin-top: 0; }
+/* 激励视频卡点按钮：只在 Ads 可用时由 JS 插入（提审前恒不显示，线上流程零变化） */
+.ad-cta {
+  width: 100%;
+  margin-bottom: 9px;
+  padding: 9px 12px;
+  border: 1px dashed rgba(232, 196, 106, 0.55);
+  border-radius: 10px;
+  background: rgba(232, 196, 106, 0.07);
+  color: #e8c46a;
+  font: inherit;
+  font-size: 12px;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  transition: background 0.16s, border-color 0.16s;
+}
+.ad-cta:hover { background: rgba(232, 196, 106, 0.14); border-color: rgba(232, 196, 106, 0.8); }
+.ad-cta:disabled { opacity: 0.55; cursor: default; }
+.ad-cta b { color: #ffe6a8; }
+.ad-cta-inline { display: block; margin: 8px 0 0; }
+.ad-done { display: block; margin-top: 8px; font-size: 11.5px; color: #6fe3a0; }
+#endOverlay.death-mode .ad-cta { border-color: rgba(174, 184, 198, 0.45); color: #aeb8c6; background: rgba(174, 184, 198, 0.06); }
 
 .icon-btn {
   background: rgba(255, 255, 255, 0.055);
@@ -1947,3 +1968,25 @@ html, body {
 .col-card.got { border-color: var(--chapter-soft); box-shadow: inset 0 0 18px rgba(255, 255, 255, 0.02); }
 .col-card.got .cc-emoji { filter: drop-shadow(0 3px 10px var(--chapter-soft)); }
 .col-card.ring .cc-emoji { font-size: 19px; }
+
+/* 收藏图鉴 · 点卡片弹出的详情条（固定贴在滚动区下方，不随列表滚走） */
+.col-card { cursor: pointer; font: inherit; }
+.col-card:active { transform: scale(0.97); }
+.col-detail {
+  display: none;
+  align-items: flex-start; gap: 9px;
+  margin: 2px 0 6px;
+  padding: 9px 11px;
+  border: 1px solid var(--chapter-soft);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.035);
+}
+.col-detail.show { display: flex; }
+.col-detail .cd-emoji { font-size: 19px; line-height: 1.3; }
+.col-detail .cd-main { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.col-detail .cd-main b { font-size: 11.5px; color: var(--text); letter-spacing: 0.3px; }
+.col-detail .cd-main span { font-size: 10px; line-height: 1.6; color: var(--muted); }
+.col-detail .cd-from {
+  font-size: 9.5px; line-height: 1.5; color: var(--dim);
+  text-align: right; max-width: 42%; flex-shrink: 0;
+}
