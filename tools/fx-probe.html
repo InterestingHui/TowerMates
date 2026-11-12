@@ -63,13 +63,23 @@ function clickEl(el) {
     await wait(500);
     const T = w.__tm;
 
-    // A1 单步：act 是否同步生效
+    // A1 单步：act 是否同步生效（先点掉可能的剧情遮罩，act 会被对白拦截成 advanceDialog）
     {
-      const s0 = JSON.parse(JSON.stringify(w.Engine.state()));
-      const t0 = now();
-      T.act(1, 0);
-      const s1 = JSON.parse(JSON.stringify(w.Engine.state()));
-      rec('A1 单步 act 同步生效', now() - t0, `(${s0.x},${s0.y})->(${s1.x},${s1.y})`);
+      for (let i = 0; i < 8; i++) {
+        const ov = d.getElementById('dialogOverlay');
+        if (!ov.classList.contains('show')) break;
+        clickEl(ov);
+        await wait(80);
+      }
+      const st0 = w.Engine.state();
+      if (!st0) { rec('A1 单步 act 同步生效', 0, 'state 为空'); }
+      else {
+        const s0 = JSON.parse(JSON.stringify(st0));
+        const t0 = now();
+        T.act(1, 0);
+        const s1 = JSON.parse(JSON.stringify(w.Engine.state()));
+        rec('A1 单步 act 同步生效', now() - t0, `(${s0.x},${s0.y})->(${s1.x},${s1.y})`);
+      }
     }
 
     // A2 先退回 (4,5) 再点远处的怪：点击 → 战斗面板出现
@@ -188,6 +198,26 @@ function clickEl(el) {
       const d2 = await hop(4, 5);
       rec('D2 连走3格（快速模式）', d2, d2 < 0 ? '没走到' : '期望≈137ms');
       w.__tm.Settings.toggleFast();
+    }
+
+    // ===== 场景 E：对白推进（剧情大改后的手感复核）=====
+    {
+      await load('/index.html?dev=1&p=5#demo=0,4,5');
+      w = f.contentWindow; d = f.contentDocument;
+      await waitFor(() => w.__tm && w.Engine && w.Engine.state(), 10000);
+      await wait(500);
+      const dlg = d.getElementById('dialogOverlay');
+      w.__tm.playStory('intro');
+      await waitFor(() => dlg.classList.contains('show'), 4000);
+      // 连点推进整段，量总耗时与点击次数
+      let clicks = 0;
+      const t0 = now();
+      while (dlg.classList.contains('show') && clicks < 40) {
+        clickEl(dlg);
+        clicks++;
+        await wait(90);
+      }
+      rec('E1 对白连点推进（intro 4段）', now() - t0, `${clicks} 次点击，面板 ${dlg.classList.contains('show') ? '未关' : '已关'}`);
     }
 
     out.textContent = R.map((r) => `${r.name.padEnd(34, '.')} ${String(r.ms).padStart(6)}ms  ${r.note}`).join('\n') + '\n\nDONE';
