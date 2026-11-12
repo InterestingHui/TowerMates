@@ -759,15 +759,19 @@
     const vars = { need, atk: s.atk, gap, dmg: pred.damage || 0, hp: s.hp,
       defNow: s.def, defGap: defNeed ? defNeed.to - defNeed.from : 0, per: pred.per || 0, rounds: pred.rounds || 0 };
     const key = defBreak ? 'stuckDef' : 'stuckHp';
+    // 还没学格挡时，把「学格挡」作为第三个解法一起给出——尤其血量型卡关
+    const blockTip = !s.flags.hasBlock && !Engine.vowForbidsBlock() && s.floor <= 4;
     renderRich(el.stuckText, defBreak
       ? `卡在${m.name}这儿？攻击还差 **${gap}** 点（要 ≥ **${need}**）`
-      : `这一战预计掉 **${vars.dmg}** 血，你只有 **${vars.hp}**${defNeed ? ` · 防御再加 **${defNeed.to - defNeed.from}** 就能扛住` : ''}`);
+      : `这一战预计掉 **${vars.dmg}** 血，你只有 **${vars.hp}**${defNeed ? ` · 防御再加 **${defNeed.to - defNeed.from}** 就能扛住` : ''}${blockTip ? ' · 学了**格挡**能省下三成血' : ''}`);
     el.stuckBar.hidden = false;
-    stuckInfo = { key, vars, floor: s.floor, monster: m.name };
+    stuckInfo = { key, vars, floor: s.floor, monster: m.name, blockTip };
     const now = Date.now();
     if (now - stuckSayAt > 12000) {
       stuckSayAt = now;
-      sayHint(key, vars);
+      if (blockTip && Tips.mark('stuckblock')) {
+        say([['烛', '这一战有点疼。你**还没学格挡**——第 2 层回廊有半部盾谱，或去第 3 层找秤买。学会后每层能挡一次。', 'calm']]);
+      } else sayHint(key, vars);
     }
   }
   function clearStuck() {
@@ -2265,8 +2269,11 @@
         Sound.play('pick');
         Renderer.addFloat(ev.short || ev.msg, Engine.state().x * T + T / 2, Engine.state().y * T, '#9fe8b0');
         log(ev.msg, ev.good === false ? 'warn' : 'good');
-        // 学会格挡的第一次：让烛把用法说完（老玩家读过的不再复读）
-        if (ev.blockLearned) Tips.show('block');
+        // 学会格挡：先播盾谱小传，接烛的用法教学（老玩家读过的不再复读）
+        if (ev.blockLearned) {
+          if (ev.story) playStory(ev.story, () => Tips.show('block'));
+          else Tips.show('block');
+        }
         break;
       case 'altar':
         openAltar();
@@ -2277,19 +2284,19 @@
       case 'event':
         openEvent(ev.eventId);
         break;
-      case 'shop':
-        if (s.floor === 2 && !s.flags.merchant) {
-          s.flags.merchant = true;
+      case 'shop': {
+        // 每副货摊的首次对白：层号 → 剧情键（merchant = 第 3 层起，往后每 5 层一副）
+        const firstMeet = { 2: 'merchant', 7: 'merchant2', 10: 'merchant3', 12: 'merchant4' };
+        const intro = firstMeet[s.floor];
+        if (intro && !s.flags[intro]) {
+          s.flags[intro] = true;
           Engine.save();
-          playStory('merchant', () => { Sound.play('buy'); openShop(); });
-        } else if (s.floor === 7 && !s.flags.merchant2) {
-          s.flags.merchant2 = true;
-          Engine.save();
-          playStory('merchant2', () => { Sound.play('buy'); openShop(); });
+          playStory(intro, () => { Sound.play('buy'); openShop(); });
         } else {
           openShop();
         }
         break;
+      }
       case 'princess':
         if (ev.hasJournal) playStory('princessTrue', () => showEndingChoice());
         else playStory('princessPlain', () => completeEnding('plain', false), null, 'veiled');

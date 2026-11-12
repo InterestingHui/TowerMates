@@ -360,7 +360,7 @@
       if (vowForbidsBlock()) return { type: 'pickup', msg: '盾谱上的招式，这条誓约不许你用', short: '不能格挡', good: false };
       const first = grantBlock();
       if (!first) return { type: 'pickup', msg: `盾谱的残页你早就读过了`, short: '已学', good: false };
-      return { type: 'pickup', msg: `拾取${it.name}，你学会了格挡`, short: '+🛡格挡', good: true, blockLearned: true };
+      return { type: 'pickup', msg: `拾取${it.name}，你学会了格挡`, short: '+🛡格挡', good: true, blockLearned: true, story: it.story || null };
     }
     return null;
   }

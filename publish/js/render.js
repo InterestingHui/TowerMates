@@ -550,108 +550,153 @@
     U: ['#9fd8ff', 'rgba(159,216,255,'], // 衡：蓝
   };
 
-  // 章节 Boss 画法：坐着的锁匠剪影（宽肩+双角+亮瞳）+ 膝上锁物 + 脚下红色威胁环。
-  // 之前直接整格画 emoji（砚=📖、铎=🔔），跟可拾取道具长得一样，玩家会误判；
-  // 现在构图与人形立绘同源，一眼可辨是「拦路的人」而不是道具。
+  // 章节 Boss 画法 v2：**站姿**持物锁匠。v1 的坐姿剪影+膝上书被用户评「丑、还是像书」——
+  // 小 emoji 摆在格中反而成了视觉主体。v2 把人占满整格、道具缩到角色手里/脚边，
+  // 加王冠/帽冠让「这是个人物」一眼可读；威胁度用脚下红环表达。
   function drawBossFigure(m, ch, px, py, t) {
     const cx = px + TILE / 2;
-    const baseY = py + TILE * 0.74;
     const light = BOSS_LIGHT[ch] || BOSS_LIGHT.Z;
     const s = TILE / 48;
     const breathe = Math.sin(t / 620 + px * 0.07);
+    const sway = Math.sin(t / 900 + px * 0.05) * 1.2; // 身体轻微摇曳
 
     groundShadow(px, py, TILE * 0.4, 0.42);
 
-    // 脚下红色威胁环：脉动双层椭圆，沿用全塔「红 = 危险」的语言
+    // 脚下红色威胁环：双层脉动椭圆，沿用全塔「红 = 危险」的语言
     const ringP = 0.86 + Math.sin(t / 430) * 0.14;
     ctx.strokeStyle = 'rgba(255,80,70,' + (0.42 + Math.sin(t / 430) * 0.16).toFixed(2) + ')';
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.ellipse(cx, py + TILE * 0.8, TILE * 0.42 * ringP, TILE * 0.16 * ringP, 0, 0, Math.PI * 2);
+    ctx.ellipse(cx, py + TILE * 0.82, TILE * 0.4 * ringP, TILE * 0.15 * ringP, 0, 0, Math.PI * 2);
     ctx.stroke();
     ctx.strokeStyle = 'rgba(255,120,90,' + (0.18 + Math.sin(t / 430 + 1) * 0.1).toFixed(2) + ')';
     ctx.lineWidth = 3.5;
     ctx.beginPath();
-    ctx.ellipse(cx, py + TILE * 0.8, TILE * 0.5 * ringP, TILE * 0.2 * ringP, 0, 0, Math.PI * 2);
+    ctx.ellipse(cx, py + TILE * 0.82, TILE * 0.48 * ringP, TILE * 0.19 * ringP, 0, 0, Math.PI * 2);
     ctx.stroke();
 
-    // 身后光晕：该锁匠的立绘光色，两层渐变把剪影从暗墙上衬出来
-    const haloY = baseY - TILE * 0.3;
-    let halo = ctx.createRadialGradient(cx, haloY, 1, cx, haloY, TILE * 0.66);
-    halo.addColorStop(0, light[1] + '0.4)');
-    halo.addColorStop(0.55, light[1] + '0.14)');
+    // 身后光晕：该锁匠的立绘光色，两层渐变把角色从暗墙上衬出来
+    const haloY = py + TILE * 0.4;
+    let halo = ctx.createRadialGradient(cx, haloY, 1, cx, haloY, TILE * 0.62);
+    halo.addColorStop(0, light[1] + '0.38)');
+    halo.addColorStop(0.55, light[1] + '0.13)');
     halo.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = halo;
-    ctx.fillRect(px - TILE * 0.2, py - TILE * 0.3, TILE * 1.4, TILE * 1.5);
-    // 剪影脚下的「座光」：像烛照着底部，别让下半身融进墙里
-    halo = ctx.createRadialGradient(cx, py + TILE * 0.72, 1, cx, py + TILE * 0.72, TILE * 0.5);
-    halo.addColorStop(0, light[1] + '0.22)');
-    halo.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = halo;
-    ctx.fillRect(px - TILE * 0.1, py + TILE * 0.3, TILE * 1.2, TILE * 0.72);
+    ctx.fillRect(px - TILE * 0.18, py - TILE * 0.25, TILE * 1.36, TILE * 1.45);
 
-    // 剪影：宽肩坐姿 + 双角（同立绘「炬」的构图），勾亮边保证暗墙上也可读
+    // ===== 站姿人物（坐标：脚底 = 0，头顶 ≈ -40；整格高 TILE≈48*s）=====
     ctx.save();
-    ctx.translate(cx, baseY);
+    ctx.translate(cx + sway * s * 0.4, py + TILE * 0.8);
     ctx.scale(s, s);
-    const ink = '#070a12';
-    // 亮边底版：先画一圈比剪影大 1px 的光色轮廓，再把黑影盖上去
-    ctx.fillStyle = light[1] + '0.85)';
-    ctx.beginPath();
-    ctx.moveTo(-17.2, 2);
-    ctx.bezierCurveTo(-18.2, -8.5, -16.2, -18, -11.8, -22.2);
-    ctx.bezierCurveTo(-7.6, -25.9, 7.6, -25.9, 11.8, -22.2);
-    ctx.bezierCurveTo(16.2, -18, 18.2, -8.5, 17.2, 2);
-    ctx.closePath();
-    ctx.fill();
-    // 角的亮边底版
-    ctx.strokeStyle = light[1] + '0.85)';
-    ctx.lineWidth = 5.6;
+    const ink = '#0b0e16';
+
+    // 躯干：宽肩→腰收→袍摆（斗篷感），先画光色轮廓底版再盖黑
+    const body = (grow, color) => {
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.moveTo(-8.5 - grow, 0);                       // 袍摆左
+      ctx.bezierCurveTo(-10 - grow, -8, -9.5 - grow, -16, -7.5 - grow, -21);
+      ctx.bezierCurveTo(-6 - grow, -25, -4 - grow, -27, 0, -27);
+      ctx.bezierCurveTo(4 + grow, -27, 6 + grow, -25, 7.5 + grow, -21);
+      ctx.bezierCurveTo(9.5 + grow, -16, 10 + grow, -8, 8.5 + grow, 0); // 袍摆右
+      ctx.closePath();
+      ctx.fill();
+    };
+    body(1.2, light[1] + '0.8)');   // 亮边底版
+    body(0, ink);                   // 黑色本体
+
+    // 肩甲亮线：左右肩各一道高光，勾出「肩膀」的结构
+    ctx.strokeStyle = light[1] + '0.9)';
+    ctx.lineWidth = 1.4;
     ctx.lineCap = 'round';
     ctx.beginPath();
-    ctx.moveTo(-5, -30);
-    ctx.quadraticCurveTo(-9.5, -36, -8.5, -41);
-    ctx.moveTo(5, -30);
-    ctx.quadraticCurveTo(9.5, -36, 8.5, -41);
+    ctx.moveTo(-7.5, -20.5);
+    ctx.quadraticCurveTo(-5, -24.5, -1.5, -25.5);
+    ctx.moveTo(7.5, -20.5);
+    ctx.quadraticCurveTo(5, -24.5, 1.5, -25.5);
     ctx.stroke();
-    // 黑色剪影本体
-    ctx.fillStyle = ink;
+
+    // 头（兜帽轮廓：上圆下宽，兜帽比脸大一圈才有包着的感觉）
+    const hood = (grow, color) => {
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.ellipse(0, -32.5, 6.2 + grow, 7 + grow, 0, 0, Math.PI * 2);
+      ctx.fill();
+    };
+    hood(1.2, light[1] + '0.8)');
+    hood(0, ink);
+    // 兜帽开口：脸部一块更深的洞，眼睛在里面发亮
+    ctx.fillStyle = '#04060b';
     ctx.beginPath();
-    ctx.moveTo(-16, 2);
-    ctx.bezierCurveTo(-17, -8, -15, -17, -11, -21);
-    ctx.bezierCurveTo(-7, -24.5, 7, -24.5, 11, -21);
-    ctx.bezierCurveTo(15, -17, 17, -8, 16, 2);
+    ctx.ellipse(0, -31.5, 4.4, 4.8, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 冠饰：三尖冠（锁匠身份感），光色实心，随呼吸微亮
+    ctx.fillStyle = light[1] + (0.78 + breathe * 0.18).toFixed(2) + ')';
+    ctx.beginPath();
+    ctx.moveTo(-4.6, -38.2);
+    ctx.lineTo(-3.1, -42.5);
+    ctx.lineTo(-1.6, -38.8);
+    ctx.lineTo(0, -43.6);
+    ctx.lineTo(1.6, -38.8);
+    ctx.lineTo(3.1, -42.5);
+    ctx.lineTo(4.6, -38.2);
     ctx.closePath();
     ctx.fill();
-    // 头
+
+    // 亮瞳：两粒大而亮的眼睛——「有人在看路过的你」
+    ctx.fillStyle = light[1] + '1)';
     ctx.beginPath();
-    ctx.ellipse(0, -26, 6.2, 6.8, 0, 0, Math.PI * 2);
+    ctx.ellipse(-1.9, -31.6, 1.35, 1.6, 0, 0, Math.PI * 2);
+    ctx.ellipse(1.9, -31.6, 1.35, 1.6, 0, 0, Math.PI * 2);
     ctx.fill();
-    // 双角
+    // 瞳孔辉光
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.beginPath();
+    ctx.arc(-1.9, -32, 0.45, 0, Math.PI * 2);
+    ctx.arc(1.9, -32, 0.45, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 手臂：一只手在身前托着锁物
     ctx.strokeStyle = ink;
-    ctx.lineWidth = 3.2;
+    ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.moveTo(-5, -30);
-    ctx.quadraticCurveTo(-9.5, -36, -8.5, -41);
-    ctx.moveTo(5, -30);
-    ctx.quadraticCurveTo(9.5, -36, 8.5, -41);
+    ctx.moveTo(-7, -18);
+    ctx.quadraticCurveTo(-6.5, -11, -2.5, -7.5);
+    ctx.moveTo(7, -18);
+    ctx.quadraticCurveTo(6.5, -11, 2.5, -7.5);
     ctx.stroke();
-    // 亮瞳：加大加亮，随呼吸明灭——远处也要看得到「有人在看你」
-    ctx.fillStyle = light[1] + (0.85 + breathe * 0.15).toFixed(2) + ')';
-    ctx.beginPath();
-    ctx.ellipse(-2.7, -26.5, 1.9, 1.5, 0, 0, Math.PI * 2);
-    ctx.ellipse(2.7, -26.5, 1.9, 1.5, 0, 0, Math.PI * 2);
-    ctx.fill();
     ctx.restore();
 
-    // 膝上锁物：缩小后的 emoji 悬在膝前，读作「他守着的东西」，不再是整格大图标
+    // ===== 锁物：捧在身前的小道具（约占格 1/5），发光但不再是主角 =====
+    const itemY = py + TILE * 0.58;
     ctx.save();
-    glow(light[1] + '0.6)', TILE * 0.34);
-    ctx.globalAlpha = 0.96;
-    drawEmoji(m.emoji, px, py + TILE * 0.08, 0.36);
+    glow(light[1] + '0.55)', TILE * 0.26);
+    ctx.globalAlpha = 0.95;
+    drawEmoji(m.emoji, px, itemY - py, 0.22);
     ctx.globalAlpha = 1;
     noGlow();
     ctx.restore();
+
+    // 名字小签：Boss 格上方一条极小的光色名牌，彻底杜绝「这是道具」的误读
+    const tag = m.name || '';
+    if (tag) {
+      ctx.font = `700 ${Math.max(8, Math.floor(TILE * 0.17))}px "Microsoft YaHei",sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const tw = ctx.measureText(tag).width + TILE * 0.14;
+      const th = TILE * 0.22;
+      const ty = py + TILE * 0.02;
+      ctx.fillStyle = 'rgba(5,7,12,0.78)';
+      roundRect(cx - tw / 2, ty, tw, th, th * 0.4);
+      ctx.fill();
+      ctx.strokeStyle = light[1] + '0.55)';
+      ctx.lineWidth = 1;
+      roundRect(cx - tw / 2, ty, tw, th, th * 0.4);
+      ctx.stroke();
+      ctx.fillStyle = light[0];
+      ctx.fillText(tag, cx, ty + th / 2 + 0.5);
+    }
   }
 
   function drawMonster(ch, px, py, t) {
@@ -1228,9 +1273,16 @@
     for (let y = 0; y < SIZE; y++) {
       for (let x = 0; x < SIZE; x++) {
         const ch = state.maps[state.floor][y][x];
-        if (!D.monsters[ch] || D.monsters[ch].ghost) continue;
+        const m = D.monsters[ch];
+        if (!m || m.ghost) continue;
         const pred = window.Engine.predict(ch);
-        if (!pred || pred.damage == null) continue;
+        if (!pred) continue;
+        if (pred.damage == null) {
+          // 破不了防：窥探之镜也必须说话——显示「还差几点攻击」，别让格子空着
+          const gap = m.def + 1 - state.atk;
+          drawBadge(x * TILE, y * TILE, '攻 +' + gap, '#ff6b6b');
+          continue;
+        }
         const color = pred.damage === 0 ? '#6fe3a0' : pred.damage >= maxHp * 0.25 ? '#ff6b6b' : '#ffd27d';
         drawBadge(x * TILE, y * TILE, pred.damage === 0 ? '无伤' : '-' + pred.damage, color);
       }

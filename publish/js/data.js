@@ -157,7 +157,7 @@ window.GAME_DATA = (function () {
     S: { name: '断裂佩剑', emoji: '⚔️', type: 'relic', relic: 'edge', story: 'eighthSword' },
     K: { name: '塔心石', emoji: '💗', type: 'heart' },
     Q: { name: '层阶之钥', emoji: '🗝️', type: 'relic', relic: 'gate', story: 'gateLore' },
-    j: { name: '半部盾谱', emoji: '📖', type: 'block' },
+    j: { name: '半部盾谱', emoji: '📖', type: 'block', story: 'blockLore' },
   };
 
   // 遗物说明（HUD / 设置页 / 结算都用它）
