@@ -136,7 +136,63 @@ function load(url) { return new Promise((res) => { f.onload = () => res(); f.src
       }
     }
 
-    // ===== E. 最近两天的新内容：成就墙可发现性 + 折戟行可理解性 =====
+    // ===== F. 最近两轮新内容：图鉴分区签 / 折戟预告 / 罗盘徽记 / 第七格条件 =====
+    // F1/F2 图鉴分区签可辨识可跳转（新玩家要知道「成就」在下面）
+    await load('/index.html?dev=1&p=f1#demo=0,4,5');
+    w = f.contentWindow; d = f.contentDocument;
+    await waitFor(() => { try { return w.__tm && w.__tm.openCollection && w.Engine.state(); } catch (e) { return null; } }, 10000);
+    await wait(400);
+    {
+      const dlF = d.getElementById('dialogOverlay');
+      for (let i = 0; i < 8; i++) { if (!dlF.classList.contains('show')) break; dlF.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
+      w.__tm.openCollection();
+      await wait(400);
+      const jumps = Array.from(d.querySelectorAll('#colBody .col-jump-btn')).map((b) => b.textContent.trim());
+      rec('F1 图鉴顶部有「藏品 / 成就」两枚跳转', jumps.length === 2 && jumps.join('') === '藏品成就', jumps.join(' / ') || '缺失');
+      const achJump = d.querySelector('#colBody .col-jump-btn[data-jump="ach"]');
+      if (achJump) achJump.click();
+      const st = d.getElementById('colBody').scrollTop;
+      rec('F2 点「成就」直达成就墙（滚动容器实滚）', st > 200, 'scrollTop=' + st);
+    }
+    // F3 折戟预告：累计折戟 2 次时，败局页应出现「再折戟 1 次」
+    {
+      const raw = JSON.parse(w.localStorage.getItem('towermates_meta') || '{}');
+      raw.memory = Object.assign({}, raw.memory || {}, { runs: 3, falls: 1, lastFallFloor: 5 });
+      w.localStorage.setItem('towermates_meta', JSON.stringify(raw));
+      await load('/index.html?dev=1&p=f3#demo=0,4,5');
+      w = f.contentWindow; d = f.contentDocument;
+      await waitFor(() => { try { return w.__tm && w.__tm.showDeath && w.Engine.state(); } catch (e) { return null; } }, 10000);
+      await wait(400);
+      const dlG = d.getElementById('dialogOverlay');
+      for (let i = 0; i < 8; i++) { if (!dlG.classList.contains('show')) break; dlG.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
+      const sf = w.Engine.state();
+      sf.over = true; sf.hp = 0; sf.floor = 4;
+      w.__tm.showDeath({ name: '锈犬' }, 800);
+      await wait(400);
+      const briefTxt = (d.getElementById('endBrief') || {}).textContent || '';
+      rec('F3 第 2 次折戟预告「再折戟 1 次」', briefTxt.indexOf('再折戟 1 次') >= 0, briefTxt.match(/再折戟[^；。<]*/)?.[0].slice(0, 28) || '未出现');
+    }
+    // F4 罗盘徽记：触屏没有 hover，点一下要能念出含义（新玩家看到「🧭 3」不会知道是什么）
+    await load('/index.html?dev=1&p=f4#demo=0,4,5');
+    w = f.contentWindow; d = f.contentDocument;
+    await waitFor(() => { try { return w.__tm && w.Engine.state(); } catch (e) { return null; } }, 10000);
+    await wait(500);
+    {
+      const dlH = d.getElementById('dialogOverlay');
+      for (let i = 0; i < 8; i++) { if (!dlH.classList.contains('show')) break; dlH.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
+      const sr = w.Engine.state();
+      sr.flags.rings = (sr.flags.rings || []).concat(['scout2']);
+      w.__tm.refreshHud();
+      await wait(200);
+      const pip = d.getElementById('compassPip');
+      const shown = pip && !pip.hidden;
+      if (shown) pip.click();
+      await wait(300);
+      const warnTxt = (d.getElementById('warnPill') || {}).textContent || '';
+      rec('F4 罗盘徽记点一下能念出含义', shown && warnTxt.indexOf('罗盘') >= 0, shown ? (warnTxt.slice(0, 26) || '无提示') : '徽记未显示');
+    }
+
+    // ===== E. 成就墙与死亡页（前一版新增内容） =====
     // E1 榜单页成就计数是「死数字」还是入口：点一下应关榜开图鉴（成就墙住在图鉴里）
     await load('/index.html?dev=1&p=e1');
     w = f.contentWindow; d = f.contentDocument;

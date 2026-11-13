@@ -7,6 +7,7 @@
   const $ = (id) => document.getElementById(id);
 
   let shopOpen = false;
+  let shopFold = true;   // 本局第 3 层商店是否还折着进阶货（开局重置）
   let endShown = false;
   let typing = null;
   let warnTimer = null;
@@ -768,7 +769,9 @@
     if (sig === relicSig) return;
     relicSig = sig;
     if (!owned.length) {
-      el.relicRow.innerHTML = '<span class="relic empty">＋</span><span class="relic empty">＋</span><span class="relic empty">＋</span>';
+      // 节奏纠偏：没拿到第一件遗物前不摆三个「＋」空框——开局顶栏少三个没人解释的空位，
+      // 拿到第一件时整行自然出现（渐进披露，见 PROGRESS《四、体验验收基线》）。
+      el.relicRow.innerHTML = '';
       return;
     }
     el.relicRow.innerHTML = owned.map((id) => {
@@ -1212,6 +1215,21 @@
         el.scopePip.textContent = `⚔ ${left}`;
         el.scopePip.title = left > 0 ? `本层还有 ${left} 只怪` : '这一层清干净了';
       }
+    }
+    // 触屏没有 hover：🧭/⚔ 两个小徽记点一下念出含义（新玩家看到「🧭 3」不会知道是什么）
+    if (el.compassPip && !el.compassPip._tipBound) {
+      el.compassPip._tipBound = true;
+      el.compassPip.addEventListener('click', () => {
+        const left = Engine.floorPickupCount();
+        warn(`🧭 **罗盘**：本层还有 ${left} 件东西没捡（罗盘之环 / 窥探之环给的信息）`);
+      });
+    }
+    if (el.scopePip && !el.scopePip._tipBound) {
+      el.scopePip._tipBound = true;
+      el.scopePip.addEventListener('click', () => {
+        const left = Engine.floorMonsterCount();
+        warn(`⚔ **明镜**：本层还有 ${left} 只怪没打（明镜之环给的信息）`);
+      });
     }
 
     ['statAtk', 'statDef', 'statGold'].forEach((id) => {
@@ -2198,6 +2216,12 @@
   function renderShop() {
     const s = Engine.state();
     $('shopGold').textContent = s.gold;
+    // 节奏纠偏：第一次进商店（第 3 层）先摆 4 件常用货，进阶货折进「更多货」。
+    // 8 件货 × 8 个购买按钮同屏会把「明码取舍」变成「读价目表」；玩家点开一次后本局不再折。
+    const SHOP_CORE = ['key', 'potion', 'atk', 'def'];
+    const stock = Engine.shopStock();
+    const foldFirst = s.floor === 2 && shopFold;
+    const rows = foldFirst ? stock.filter((i) => SHOP_CORE.indexOf(i.id) >= 0) : stock;
     // 卡关时在货摊上直接标「买几个能打过挡路的怪」：玩家不用自己拿纸算
     let needAtk = null;
     if (stuckInfo && stuckInfo.key === 'stuckDef') {
@@ -2207,7 +2231,7 @@
     }
     const list = $('shopList');
     list.innerHTML = '';
-    Engine.shopStock().forEach((item) => {
+    rows.forEach((item) => {
       const owned = (item.codex && s.flags.codex) || (item.relic && Engine.hasRelic(item.relic)) || (item.block && s.flags.hasBlock) || (item.heartShard && s.flags.heartShard);
       // 铁壁/苦行/无名三条誓约不能格挡：盾谱置灰，别让人白花钱
       const forbidden = item.block && Engine.vowForbidsBlock();
@@ -2243,6 +2267,21 @@
       renderRich(row.querySelector('.si-tip'), tip);
       list.appendChild(row);
     });
+    if (foldFirst && rows.length < stock.length) {
+      const more = document.createElement('button');
+      more.type = 'button';
+      more.className = 'shop-more';
+      more.id = 'shopMore';
+      more.innerHTML = `更多货 · ${stock.length - rows.length} 件 <small>含半部盾谱 / 窥探之镜 / 余烬灯芯</small> ▾`;
+      more.addEventListener('click', () => {
+        shopFold = false;
+        Sound.play('door');
+        renderShop();
+        const first = list.querySelector('.shop-item');
+        if (first) first.scrollIntoView({ block: 'nearest' });
+      });
+      list.appendChild(more);
+    }
     list.querySelectorAll('.si-buy').forEach((b) => {
       b.addEventListener('click', () => {
         const before = Engine.state();
@@ -2823,6 +2862,13 @@
   function refreshStartBadges() {
     const plain = Achievements.isUnlocked('end_plain');
     const tru = Achievements.isUnlocked('end_true');
+    // 节奏纠偏：塔友榜（社交/排行）首次结算后才露脸——首局没有可比数据，
+    // 开屏就摆一个榜单入口只会挤占「1 个核心动词」的预算。
+    const boardOn = !isFirstRun();
+    ['btnBoard', 'btnBoard2'].forEach((id) => {
+      const b = $(id);
+      if (b) b.style.display = boardOn ? '' : 'none';
+    });
     // 首次进塔不显示徽章：新人先看到「开始游戏」，收藏品等玩过一局再露脸
     $('endingBadges').innerHTML = (plain || tru || Achievements.count())
       ? `
@@ -3629,7 +3675,39 @@
   // ---------- 立誓 ----------
   // 首屏只回答一个问题：这局按哪条规矩走。余烬余额、还差几局、首通奖励一律不讲——
   // 想解锁的人会去点下面那排小 chip，不想的人不该开屏就被一串数字埋掉。
-  function openVow() {
+  // 节奏纠偏（2026-11-13）：首局只留 1 张确认卡——4 条誓约要在懂「承伤/金币/生命」之后才有意义，
+  // 开局 11 秒铺 6 个可点项会把「1 个核心动词」的预算直接打穿（PROGRESS《四、体验验收基线》）。
+  // 工具场景（?dev=1 / ?vow=full / openVow(true)）仍出全量，截图与自检不受影响。
+  const FORCE_FULL_VOW = /(?:^|[?&])(?:dev=1|vow=full)(?:&|$)/.test(location.search);
+  const isFirstRun = () => !((Meta.memory && Meta.memory.runs) || 0);
+
+  function openVow(force) {
+    const full = force === true || FORCE_FULL_VOW || !isFirstRun();
+    const kicker = document.querySelector('#vowOverlay .vow-kicker');
+    const desc = document.querySelector('#vowOverlay .vow-desc');
+    const hint = document.querySelector('#vowOverlay .vow-hint');
+    if (kicker) kicker.textContent = full ? '立 誓' : '进 塔';
+    if (desc) desc.textContent = full
+      ? '定一条规矩，选了改不回来。也可以不立。'
+      : '第一局不用定规矩。先上去看看塔里有什么。';
+    if (hint) hint.textContent = full ? '点一张开始' : '点一下开始';
+    if (!full) {
+      el.vowCards.innerHTML = `<button class="vow-card hero" data-vow="none">
+        <span class="vc-head"><span class="vc-emoji">🚪</span><span class="vc-tier t-easy">第一局</span></span>
+        <span class="vc-name">先进塔看看</span>
+        <span class="vc-desc">第一局按塔本来的样子走。下一局起可以立誓，用一条规矩换一种走法。</span>
+      </button>`;
+      const emberLine0 = $('vowEmber');
+      if (emberLine0) emberLine0.hidden = true;
+      const emberNote0 = $('vowEmberNote');
+      if (emberNote0) emberNote0.hidden = true;
+      if (el.vowLocked) { el.vowLocked.hidden = true; el.vowLocked.innerHTML = ''; }
+      el.vowCards.querySelectorAll('.vow-card').forEach((b) => {
+        b.addEventListener('click', () => chooseVow(b.dataset.vow));
+      });
+      el.vowOverlay.classList.add('show');
+      return;
+    }
     const all = Object.keys(D.vows);
     const lockedIds = all.filter((id) => D.vows[id].ember && !Meta.has(id));
     const shown = all.filter((id) => lockedIds.indexOf(id) < 0);
@@ -3708,6 +3786,7 @@
   function startGame(vow) {
     Engine.newGame(vow);
     stopWalk();
+    shopFold = true;   // 新一局第一次进商店重新折叠进阶货
     endShown = false;
     deathShown = false; // 新一局要能重新弹死亡结算：上一局置的 true 必须清掉
     // 收藏去重签名也要清：新局如果恰好又拿到上一局那批遗物，签名相同会让「图鉴新收录」漏记

@@ -2130,7 +2130,7 @@ html, body {
   color: var(--cyan);
   background: rgba(159, 216, 255, 0.1);
   box-shadow: 0 0 10px rgba(159, 216, 255, 0.16);
-  cursor: help;
+  cursor: pointer;
 }
 .compasspip[hidden] { display: none; }
 
