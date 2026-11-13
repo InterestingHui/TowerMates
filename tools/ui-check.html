@@ -80,6 +80,39 @@ async function run() {
       out.rivalFloor = !!(rival && /9\s*层/.test(rival.textContent));
     }
 
+    // 今日一塔：朋友贴进来的码带了今天的日签，才该进「今日」档
+    var todayKey = w.Daily.keyOf(Date.now());
+    var dcode = w.Challenge.encode({
+      ending: 'plain', vow: 'none', floor: 4, level: 6, steps: 120, time: 90,
+      seal: '', goals: 0, margin: '', daily: todayKey,
+    });
+    out.dailyCodeLen = dcode.length;
+    var ddec = w.Challenge.decode(dcode);
+    out.dailyCodeDay = !!ddec && ddec.daily === todayKey;
+    var inp2 = d.getElementById('pasteCode');
+    if (inp2) {
+      inp2.value = dcode;
+      d.getElementById('btnPasteCode').click();
+      var dtab = d.querySelector('#boardTabs .btab[data-f="daily"]');
+      out.dailyTabs = d.querySelectorAll('#boardTabs .btab').length;
+      if (dtab) dtab.click();
+      var drow = d.querySelector('#boardList .bd-row.rival');
+      out.dailyRows = d.querySelectorAll('#boardList .bd-row').length;
+      out.dailyRival = !!(drow && /4\s*层/.test(drow.textContent));
+      var atab = d.querySelector('#boardTabs .btab[data-f="all"]');
+      if (atab) atab.click();
+      // 普通局的码（v4，没有日签）不该进今日档
+      var plain = w.Challenge.encode({ ending: 'plain', vow: 'none', floor: 6, level: 8, steps: 200, time: 150 });
+      out.plainDay = (w.Challenge.decode(plain) || {}).daily === '';
+      inp2.value = plain;
+      d.getElementById('btnPasteCode').click();
+      var dtab2 = d.querySelector('#boardTabs .btab[data-f="daily"]');
+      if (dtab2) dtab2.click();
+      out.dailyRowsAfterPlain = d.querySelectorAll('#boardList .bd-row').length;
+      var atab2 = d.querySelector('#boardTabs .btab[data-f="all"]');
+      if (atab2) atab2.click();
+    }
+
     // 点一次远处的怪物：应自动走到跟前并直接开打，不需要第二次点击
     E.newGame();
     var s3 = E.state();

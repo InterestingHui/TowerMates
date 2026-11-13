@@ -7,15 +7,30 @@ function ok(cond, label) {
 
 const sum = { ending: 'true', vow: 'ascetic', floor: 13, level: 18, steps: 640, time: 512, seal: 'clear', goals: 13, margin: 'A' };
 const code = C.encode(sum);
-ok(code.indexOf(C.PREFIX) === 0 && C.PREFIX === 'TM4.', '新码带 v4 版本前缀');
+ok(code.indexOf(C.PREFIX) === 0 && C.PREFIX === 'TM5.', '新码带 v5 版本前缀');
 const d = C.decode(code);
-ok(!!d && d.version === 4 && !d.legacy, '新码可解');
+ok(!!d && d.version === 5 && !d.legacy, '新码可解');
 ok(d.vow === 'ascetic', '誓约写入');
 ok(d.seal === 'clear' && d.goals === 13, '塔印与塔规数写入');
 ok(d.margin === 'A', '决战余裕写入');
 ok(d.score === undefined && d.grade === undefined, '码里已无结算分与评级字段');
 ok(d.ending === 'true' && d.floor === 13 && d.level === 18 && d.steps === 640 && d.time === 512, '层数/用时/步数往返一致');
 ok(C.decode(' ' + code + '\n').seal === 'clear', '容忍首尾空白/换行');
+
+// v5 日签：贴进来的朋友码要能判出「他走的是不是今天这座」
+const dailyCode = C.encode(Object.assign({}, sum, { daily: '2026-11-14' }));
+const dd = C.decode(dailyCode);
+ok(dd.daily === '2026-11-14', '今日一塔日签写进码里并原样解回');
+ok(dd.floor === 13 && dd.margin === 'A' && dd.seal === 'clear' && dd.time === 512, '日签不改其它字段');
+ok(C.decode(code).daily === '', '普通局不带日签（空串，进不了今日档）');
+ok(C.decode(C.encode({ daily: '乱码' })).daily === '', '脏日签被忽略，不污染名录');
+ok(C.decode(C.encode({ daily: '2026-13-40' })).daily === '', '越界月日拒绝');
+ok(dailyCode.length <= 80, '带日签的码仍在 80 字符内（面板与输入框放得下）');
+// v4 旧码：第 10 段就结束，照常能贴，只是按普通局处理
+const old4 = 'TM4.' + Buffer.from('4.t.mercy.9.12.500.400.w.3.A', 'utf8').toString('base64')
+  .replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_');
+const d4 = C.decode(old4);
+ok(!!d4 && d4.version === 4 && d4.floor === 9 && d4.margin === 'A' && d4.daily === '', 'v4 旧码照常能解，日签为空');
 
 // v2 旧码：分数段废弃、S/A/B/C 折成塔印
 function v2(raw) { return 'TM2.' + Buffer.from(raw, 'utf8').toString('base64').replace(/=+$/, ''); }

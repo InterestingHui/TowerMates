@@ -1433,6 +1433,8 @@
       seal: d.seal || '',
       goals: d.goals || 0,
       margin: d.margin || '',
+      // v5 码带日签：只有今天这座的成绩才进「今日」档；v4 及更老的码按普通局处理
+      daily: d.daily || '',
       vow: D.vows[d.vow] ? d.vow : 'none',
     };
     if (!rec.floor || rec.floor > D.floors.length) return null;
@@ -1497,7 +1499,7 @@
       '第八位勇者·川': '剑断在第五层',
     };
     const bdNote = boardFilter === 'daily'
-      ? '<div class="bd-note">这一座塔每天零点换一次：同一天走进来的人遇到的是同一座，所以「今天谁走得远」是能比的。</div>'
+      ? '<div class="bd-note">这一座塔每天零点换一次：同一天走进来的人遇到的是同一座，所以「今天谁走得远」是能比的。贴进来的朋友码只要也是今天这座，就会进这一档。</div>'
       : (crushed && boardFilter === 'all' ? '<div class="bd-note">影子勇者都停在前五层。你已经走到他们没到过的地方。</div>' : '');
     $('boardList').innerHTML = (rows.length ? bdNote + rows.slice(0, 10).map((r, i) => {
       const v = D.vows[r.vow] || D.vows.none;
@@ -1544,9 +1546,12 @@
     const dup = loadRivals().some((x) => x.code === code);
     saveRival(code, rec);
     input.value = '';
+    // 带日签的码能判出「他走的是不是今天这座」，同塔的成绩才进得了「今日」档
+    const sameDay = !!rec.daily && rec.daily === Daily.keyOf(Date.now());
+    const dayTag = sameDay ? ' · 今天这座' : '';
     if (hint) hint.textContent = dup
-      ? `已更新「挑战·朋友」：第 ${rec.floor} 层 · 用时 ${fmtTime(rec.time)}`
-      : `「挑战·朋友」进榜：第 ${rec.floor} 层 · 用时 ${fmtTime(rec.time)}。爬得比他更高。`;
+      ? `已更新「挑战·朋友」：第 ${rec.floor} 层 · 用时 ${fmtTime(rec.time)}${dayTag}`
+      : `「挑战·朋友」进榜：第 ${rec.floor} 层 · 用时 ${fmtTime(rec.time)}${dayTag}。爬得比他更高。`;
     warn(dup ? '朋友的最新成绩已更新' : `挑战·朋友 第 ${rec.floor} 层，进榜了`);
     Sound.play('ach');
     boardFilter = 'all';
