@@ -149,11 +149,21 @@ function load(url) { return new Promise((res) => { f.onload = () => res(); f.src
       rec('E1 成就计数可点击（有入口光标）', !!ach && getComputedStyle(ach).cursor === 'pointer', ach ? 'cursor=' + getComputedStyle(ach).cursor : '缺失');
       if (ach) {
         ach.click();
-        await wait(400);
+        // 图鉴正文 19k 字符（含 35 张成就卡），固定 400ms 偶发读空 → 等渲染完再断言（防 flaky）
+        await waitFor(() => {
+          const el = d.getElementById('colBody');
+          return el && el.querySelectorAll('.ach-card').length > 0;
+        }, 4000);
+        await wait(120);
         const colOpen = d.getElementById('collectionOverlay').classList.contains('show');
         const boardClosed = !d.getElementById('boardOverlay').classList.contains('show');
         rec('E2 点成就计数 → 图鉴打开且榜单关', colOpen && boardClosed, `图鉴${colOpen ? '开' : '没开'} · 榜单${boardClosed ? '已关' : '还开着'}`);
-        const achTxt = (d.getElementById('colBody') || {}).textContent || '';
+        const colEl = d.getElementById('colBody');
+        const achTxt = (colEl || {}).textContent || '';
+        const dbgLen = colEl ? (colEl.innerHTML || '').length : -1;
+        const sub0 = colEl && colEl.querySelector('.ach-sub');
+        const subCodes = sub0 ? Array.from(sub0.textContent.slice(0, 4)).map((c) => c.codePointAt(0).toString(16)).join(' ') : 'none';
+        rec('E2b 图鉴正文有内容', dbgLen > 500, 'ach-card ' + (colEl ? colEl.querySelectorAll('.ach-card').length : -1) + ' 张 · 首个分组字符码 ' + subCodes);
         rec('E3 成就墙四区都在（战斗/收藏/誓约/折戟）', ['战 斗', '收 藏', '誓 约', '折 戟'].every((t) => achTxt.indexOf(t) >= 0),
           ['战斗', '收藏', '誓约', '折戟'].filter((t, i) => achTxt.indexOf(['战 斗', '收 藏', '誓 约', '折 戟'][i]) < 0).join(',') || '四区齐全');
         // 折戟灰卡给解锁条件（desc 即条件）——新玩家点🔒卡也能知道「要死几次」
@@ -177,6 +187,21 @@ function load(url) { return new Promise((res) => { f.onload = () => res(); f.src
       await wait(400);
       const stats = (d.getElementById('endStats') || {}).textContent || '';
       rec('E5 死亡结算有「倒在谁」与「折戟塔印」', /倒在/.test(stats) && /折戟/.test(stats), (stats.match(/倒在[^<]*|折戟[^<]*/g) || []).join(' ').slice(0, 40));
+
+      // E6/E7 焦点 B 二轮：死亡页默认收起履历（刚死只想重开），但必须一眼能找到入口
+      const mem = d.getElementById('endMemory');
+      const tg = d.querySelector('.mem-toggle');
+      const memHidden = mem ? getComputedStyle(mem).display === 'none' : null;
+      rec('E6 死亡页履历默认收起', memHidden === true, 'endMemory display=' + (mem ? getComputedStyle(mem).display : '缺失'));
+      rec('E7 有「塔的记忆」展开入口', !!tg && /塔的记忆/.test(tg.textContent), tg ? tg.textContent.trim() : '缺失');
+      if (tg) {
+        tg.click();
+        await wait(250);
+        const opened = mem ? getComputedStyle(mem).display !== 'none' && mem.classList.contains('open') : false;
+        rec('E8 点开能展开履历', opened, 'open=' + (mem && mem.classList.contains('open')));
+        const body = d.getElementById('endBody');
+        rec('E9 死亡页无空白正文带', !body || getComputedStyle(body).display === 'none', body ? 'display=' + getComputedStyle(body).display : '无节点');
+      }
     }
 
     out.textContent = R.map((r) => `${r.ok ? '✓' : '✗'} ${r.name}${r.note ? ' — ' + r.note : ''}`).join('\n')

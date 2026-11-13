@@ -991,7 +991,6 @@
       : '';
     html += ringStatBoard();
     html += marginStatBoard();
-    html += achievementBoard();
     html += '<div class="col-group"><p class="col-group-title">遗 物 · '
       + RELIC_ORDER.filter((id) => mem.seenRelics.indexOf(id) >= 0).length + '/' + RELIC_ORDER.length
       + '</p><div class="col-grid">';
@@ -1008,6 +1007,9 @@
       }).join('');
       html += '</div></div>';
     });
+    // 成就墙垫底：藏品是图鉴主体（查进度第一眼要看遗物/锁环），成就属收藏附页——
+    // 插在遗物前会把遗物组推到 1600px 外，每次查藏品都要滑过整面成就卡（焦点 B 实测 374→1671px）
+    html += achievementBoard();
     el.colBody.innerHTML = html;
     el.colBody.querySelectorAll('.col-card, .col-next-chip').forEach((b) => {
       b.addEventListener('click', () => {
@@ -1888,8 +1890,22 @@
     goals.unshift(`这次倒在了第 ${s.floor + 1} 层——下一局从这里再往上`);
     const memWrap = $('endMemory');
     if (memWrap) {
+      memWrap.classList.remove('open');
       memWrap.innerHTML = `<div class="mem-grid">${memItems.map((t) => `<div>${t}</div>`).join('')}</div>`
         + (goals.length ? `<div class="mem-goals">${goals.slice(0, 3).map((g) => `<span>▸ ${g}</span>`).join('')}</div><p class="mem-note">塔收起了你的名字，但位置还留着。</p>` : '');
+      // 死亡页默认收起履历与目标（焦点 B：刚死的人只想立刻重开，履历是回头才看的）。
+      // 胜局不折：那是值得读的时刻。按钮每次重建，避免上一局残留。
+      const oldTg = el.endOverlay.querySelector('.mem-toggle');
+      if (oldTg) oldTg.remove();
+      const tg = document.createElement('button');
+      tg.type = 'button';
+      tg.className = 'mem-toggle';
+      tg.textContent = '塔的记忆 ▾';
+      tg.onclick = () => {
+        const open = memWrap.classList.toggle('open');
+        tg.textContent = open ? '收起 ▴' : '塔的记忆 ▾';
+      };
+      memWrap.insertAdjacentElement('beforebegin', tg);
     }
     $('endStats').innerHTML = `
       <div>倒在 <b>${monster ? monster.name : '塔里'}</b></div>
@@ -2742,6 +2758,10 @@
       : '';
     const memWrap = $('endMemory');
     if (memWrap) {
+      // 胜局不折履历：清掉死亡页留下的折叠按钮与 open 态，免得按钮挂在一整块展开内容上
+      const oldTg = el.endOverlay.querySelector('.mem-toggle');
+      if (oldTg) oldTg.remove();
+      memWrap.classList.remove('open');
       const paint = () => {
         // 誓约全解锁后，余烬改去点亮层灯：一层一盏，纯收藏，不加战力
         const lampRow = !lockedVow

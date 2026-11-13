@@ -964,6 +964,8 @@ html, body {
 .end-emoji { font-size: 46px; line-height: 1.1; }
 .end-panel h2 { margin: 6px 0 5px; font-size: 19px; color: var(--gold); letter-spacing: 1.2px; }
 .end-panel p { color: var(--muted); font-size: 12.5px; margin: 0 0 11px; line-height: 1.7; }
+/* 空正文不该留一条空白带：死亡页把 endBody 清空，padding+边框会撑出一块"洞" */
+.end-body:empty { display: none; }
 .end-body {
   font-size: 12px;
   line-height: 1.85;
@@ -1197,6 +1199,26 @@ html, body {
 #endOverlay.death-mode .es-num { color: #c4ccd8; }
 #endOverlay.death-mode .end-stats b { color: #c4ccd8; }
 #endOverlay.death-mode .end-body { border-color: rgba(140, 150, 165, 0.22); }
+/* 死亡页默认收起履历与目标：此刻玩家只想立刻重开，履历留一个按钮可看 */
+.mem-toggle {
+  display: block;
+  width: 100%;
+  margin: 0 0 8px;
+  padding: 7px 10px;
+  border: 1px dashed rgba(174, 184, 198, 0.34);
+  border-radius: 9px;
+  background: rgba(174, 184, 198, 0.05);
+  color: #93a0b2;
+  font: inherit;
+  font-size: 11.5px;
+  cursor: pointer;
+  transition: background 0.16s, border-color 0.16s;
+}
+.mem-toggle:hover { background: rgba(174, 184, 198, 0.1); border-color: rgba(174, 184, 198, 0.55); }
+/* 收起时整个容器不占位（它自带边框和 padding，只藏子元素会留一条空框） */
+#endOverlay.death-mode #endMemory { display: none; }
+#endOverlay.death-mode #endMemory.open { display: block; }
+#endOverlay.death-mode #endMemory { margin: 0 0 9px; }
 .es-meta { flex: 1; font-size: 10.5px; color: var(--muted); line-height: 1.5; }
 .es-num { font-size: 18px; font-weight: 700; color: #fff; font-variant-numeric: tabular-nums; }
 .es-num small { font-size: 10px; color: var(--dim); margin-left: 2px; font-weight: 400; }

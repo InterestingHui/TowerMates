@@ -328,6 +328,19 @@ async function run() {
         out.colCards = d.querySelectorAll('#colBody .col-card').length;
         out.colGot = d.querySelectorAll('#colBody .col-card.got').length;
         out.colGroups = d.querySelectorAll('#colBody .col-group').length;
+        // 焦点 B：成就墙不该挡在藏品前面——量遗物组顶部位置 vs 成就组位置
+        (function () {
+          var groups = d.querySelectorAll('#colBody .col-group');
+          var relicTop = -1, achTop = -1;
+          for (var gi = 0; gi < groups.length; gi++) {
+            var t = groups[gi].querySelector('.col-group-title');
+            var txt = t ? t.textContent : '';
+            if (relicTop < 0 && txt.indexOf('遗 物') >= 0) relicTop = groups[gi].offsetTop;
+            if (achTop < 0 && groups[gi].querySelector('.ach-card')) achTop = groups[gi].offsetTop;
+          }
+          out.colRelicTop = relicTop;
+          out.colAchTop = achTop;
+        })();
         // 全表尺寸从数据里取，别把 11/24 硬编码进断言（加一件藏品就红）
         out.colTotalRelics = Object.keys(w.GAME_DATA.relics).length;
         out.colTotalRings = Object.keys(w.GAME_DATA.rings).length;
