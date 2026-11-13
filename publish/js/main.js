@@ -1892,7 +1892,8 @@
       <span class="es-num">✦ ${emberGain}<small>余烬</small></span>`;
     $('endScore').title = `塔印「${sealDef.name}」：${sealDef.desc}`;
     $('endEmberDetail').innerHTML = '';
-    $('endTag').textContent = sealDef.desc;
+    // 首局没立过誓（面板只给确认卡）：结算这一刻告诉玩家下一局多了一个选择
+    $('endTag').textContent = sealDef.desc + ((Meta.memory.runs || 0) === 0 ? ' · 下一局开局可以立誓：选一条规矩，换一种走法。' : '');
     $('endBrief').innerHTML = `<span>败局也算履历：击杀折成余烬带回。</span>`
       + (s.flags.worstHit ? `<span>最狠的一场：${s.flags.worstName} −${s.flags.worstHit}</span>` : '')
       + ((Array.isArray(s.flags.collectNew) && s.flags.collectNew.length)
@@ -2723,7 +2724,7 @@
         + `<span class="eed-sum">合计 <b>+${emberGain}</b></span>`
         + `<span class="eed-total">✦ ${before} → ${before + emberGain}</span>`;
     }
-    $('endTag').textContent = sealDef.desc;
+    $('endTag').textContent = sealDef.desc + ((Meta.memory.runs || 0) === 1 ? ' · 下一局开局可以立誓：选一条规矩，换一种走法。' : '');
     const brief = [];
     brief.push(`带走 ${relicIds.length} 件遗物 · 击杀 ${s.flags.killCount || 0} 只`);
     if (s.flags.worstHit) brief.push(`最狠的一场：${s.flags.worstName} −${s.flags.worstHit}`);
