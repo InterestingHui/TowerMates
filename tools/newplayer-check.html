@@ -258,6 +258,30 @@ function load(url) { return new Promise((res) => { f.onload = () => res(); f.src
         const body = d.getElementById('endBody');
         rec('E9 死亡页无空白正文带', !body || getComputedStyle(body).display === 'none', body ? 'display=' + getComputedStyle(body).display : '无节点');
       }
+
+      // E10/E11 首局结算提示：第一局没立过誓，结算时得告诉玩家「下一局多了个选择」；
+      // 已经立过誓的局不该再念这句（会变成噪音）
+      {
+        // 前面的 D 场景（showEnd）已经 recordRun 过一次，runs 不再是 0——
+        // 这里显式摆回「从没进过塔」，否则读到的是被污染的状态（首版就踩了这个）
+        w.__tm.Meta.memory.runs = 0;
+        const s0 = w.Engine.state();
+        s0.over = false;
+        d.getElementById('endOverlay').classList.remove('show', 'death-mode');
+        w.__tm.deathAgain({ name: '钟妖' }, 1225);   // deathAgain 会清 deathShown，否则 showDeath 直接 return
+        await wait(350);
+        const tag0 = (d.getElementById('endTag') || {}).textContent || '';
+        rec('E10 首局死亡结算提示「下一局可立誓」', /下一局开局可以立誓/.test(tag0), tag0.slice(0, 36));
+        // 造一个「已经进过 3 次塔」的档案再死一次：这句提示不该再出现
+        w.__tm.Meta.memory.runs = 3;
+        const s2 = w.Engine.state();
+        s2.over = false; s2.hp = 0;
+        d.getElementById('endOverlay').classList.remove('show', 'death-mode');
+        w.__tm.deathAgain({ name: '钟妖' }, 1225);
+        await wait(350);
+        const tag1 = (d.getElementById('endTag') || {}).textContent || '';
+        rec('E11 老玩家死亡结算不再念这句', !/下一局开局可以立誓/.test(tag1), tag1.slice(0, 36));
+      }
     }
 
     // ===== F. 首局节奏：塔友榜 / 立誓面板按局数分级开放 =====

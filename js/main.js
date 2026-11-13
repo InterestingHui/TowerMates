@@ -3224,7 +3224,9 @@
         log(ev.msg, ev.good === false ? 'warn' : 'good');
         // 学会格挡：先播盾谱小传，接烛的用法教学（老玩家读过的不再复读）
         if (ev.blockLearned) {
-          if (ev.story) playStory(ev.story, () => Tips.show('block'));
+          // 小传最后一句已经把用法说完：不再接第二段全屏对白（同一机制两个弹窗，
+          // 是前 3 分钟最没必要的一次打断）。商店买盾谱仍走 Tips.show('block')。
+          if (ev.story) playStory(ev.story, () => { Tips.mark('block'); });
           else Tips.show('block');
         }
         // 后半部：小传播完提一句新比例

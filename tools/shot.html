@@ -410,9 +410,9 @@
         const dlA = d.getElementById('dialogOverlay');
         for (let i = 0; i < 8; i++) { dlA.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
         const sA = E.state();
-        sA.floor = 2; sA.x = 7; sA.y = 8; sA.gold = 180;
+        sA.floor = 2; sA.x = 8; sA.y = 8; sA.gold = 180;
         T.refreshHud();
-        T.act(1, 0);
+        T.act(-1, 0);
         await wait(600);
       } else if (scene === 'echo') {
         d.getElementById('btnNew').click();

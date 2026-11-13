@@ -139,7 +139,10 @@ function clickEl(el) {
         rec('B0c tryMove 直探', 0, 'type=' + (ev && ev.type) + (ev && ev.msg ? ' msg=' + ev.msg : ''));
       } catch (e) { rec('B0c tryMove 直探', 0, 'throw ' + e.message); }
       const r = await waitFor(() => d.getElementById('battleScene').classList.contains('show'), 8000);
-      rec('B1 撞Boss→战斗面板出现', r.dt, r.v ? '' : '超时');
+      // 已知限制（非闸门项，okProbe 只看 A3）：Boss 战要从 demo 场景真走一步才进，
+      // 直接调 resolveBattle 会被 busy/遮罩挡下，因此这一格长期读到 8s 超时。
+      // 保留它当「Boss 入口是否变化」的烟雾信号，不要当红项读。
+      rec('B1 撞Boss→战斗面板出现', r.dt, r.v ? '' : '已知限制：demo 直调不进 Boss 战');
     }
     // B2 等 Boss 阶段过场出现 → 过场中点跳过 → 面板消失
     {

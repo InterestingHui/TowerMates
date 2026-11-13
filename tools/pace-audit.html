@@ -22,6 +22,24 @@ const out = document.getElementById('out');
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const R = [];
 const t0 = performance.now();
+// 教学弹窗计数：只数「挡住画面、要玩家点一下」的两种（教练卡 / 全屏对白）。
+// 楼层卡自动收、引导条常驻，不算——它们不打断操作。
+let counting = false, modalCount = 0, wasDlg = false, wasCoach = false;
+const modalLog = [];
+setInterval(() => {
+  let d = null;
+  try { d = f.contentDocument; } catch (e) { return; }
+  if (!d) return;
+  const dlgEl = d.getElementById('dialogOverlay');
+  const coachEl = d.getElementById('coachCard');
+  const dlg = !!(dlgEl && dlgEl.classList.contains('show'));
+  const coach = !!(coachEl && !coachEl.hidden);
+  if (counting) {
+    if (dlg && !wasDlg) { modalCount++; modalLog.push('D' + Math.round(performance.now() / 100) / 10); }
+    if (coach && !wasCoach) { modalCount++; modalLog.push('C' + Math.round(performance.now() / 100) / 10); }
+  }
+  wasDlg = dlg; wasCoach = coach;
+}, 50);
 
 function shown(el) {
   if (!el) return false;
@@ -136,6 +154,7 @@ function click(w, d, sel) {
     await wait(900);
     snap('C 序章对白', '4 段旁白，每段读 3-4 秒');
     for (let i = 0; i < 4; i++) { await wait(3800); click(w, d, '#dialogOverlay'); }
+    counting = true;   // 序章不算教学弹窗：从踏入第 1 层开始数
     await wait(1000);
     snap('D 第1层·教练卡', '高亮格 + 说明卡，点「知道了」才走');
     await wait(9000);
@@ -159,13 +178,15 @@ function click(w, d, sel) {
     await wait(700);
     snap('I 第2层', '回廊：盾谱(8,1)、铁盾(5,5)、3 骷髅、僵尸、怨灵、石像鬼、黄门');
     const w2 = f.contentWindow, d2 = f.contentDocument;
-    w2.Engine.state().x = 8; w2.Engine.state().y = 2;
-    w2.__tm.act(0, -1);
-    await wait(2600);
-    snap('J 学会格挡', '踩盾谱 → 小传对白 → 烛的用法教学');
-    for (let i = 0; i < 4; i++) { click(w2, d2, '#dialogOverlay'); await wait(700); }
+    w2.Engine.state().x = 6; w2.Engine.state().y = 1;
+    w2.__tm.act(1, 0);
+    await wait(1400);
+    snap('J 学会格挡', '踩盾谱 → 小传对白（最后一句已含用法）');
+    for (let i = 0; i < 5; i++) { click(w2, d2, '#dialogOverlay'); await wait(600); }
     await wait(900);
+    snap('J2 小传读完', '关掉就回到地图，不再接第二段教学对白');
     snap('K 格挡教学后', '顶栏出现格挡 pip');
+    counting = false;   // 3 分钟窗口到此为止：后面第 3 层的商店/祭坛是玩家主动打开的，不算教学打断
     // ===== 3-10 分钟：第 3、4 层 =====
     await load('/index.html?pace=f3#demo=2,4,6');
     await ready();
@@ -211,7 +232,9 @@ function click(w, d, sel) {
     } catch (e) { out.textContent += '\nECHO-ERR ' + e.message; }
     await wait(800);
     snap('R 章末回响', '锁环三选一（首章 Boss 后）');
-    out.textContent += '\n\nDONE ' + JSON.stringify(R.map((r) => ({ tag: r.tag, at: r.at, n: r.clickable.length + (r.canvasLive ? 1 : 0) + (r.tap || 0), tips: r.tips.length })));
+    out.textContent += '\n\nMODALLOG=' + modalLog.join(',');
+    out.textContent += '\n\nMODALS=' + modalCount + '（前 3 分钟教学弹窗：教练卡 + 盾谱小传）';
+    out.textContent += '\nDONE ' + JSON.stringify(R.map((r) => ({ tag: r.tag, at: r.at, n: r.clickable.length + (r.canvasLive ? 1 : 0) + (r.tap || 0), tips: r.tips.length })));
   } catch (e) {
     out.textContent += '\n\nERR ' + (e && e.stack || e);
     document.title = 'PACE-ERR';
