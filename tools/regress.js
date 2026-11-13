@@ -275,17 +275,23 @@ if (!process.argv.includes('--no-shot')) {
             return m ? Number(m[1]) : -1;
           };
           const mm = /MODALS=(\d+)/.exec(t);
-          return { start: pick('A'), vow: pick('B'), floor1: pick('D'), ready: pick('E'), modals: mm ? Number(mm[1]) : -1 };
+          const hm = /HUDHIDDEN=(\d+)/.exec(t);
+          // 首战时间：探针按正常阅读节奏走首局，记录第一场战斗发生在第几秒
+          const fm = /\[G 第一次战斗\]\s*([\d.]+)s/.exec(t);
+          return { start: pick('A'), vow: pick('B'), floor1: pick('D'), ready: pick('E'),
+            modals: mm ? Number(mm[1]) : -1, hud: hm ? Number(hm[1]) : -1, firstFight: fm ? Number(fm[1]) : -1 };
         };
         let r = readPace();
-        if (r.vow < 0 || r.floor1 < 0 || r.modals < 0) r = readPace(); // 偶发空 DOM 重试一次
+        if (r.vow < 0 || r.floor1 < 0 || r.modals < 0 || r.hud < 0) r = readPace(); // 偶发空 DOM 重试一次
         // 立誓屏首局只留 1 张确认卡；第 1 层（教练卡态）≤4（含画布）；可操作态 ≤3；
         // 前 3 分钟教学弹窗（教练卡 + 盾谱小传）≤2——超过就是同一机制/同一句话在重复打断
-        okPace = r.start >= 0 && r.start <= 1
+        // 首战 ≤70s：60 秒是「1 个核心动词」预算，探针含 10 秒模拟犹豫，留 10 秒余量
+        const ffOk = r.firstFight > 0 && r.firstFight <= 70;
+        okPace = r.start >= 0 && r.start <= 1 && r.hud === 1
           && r.vow >= 0 && r.vow <= 1 && r.floor1 >= 0 && r.floor1 <= 4 && r.ready >= 0 && r.ready <= 3
-          && r.modals >= 0 && r.modals <= 2;
-        paceLine = `首屏 ${r.start} / 立誓 ${r.vow} / 首层 ${r.floor1} / 可操作 ${r.ready} / 教学弹窗 ${r.modals}`;
-        console.log((okPace ? '✓' : '✗') + ' 首局元素 ' + paceLine + '（预算 1 / 1 / 4 / 3 / ≤2）');
+          && r.modals >= 0 && r.modals <= 2 && ffOk;
+        paceLine = `首屏 ${r.start} / HUD隐藏 ${r.hud} / 立誓 ${r.vow} / 首层 ${r.floor1} / 可操作 ${r.ready} / 教学弹窗 ${r.modals} / 首战 ${r.firstFight < 0 ? '—' : r.firstFight + 's'}`;
+        console.log((okPace ? '✓' : '✗') + ' 首局节奏 ' + paceLine + '（预算 1 / 1 / 4 / 3 / ≤2 / ≤70s）');
       }
       server.kill();
       console.log(bad === 0 ? `\n✓ 截图全部生成（${SCENES.length} 张，见 tools/out/）` : `\n✗ ${bad} 张截图异常`);

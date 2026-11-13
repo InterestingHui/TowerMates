@@ -44,6 +44,7 @@ function load(url) {
     await wait(500);
     {
       w.localStorage.removeItem('towermates_meta');
+      w.localStorage.removeItem('towermates_save_v3');
       w.localStorage.removeItem('towermates_save_v5');
       w.localStorage.removeItem('towermates_save');
       const mem = w.__tm.Meta.memory;

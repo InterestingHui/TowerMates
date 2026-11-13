@@ -1934,7 +1934,7 @@
         ? `<span>图鉴新收录：${s.flags.collectNew.slice(0, 4).join('、')}${s.flags.collectNew.length > 4 ? ` 等 ${s.flags.collectNew.length} 件` : ''}（带走的东西不会因为倒下而丢失）</span>`
         : '');
     Meta.recordRun({ ending: null, won: false, vow: s.flags.vow || 'none', fullChapters: 0, heart: null, floor: s.floor, time: sum.time, seal, ember: emberGain });
-    Funnel.push('run_end', { n: Meta.memory.runs, won: 0, floor: s.floor + 1, seal });
+    Funnel.push('run_end', { n: Meta.memory.runs, won: 0, floor: s.floor + 1, seal, time: sum.time, dmg: s.damageTaken || 0 });
     Meta.add(emberGain);
     // 折戟里程碑：recordRun 之后喂事件，falls 已含本次（3 次「塔的常客」/ 10 次「不死不休」）
     const deathState = Object.assign({}, s, { flags: Object.assign({}, s.flags, { falls: Meta.memory.falls }) });
@@ -2745,7 +2745,7 @@
       // 这里比结算摘要里算余裕更早，直接问引擎，别依赖变量声明顺序
       margin: (Engine.battleMargin() || {}).grade || '',
     });
-    Funnel.push('run_end', { n: Meta.memory.runs, won: 1, floor: sum.floor, ending: s.ending || 'plain', seal });
+    Funnel.push('run_end', { n: Meta.memory.runs, won: 1, floor: sum.floor, ending: s.ending || 'plain', seal, time: sum.time, dmg: s.damageTaken || 0 });
     Meta.ringWin(Engine.rings());   // 图鉴里记「带它通关过几次」
     $('endScore').innerHTML = `<span class="es-grade ${seal}" data-seal="${seal}">${sealDef.name}</span>
       <span class="es-meta">${s.ending === 'true' ? '真结局' : '普通结局'}${s.flags.heart === 'taken' ? ' · 塔心带走' : s.flags.heart === 'left' ? ' · 塔心留下' : ''} · 回响 ${echoDone}/4 · 遗物 ${relicIds.length} · 锁环 ${ringList.length}</span>
@@ -2900,6 +2900,19 @@
     Achievements.evaluate('finish', s, notifyAchievement);
     el.endOverlay.classList.add('show');
     refreshStartBadges();
+  }
+
+  // 有存档时首屏只推「继续游戏」：开新局是破坏性操作（覆盖进度），折成一行小字，
+  // 点了还要过现有二次确认。没有存档时恢复「开始游戏」单按钮。
+  function refreshStartActions() {
+    const has = Engine.hasSave();
+    const bn = $('btnNew'), bc = $('btnContinue'), nr = $('newRunRow');
+    if (bn) bn.style.display = has ? 'none' : 'block';
+    if (bc) {
+      bc.style.display = has ? 'block' : 'none';
+      bc.classList.toggle('primary', has);
+    }
+    if (nr) nr.style.display = has ? 'flex' : 'none';
   }
 
   // ---------- 标题页 ----------
@@ -3518,7 +3531,7 @@
     $('btnHelp').addEventListener('click', () => { openCfg(); });
     $('cfgClearSave').addEventListener('click', () => {
       Engine.reset();
-      $('btnContinue').style.display = 'none';
+      refreshStartActions();
       refreshStartBadges();
       log('存档已清空');
       warn('存档已清空（成就、结局与余烬保留）');
@@ -3535,7 +3548,7 @@
       Meta.saveMemory();
       collectSig = null;
       try { localStorage.removeItem('towermates_board'); } catch (e) {}
-      $('btnContinue').style.display = 'none';
+      refreshStartActions();
       refreshStartBadges();
       refreshCfg();
       warn('已清空存档、成就、收藏与榜单');
@@ -3547,7 +3560,7 @@
       Sound.stopMusic();
       const n = Meta.incReset();
       Engine.reset();
-      $('btnContinue').style.display = 'none';
+      refreshStartActions();
       closeCfg();
       openVow();
       log('已重置本局 · 从头开始', 'gold');
@@ -3836,7 +3849,13 @@
     Engine.newGame(vow);
     stopWalk();
     document.body.classList.remove('at-start');
-    Funnel.push('run_start', { n: (Meta.memory.runs || 0) + 1, vow: vow || 'none' });
+    // 距上一局结束多久：从漏斗里最后一条 run_end 反推（没有就是 -1，表示首局）
+    const lastEnd = Funnel.all().reverse().find((x) => x.ev === 'run_end');
+    Funnel.push('run_start', {
+      n: (Meta.memory.runs || 0) + 1,
+      vow: vow || 'none',
+      gap: lastEnd ? Math.max(0, Math.round((Date.now() - lastEnd.at) / 1000)) : -1,
+    });
     endShown = false;
     deathShown = false; // 新一局要能重新弹死亡结算：上一局置的 true 必须清掉
     // 收藏去重签名也要清：新局如果恰好又拿到上一局那批遗物，签名相同会让「图鉴新收录」漏记
@@ -3903,8 +3922,9 @@
     bindInput();
     refreshStartBadges();
 
-    if (Engine.hasSave()) $('btnContinue').style.display = 'block';
+    refreshStartActions();
     $('btnNew').addEventListener('click', openVow);
+    $('btnNewRun').addEventListener('click', () => el.resetConfirmOverlay.classList.add('show'));
     $('btnContinue').addEventListener('click', continueGame);
 
     // 开发用：index.html#demo=楼层,x,y 直接进游戏（不播序章）

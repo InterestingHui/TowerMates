@@ -292,6 +292,7 @@ function load(url) { return new Promise((res) => { f.onload = () => res(); f.src
       await waitFor(() => w.__tm && w.__tm.openVow);
       await wait(300);
       w.localStorage.removeItem('towermates_meta');
+      w.localStorage.removeItem('towermates_save_v3');
       w.localStorage.removeItem('towermates_save_v5');
       await load('/index.html?p=f1');
       w = f.contentWindow; d = f.contentDocument;
@@ -337,11 +338,19 @@ function load(url) { return new Promise((res) => { f.onload = () => res(); f.src
       await wait(300);
       const sF7 = w.Engine.state();
       sF7.over = true; sF7.hp = 0; sF7.floor = 1;
+      w.Engine.save();
       w.__tm.showDeath({ name: '史莱姆' }, 90);
       await wait(400);
       const fl = JSON.parse(w.localStorage.getItem('towermates_funnel') || '[]');
       const evs = fl.map((x) => x.ev);
       rec('F7 漏斗缓冲记下首局开始与结束', evs.indexOf('run_start') >= 0 && evs.indexOf('run_end') >= 0, evs.join(',') || '空');
+      // F8 有存档时首屏只推「继续游戏」，开新局折成一行小字
+      await load('/index.html?p=f8');
+      w = f.contentWindow; d = f.contentDocument;
+      await waitFor(() => w.__tm && w.__tm.openVow);
+      await wait(300);
+      const bn8 = d.getElementById('btnNew'), bc8 = d.getElementById('btnContinue'), nr8 = d.getElementById('newRunRow');
+      rec('F8 有存档时首屏只推「继续游戏」', bn8.style.display === 'none' && bc8.style.display !== 'none' && nr8.style.display !== 'none', `新局=${bn8.style.display || '显示'} 继续=${bc8.style.display || '显示'} 开新局=${nr8.style.display || '显示'}`);
 
     }
 

@@ -832,6 +832,7 @@
     const fd = fightDamage(ch, blocked);
     const dmg = fd.damage;
     s.hp -= dmg;
+    s.damageTaken = (s.damageTaken || 0) + dmg;   // 跨局漏斗/结算统计用；老档缺省按 0
     // 誓约/锁环乘区可能让真实承伤超出预判（如铁壁 ×1.18）：扣到 0 以下就是死，
     // 钳住并置 over，主循环据此弹死亡结算——绝不允许负血继续走塔
     if (s.hp <= 0) {

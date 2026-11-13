@@ -96,13 +96,16 @@ function snap(tag, note) {
   on('toast', 'show', '成就吐司');
   on('warnPill', 'show', '顶部警告');
   const canvasLive = !!ov ? false : shown(d.getElementById('game'));
+  // 开始页的 HUD 必须藏起来（body.at-start）：5 个数值 + 方向键不许从遮罩后露出
+  const topbarEl = d.getElementById('topbar');
+  const hudHidden = topbarEl ? getComputedStyle(topbarEl).visibility === 'hidden' : true;
   // 战斗遮罩整块可点（点一下跳过）；不算按钮，但算 1 个可交互面
   const battleTap = ov && ov.id === 'battleScene' ? 1 : 0;
   const s = (() => { try { return w.Engine.state(); } catch (e) { return null; } })();
   R.push({ tag, at: Math.round((performance.now() - t0) / 100) / 10, note: note || '',
     overlay: ov ? ov.id : '—', floor: s ? (s.floor + 1) + '层' : '无局',
     hp: s ? `${s.hp}/${s.maxHp}` : '-', gold: s ? s.gold : '-',
-    clickable: items, info, tips, canvasLive,
+    clickable: items, info, tips, canvasLive, hudHidden,
     tap: battleTap, block: !!(s && s.flags && s.flags.hasBlock) });
   render();
 }
@@ -232,7 +235,8 @@ function click(w, d, sel) {
     } catch (e) { out.textContent += '\nECHO-ERR ' + e.message; }
     await wait(800);
     snap('R 章末回响', '锁环三选一（首章 Boss 后）');
-    out.textContent += '\n\nMODALLOG=' + modalLog.join(',');
+    out.textContent += '\n\nHUDHIDDEN=' + (R[0] && R[0].hudHidden ? 1 : 0);
+    out.textContent += '\nMODALLOG=' + modalLog.join(',');
     out.textContent += '\n\nMODALS=' + modalCount + '（前 3 分钟教学弹窗：教练卡 + 盾谱小传）';
     out.textContent += '\nDONE ' + JSON.stringify(R.map((r) => ({ tag: r.tag, at: r.at, n: r.clickable.length + (r.canvasLive ? 1 : 0) + (r.tap || 0), tips: r.tips.length })));
   } catch (e) {
