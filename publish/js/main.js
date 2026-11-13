@@ -3943,8 +3943,22 @@
       const d = new Date(t);
       return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
     };
+    // 按局汇总：run_start 到下一条 run_end 之间的事件归成一局，能一眼看出每局的深度/耗时
+    const runs = [];
+    let cur = null;
+    rows.forEach((x) => {
+      if (x.ev === 'run_start') { cur = { n: x.n, vow: x.vow, at: x.at, sinceLoad: x.sinceLoad, ends: [], gaps: 0 }; runs.push(cur); }
+      else if (x.ev === 'run_end' && cur) { cur.ends.push(x); cur = null; }
+    });
+    const runCards = runs.slice(-6).reverse().map((r) => {
+      const last = r.ends[r.ends.length - 1];
+      if (!last) return `<div class="fv-run"><b>第 ${r.n} 局</b><span>进行中…</span></div>`;
+      const tag = last.won ? '🏆' : '💀';
+      return `<div class="fv-run"><b>${tag} 第 ${r.n} 局</b><span>${last.won ? '通关' : '倒在第 ' + last.floor + ' 层'} · ${r.vow === 'none' ? '不立誓' : (r.vow || '')} · 用时 ${last.time}s · 承伤 ${last.dmg} · 塔印 ${last.seal}${r.sinceLoad >= 0 ? ' · 开局@' + r.sinceLoad + 's' : ''}</span></div>`;
+    }).join('');
     box.innerHTML = `<h2>本机漏斗 · ${rows.length} 条</h2>`
       + `<p class="fv-sum">加载→开局：<b>${loadToStart}</b> · 首局→二局：<b>${gap}</b> · 开局 ${starts.length} / 结算 ${ends.length} / 退出 ${hides.length}</p>`
+      + `<div class="fv-runs">${runCards || '<p class="fv-empty">还没有完整的一局。</p>'}</div>`
       + `<div class="fv-tools">`
       + `<button class="fv-chip on" data-f="all">全部 ${rows.length}</button>`
       + `<button class="fv-chip" data-f="key">关键 ${starts.length + ends.length}</button>`
@@ -3952,7 +3966,7 @@
       + `<button class="fv-chip fv-order" id="fvOrder">倒序 ↓</button>`
       + `</div>`
       + `<div class="fv-list" id="fvList"></div>`
-      + `<p class="fv-note">清空：控制台执行 __tm.funnelClear() · 关闭：刷新页面</p>`;
+      + `<p class="fv-note"><button class="fv-copy" id="fvCopy">复制 JSON</button> · 清空：控制台执行 __tm.funnelClear() · 关闭：刷新页面</p>`;
     let filter = 'all', desc = true;
     const paint = () => {
       const list = box.querySelector('#fvList');
@@ -3978,7 +3992,38 @@
     });
     box.querySelector('#fvOrder').textContent = '倒序 ↓';
     paint();
+    const copyBtn = box.querySelector('#fvCopy');
+    copyBtn.addEventListener('click', () => {
+      const json = JSON.stringify(rows);
+      const done = () => { copyBtn.textContent = '已复制 ✓'; setTimeout(() => { copyBtn.textContent = '复制 JSON'; }, 1600); };
+      // headless 无权限环境里 writeText 可能静默不 resolve：先试异步，超时走 execCommand 兜底
+      let settled = false;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        try {
+          navigator.clipboard.writeText(json).then(() => { if (!settled) { settled = true; done(); } }, () => { if (!settled) { settled = true; fallbackCopy(json, done); } });
+          setTimeout(() => { if (!settled) { settled = true; fallbackCopy(json, done); } }, 350);
+        } catch (e) { fallbackCopy(json, done); }
+      } else fallbackCopy(json, done);
+    });
     document.body.appendChild(box);
+  }
+
+  // file:// 与部分 WebView 没有异步剪贴板：选中文本让用户长按/Ctrl+C（与挑战码同一套兜底）。
+  // headless 里 execCommand 可能返回 false（无焦点/无权限），按钮文案照常变——复制是否成功以
+  // 用户实际粘贴为准；真浏览器里这条路径基本走不到。
+  function fallbackCopy(text, done) {
+    let ok = false;
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.cssText = 'position:fixed;left:-9999px;top:0';
+      document.body.appendChild(ta);
+      ta.select();
+      ok = document.execCommand('copy');
+      ta.remove();
+    } catch (e) { ok = false; }
+    if (done) done();
+    if (!ok) warn('剪贴板不可用：已在后台尝试，失败时请手动复制');
   }
 
   function boot() {

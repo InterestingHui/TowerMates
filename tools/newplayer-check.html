@@ -68,10 +68,11 @@ function load(url) { return new Promise((res) => { f.onload = () => res(); f.src
     // ===== B. 战意：战斗中首见能不能自解释 =====
     await load('/index.html?dev=1&p=d3#demo=0,4,5');
     w = f.contentWindow; d = f.contentDocument;
-    await waitFor(() => w.__tm && w.Engine && w.Engine.state());
+    await waitFor(() => { try { return w.__tm && w.Engine && w.Engine.state && w.Engine.state(); } catch (e) { return null; } }, 10000);
     await wait(500);
     {
       const st = w.Engine.state();
+      if (!st) { rec('B0 游戏未就绪', false, 'state 为空'); throw new Error('engine not ready'); }
       st.atk = 400; st.def = 400; st.maxHp = 9999; st.hp = 9999; st.flags.killCount = 45;
       st.flags['traitSeen_double'] = 1;
       w.__tm.refreshHud();
@@ -376,6 +377,15 @@ function load(url) { return new Promise((res) => { f.onload = () => res(); f.src
       await wait(150);
       const rowsHide = d.querySelectorAll('#funnelView .fv-row').length;
       rec('F11 漏斗页筛选（关键/退出）', rowsKey === keyN && rowsHide === hideN, `关键 ${rowsKey}/${keyN} · 退出 ${rowsHide}/${hideN}`);
+      // F12 按局分组卡：每局一张（🏆/💀 + 层数 + 用时 + 承伤）
+      const runCards = d.querySelectorAll('#funnelView .fv-run');
+      rec('F12 漏斗页按局分组卡', runCards.length >= 1 && /第 1 局/.test(runCards[0].textContent) && /用时/.test(runCards[0].textContent), runCards.length ? runCards[0].textContent.replace(/\s+/g, ' ').slice(0, 46) : '缺失');
+      // F13 一键复制 JSON（走 execCommand 兜底路径）。writeText 异步链里有 350ms 兜底定时器，
+      // headless 下固定等 200ms 会读不到「已复制」——等按钮文字变化再断言（防时序抖动）
+      const copyBtn = d.getElementById('fvCopy');
+      if (copyBtn) copyBtn.click();
+      const copied = await waitFor(() => copyBtn && /已复制/.test(copyBtn.textContent), 2500, 60);
+      rec('F13 复制按钮反馈', !!copyBtn && !!copied, copyBtn ? copyBtn.textContent : '缺失');
 
     }
 
