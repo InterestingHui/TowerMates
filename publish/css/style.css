@@ -1627,6 +1627,24 @@ html, body {
 
 /* 成就墙四区分组的子标题：比组标题低一级，左对齐细分隔 */
 .ach-sub { font-size: 9px; letter-spacing: 2px; color: #6b7688; margin: 8px 0 4px; }
+
+/* 图鉴分区跳转签：图鉴变长后一眼直达「藏品 / 成就」 */
+.col-jump { display: flex; gap: 6px; margin: 0 0 8px; }
+.col-jump-btn {
+  flex: 1;
+  padding: 6px 0;
+  font: inherit;
+  font-size: 10.5px;
+  letter-spacing: 2px;
+  color: #9aa4b5;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: color 0.14s, border-color 0.14s, background 0.14s;
+}
+.col-jump-btn:hover { color: var(--gold); border-color: rgba(232, 196, 106, 0.4); background: rgba(232, 196, 106, 0.06); }
+.col-jump-btn:active { transform: scale(0.98); }
 .vc-tier.t-easy { color: #7ec9a2; border-color: rgba(126, 201, 162, 0.45); background: rgba(126, 201, 162, 0.08); }
 .vc-tier.t-normal { color: #9fb6d8; border-color: rgba(159, 182, 216, 0.4); background: rgba(159, 182, 216, 0.07); }
 .vc-tier.t-hard { color: #e0b56a; border-color: rgba(224, 181, 106, 0.45); background: rgba(224, 181, 106, 0.08); }

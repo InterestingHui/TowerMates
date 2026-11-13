@@ -188,7 +188,9 @@ window.GAME_DATA = (function () {
   };
 
   // 祭坛的可选池（不含剧情固定的守誓之盾/断刃之锋）
-  const altarPool = ['steel', 'thrift', 'vigor', 'scout', 'ember', 'cross', 'coin'];
+  // 祭坛三选一：每个位置都得能改变这一局。窥探之镜（商店 100 金）不配占这个位——
+  // 焦点 C 二轮实测：它是最明显的「抽到就跳过」选项，已从池里移除（仍可在秤那里买到）。
+  const altarPool = ['steel', 'thrift', 'vigor', 'ember', 'cross', 'coin'];
 
   // ---------- 锁环：章末回响的构筑奖励 ----------
   // 规则：击败章末 Boss 必得一次三选一。
@@ -210,7 +212,7 @@ window.GAME_DATA = (function () {
     scope:    { name: '明镜之环', emoji: '🔮', short: '明', chapter: 3, desc: '顶栏显示本层还剩几只怪' },
     hour:     { name: '时辰之环', emoji: '⏳', short: '辰', chapter: 3, desc: '通关额外 +2 余烬；20 分钟内通关再 +2' },
 
-    seventh:  { name: '第七格之环', emoji: '✍️', short: '格', chapter: 4, desc: '名字刻得更深：通关额外 +3 余烬' },
+    seventh:  { name: '第七格之环', emoji: '✍️', short: '格', chapter: 4, desc: '名字刻得更深：通关额外 +3 余烬；本局一次没回头（没重来本层）再 +3' },
     chisel:   { name: '刻刀之环', emoji: '🪶', short: '刀', chapter: 4, desc: '通关额外 +4 余烬' },
     heart:    { name: '塔心之环', emoji: '💗', short: '心', chapter: 4, desc: '带走塔心石多 +100 上限；放下再多 +3 余烬' },
     oath:     { name: '守誓之环', emoji: '📿', short: '誓', chapter: 4, desc: '通关额外 +3 余烬；带着誓约通关再 +2' },
@@ -220,7 +222,7 @@ window.GAME_DATA = (function () {
     ward2:    { name: '旧誓之环', emoji: '💫', short: '誓', chapter: 1, desc: '每场战斗承伤 −6%' },
 
     ash:      { name: '拾柴之环', emoji: '🪵', short: '柴', chapter: 2, desc: '每击败一位章节锁匠，额外 +1 余烬' },
-    scout2:   { name: '窥探之环', emoji: '👁️', short: '窥', chapter: 2, desc: '立刻获得窥探之镜' },
+    scout2:   { name: '窥探之环', emoji: '👁️', short: '窥', chapter: 2, desc: '立刻获得窥探之镜；顶栏常驻显示本层还剩几件东西没捡' },
 
     ledger2:  { name: '墨账之环', emoji: '📓', short: '墨', chapter: 3, desc: '每击败 10 只怪额外 +1 余烬，且击杀金币 +15%' },
     vitality2:{ name: '深井之环', emoji: '💧', short: '井', chapter: 3, desc: '生命上限 +280，并回复 280' },

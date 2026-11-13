@@ -341,6 +341,13 @@ async function run() {
           out.colRelicTop = relicTop;
           out.colAchTop = achTop;
         })();
+        // 跳转签：点「成就」应把滚动容器滚到成就墙（scrollTop 明显 > 0）
+        out.colJumpBtns = d.querySelectorAll('#colBody .col-jump-btn').length;
+        var jb = d.querySelector('#colBody .col-jump-btn[data-jump="ach"]');
+        if (jb) {
+          jb.click();
+          out.colJumped = d.getElementById('colBody').scrollTop > 200;
+        } else out.colJumped = false;
         // 全表尺寸从数据里取，别把 11/24 硬编码进断言（加一件藏品就红）
         out.colTotalRelics = Object.keys(w.GAME_DATA.relics).length;
         out.colTotalRings = Object.keys(w.GAME_DATA.rings).length;

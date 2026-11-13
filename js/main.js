@@ -913,7 +913,7 @@
       { title: '折 戟', test: (d) => ['fall3', 'fall10'].indexOf(d.id) >= 0 },
     ];
     const got = (id) => Achievements.isUnlocked(id);
-    let html = `<div class="col-group"><p class="col-group-title">成 就 · ${Achievements.count()}/${defs.length}</p>`;
+    let html = `<div class="col-group" id="colAch"><p class="col-group-title">成 就 · ${Achievements.count()}/${defs.length}</p>`;
     groups.forEach((g) => {
       const items = defs.filter(g.test);
       const n = items.filter((d) => got(d.id)).length;
@@ -991,7 +991,13 @@
       : '';
     html += ringStatBoard();
     html += marginStatBoard();
-    html += '<div class="col-group"><p class="col-group-title">遗 物 · '
+    // 分区跳转签：图鉴变长后（成就墙垫底）给两个锚点，一键到藏品或成就——
+    // 没有它，想看成就要从头滑到底（焦点 B 二轮实测 1973px）
+    html += `<div class="col-jump">
+      <button type="button" class="col-jump-btn" data-jump="relics">藏品</button>
+      <button type="button" class="col-jump-btn" data-jump="ach">成就</button>
+    </div>`;
+    html += '<div class="col-group" id="colRelics"><p class="col-group-title">遗 物 · '
       + RELIC_ORDER.filter((id) => mem.seenRelics.indexOf(id) >= 0).length + '/' + RELIC_ORDER.length
       + '</p><div class="col-grid">';
     html += RELIC_ORDER.map((id) => card('relic', id, D.relics[id], mem.seenRelics.indexOf(id) >= 0)).join('');
@@ -1011,6 +1017,20 @@
     // 插在遗物前会把遗物组推到 1600px 外，每次查藏品都要滑过整面成就卡（焦点 B 实测 374→1671px）
     html += achievementBoard();
     el.colBody.innerHTML = html;
+    // 跳转签：平滑滚到对应分区（body 是滚动容器）
+    el.colBody.querySelectorAll('.col-jump-btn').forEach((b) => {
+      b.addEventListener('click', () => {
+        const target = b.dataset.jump === 'relics'
+          ? el.colBody.querySelector('#colRelics')
+          : el.colBody.querySelector('#colAch');
+        if (!target) return;
+        const box = el.colBody.getBoundingClientRect();
+        const t = target.getBoundingClientRect();
+        // 瞬时跳（不用 smooth）：面板本身短，一按到位更跟手，也免掉无头回归里异步滚动的时序依赖
+        el.colBody.scrollTop = el.colBody.scrollTop + (t.top - box.top) - 4;
+        Sound.play('talk');
+      });
+    });
     el.colBody.querySelectorAll('.col-card, .col-next-chip').forEach((b) => {
       b.addEventListener('click', () => {
         const key = b.dataset.kind + ':' + b.dataset.id;
@@ -1173,7 +1193,8 @@
 
     // 罗盘之环：本层还剩几件东西没捡（不进战利品统计的剧情物不算）
     if (el.compassPip) {
-      const hasCompass = Engine.hasRing('compass');
+      // 罗盘之环与窥探之环都给这份信息（后者是它相对「只给镜子」的补偿）
+      const hasCompass = Engine.hasRing('compass') || Engine.hasRing('scout2');
       el.compassPip.hidden = !hasCompass;
       if (hasCompass) {
         const left = Engine.floorPickupCount();
@@ -2509,7 +2530,11 @@
     }
     const has = (id) => Engine.hasRing(id);
     if (has('ledger') || has('ash') || has('ledger2')) parts.push({ label: '锁环·击杀余烬翻倍', n: kills });
-    if (has('seventh')) parts.push({ label: '锁环·第七格', n: 3 });
+    // 第七格：保底 +3，一次没回头（没重来本层）再 +3——与「刻刀」的稳定 +4 形成「稳 vs 冒险」
+    if (has('seventh')) {
+      const clean = !(s.flags.retries);
+      parts.push({ label: clean ? '锁环·第七格（一次没回头）' : '锁环·第七格', n: clean ? 6 : 3 });
+    }
     // 落笔之环：保底 +2，剩下的金币每 100 再 +1（上限 6）。
     // 曾按「每 100 金 +1、上限 5」做过，sim 验证是陷阱：留 500 金会少 28 点攻，
     // 终局血量从 66.6% 掉到 48.5%，却只换到 2 余烬——保底把它拉回「稳定小收益」。

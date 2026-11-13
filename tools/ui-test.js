@@ -35,7 +35,7 @@ const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-ui-'));
   const args = [
     '--headless=new', '--disable-gpu', '--no-first-run',
     '--user-data-dir=' + profile,
-    '--virtual-time-budget=60000', '--dump-dom',
+    '--virtual-time-budget=120000', '--dump-dom',
     `http://127.0.0.1:${PORT}/tools/ui-check.html`,
   ];
   const dump = () => spawnSync(chrome, args, { encoding: 'utf8', maxBuffer: 20 * 1024 * 1024 });
@@ -112,6 +112,7 @@ const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-ui-'));
   ok(out.colCards === totAll && out.colGroups === 6, `收藏面板渲染全部藏品（${totR} 遗物 + ${totG} 锁环，4 章分组 + 成就墙 1 组）`);
   ok(out.colRelicTop >= 0 && out.colAchTop >= 0 && out.colRelicTop < out.colAchTop,
     `藏品在前、成就墙垫底（遗物组 ${out.colRelicTop}px < 成就组 ${out.colAchTop}px）`);
+  ok(out.colJumpBtns === 2 && out.colJumped === true, '分区跳转签：点「成就」直达成就墙（滚动容器实滚）');
   ok(out.colGot >= 2 && out.colGot <= 4, '已获得的卡片高亮，其余置灰');
   ok(out.colHudChips === 2, 'HUD 遗物栏显示全部已获遗物（含旧十字架/幸运金币）');
   ok(Array.isArray(out.colNew) && out.colNew.length >= 2, '本局首次拿到的东西记进 collectNew（结算页「图鉴新收录」）');

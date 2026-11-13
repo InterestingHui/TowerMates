@@ -301,6 +301,10 @@ const pick = E.pickRelic('steel');
 ok(pick.type === 'relic' && s.atk === atkA + 3 && s.def === defA + 3, '鸦的铁腕：攻击/防御 +3');
 ok(s.flags.altar === true && E.tile(8, 8) === '.', '祭坛拿走一次后清空');
 ok(E.pickRelic('steel').type === 'refuse', '同一件不能拿两次');
+// 焦点 C 二轮：构筑位不许被消耗品占着——窥探之镜在秤那里只值 100 金，不配进祭坛三选一
+ok(!D.altarPool.includes('scout'), '祭坛池不含窥探之镜（100 金道具不占构筑位）');
+ok(D.altarPool.length === 6, '祭坛池 6 件，三选一仍然成立');
+ok(D.rings.scout2 && /还剩几件/.test(D.rings.scout2.desc), '窥探之环自带罗盘信息（不再只给一枚镜子）');
 
 // ---------- 9b2. 第二座祭坛（第 5 层，二选一） ----------
 E.newGame();
