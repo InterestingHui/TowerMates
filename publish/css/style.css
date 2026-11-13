@@ -1602,6 +1602,9 @@ html, body {
 .vc-tier { font-size: 9px; letter-spacing: 1.5px; padding: 2px 8px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.16); color: #9aa4b5; }
 /* 上局誓约角标：重开的人一眼认出自己那条，不再逐卡认描述 */
 .vc-last { font-size: 9px; letter-spacing: 1px; padding: 2px 7px; border-radius: 20px; border: 1px solid rgba(232, 196, 106, 0.4); color: var(--gold); background: rgba(232, 196, 106, 0.08); }
+
+/* 成就墙四区分组的子标题：比组标题低一级，左对齐细分隔 */
+.ach-sub { font-size: 9px; letter-spacing: 2px; color: #6b7688; margin: 8px 0 4px; }
 .vc-tier.t-easy { color: #7ec9a2; border-color: rgba(126, 201, 162, 0.45); background: rgba(126, 201, 162, 0.08); }
 .vc-tier.t-normal { color: #9fb6d8; border-color: rgba(159, 182, 216, 0.4); background: rgba(159, 182, 216, 0.07); }
 .vc-tier.t-hard { color: #e0b56a; border-color: rgba(224, 181, 106, 0.45); background: rgba(224, 181, 106, 0.08); }
@@ -2028,6 +2031,28 @@ html, body {
 .col-card.got { border-color: var(--chapter-soft); box-shadow: inset 0 0 18px rgba(255, 255, 255, 0.02); }
 .col-card.got .cc-emoji { filter: drop-shadow(0 3px 10px var(--chapter-soft)); }
 .col-card.ring .cc-emoji { font-size: 19px; }
+
+/* 成就墙卡片：与藏品卡同网格但独立 class（收藏统计不把成就算进遗物/锁环） */
+.ach-card {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 9px 5px 8px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 9px;
+  text-align: center;
+  min-height: 84px;
+  cursor: pointer; font: inherit;
+}
+.ach-card:active { transform: scale(0.97); }
+.ach-card .cc-emoji { font-size: 21px; line-height: 1.25; filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.55)); }
+.ach-card .cc-name { font-size: 11px; font-weight: 700; color: var(--text); letter-spacing: 0.3px; }
+.ach-card .cc-desc { font-size: 9.5px; line-height: 1.55; color: var(--muted); }
+.ach-card.off { background: rgba(255, 255, 255, 0.012); border-style: dashed; border-color: rgba(255, 255, 255, 0.06); }
+.ach-card.off .cc-emoji { filter: grayscale(1) brightness(0.45); opacity: 0.5; }
+.ach-card.off .cc-name { color: var(--dim); font-weight: 500; }
+.ach-card.off .cc-desc { color: rgba(93, 101, 119, 0.7); }
+.ach-card.got { border-color: rgba(232, 196, 106, 0.3); box-shadow: inset 0 0 18px rgba(255, 255, 255, 0.02); }
+.ach-card.got .cc-emoji { filter: drop-shadow(0 3px 10px rgba(232, 196, 106, 0.35)); }
 
 /* 收藏图鉴 · 点卡片弹出的详情条（固定贴在滚动区下方，不随列表滚走） */
 .col-card { cursor: pointer; font: inherit; }

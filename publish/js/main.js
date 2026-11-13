@@ -903,6 +903,31 @@
       + '</div>';
   }
 
+  // 成就墙：四区分组（战斗·收藏·誓约·折戟），亮卡与灰卡同网格——成就第一次有可浏览的家
+  function achievementBoard() {
+    const defs = Achievements.DEFS;
+    const groups = [
+      { title: '战 斗', test: (d) => ['first_blood', 'slayer10', 'slayer25', 'lv5', 'lv8', 'rich', 'shopper', 'keys3', 'boss', 'boss_yan', 'boss_duo', 'boss_heng', 'all_boss', 'floor12', 'dodger', 'sweeper'].indexOf(d.id) >= 0 },
+      { title: '收 藏', test: (d) => ['secret1', 'secret2', 'journal', 'edge', 'edge_finish', 'heart_take', 'heart_leave', 'core', 'ring_first', 'ring_four', 'bare'].indexOf(d.id) >= 0 },
+      { title: '誓 约', test: (d) => ['vow_mercy', 'vow_greed', 'vow_guard', 'vow_all', 'end_true', 'end_plain'].indexOf(d.id) >= 0 },
+      { title: '折 戟', test: (d) => ['fall3', 'fall10'].indexOf(d.id) >= 0 },
+    ];
+    const got = (id) => Achievements.isUnlocked(id);
+    let html = `<div class="col-group"><p class="col-group-title">成 就 · ${Achievements.count()}/${defs.length}</p>`;
+    groups.forEach((g) => {
+      const items = defs.filter(g.test);
+      const n = items.filter((d) => got(d.id)).length;
+      html += `<p class="ach-sub">${g.title} · ${n}/${items.length}</p><div class="col-grid">`;
+      html += items.map((d) => `<button type="button" class="ach-card ${got(d.id) ? 'got' : 'off'}" data-ach="${d.id}" title="${d.desc}">
+        <span class="cc-emoji">${got(d.id) ? d.emoji : '🔒'}</span>
+        <span class="cc-name">${d.name}</span>
+        <span class="cc-desc">${got(d.id) ? d.desc : '未解锁'}</span>
+      </button>`).join('');
+      html += '</div>';
+    });
+    return html + '</div>';
+  }
+
   // 「下一件」：还没收录的东西里挑几件给玩家看（遗物优先——来源固定、可以计划）
   function collectionNext(max) {
     const mem = Meta.memory;
@@ -966,6 +991,7 @@
       : '';
     html += ringStatBoard();
     html += marginStatBoard();
+    html += achievementBoard();
     html += '<div class="col-group"><p class="col-group-title">遗 物 · '
       + RELIC_ORDER.filter((id) => mem.seenRelics.indexOf(id) >= 0).length + '/' + RELIC_ORDER.length
       + '</p><div class="col-grid">';
@@ -989,6 +1015,25 @@
         const box = $('colDetail');
         if (box && box.classList.contains('show') && box._id === key) { box.classList.remove('show'); return; }
         showColDetail(b.dataset.kind, b.dataset.id);
+        Sound.play('talk');
+      });
+    });
+    // 成就卡点击 → 详情条复用：亮卡给完整描述，灰卡给解锁条件（desc 即条件）
+    el.colBody.querySelectorAll('.ach-card').forEach((b) => {
+      b.addEventListener('click', () => {
+        const def = Achievements.DEFS.find((d) => d.id === b.dataset.ach);
+        if (!def) return;
+        const on = Achievements.isUnlocked(def.id);
+        const box = $('colDetail');
+        if (!box) return;
+        const key = 'ach:' + def.id;
+        if (box.classList.contains('show') && box._id === key) { box.classList.remove('show'); return; }
+        box.innerHTML = `<span class="cd-emoji">${on ? def.emoji : '🔒'}</span>
+          <div class="cd-main"><b>${def.name}${on ? '' : ' · 未解锁'}</b><span class="cd-desc"></span></div>
+          <span class="cd-from">成就</span>`;
+        renderRich(box.querySelector('.cd-desc'), on ? def.desc : '还没解锁——' + def.desc);
+        box.classList.add('show');
+        box._id = key;
         Sound.play('talk');
       });
     });
@@ -3737,6 +3782,8 @@
     richInto: renderRich, say, sayHint, warn, Tips,
     Settings, hintMs, openHintBook, showStuck, clearStuck,
     openMonsterProbe, showDeath, reviveFromAd, adOfferRevive, adOfferDouble,
+    // 自动化专用：清死亡防重入标记再重弹——shot.html 折戟成就链路要连死多次
+    deathAgain: (m, dmg) => { deathShown = false; showDeath(m, dmg); },
     resetDeath: () => { deathShown = false; },
     // 测试专用：showEnd 有 endShown 单次门，自动化要重播结算页时先解开门（玩家路径不经过它）
     resetEndShown: () => { endShown = false; },

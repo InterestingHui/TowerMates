@@ -109,7 +109,7 @@ const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-ui-'));
   const totAll = totR + totG;
   ok(typeof out.colText === 'string' && new RegExp(`遗物 \\d+/${totR} · 锁环 \\d+/${totG}`).test(out.colText), '收藏收集度按全表计数');
   ok(out.colShown === true && out.colClosed === true, '收藏图鉴能打开也能关掉');
-  ok(out.colCards === totAll && out.colGroups === 5, `收藏面板渲染全部藏品（${totR} 遗物 + ${totG} 锁环，4 章分组）`);
+  ok(out.colCards === totAll && out.colGroups === 6, `收藏面板渲染全部藏品（${totR} 遗物 + ${totG} 锁环，4 章分组 + 成就墙 1 组）`);
   ok(out.colGot >= 2 && out.colGot <= 4, '已获得的卡片高亮，其余置灰');
   ok(out.colHudChips === 2, 'HUD 遗物栏显示全部已获遗物（含旧十字架/幸运金币）');
   ok(Array.isArray(out.colNew) && out.colNew.length >= 2, '本局首次拿到的东西记进 collectNew（结算页「图鉴新收录」）');

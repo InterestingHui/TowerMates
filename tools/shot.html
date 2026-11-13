@@ -778,6 +778,7 @@
         await wait(60);
       } else if (scene === 'death') {
         // 死亡结算：直接把状态摆进 over + hp=0，调 showDeath 看灰调面板与「折戟」塔印
+        // 折戟成就链路：连死 3 次 → falls 累计到 3 → 「塔的常客」解锁（recordRun 每次都记，deathShown 只挡面板）
         d.getElementById('btnNew').click();
         await wait(200);
         const _vcd = d.querySelector('#vowCards .vow-card[data-vow="guard"]');
@@ -787,7 +788,19 @@
         sd.over = true; sd.hp = 0; sd.floor = 8; sd.flags.killCount = 37;
         sd.flags.worstHit = 1225; sd.flags.worstName = '钟妖';
         T.showDeath({ name: '钟妖' }, 1225);
-        await wait(400);
+        await wait(300);
+        // 第 2、3 次死：deathAgain 清防重入标记后重调，falls 应累到 3
+        for (let di = 0; di < 2; di++) {
+          const sdx = E.state();
+          sdx.over = true; sdx.hp = 0; sdx.floor = 10 - di; sdx.flags.killCount = 40;
+          w.__tm.deathAgain({ name: '钟妖' }, 900);
+          await wait(150);
+        }
+        const fallsNow = w.__tm && w.__tm.Meta && w.__tm.Meta.memory ? w.__tm.Meta.memory.falls : -1;
+        q2push('falls=' + fallsNow);
+        q2push('achFall3=' + (w.Achievements && w.Achievements.isUnlocked('fall3') ? 'in' : 'MISS'));
+        q2push('achFall10=' + (w.Achievements && w.Achievements.isUnlocked('fall10') ? 'WRONG-unlocked' : 'notyet-ok'));
+        await wait(100);
       } else if (scene === 'adsdeath') {
         // 广告卡点（?ads=1 才显形）：看「看视频复活」在灰调死亡面板里的位置
         d.getElementById('btnNew').click();
