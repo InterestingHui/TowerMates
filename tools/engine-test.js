@@ -401,6 +401,32 @@ const tierCount = (t) => D.events.filter((e) => (e.tier || 'a') === t).length;
 ok(E.eventPool(0).length === tierCount('a') && E.eventPool(5).length === tierCount('b') && E.eventPool(6).length === tierCount('c'), '三个池子的数量与数据表一致');
 ok(D.events.length === tierCount('a') + tierCount('b') + tierCount('c'), '事件池总数等于分池之和');
 ok(new Set(D.events.map((e) => e.id)).size === D.events.length, '路遇 id 不重复');
+// 池子厚度：三层各不少于 6 条（11-14 扩容后 a/b 各 8 条、c 8 条）。
+// 写「不少于」而不是写死数字——扩池是本项目的常规打磨项，别每加一条就来改测试。
+ok(tierCount('a') >= 6 && tierCount('b') >= 6 && tierCount('c') >= 6, '三层路遇池各自不少于 6 条');
+
+// 路遇数据完整性：少了 tip 玩家就没法「明码取舍」，少 label/msg 会渲出空白
+const evBad = [];
+D.events.forEach((e) => {
+  if (!e.id || !e.name || !e.text || !e.emoji) evBad.push(e.id + ':缺字段');
+  if (!Array.isArray(e.options) || e.options.length < 2) evBad.push(e.id + ':选项少于 2');
+  (e.options || []).forEach((o, i) => {
+    if (!o.label || !o.tip || !o.msg) evBad.push(e.id + '#' + i + ':缺 label/tip/msg');
+    if (!o.effect || typeof o.effect !== 'object') evBad.push(e.id + '#' + i + ':缺 effect');
+  });
+});
+ok(evBad.length === 0, '每条路遇都有 2+ 选项，且 label/tip/msg/effect 齐全' + (evBad.length ? '（' + evBad.slice(0, 5).join('、') + '）' : ''));
+
+// effect 键白名单：写错的键 applyEffect 会静默忽略（选项变成"白点一下"），这条专抓拼写错
+const EFFECT_KEYS = ['gold', 'atk', 'def', 'maxHp', 'hpPct', 'healPct', 'hp', 'keys', 'ember', 'block'];
+const evKeyBad = [];
+D.events.forEach((e) => (e.options || []).forEach((o, i) => {
+  Object.keys(o.effect || {}).forEach((k) => { if (EFFECT_KEYS.indexOf(k) < 0) evKeyBad.push(e.id + '#' + i + '.' + k); });
+  if (o.effect && o.effect.keys) {
+    Object.keys(o.effect.keys).forEach((k) => { if (k !== 'y' && k !== 'r') evKeyBad.push(e.id + '#' + i + '.keys.' + k); });
+  }
+}));
+ok(evKeyBad.length === 0, '路遇 effect 只用已实现的键' + (evKeyBad.length ? '（' + evKeyBad.join('、') + '）' : ''));
 
 E.newGame();
 s = E.state();
@@ -410,6 +436,38 @@ const keyOpt = bridge.options.findIndex((o) => o.effect.keys && o.effect.keys.y 
 ok(keyOpt >= 0 && E.eventCost(bridge.options[keyOpt]) === '钥匙不够', '钥匙不足时选项被标记为不可选');
 s.keys.y = 3;
 ok(E.eventCost(bridge.options[keyOpt]) === null, '钥匙够了就可以选');
+
+// 11-14 扩池新增的四条路遇：落地数值必须与 tip 写的完全一致（文案说谎是本项目最高频 bug）
+E.newGame(); s = E.state();
+s.floor = 1; s.x = 1; s.y = 1;
+let evGold = s.gold, evHp = s.hp, evMax = s.maxHp;
+E.resolveEvent('jug', 0);
+ok(s.gold === evGold + 110, '「漏水的陶罐」摸罐底：金币 +110');
+ok(s.hp === Math.max(1, Math.min(evMax, evHp + Math.round(evMax * -0.05))), '「漏水的陶罐」摸罐底：生命 −5%');
+evHp = s.hp;
+E.resolveEvent('jug', 1);
+ok(s.hp === Math.min(evMax, evHp + Math.round(evMax * 0.2)), '「漏水的陶罐」喝一口：回复 20% 生命');
+
+E.newGame(); s = E.state();
+s.floor = 1; s.x = 1; s.y = 1;
+evGold = s.gold; evHp = s.hp; evMax = s.maxHp;
+E.resolveEvent('vent', 0);
+ok(s.gold === evGold + 130, '「墙里的风」伸手进去：金币 +130');
+ok(s.hp === Math.max(1, Math.min(evMax, evHp + Math.round(evMax * -0.07))), '「墙里的风」伸手进去：生命 −7%');
+
+E.newGame(); s = E.state();
+s.floor = 4; s.x = 1; s.y = 1;
+evGold = s.gold; evHp = s.hp; evMax = s.maxHp;
+E.resolveEvent('well', 0);
+ok(s.gold === evGold + 380, '「枯井」下井：金币 +380');
+ok(s.hp === Math.max(1, Math.min(evMax, evHp + Math.round(evMax * -0.14))), '「枯井」下井：生命 −14%');
+
+E.newGame(); s = E.state();
+s.floor = 4; s.x = 1; s.y = 1;
+let d0 = s.def;
+E.resolveEvent('scales', 1);
+ok(s.def === d0 + 2, '「没人看的秤」拿铁：防御 +2');
+ok(E.eventCost(D.events.find((e) => e.id === 'scales').options[0]) === null, '「没人看的秤」拿走金币不设金币门槛（是收入不是支出）');
 
 // ---------- 9i. 路遇事件 ----------
 // 节奏纠偏后第 1/2 层不再放 ?（首次路遇后移到第 3 层），这里统一用第 3 层的 ? 测

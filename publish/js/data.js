@@ -598,6 +598,22 @@ window.GAME_DATA = (function () {
         { label: '摸一摸就上楼', tip: '回复 8% 生命', effect: { healPct: 0.08 }, msg: '石头上还是温的。' },
       ],
     },
+    {
+      id: 'jug', tier: 'a', name: '漏水的陶罐', emoji: '🏺',
+      text: '陶罐斜在台阶上，水从裂缝里一线一线地漏。罐底沉着几枚金币。',
+      options: [
+        { label: '倒掉水，摸罐底', tip: '金币 +110，生命 −5%', effect: { gold: 110, hpPct: -0.05 }, msg: '水凉得刺骨。金币黏着泥，你数了很久。' },
+        { label: '就着裂缝喝一口', tip: '回复 20% 生命', effect: { healPct: 0.2 }, msg: '水有陶土味。喝完你才发现，裂缝那边也在渗。' },
+      ],
+    },
+    {
+      id: 'vent', tier: 'a', name: '墙里的风', emoji: '🌬️',
+      text: '有一格砖是空的。凑近听，风从很深的地方上来，带着铁锈味。',
+      options: [
+        { label: '把手伸进去', tip: '金币 +130，生命 −7%', effect: { gold: 130, hpPct: -0.07 }, msg: '你摸到一把潮的金币，也摸到一层薄锈。' },
+        { label: '听一会儿就走', tip: '回复 11% 生命', effect: { healPct: 0.11 }, msg: '风很凉。站久了，反倒不像刚才那么累。' },
+      ],
+    },
     // ---- 深层（第 4 层起）才有的事件：更狠，多是"换"而不是"给" ----
     {
       id: 'broker', tier: 'b', name: '赌命的商人', emoji: '🎩',
@@ -646,6 +662,23 @@ window.GAME_DATA = (function () {
       options: [
         { label: '伸手进去', tip: '金币 +320，生命 −12%', effect: { gold: 320, hpPct: -0.12 }, msg: '你摸到一枚戒指，也摸到了别的东西。' },
         { label: '记下位置就走', tip: '通关余烬 +2', effect: { ember: 2 }, msg: '你在墙上刻了个记号。' },
+      ],
+    },
+    {
+      id: 'well', tier: 'b', name: '枯井', emoji: '🪣',
+      text: '井口拿木板盖了一半，绳子还在，桶不见了。往下看，水面亮得像另一层楼。',
+      options: [
+        { label: '顺着绳子下去', tip: '金币 +380，生命 −14%', effect: { gold: 380, hpPct: -0.14 }, msg: '井底有别人掉下的东西。爬上来时你的手在抖。' },
+        { label: '把木板盖严', tip: '通关余烬 +2', effect: { ember: 2 }, msg: '盖板落下去的声音，在井里回了两遍。' },
+      ],
+    },
+    {
+      id: 'scales', tier: 'b', name: '没人看的秤', emoji: '⚖️',
+      text: '货摊空了，秤还立着。两个托盘一左一右：一边压着金币，一边压着块铁。秤杆是平的。',
+      options: [
+        { label: '拿走金币', tip: '金币 +260，防御 −1', effect: { gold: 260, def: -1 }, msg: '金币离盘那一瞬，秤砸了下来。你护甲上多了一道口子。' },
+        { label: '拿走那块铁', tip: '防御 +2', effect: { def: 2 }, msg: '铁很凉。你把它塞进护甲夹层，正好卡住。' },
+        { label: '两边都不动', tip: '回复 12% 生命', effect: { healPct: 0.12 }, msg: '你把手收回来。走的时候，秤还是平的。' },
       ],
     },
     // ---- 锁梁（第 7 层起）才有的事件：这里的东西都跟「名字」和「时间」有关 ----
