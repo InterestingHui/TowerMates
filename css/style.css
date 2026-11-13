@@ -1600,6 +1600,8 @@ html, body {
 .vow-card .vc-emoji { font-size: 22px; }
 .vow-card .vc-head { display: flex; align-items: center; gap: 7px; }
 .vc-tier { font-size: 9px; letter-spacing: 1.5px; padding: 2px 8px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.16); color: #9aa4b5; }
+/* 上局誓约角标：重开的人一眼认出自己那条，不再逐卡认描述 */
+.vc-last { font-size: 9px; letter-spacing: 1px; padding: 2px 7px; border-radius: 20px; border: 1px solid rgba(232, 196, 106, 0.4); color: var(--gold); background: rgba(232, 196, 106, 0.08); }
 .vc-tier.t-easy { color: #7ec9a2; border-color: rgba(126, 201, 162, 0.45); background: rgba(126, 201, 162, 0.08); }
 .vc-tier.t-normal { color: #9fb6d8; border-color: rgba(159, 182, 216, 0.4); background: rgba(159, 182, 216, 0.07); }
 .vc-tier.t-hard { color: #e0b56a; border-color: rgba(224, 181, 106, 0.45); background: rgba(224, 181, 106, 0.08); }

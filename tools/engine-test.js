@@ -1184,7 +1184,7 @@ if (mTarget) ok(E.pathsTo(mTarget.x, mTarget.y) === null, '怪物目标返回 nu
 // ---------- 成就：一口空气（一件遗物都不拿走到结局） ----------
 {
   const A = window.Achievements;
-  ok(A.DEFS.length === 33, '成就总数 33 项');
+  ok(A.DEFS.length === 35, '成就总数 35 项');
   E.newGame();
   const sm = E.state();
   sm.ending = 'true'; sm.flags.relic_edge = true;
@@ -1195,6 +1195,21 @@ if (mTarget) ok(E.pathsTo(mTarget.x, mTarget.y) === null, '怪物目标返回 nu
   sn.ending = 'plain';
   A.evaluate('end', sn, () => {});
   ok(A.isUnlocked('bare'), '一件遗物没拿走到结局 → 解锁「一口空气」');
+}
+// ---------- 成就：折戟里程碑（跨局 falls 计数，死亡结算喂 'dead' 事件） ----------
+{
+  const A = window.Achievements;
+  E.newGame();
+  const sf1 = E.state();
+  sf1.flags.falls = 2;
+  A.evaluate('dead', sf1, () => {});
+  ok(!A.isUnlocked('fall3') && !A.isUnlocked('fall10'), '折戟 2 次：两个里程碑都不解锁');
+  sf1.flags.falls = 3;
+  A.evaluate('dead', sf1, () => {});
+  ok(A.isUnlocked('fall3') && !A.isUnlocked('fall10'), '折戟 3 次 → 解锁「塔的常客」');
+  sf1.flags.falls = 10;
+  A.evaluate('dead', sf1, () => {});
+  ok(A.isUnlocked('fall10'), '折戟 10 次 → 解锁「不死不休」');
 }
 // 战意：只在最终决战生效，按累计击杀分档（清塔路线的独占收益）
 E.newGame();

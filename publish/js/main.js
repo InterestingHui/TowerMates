@@ -224,6 +224,8 @@
         mem.runs = (mem.runs || 0) + 1;
         mem.endings[rec.ending] = (mem.endings[rec.ending] || 0) + 1;
         if (rec.won) mem.vowWins[rec.vow] = (mem.vowWins[rec.vow] || 0) + 1;
+        // 上局誓约：立誓卡标「上局」角标——重开的人一眼认出自己那条，不用每局重新认卡
+        if (rec.vow) mem.lastVow = rec.vow;
         // 折戟账：死亡局计一次数 + 记下倒在哪层（收藏感——「折戟 ×N」是履历的一部分）
         if (rec.seal === 'fall') {
           mem.falls = (mem.falls || 0) + 1;
@@ -1802,6 +1804,9 @@
         : '');
     Meta.recordRun({ ending: null, won: false, vow: s.flags.vow || 'none', fullChapters: 0, heart: null, floor: s.floor, time: sum.time, seal, ember: emberGain });
     Meta.add(emberGain);
+    // 折戟里程碑：recordRun 之后喂事件，falls 已含本次（3 次「塔的常客」/ 10 次「不死不休」）
+    const deathState = Object.assign({}, s, { flags: Object.assign({}, s.flags, { falls: Meta.memory.falls }) });
+    Achievements.evaluate('dead', deathState, notifyAchievement);
     // 败局也给「塔的记忆」：同一套履历 + 下一局目标——死不是终点，是排队重来的理由
     const mem = Meta.memory;
     const memItems = [
@@ -3546,12 +3551,14 @@
       // 用户明确要求：开局不展示每局预计余烬收益——那是结算页才该出现的数字
       const tierCls = { '轻羽': 't-easy', '无名之分': 't-normal', '重金': 't-hard', '铁色': 't-nightmare' }[v.tag] || '';
       const tier = `<span class="vc-tier ${tierCls}">${v.tag}</span>`;
+      // 上局用的誓约标角标：重开的人一眼认出自己那条（焦点 B：重复认卡是纯劳动）
+      const lastMark = (Meta.memory.lastVow || '') === id ? '<span class="vc-last">上局</span>' : '';
       // 代价高亮：desc 里「不能 / −N」这类负面词挑出来染红，选之前先看见失去什么
       const costRe = /不能[^；;]*|攻击 −\d+|物价 \+\d+%|(?:秤的)?价目 \+\d+%/g;
       const cost = (v.desc.match(costRe) || []).join(' · ');
       const rest = cost ? v.desc.split(costRe).map((p) => p.replace(/^[；;、]+|[；;、]+$/g, '').trim()).filter(Boolean).join('；') : v.desc;
       return `<button class="vow-card ${id === 'none' ? 'hero' : ''}" data-vow="${id}">
-        <span class="vc-head"><span class="vc-emoji">${v.emoji}</span>${tier}</span>
+        <span class="vc-head"><span class="vc-emoji">${v.emoji}</span>${tier}${lastMark}</span>
         <span class="vc-name">${v.name}</span>
         <span class="vc-desc">${rest}</span>
         ${cost ? `<span class="vc-cost">${cost}</span>` : ''}

@@ -37,6 +37,8 @@
     { id: 'bare', name: '一口空气', emoji: '🌬️', desc: '一件遗物都不拿，走到结局' },
     { id: 'dodger', name: '绕道者', emoji: '💨', desc: '击败不超过 10 只怪，走到结局' },
     { id: 'sweeper', name: '清塔者', emoji: '⚔️', desc: '击败至少 50 只怪，走到结局' },
+    { id: 'fall3', name: '塔的常客', emoji: '💀', desc: '累计折戟 3 次——塔记住了你倒下的地方' },
+    { id: 'fall10', name: '不死不休', emoji: '⚰️', desc: '累计折戟 10 次——每一层都留过你的名字' },
   ];
 
   let unlocked = {};
@@ -107,6 +109,11 @@
     if (s.ending && (f.killCount || 0) >= 50) unlock('sweeper', notify);
     // 执剑者：带着川的断剑走到结局（第八勇者线的正式收藏格）
     if (s.ending && f.relic_edge) unlock('edge_finish', notify);
+    // 折戟里程碑：ev === 'dead' 由死亡结算喂入，f.falls 是跨局累计（Meta.memory.falls）
+    if (ev === 'dead') {
+      if ((f.falls || 0) >= 3) unlock('fall3', notify);
+      if ((f.falls || 0) >= 10) unlock('fall10', notify);
+    }
   }
 
   function reset() {
