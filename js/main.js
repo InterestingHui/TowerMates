@@ -1863,6 +1863,10 @@
     // 折戟里程碑：recordRun 之后喂事件，falls 已含本次（3 次「塔的常客」/ 10 次「不死不休」）
     const deathState = Object.assign({}, s, { flags: Object.assign({}, s.flags, { falls: Meta.memory.falls }) });
     Achievements.evaluate('dead', deathState, notifyAchievement);
+    // 折戟预告钩子：差一次解锁里程碑时在败局页点一句——让「再来一局」多一个具体理由
+    const fallsNow = Meta.memory.falls || 0;
+    if (fallsNow === 2) $('endBrief').innerHTML += '<span>💀 再折戟 1 次，解锁成就「塔的常客」</span>';
+    else if (fallsNow === 9) $('endBrief').innerHTML += '<span>💀 再折戟 1 次，解锁成就「不死不休」</span>';
     // 败局也给「塔的记忆」：同一套履历 + 下一局目标——死不是终点，是排队重来的理由
     const mem = Meta.memory;
     const memItems = [
