@@ -1130,6 +1130,10 @@ html, body {
 #topbar.relic-hit { animation: relicTopGlow 1.1s ease-out; }
 #topbar.boss-hit { animation: bossTopGlow 1.2s ease-out; }
 
+/* 开始页：游戏内 HUD 不露在遮罩后面（首屏只有「开始游戏」一件事） */
+body.at-start #topbar,
+body.at-start #bottom { visibility: hidden; }
+
 /* ---------- 祭坛：三选一 ---------- */
 #altarOverlay { background: radial-gradient(110% 80% at 50% 40%, rgba(12,10,8,0.9), rgba(2,3,6,0.97)); }
 .altar-panel { width: 100%; max-width: 470px; text-align: center; animation: popIn 0.28s ease-out; }

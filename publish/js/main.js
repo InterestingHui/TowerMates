@@ -262,6 +262,26 @@
     };
   })();
 
+  // ---------- 本地漏斗缓冲 ----------
+  // 没有后端：先把关键节点写进 localStorage（上限 200 条），接微信分析/SDK 时整批转发。
+  // 只记事件名与局数/结局/层数这类粗粒度字段，不记任何可识别信息。
+  const Funnel = (() => {
+    const KEY = 'towermates_funnel';
+    let list = [];
+    try { list = JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) {}
+    if (!Array.isArray(list)) list = [];
+    const save = () => { try { localStorage.setItem(KEY, JSON.stringify(list)); } catch (e) {} };
+    return {
+      push(ev, extra) {
+        list.push(Object.assign({ at: Date.now(), ev }, extra || {}));
+        if (list.length > 200) list = list.slice(-200);
+        save();
+      },
+      all() { return list.slice(); },
+      clear() { list = []; save(); },
+    };
+  })();
+
   const Sound = (() => {
     let actx = null;
     let music = null;
@@ -1914,6 +1934,7 @@
         ? `<span>图鉴新收录：${s.flags.collectNew.slice(0, 4).join('、')}${s.flags.collectNew.length > 4 ? ` 等 ${s.flags.collectNew.length} 件` : ''}（带走的东西不会因为倒下而丢失）</span>`
         : '');
     Meta.recordRun({ ending: null, won: false, vow: s.flags.vow || 'none', fullChapters: 0, heart: null, floor: s.floor, time: sum.time, seal, ember: emberGain });
+    Funnel.push('run_end', { n: Meta.memory.runs, won: 0, floor: s.floor + 1, seal });
     Meta.add(emberGain);
     // 折戟里程碑：recordRun 之后喂事件，falls 已含本次（3 次「塔的常客」/ 10 次「不死不休」）
     const deathState = Object.assign({}, s, { flags: Object.assign({}, s.flags, { falls: Meta.memory.falls }) });
@@ -2724,6 +2745,7 @@
       // 这里比结算摘要里算余裕更早，直接问引擎，别依赖变量声明顺序
       margin: (Engine.battleMargin() || {}).grade || '',
     });
+    Funnel.push('run_end', { n: Meta.memory.runs, won: 1, floor: sum.floor, ending: s.ending || 'plain', seal });
     Meta.ringWin(Engine.rings());   // 图鉴里记「带它通关过几次」
     $('endScore').innerHTML = `<span class="es-grade ${seal}" data-seal="${seal}">${sealDef.name}</span>
       <span class="es-meta">${s.ending === 'true' ? '真结局' : '普通结局'}${s.flags.heart === 'taken' ? ' · 塔心带走' : s.flags.heart === 'left' ? ' · 塔心留下' : ''} · 回响 ${echoDone}/4 · 遗物 ${relicIds.length} · 锁环 ${ringList.length}</span>
@@ -2886,10 +2908,12 @@
     const tru = Achievements.isUnlocked('end_true');
     // 节奏纠偏：塔友榜（社交/排行）首次结算后才露脸——首局没有可比数据，
     // 开屏就摆一个榜单入口只会挤占「1 个核心动词」的预算。
-    const boardOn = !isFirstRun();
-    ['btnBoard', 'btnBoard2'].forEach((id) => {
+    const metaOn = !isFirstRun();
+    // 首局只留「开始游戏」一个可点项：榜单与玩法说明都收起来（玩法仍在设置 ⚙ 里可看），
+    // 第 2 局起恢复。对应闸门「首屏 ≤1」。
+    ['btnBoard', 'btnBoard2', 'btnHelp'].forEach((id) => {
       const b = $(id);
-      if (b) b.style.display = boardOn ? '' : 'none';
+      if (b) b.style.display = metaOn ? '' : 'none';
     });
     // 首次进塔不显示徽章：新人先看到「开始游戏」，收藏品等玩过一局再露脸
     $('endingBadges').innerHTML = (plain || tru || Achievements.count())
@@ -3707,6 +3731,7 @@
 
   function openVow(force) {
     const full = force === true || FORCE_FULL_VOW || !isFirstRun();
+    Funnel.push('vow_open', { first: isFirstRun() ? 1 : 0, full: full ? 1 : 0 });
     const kicker = document.querySelector('#vowOverlay .vow-kicker');
     const desc = document.querySelector('#vowOverlay .vow-desc');
     const hint = document.querySelector('#vowOverlay .vow-hint');
@@ -3810,6 +3835,8 @@
   function startGame(vow) {
     Engine.newGame(vow);
     stopWalk();
+    document.body.classList.remove('at-start');
+    Funnel.push('run_start', { n: (Meta.memory.runs || 0) + 1, vow: vow || 'none' });
     endShown = false;
     deathShown = false; // 新一局要能重新弹死亡结算：上一局置的 true 必须清掉
     // 收藏去重签名也要清：新局如果恰好又拿到上一局那批遗物，签名相同会让「图鉴新收录」漏记
@@ -3841,6 +3868,7 @@
   function continueGame() {
     const s = Engine.load();
     if (!s) { openVow(); return; }
+    document.body.classList.remove('at-start');
     el.startOverlay.classList.remove('show');
     endShown = false;
     el.log.innerHTML = '';
@@ -3867,6 +3895,9 @@
       lastFlit = now;
       Sound.play('flit');
     });
+    // 首屏是「开始游戏」一件事：把游戏内 HUD 藏起来，别让 5 个数值和方向键
+    // 在玩家还没进塔时就露在遮罩后面（开局信息预算第 1 条）
+    document.body.classList.add('at-start');
     renderRelicRow(null);
     buildFloorDots();
     bindInput();
@@ -3880,6 +3911,7 @@
     const demo = /demo=(\d+),(\d+),(\d+)/.exec(location.hash || '');
     if (demo) {
       Engine.newGame();
+      document.body.classList.remove('at-start');
       const st = Engine.state();
       st.floor = +demo[1];
       st.x = +demo[2];
@@ -3950,6 +3982,7 @@
     // 测试专用：showEnd 有 endShown 单次门，自动化要重播结算页时先解开门（玩家路径不经过它）
     resetEndShown: () => { endShown = false; },
     openCollection, closeCollection, collectionText, rememberCollection, collectionRemain, collectionNext, showColDetail, ringStatBoard,
+    funnel: () => Funnel.all(), funnelClear: () => Funnel.clear(),
   };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);

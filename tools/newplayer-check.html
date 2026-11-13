@@ -299,6 +299,8 @@ function load(url) { return new Promise((res) => { f.onload = () => res(); f.src
       await wait(300);
       const b1 = d.getElementById('btnBoard'), b2 = d.getElementById('btnBoard2');
       rec('F1 首局不露塔友榜入口', b1.style.display === 'none' && b2.style.display === 'none', `顶栏=${b1.style.display || '显示'} 开始页=${b2.style.display || '显示'}`);
+      const startBtns = Array.from(d.querySelectorAll('#startOverlay button')).filter((b) => b.offsetParent !== null && b.id !== 'btnContinue');
+      rec('F1b 首屏只剩「开始游戏」', startBtns.length === 1 && startBtns[0].id === 'btnNew', startBtns.map((b) => b.id || b.textContent.trim()).join(',') || '无');
       w.__tm.openVow();
       await wait(300);
       const cards0 = d.querySelectorAll('#vowCards .vow-card');
@@ -318,6 +320,28 @@ function load(url) { return new Promise((res) => { f.onload = () => res(); f.src
       w.__tm.openVow();
       await wait(300);
       rec('F4 第二局起恢复塔友榜与四张誓约', b1b.style.display !== 'none' && d.querySelectorAll('#vowCards .vow-card').length === 4, `顶栏=${b1b.style.display || '显示'} 卡 ${d.querySelectorAll('#vowCards .vow-card').length}`);
+      // F7 本地漏斗：首局开始 / 结束各记一条（接 SDK 前先把节点跑通）
+      w.localStorage.removeItem('towermates_meta');
+      w.localStorage.removeItem('towermates_funnel');
+      await load('/index.html?dev=1&p=f7');
+      w = f.contentWindow; d = f.contentDocument;
+      await waitFor(() => w.__tm && w.__tm.openVow);
+      await wait(300);
+      w.__tm.openVow();
+      await wait(250);
+      const vcF7 = d.querySelector('#vowCards .vow-card[data-vow="none"]');
+      if (vcF7) vcF7.click();
+      await wait(500);
+      const dlF7 = d.getElementById('dialogOverlay');
+      for (let i = 0; i < 10; i++) { if (!dlF7.classList.contains('show')) break; dlF7.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(80); }
+      await wait(300);
+      const sF7 = w.Engine.state();
+      sF7.over = true; sF7.hp = 0; sF7.floor = 1;
+      w.__tm.showDeath({ name: '史莱姆' }, 90);
+      await wait(400);
+      const fl = JSON.parse(w.localStorage.getItem('towermates_funnel') || '[]');
+      const evs = fl.map((x) => x.ev);
+      rec('F7 漏斗缓冲记下首局开始与结束', evs.indexOf('run_start') >= 0 && evs.indexOf('run_end') >= 0, evs.join(',') || '空');
 
     }
 
