@@ -32,6 +32,8 @@
     stoneidle: base + '?dev=1#demo=12,5,8',
     adsdeath: base + '?ads=1&dev=1',
     adsend: base + '?ads=1&dev=1',
+    // 第八勇者线全链路：开局落在第 5 层狼厅断剑 (6,1) 下方一格 (6,2)
+    sword: base + '?dev=1#demo=4,6,2',
   }[scene] || base + '?dev=1';
   // 截图场景不触发新手提示对白，保持被测画面干净
   try {
@@ -155,6 +157,52 @@
         s.flags.hasBlock = true; s.flags.hasBlock2 = true;
         T.showEnd();
         await wait(1600);
+      } else if (scene === 'sword') {
+        // 第八勇者线全链路验收：真开局 → 踩断剑（播小传+授遗物+成就「接过断剑」）
+        // → 传送塔顶踩公主（无手记 → 走认剑变体）→ 真结局抉择 → 结算（纸条+断剑句+执剑者）
+        const out = [];
+        d.getElementById('btnNew').click();
+        await wait(200);
+        const dlW = d.getElementById('dialogOverlay');
+        // demo 直达不播序章；点掉可能的开场教学
+        for (let i = 0; i < 8; i++) { if (!dlW.classList.contains('show')) break; dlW.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(60); }
+        await wait(200);
+        const sw = E.state();
+        out.push('at=' + (sw.floor + 1) + 'F(' + sw.x + ',' + sw.y + ')');
+        // (6,2) 往上一步踩 (6,1) 的 S 断剑
+        T.act(0, -1);
+        await wait(500);
+        // 断剑小传先播 → 点完；随后烛的遗物提示再点完
+        for (let i = 0; i < 12; i++) { if (!dlW.classList.contains('show')) break; dlW.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(60); }
+        await wait(200);
+        const sw2 = E.state();
+        out.push('edge=' + !!sw2.flags.relic_edge + ' atk=' + sw2.atk);
+        out.push('achEdge=' + (window.Achievements && window.Achievements.isUnlocked('edge') ? 'in' : 'MISS'));
+        // 传送塔顶（第 12 层 (5,3) 公主 (5,4) 上方）
+        sw2.floor = 11; sw2.x = 5; sw2.y = 2;
+        sw2.flags.relic_edge = true;
+        T.refreshHud();
+        await wait(150);
+        T.act(0, 1);
+        await wait(600);
+        out.push('veraVariant=' + (dlW.classList.contains('show') ? d.getElementById('dlgText').textContent.slice(0, 12) : 'no-dialog'));
+        // 点完变体对白 → 抉择面板
+        const ch = d.getElementById('choiceOverlay');
+        for (let i = 0; i < 30; i++) { if (ch.classList.contains('show') || !dlW.classList.contains('show')) break; dlW.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(60); }
+        await wait(300);
+        out.push('choice=' + ch.classList.contains('show'));
+        d.getElementById('choiceTrue').click();
+        await wait(300);
+        for (let i = 0; i < 30; i++) { if (!dlW.classList.contains('show')) break; dlW.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(60); }
+        await wait(600);
+        const epi = d.getElementById('endEpi').textContent;
+        out.push('end=' + d.getElementById('endOverlay').classList.contains('show')
+          + ' scaleNote=' + (d.querySelector('.end-epi-scale') ? 'in' : 'MISS')
+          + ' swordLine=' + (epi.includes('剑尖朝着塔顶') ? 'in' : 'MISS')
+          + ' zealChip=' + (d.getElementById('endBrief').textContent.includes('替川走到了塔顶') ? 'in' : 'MISS')
+          + ' achFinish=' + (window.Achievements && window.Achievements.isUnlocked('edge_finish') ? 'in' : 'MISS'));
+        errBox.textContent = out.join('\n') + '\nerr=' + (errs.length ? errs.join('|') : 'none');
+        await wait(300);
       } else if (scene === 'board') {
         d.getElementById('btnNew').click();
         await wait(200);

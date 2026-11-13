@@ -154,6 +154,9 @@
     mem.endings = mem.endings || {};
     mem.vowWins = mem.vowWins || {};
     mem.lamps = mem.lamps || 0;
+    // 折戟账：死亡次数与上一次倒下的层（老档补 0，不作废）
+    mem.falls = mem.falls || 0;
+    mem.lastFallFloor = mem.lastFallFloor || 0;
     // 收藏图鉴：见过的遗物/锁环跨局累计（老档补空数组，不作废）
     mem.seenRelics = Array.isArray(mem.seenRelics) ? mem.seenRelics : [];
     mem.seenRings = Array.isArray(mem.seenRings) ? mem.seenRings : [];
@@ -221,6 +224,11 @@
         mem.runs = (mem.runs || 0) + 1;
         mem.endings[rec.ending] = (mem.endings[rec.ending] || 0) + 1;
         if (rec.won) mem.vowWins[rec.vow] = (mem.vowWins[rec.vow] || 0) + 1;
+        // 折戟账：死亡局计一次数 + 记下倒在哪层（收藏感——「折戟 ×N」是履历的一部分）
+        if (rec.seal === 'fall') {
+          mem.falls = (mem.falls || 0) + 1;
+          mem.lastFallFloor = rec.floor != null ? rec.floor : mem.lastFallFloor || 0;
+        }
         mem.fullChapters = Math.max(mem.fullChapters || 0, Math.min(4, rec.fullChapters || 0));
         if (rec.heart === 'taken') mem.heartTaken = (mem.heartTaken || 0) + 1;
         if (rec.heart === 'left') mem.heartLeft = (mem.heartLeft || 0) + 1;
@@ -1786,6 +1794,7 @@
       `刻下过最好的塔印：${SEALS[mem.bestSeal] ? SEALS[mem.bestSeal].name : '尚未刻下'}`,
       `结局：铁与霜 ×${mem.endings.plain || 0} · 第六个名字 ×${mem.endings.true || 0}`,
       `满回响 ${mem.fullChapters || 0}/4 章 · 塔心 带走×${mem.heartTaken || 0} 留下×${mem.heartLeft || 0}`,
+      `💀 折戟 ×${mem.falls || 0} · 上次倒在第 ${(mem.lastFallFloor || 0) + 1} 层`,
     ];
     const goals = [];
     const lockedVow = Object.keys(D.vows).find((id) => D.vows[id].ember && !Meta.has(id));
@@ -2000,7 +2009,12 @@
       Renderer.shake(130, 2.5);
       if (m.boss) {
         const shop = nearestShopFloor(s.floor);
-        if (Tips.mark('toostrong')) sayHint('tooStrongBoss', { n: shop });
+        // 铁壁之誓打到塔顶：给专属台词——烛认得这条誓约，点明「没有格挡」的真实代价
+        if (m.finalBoss && Engine.vow() === 'guard') {
+          const fd = Engine.fightDamage(ch, false);
+          warn(`**碑魔** · 你没有格挡，要 **${fd ? fd.damage : '?'}** 点血才接得下`);
+          sayHint('tooStrongBossGuard', { n: shop, need: fd ? fd.damage + 1 : '?' });
+        } else if (Tips.mark('toostrong')) sayHint('tooStrongBoss', { n: shop });
         else warn(`打不过 · **回第 ${shop} 层找秤**`);
         log(`${m.name}太强了。塔里还有没清完的怪，或者回第 ${shop} 层找秤。`, 'warn');
       } else {
@@ -2617,6 +2631,7 @@
     memItems.push(`刻下过最好的塔印：${SEALS[mem.bestSeal] ? SEALS[mem.bestSeal].name : '尚未刻下'}`);
     memItems.push(`结局：铁与霜 ×${mem.endings.plain || 0} · 第六个名字 ×${mem.endings.true || 0}`);
     memItems.push(`满回响 ${mem.fullChapters || 0}/4 章 · 塔心 带走×${mem.heartTaken || 0} 留下×${mem.heartLeft || 0}`);
+    if ((mem.falls || 0) > 0) memItems.push(`💀 折戟 ×${mem.falls} · 上次倒在第 ${(mem.lastFallFloor || 0) + 1} 层`);
     const mc = mem.marginCounts || {};
     const marginTally = ['S', 'A', 'B', 'C'].filter((g) => mc[g]).map((g) => `${g}×${mc[g]}`).join(' · ');
     memItems.push(`决战余裕最好 ${mem.marginBest || '尚未记录'}${marginTally ? ` · ${marginTally}` : ''}`);
@@ -2702,6 +2717,7 @@
       if ((mem.runs || 0) > 0) parts.push(`第 ${mem.runs + 1} 次进塔 · 最远第 ${mem.deepest || 0} 层`);
       if (Meta.ember > 0) parts.push(`✦ ${Meta.ember}`);
       if (Meta.lamps > 0) parts.push(`层灯 ${Meta.lamps}/${LAMP_MAX}`);
+      if ((mem.falls || 0) > 0) parts.push(`💀 折戟 ×${mem.falls} · 上次第 ${(mem.lastFallFloor || 0) + 1} 层`);
       em.textContent = parts.length ? parts.join(' · ') : '';
     }
   }
