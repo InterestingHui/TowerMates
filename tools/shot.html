@@ -210,6 +210,20 @@
           + ' plainSwordLine=' + (epi.includes('灯座上多刻了一个「川」字') ? 'in' : 'MISS')
           + ' zealChip=' + (d.getElementById('endBrief').textContent.includes('替川走到了塔顶') ? 'in' : 'MISS')
           + ' achFinish=' + (w.Achievements && w.Achievements.isUnlocked('edge_finish') ? 'in' : 'MISS'));
+      } else if (scene === 'death1') {
+        // 首局死亡（runs=0）：验证「下一局可立誓」预告卡
+        d.getElementById('btnNew').click();
+        await wait(200);
+        const _vcD = d.querySelector('#vowCards .vow-card[data-vow="none"]');
+        if (_vcD) _vcD.click();
+        await wait(300);
+        const dlD = d.getElementById('dialogOverlay');
+        for (let i = 0; i < 8; i++) { dlD.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
+        T.Meta.memory.runs = 0;
+        const sD = E.state();
+        sD.over = true; sD.hp = 0; sD.floor = 2; sD.flags.killCount = 7;
+        T.showDeath({ name: '墨妖' }, 620);
+        await wait(500);
       } else if (scene === 'board') {
         d.getElementById('btnNew').click();
         await wait(200);

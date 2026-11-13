@@ -270,8 +270,9 @@ function load(url) { return new Promise((res) => { f.onload = () => res(); f.src
         d.getElementById('endOverlay').classList.remove('show', 'death-mode');
         w.__tm.deathAgain({ name: '钟妖' }, 1225);   // deathAgain 会清 deathShown，否则 showDeath 直接 return
         await wait(350);
-        const tag0 = (d.getElementById('endTag') || {}).textContent || '';
-        rec('E10 首局死亡结算提示「下一局可立誓」', /下一局开局可以立誓/.test(tag0), tag0.slice(0, 36));
+        const nv0 = d.getElementById('nextVow');
+        const chips0 = nv0 ? nv0.querySelectorAll('.nv-chip') : [];
+        rec('E10 首局死亡结算有「下一局可立誓」预告卡', !!nv0 && !nv0.hidden && /下一局开局可以立誓/.test(nv0.textContent) && chips0.length === 4, `hidden=${nv0 ? nv0.hidden : '缺失'} chips=${chips0.length}`);
         // 造一个「已经进过 3 次塔」的档案再死一次：这句提示不该再出现
         w.__tm.Meta.memory.runs = 3;
         const s2 = w.Engine.state();
@@ -279,8 +280,8 @@ function load(url) { return new Promise((res) => { f.onload = () => res(); f.src
         d.getElementById('endOverlay').classList.remove('show', 'death-mode');
         w.__tm.deathAgain({ name: '钟妖' }, 1225);
         await wait(350);
-        const tag1 = (d.getElementById('endTag') || {}).textContent || '';
-        rec('E11 老玩家死亡结算不再念这句', !/下一局开局可以立誓/.test(tag1), tag1.slice(0, 36));
+        const nv1 = d.getElementById('nextVow');
+        rec('E11 老玩家死亡结算不再显示预告卡', !!nv1 && nv1.hidden === true, `hidden=${nv1 ? nv1.hidden : '缺失'}`);
       }
     }
 
@@ -318,22 +319,6 @@ function load(url) { return new Promise((res) => { f.onload = () => res(); f.src
       await wait(300);
       rec('F4 第二局起恢复塔友榜与四张誓约', b1b.style.display !== 'none' && d.querySelectorAll('#vowCards .vow-card').length === 4, `顶栏=${b1b.style.display || '显示'} 卡 ${d.querySelectorAll('#vowCards .vow-card').length}`);
 
-      // F5 首局结算：告诉玩家下一局多了「立誓」这个选择（否则这条系统永远 discover 不到）
-      w.localStorage.removeItem('towermates_meta');
-      await load('/index.html?dev=1&p=f3#demo=0,4,5');
-      w = f.contentWindow; d = f.contentDocument;
-      await waitFor(() => { try { return w.__tm && w.Engine.state(); } catch (e) { return null; } }, 10000);
-      await wait(400);
-      {
-        const dlF = d.getElementById('dialogOverlay');
-        for (let i = 0; i < 8; i++) { if (!dlF.classList.contains('show')) break; dlF.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
-        const sF = w.Engine.state();
-        sF.over = true; sF.hp = 0; sF.floor = 2;
-        w.__tm.showDeath({ name: '墨妖' }, 400);
-        await wait(400);
-        const tag = (d.getElementById('endTag') || {}).textContent || '';
-        rec('F5 首局结算页提示下一局可立誓', /下一局开局可以立誓/.test(tag), tag.slice(0, 40));
-      }
     }
 
     out.textContent = R.map((r) => `${r.ok ? '✓' : '✗'} ${r.name}${r.note ? ' — ' + r.note : ''}`).join('\n')

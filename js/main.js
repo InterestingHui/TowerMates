@@ -1863,6 +1863,19 @@
   // 败局不借用胜局的金色面板：endOverlay 挂 death-mode，整块转铁灰冷调；
   // 「折戟」塔印只在此处出现，不参与 bestSeal 竞争。履历/目标照常给出——败局也有下一局。
   let deathShown = false;
+  // 首局结算：把「下一局可以立誓」做成一张小卡。只写一行提示玩家记不住，
+  // 但也不能把刚压短的结算页再堆长——四条规矩只出名字，不写规则。
+  function renderNextVow(first) {
+    const box = $('nextVow');
+    if (!box) return;
+    box.hidden = !first;
+    if (!first) { box.innerHTML = ''; return; }
+    const ids = ['none', 'mercy', 'greed', 'guard'];
+    box.innerHTML = `<div class="nv-title">下一局开局可以立誓</div>`
+      + `<div class="nv-chips">${ids.map((id) => `<span class="nv-chip">${D.vows[id].emoji} ${D.vows[id].name.replace('之誓', '')}</span>`).join('')}</div>`
+      + `<p class="nv-note">一条规矩换一种走法；越难走，通关留下的 ✦ 越多。</p>`;
+  }
+
   function showDeath(monster, damage) {
     if (deathShown) return;
     deathShown = true;
@@ -1892,8 +1905,9 @@
       <span class="es-num">✦ ${emberGain}<small>余烬</small></span>`;
     $('endScore').title = `塔印「${sealDef.name}」：${sealDef.desc}`;
     $('endEmberDetail').innerHTML = '';
-    // 首局没立过誓（面板只给确认卡）：结算这一刻告诉玩家下一局多了一个选择
-    $('endTag').textContent = sealDef.desc + ((Meta.memory.runs || 0) === 0 ? ' · 下一局开局可以立誓：选一条规矩，换一种走法。' : '');
+    $('endTag').textContent = sealDef.desc;
+    // 首局没立过誓（面板只给确认卡）：结算页给一张「下一局预告」卡
+    renderNextVow((Meta.memory.runs || 0) === 0);
     $('endBrief').innerHTML = `<span>败局也算履历：击杀折成余烬带回。</span>`
       + (s.flags.worstHit ? `<span>最狠的一场：${s.flags.worstName} −${s.flags.worstHit}</span>` : '')
       + ((Array.isArray(s.flags.collectNew) && s.flags.collectNew.length)
@@ -2724,7 +2738,8 @@
         + `<span class="eed-sum">合计 <b>+${emberGain}</b></span>`
         + `<span class="eed-total">✦ ${before} → ${before + emberGain}</span>`;
     }
-    $('endTag').textContent = sealDef.desc + ((Meta.memory.runs || 0) === 1 ? ' · 下一局开局可以立誓：选一条规矩，换一种走法。' : '');
+    $('endTag').textContent = sealDef.desc;
+    renderNextVow((Meta.memory.runs || 0) === 1);
     const brief = [];
     brief.push(`带走 ${relicIds.length} 件遗物 · 击杀 ${s.flags.killCount || 0} 只`);
     if (s.flags.worstHit) brief.push(`最狠的一场：${s.flags.worstName} −${s.flags.worstHit}`);
