@@ -18,8 +18,14 @@ const js = Object.fromEntries(JS_FILES.map((f) => [f, fs.readFileSync(path.join(
 const css = fs.readFileSync(path.join(ROOT, 'css', 'style.css'));
 const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
 
+// 指纹不能自引用：直接拿含旧 build/v= 的 html 算 md5，每次 sync 都会得到新指纹，
+// 于是源码 index.html 永远处于「已修改」、线上与本地也永远对不上（排查部署状态时全是假信号）。
+// 先把旧指纹抹成空再哈希——hash 只由真实内容决定，同样源码重复 sync 必须同指纹。
+const htmlForHash = html
+  .replace(/(\?v=)[^"']+/g, '$1')
+  .replace(/(<meta name="build" content=")[^"]*(")/, '$1$2');
 const all = crypto.createHash('md5');
-all.update(html);
+all.update(htmlForHash);
 all.update(css);
 JS_FILES.forEach((f) => all.update(js[f]));
 const build = all.digest('hex').slice(0, 10);
