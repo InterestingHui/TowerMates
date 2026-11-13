@@ -104,6 +104,7 @@ tools/code-test.js  挑战码与触控单测
 tools/ui-check.html / ui-test.js  无头浏览器 UI 自检（跳层 + 贴码闭环）
 tools/serve.js      极简静态服务器
 tools/shot.html     无头截图/端到端脚本（?scene=start|dialog|choice|flow|auto…）
+index.html?funnel=1  本机漏斗调试页（事件时间线 + 首局→二局间隔，仅排查用）
 tools/sync-publish.js 同步 publish/ 并注入内容指纹
 tools/regress.js    质量闸门：校验+模拟+单测+截图+浏览器 UI 自检，一条命令
 ```

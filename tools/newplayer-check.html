@@ -351,7 +351,53 @@ function load(url) { return new Promise((res) => { f.onload = () => res(); f.src
       await wait(300);
       const bn8 = d.getElementById('btnNew'), bc8 = d.getElementById('btnContinue'), nr8 = d.getElementById('newRunRow');
       rec('F8 有存档时首屏只推「继续游戏」', bn8.style.display === 'none' && bc8.style.display !== 'none' && nr8.style.display !== 'none', `新局=${bn8.style.display || '显示'} 继续=${bc8.style.display || '显示'} 开新局=${nr8.style.display || '显示'}`);
+      // F9 退出节点：pagehide 要落一条 page_hide
+      w.dispatchEvent(new w.Event('pagehide'));
+      const fl9 = JSON.parse(w.localStorage.getItem('towermates_funnel') || '[]');
+      rec('F9 漏斗记下 page_hide', fl9.some((x) => x.ev === 'page_hide'), fl9.map((x) => x.ev).join(',') || '空');
+      // F10 调试页：?funnel=1 渲染时间线
+      await load('/index.html?funnel=1&p=f9');
+      w = f.contentWindow; d = f.contentDocument;
+      await waitFor(() => w.__tm && w.__tm.openVow);
+      await wait(400);
+      const fv = d.getElementById('funnelView');
+      rec('F10 ?funnel=1 渲染本机漏斗', !!fv && /本机漏斗/.test(fv.textContent) && /run_start/.test(fv.textContent), fv ? fv.textContent.slice(0, 30).replace(/\s+/g, ' ') : '缺失');
 
+    }
+
+    // ===== G. 商店折叠不藏能力（焦点 C 三轮）=====
+    await load('/index.html?dev=1&p=g1#demo=2,4,6');
+    w = f.contentWindow; d = f.contentDocument;
+    await waitFor(() => { try { return w.__tm && w.__tm.openShop && w.Engine.state(); } catch (e) { return null; } }, 10000);
+    await wait(500);
+    {
+      const st = w.Engine.state();
+      st.gold = 500;
+      st.flags.hasBlock = false;
+      delete st.flags.shopExpanded;
+      w.__tm.openShop();
+      await wait(500);
+      const list0 = d.getElementById('shopList');
+      const items0 = list0 ? Array.from(list0.querySelectorAll('.shop-item')) : [];
+      const rows0 = items0.length;
+      // 只读首屏行，不含底部「更多货」那行（那行文案里就写着「含半部盾谱」）
+      const hasBook0 = items0.some((n) => /半部盾谱/.test(n.textContent || ''));
+      rec('G1 未学格挡时盾谱留在首屏', hasBook0, `首屏 ${rows0} 行 · 含盾谱 ${hasBook0 ? 'Y' : 'N'}`);
+      rec('G2 首屏不超 5 行（折叠仍然生效）', rows0 > 0 && rows0 <= 5, '行数 ' + rows0);
+      d.getElementById('shopClose').click();
+      await wait(250);
+
+      // 已学格挡：盾谱不该再占首屏（它有 owned 态，但折叠后连行都不该有）
+      w.Engine.state().flags.hasBlock = true;
+      delete w.Engine.state().flags.shopExpanded;
+      w.__tm.openShop();
+      await wait(500);
+      const list1 = d.getElementById('shopList');
+      const items1 = list1 ? Array.from(list1.querySelectorAll('.shop-item')) : [];
+      const hasBook1 = items1.some((n) => /半部盾谱/.test(n.textContent || ''));
+      rec('G3 已学格挡时盾谱退回折叠', !hasBook1 && items1.length > 0, `首屏 ${items1.length} 行 · 含盾谱 ${hasBook1 ? 'Y' : 'N'}`);
+      const more = d.querySelector('.si-more, #shopMore, .shop-more');
+      rec('G4 有「更多货」展开入口', !!more, more ? (more.textContent || '').trim().slice(0, 28) : '缺失');
     }
 
     out.textContent = R.map((r) => `${r.ok ? '✓' : '✗'} ${r.name}${r.note ? ' — ' + r.note : ''}`).join('\n')

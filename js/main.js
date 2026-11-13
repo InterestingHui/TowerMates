@@ -282,6 +282,24 @@
     };
   })();
 
+  // 退出节点：区分「玩过但走了」与「没开始就关」。页面隐藏/卸载各记一次，30 秒内去重。
+  let lastHideAt = 0;
+  function logPageHide() {
+    const now = Date.now();
+    if (now - lastHideAt < 30000) return;
+    lastHideAt = now;
+    const st = Engine.state();
+    Funnel.push('page_hide', {
+      floor: st ? st.floor + 1 : 0,
+      run: (Meta.memory.runs || 0) + (st ? 1 : 0),
+      playing: st && !st.over && !st.won ? 1 : 0,
+    });
+  }
+  if (typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', () => { if (document.hidden) logPageHide(); });
+  }
+  window.addEventListener('pagehide', logPageHide);
+
   const Sound = (() => {
     let actx = null;
     let music = null;
@@ -2256,7 +2274,13 @@
     const SHOP_CORE = ['key', 'potion', 'atk', 'def'];
     const stock = Engine.shopStock();
     const foldFirst = s.floor === 2 && !s.flags.shopExpanded;
-    const rows = foldFirst ? stock.filter((i) => SHOP_CORE.indexOf(i.id) >= 0) : stock;
+    // 折叠不是藏能力：还没学格挡的人，盾谱必须留在首屏——第 3 层是没捡到盾谱的玩家
+    // 唯一补学机会，而格挡是「每层一次」的防御核心，藏进折叠区等于晚一层才学会。
+    // 已经学过的（或这条誓约禁挡）不占位，首屏仍是 4 件。
+    const needBlockBook = !s.flags.hasBlock && !Engine.vowForbidsBlock();
+    const rows = foldFirst
+      ? stock.filter((i) => SHOP_CORE.indexOf(i.id) >= 0 || (i.id === 'blockbook' && needBlockBook))
+      : stock;
     // 卡关时在货摊上直接标「买几个能打过挡路的怪」：玩家不用自己拿纸算
     let needAtk = null;
     if (stuckInfo && stuckInfo.key === 'stuckDef') {
@@ -3900,6 +3924,30 @@
     if (floorBossAlive(s)) Sound.startMusic();
   }
 
+  // 调试页：?funnel=1 把本机漏斗渲染成一页（不上正式入口，只给排查/看数据用）
+  function showFunnelView() {
+    const rows = Funnel.all();
+    const starts = rows.filter((x) => x.ev === 'run_start');
+    const ends = rows.filter((x) => x.ev === 'run_end');
+    const second = starts.find((x) => x.n === 2);
+    const gap = second && second.gap >= 0 ? `${second.gap} 秒` : '—';
+    const box = document.createElement('div');
+    box.id = 'funnelView';
+    box.className = 'funnel-view';
+    const fmt = (t) => {
+      const d = new Date(t);
+      return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
+    };
+    box.innerHTML = `<h2>本机漏斗 · ${rows.length} 条</h2>`
+      + `<p class="fv-sum">首局→二局间隔：<b>${gap}</b> · 开局 ${starts.length} 次 / 结算 ${ends.length} 次</p>`
+      + `<div class="fv-list">${rows.length ? rows.slice().reverse().map((x) => {
+        const extra = Object.keys(x).filter((k) => k !== 'at' && k !== 'ev').map((k) => `${k}=${x[k]}`).join(' ');
+        return `<div class="fv-row"><time>${fmt(x.at)}</time><b>${x.ev}</b><span>${extra}</span></div>`;
+      }).join('') : '<p class="fv-empty">还没有记录。玩一局再回来。</p>'}</div>`
+      + `<p class="fv-note">清空：控制台执行 __tm.funnelClear() · 关闭：刷新页面</p>`;
+    document.body.appendChild(box);
+  }
+
   function boot() {
     Renderer.init(el.canvas);
     Renderer.layout(el.stage);
@@ -3943,6 +3991,7 @@
     // 分享直达：?play=1 自动开局并跳过序章，落地即是可操作的地图
     // 不带此参数时仍走正常流程（开始界面 → 四选一誓约 → 序章）
     const qs = new URLSearchParams(location.search);
+    if (qs.get('funnel') === '1') showFunnelView();
     if (!demo && qs.get('play') === '1') {
       startGame('none');
       skipDialog();

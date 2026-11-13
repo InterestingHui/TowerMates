@@ -241,7 +241,7 @@ if (!process.argv.includes('--no-shot')) {
         const args = [
           '--headless=new', '--disable-gpu', '--no-sandbox', '--no-first-run', '--disable-extensions',
           '--user-data-dir=' + path.join(os.tmpdir(), 'tm-newp-' + process.pid),
-          '--virtual-time-budget=60000',
+          '--virtual-time-budget=120000',
           '--dump-dom', `http://127.0.0.1:${PORT}/tools/newplayer-check.html?gate=1`,
         ];
         const read = () => {
