@@ -1276,5 +1276,34 @@ s.ending = 'plain';
 A.evaluate('end', s, () => {});
 ok(!A.isUnlocked('edge_finish'), '没带断剑不解锁执剑者');
 
+// ---------- 9z. 开局微变：第 1 层散落物每局换位（P-A / S-D1）----------
+// 目的是让第二局开局不再逐格照抄已知解；约束是「总量不变、起点周围不动、数值不变」。
+const floor1Spots = (seed) => {
+  const st = E.newGame(null, { seed: seed });
+  const m = st.maps[0];
+  const out = { p: [], $: [], start: null };
+  for (let y = 0; y < 11; y++) {
+    for (let x = 0; x < 11; x++) {
+      if (m[y][x] === 'p') out.p.push([x, y]);
+      if (m[y][x] === '$') out.$.push([x, y]);
+      if (m[y][x] === '@') out.start = [x, y];
+    }
+  }
+  return out;
+};
+const dot = (a, b) => a && b && a[0] === b[0] && a[1] === b[1];
+const base0 = floor1Spots(0);
+ok(dot(base0.p[0], [8, 7]) && dot(base0.$[0], [7, 9]), '种子 0 保持原版首层布局（可复现读数用）');
+const v1 = floor1Spots(1);
+const v2 = floor1Spots(2);
+ok(v1.p.length === 1 && v1.$.length === 1, '换位后药水与金币各恰好 1 个（总量不变）');
+ok(!dot(v1.p[0], base0.p[0]) && !dot(v1.$[0], base0.$[0]), '换位后两件散落物都换了格子');
+ok(!dot(v1.p[0], v2.p[0]), '不同种子给出不同布局（每局不一样）');
+const nearStart = (spot) => spot && Math.abs(spot[0] - 2) <= 1 && Math.abs(spot[1] - 5) <= 1;
+ok(!nearStart(v1.p[0]) && !nearStart(v1.$[0]) && !nearStart(v2.p[0]), '散落物不落到起点 3×3 内（开局 60 秒节奏不变）');
+const seed777 = E.newGame(null, { seed: 777 });
+ok(seed777.maps[0][7][8] === '.', '散落物挪走后原格变回地面');
+ok(E.shuffleFloor1(null, 1) === false, '空地图不崩（shuffleFloor1 边界）');
+
 console.log(fail === 0 ? '\n✓ 全部通过' : `\n✗ ${fail} 项失败`);
 process.exit(fail ? 1 : 0);

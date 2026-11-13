@@ -1084,14 +1084,14 @@ html, body {
 .choice-card.red .cc-title { color: #ff9b9b; }
 .choice-card.cyan .cc-title { color: var(--cyan); }
 .choice-card .cc-sub { font-size: var(--fs-tag); line-height: 1.7; color: var(--muted); }
-.choice-card .cc-hint { font-size: var(--fs-tag); color: #444c5c; letter-spacing: 1px; margin-top: 3px; }
+.choice-card .cc-hint { font-size: var(--fs-tag); color: var(--muted); letter-spacing: 1px; margin-top: 3px; }
 .choice-card:hover { transform: translateY(-3px); }
 .choice-card.red:hover { border-color: rgba(255, 90, 90, 0.45); box-shadow: 0 18px 40px rgba(160, 30, 30, 0.25); }
 .choice-card.cyan:hover { border-color: rgba(120, 210, 255, 0.45); box-shadow: 0 18px 40px rgba(40, 110, 160, 0.25); }
 .choice-card.focus { transform: translateY(-4px) scale(1.015); }
 .choice-card.red.focus { border-color: rgba(255, 90, 90, 0.62); box-shadow: 0 0 0 1px rgba(255, 90, 90, 0.4), 0 20px 46px rgba(160, 30, 30, 0.3); }
 .choice-card.cyan.focus { border-color: rgba(120, 210, 255, 0.62); box-shadow: 0 0 0 1px rgba(120, 210, 255, 0.4), 0 20px 46px rgba(40, 110, 160, 0.3); }
-.choice-hint { margin-top: 14px; font-size: var(--fs-tag); color: #4e5666; letter-spacing: 1px; }
+.choice-hint { margin-top: 14px; font-size: var(--fs-tag); color: var(--muted); letter-spacing: 1px; }
 
 /* ================= 结局 ================= */
 .end-panel { text-align: center; }

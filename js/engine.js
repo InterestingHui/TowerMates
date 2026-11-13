@@ -15,8 +15,54 @@
 
   const floorMaps = () => D.floors.map((f) => f.map.map((row) => row.split('')));
 
-  function newGame(vow) {
+  // ---------- 开局微变（P-A / 打 S-D1「前 3 层每局逐格相同」）----------
+  // 只挪第 1 层「散落的拾取物」（红药水 / 金币），地图骨架、怪物、门、总道具量全部不动：
+  // 改的是「先走哪边、先捡什么」，第二局开局不再是逐格照抄已知解，且不碰任何数值。
+  // 种子 0 = 保持原版布局（需要可复现读数的工具场景用它要回原图）。
+  const FLOOR1_FREE = ['p', '$'];
+  function mulberry32(a) {
+    return function () {
+      a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function shuffleFloor1(map, seed) {
+    if (!seed || !map) return false;
+    // 起点周围 3×3 保持原样：开局 60 秒的教学节奏（教练卡→首战）不跟着变
+    let sx = 1, sy = 1;
+    for (let y = 0; y < SIZE; y++) for (let x = 0; x < SIZE; x++) if (map[y][x] === '@') { sx = x; sy = y; }
+    const cells = [];
+    for (let y = 1; y < SIZE - 1; y++) {
+      for (let x = 1; x < SIZE - 1; x++) {
+        if (map[y][x] !== '.') continue;
+        if (Math.abs(x - sx) <= 1 && Math.abs(y - sy) <= 1) continue;
+        cells.push([x, y]);
+      }
+    }
+    const from = [];
+    for (let y = 0; y < SIZE; y++) {
+      for (let x = 0; x < SIZE; x++) {
+        if (FLOOR1_FREE.indexOf(map[y][x]) >= 0) from.push({ x: x, y: y, ch: map[y][x] });
+      }
+    }
+    if (!from.length || from.length > cells.length) return false;
+    const rnd = mulberry32(seed);
+    for (let i = cells.length - 1; i > 0; i--) {
+      const j = (rnd() * (i + 1)) | 0;
+      const t = cells[i]; cells[i] = cells[j]; cells[j] = t;
+    }
+    // 先清空原位再摆：两件物件不会落到同一格（候选位已洗牌，逐个取头部）
+    from.forEach((o) => { map[o.y][o.x] = '.'; });
+    from.forEach((o, i) => { map[cells[i][1]][cells[i][0]] = o.ch; });
+    return true;
+  }
+
+  function newGame(vow, opts) {
     const v = D.vows[vow] ? vow : 'none';
+    const mapSeed = opts && typeof opts.seed === 'number' ? opts.seed : (Math.random() * 1e9) | 0;
     s = {
       floor: 0, x: 1, y: 1,
       hp: 1000, maxHp: 1000, atk: 10, def: 10,
@@ -24,7 +70,7 @@
       keys: { y: 1, r: 0 },
       maps: floorMaps(),
       over: false, won: false, ending: null,
-      flags: { vow: v, rings: [], phaseSeed: (Math.random() * 1e9) | 0, hasBlock: false },
+      flags: { vow: v, rings: [], phaseSeed: (Math.random() * 1e9) | 0, hasBlock: false, mapSeed: mapSeed },
       ver: 5,
       steps: 0,
       startedAt: Date.now(),
@@ -32,6 +78,7 @@
       floorEnter: null,
     };
     if (v === 'mercy') s.atk = Math.max(1, s.atk - 3);
+    shuffleFloor1(s.maps[0], mapSeed);
     
     const map = s.maps[0];
     outer: for (let y = 0; y < SIZE; y++) {
@@ -1269,7 +1316,7 @@
   }
 
   window.Engine = {
-    setHooks, newGame, load, reset, hasSave, save, state, tile, predict, predictOpt,
+    setHooks, newGame, load, reset, hasSave, save, state, tile, predict, predictOpt, shuffleFloor1,
     predictAt(dx, dy) {
       if (!s) return null;
       const ch = tile(s.x + dx, s.y + dy);
