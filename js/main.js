@@ -1403,6 +1403,17 @@
     }).join('') : '<div class="bd-empty">这一档还没有人。去立一条誓约，回来占第一位。</div>');    const codeEl = $('myCode');
     codeEl.textContent = mine.length ? encodeChallenge(mine[0]) : '—— 通关后生成 ——';
     $('achCount').textContent = `成就 ${Achievements.count()}/${Achievements.DEFS.length}`;
+    // 计数即入口：点一下直跳图鉴成就墙（此前只是死数字，没人知道成就列表在图鉴里）
+    const achEl = $('achCount');
+    achEl.style.cursor = 'pointer';
+    achEl.title = '点开图鉴看成就墙';
+    if (!achEl._achJump) {
+      achEl._achJump = true;
+      achEl.addEventListener('click', () => {
+        el.boardOverlay.classList.remove('show');
+        openCollection();
+      });
+    }
     el.boardOverlay.classList.add('show');
   }
   // 贴码：解码 → 查重 → 以幽灵行进榜

@@ -136,6 +136,49 @@ function load(url) { return new Promise((res) => { f.onload = () => res(); f.src
       }
     }
 
+    // ===== E. 最近两天的新内容：成就墙可发现性 + 折戟行可理解性 =====
+    // E1 榜单页成就计数是「死数字」还是入口：点一下应关榜开图鉴（成就墙住在图鉴里）
+    await load('/index.html?dev=1&p=e1');
+    w = f.contentWindow; d = f.contentDocument;
+    await waitFor(() => { try { return w.__tm && w.__tm.openBoard; } catch (e) { return null; } }, 10000);
+    await wait(400);
+    {
+      w.__tm.openBoard();
+      await wait(400);
+      const ach = d.getElementById('achCount');
+      rec('E1 成就计数可点击（有入口光标）', !!ach && getComputedStyle(ach).cursor === 'pointer', ach ? 'cursor=' + getComputedStyle(ach).cursor : '缺失');
+      if (ach) {
+        ach.click();
+        await wait(400);
+        const colOpen = d.getElementById('collectionOverlay').classList.contains('show');
+        const boardClosed = !d.getElementById('boardOverlay').classList.contains('show');
+        rec('E2 点成就计数 → 图鉴打开且榜单关', colOpen && boardClosed, `图鉴${colOpen ? '开' : '没开'} · 榜单${boardClosed ? '已关' : '还开着'}`);
+        const achTxt = (d.getElementById('colBody') || {}).textContent || '';
+        rec('E3 成就墙四区都在（战斗/收藏/誓约/折戟）', ['战 斗', '收 藏', '誓 约', '折 戟'].every((t) => achTxt.indexOf(t) >= 0),
+          ['战斗', '收藏', '誓约', '折戟'].filter((t, i) => achTxt.indexOf(['战 斗', '收 藏', '誓 约', '折 戟'][i]) < 0).join(',') || '四区齐全');
+        // 折戟灰卡给解锁条件（desc 即条件）——新玩家点🔒卡也能知道「要死几次」
+        const fallCard = d.querySelector('.ach-card[data-ach="fall3"]');
+        const fallText = fallCard ? fallCard.textContent : '';
+        rec('E4 折戟灰卡自带解锁条件', !!fallCard && /折戟 3 次|累计折戟/.test(fallText + (fallCard.title || '')), fallCard ? (fallCard.title || fallText).slice(0, 30) : '缺失');
+      }
+    }
+    // E5 死亡面板折戟行：新玩家第一次死，能从结算页看懂「折戟 ×N · 上次倒在第 M 层」吗
+    await load('/index.html?dev=1&p=e5#demo=0,4,5');
+    w = f.contentWindow; d = f.contentDocument;
+    await waitFor(() => { try { return w.__tm && w.__tm.showDeath && w.Engine.state(); } catch (e) { return null; } }, 10000);
+    await wait(400);
+    {
+      // 有 state（demo 锚已开局）：点掉开场教学后把状态摆成死亡，调 showDeath
+      const dlE = d.getElementById('dialogOverlay');
+      for (let i = 0; i < 8; i++) { if (!dlE.classList.contains('show')) break; dlE.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
+      const s = w.Engine.state();
+      s.over = true; s.hp = 0; s.floor = 8; s.flags.killCount = 37; s.flags.vow = 'guard';
+      w.__tm.showDeath({ name: '钟妖' }, 1225);
+      await wait(400);
+      const stats = (d.getElementById('endStats') || {}).textContent || '';
+      rec('E5 死亡结算有「倒在谁」与「折戟塔印」', /倒在/.test(stats) && /折戟/.test(stats), (stats.match(/倒在[^<]*|折戟[^<]*/g) || []).join(' ').slice(0, 40));
+    }
+
     out.textContent = R.map((r) => `${r.ok ? '✓' : '✗'} ${r.name}${r.note ? ' — ' + r.note : ''}`).join('\n')
       + '\n\n' + (R.every((r) => r.ok) ? 'ALL PASS' : 'HAS FAIL');
     document.title = (R.every((r) => r.ok) ? 'ALLPASS|' : 'HASFAIL|') + R.map((r) => (r.ok ? '1' : '0')).join('');

@@ -33,6 +33,9 @@ const QUILL = process.argv.includes('--quill');
 const KEEP_GOLD = QUILL ? 500 : 0;
 const RINGS = QUILL ? ['quill'] : (USE_RINGS ? ['lamp', 'vitality', 'stair', 'bell'] : []);
 const hasRing = (id) => RINGS.indexOf(id) >= 0;
+// --train=<atk|def|mixed>：商店训练的钱怎么花（焦点 C 待办——攻防比值有没有唯一最优解）
+//   atk=默认全攻 | def=全防 | mixed=攻防 2:1 轮换（模拟「均衡流」玩家）
+const TRAIN = (process.argv.find((a) => a.startsWith('--train=')) || '--train=atk').slice(8);
 
 let s = {
   floor: 0, x: 0, y: 0,
@@ -182,19 +185,28 @@ function shop() {
     console.log('  在秤那里买了半部盾谱 → 学会格挡');
   }
   let bought = 0;
+  let defBought = 0;
+  let trainFlip = 0;
   for (;;) {
     const atk = D.shop.find((x) => x.id === 'atk');
     const price = priceOf(atk);
     if (s.gold < price) break;
     if (QUILL && s.gold - price < KEEP_GOLD) break;   // 为落笔之环留钱
-    s.gold -= price;
-    spent += price;
-    s.flags['buy_atk'] = (s.flags['buy_atk'] || 0) + 1;
-    s.atk += atk.atk;
-    bought++;
-    if (bought > 40) break;
+    // --train 模式：mixed 每 3 次训练里 1 次买防（2:1 攻防比）；def 全防
+    let buyDef = false;
+    if (TRAIN === 'def') buyDef = true;
+    else if (TRAIN === 'mixed') { trainFlip++; buyDef = trainFlip % 3 === 0; }
+    const item = buyDef ? D.shop.find((x) => x.id === 'def') : atk;
+    if (!item || s.gold < priceOf(item)) break;
+    const p = priceOf(item);
+    s.gold -= p;
+    spent += p;
+    s.flags['buy_' + item.id] = (s.flags['buy_' + item.id] || 0) + 1;
+    if (buyDef) { s.def += item.def; defBought++; }
+    else { s.atk += item.atk; bought++; }
+    if (bought + defBought > 40) break;
   }
-  if (bought) console.log(`  在秤那里训练了 ${bought} 次（${spent} 金）→ ATK ${s.atk}，余 ${s.gold} 金`);
+  if (bought || defBought) console.log(`  在秤那里训练了 ${bought} 攻${defBought ? ` / ${defBought} 防（--train=${TRAIN}）` : ''}（${spent} 金）→ ATK ${s.atk} DEF ${s.def}，余 ${s.gold} 金`);
 }
 
 // 0-1 最短路：穿过一只怪记代价 1，空地 0。找「穿怪最少」的上楼路径，
