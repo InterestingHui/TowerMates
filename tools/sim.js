@@ -362,8 +362,9 @@ function floorLoop(fi) {
       // 上限 6 次：钱花光还没补齐就认输（真实玩家此时也只会放弃/重开）
       if (rescue < 6 && s.gold >= priceOf(D.shop.find((x) => x.id === 'atk')) + 50) {
         rescue++;
-        if (s.hp < s.maxHp * 0.6) healAtShop();
+        // 路费先扣再补药：原来先 heal 后扣 50，补药可能把钱花光，扣完变负金（nameless 线 -43）
         s.gold -= 50; // 回城路费（模拟往返与时间成本）
+        if (s.hp < s.maxHp * 0.6) healAtShop();
         shop();
         continue;
       }
@@ -470,7 +471,11 @@ function climb() {
 
 function report() {
   const pct = (s.hp / s.maxHp * 100).toFixed(1);
-  console.log(`\n总承伤 ${s.damageTaken}，最终 HP ${s.hp}/${s.maxHp}（${pct}%），Lv.${s.level}，ATK ${s.atk}，DEF ${s.def}，金币剩余 ${s.gold}，击杀 ${s.flags.killCount || 0}`);
+  // 磨损率 = 总承伤 / 最大生命。和「终局血量比」互补：
+  // 血量比会被「小血池 + 末店灌满」刷高（guard 90.4% / nameless 92.5% 就是这么来的），
+  // 磨损率则直接量「这条誓约一路被削了多少条命」，判难度更稳。
+  const wear = (s.damageTaken / s.maxHp * 100).toFixed(0);
+  console.log(`\n总承伤 ${s.damageTaken}，最终 HP ${s.hp}/${s.maxHp}（${pct}%），磨损率 ${wear}%，Lv.${s.level}，ATK ${s.atk}，DEF ${s.def}，金币剩余 ${s.gold}，击杀 ${s.flags.killCount || 0}`);
   // 难度看这个：打完最终 Boss 的真实血量（之后把余钱换药水只是收尾整理，不算战斗）
   if (s.lastBattle) {
     const lp = (s.lastBattle.hp / s.lastBattle.maxHp * 100).toFixed(1);
