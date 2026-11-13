@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>silhouette-check</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+  body{background:#07090f;margin:0;padding:20px 22px;color:#d6dbe6;font:12px "Microsoft YaHei",sans-serif}
+  h2{font-size:12px;letter-spacing:2px;color:#b98f35;margin:0 0 8px;font-weight:600}
+  .row{display:flex;gap:14px;align-items:flex-end;margin-bottom:22px}
+  .cell{display:flex;flex-direction:column;align-items:center;gap:4px}
+  .cell .box{width:var(--w)}
+  .cell .lab{font-size:11px;color:#9aa5b8;letter-spacing:1px}
+  .cell .who{font-size:11px;color:#5d6577}
+  .blackrow .pt{filter:brightness(0)}
+  .blackrow .pt-aura{display:none}
+  .sep{height:1px;background:rgba(255,255,255,.08);margin:0 0 20px}
+</style>
+</head>
+<body>
+<h2>SILHOUETTE · 160px 近读（剪影 + 右上暖 rim + 左下冷补）</h2>
+<div class="row" id="r160"></div>
+<div class="sep"></div>
+<h2>SILHOUETTE · 96px 中读</h2>
+<div class="row" id="r96"></div>
+<div class="sep"></div>
+<h2>SILHOUETTE · 32px 纯黑缩略（两两必须可分）</h2>
+<div class="row blackrow" id="r32"></div>
+<div class="sep"></div>
+<h2>SILHOUETTE · 32px 正常色</h2>
+<div class="row" id="r32c"></div>
+<script src="../js/portraits.js"></script>
+<script>
+  const Q = new URLSearchParams(location.search);
+  const ONLY = Q.get('only');
+  if (ONLY) {
+    ['r160', 'r96', 'r32', 'r32c'].forEach((id) => {
+      document.getElementById(id).style.display = id === ONLY ? 'flex' : 'none';
+    });
+    document.querySelectorAll('h2').forEach((h) => {
+      const keep = (ONLY === 'r160' && h.textContent.indexOf('160') >= 0)
+        || (ONLY === 'r96' && h.textContent.indexOf('96px') >= 0)
+        || (ONLY === 'r32' && h.textContent.indexOf('纯黑') >= 0)
+        || (ONLY === 'r32c' && h.textContent.indexOf('正常色') >= 0);
+      h.style.display = keep ? '' : 'none';
+    });
+    document.querySelectorAll('.sep').forEach((d) => { d.style.display = 'none'; });
+    if (ONLY !== 'r160') document.body.style.padding = '14px';
+  }
+  const WHO = ['烛', '炎魔', '薇拉', '秤', '墨妖', '钟妖', '碑魔', '魔王'];
+  const P = window.Portraits;
+  function fill(el, w) {
+    el.innerHTML = WHO.map((who) =>
+      `<div class="cell"><div class="box" style="--w:${w}px">${P.render(who, 'calm')}</div>
+        <div class="lab">${who}</div></div>`).join('');
+  }
+  fill(document.getElementById('r160'), 160);
+  fill(document.getElementById('r96'), 96);
+  fill(document.getElementById('r32'), 32);
+  fill(document.getElementById('r32c'), 32);
+  // 供 regress / 长图核对：8 个 svg 都真的渲染出形状
+  document.title = 'SIL ok=' + document.querySelectorAll('.pt-svg').length;
+</script>
+</body>
+</html>

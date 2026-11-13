@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>portrait-size-check</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+  body{background:#07090f;margin:0;padding:18px;color:#d6dbe6;font:13px "Microsoft YaHei",sans-serif}
+  h1{font-size:16px;margin:0 0 4px;font-weight:600}
+  .sub{color:#9aa5b8;font-size:12px;margin-bottom:16px}
+  .row{display:flex;gap:26px;align-items:flex-end}
+  .col{display:flex;flex-direction:column;gap:8px;align-items:center}
+  .box{width:var(--w);}
+  .lab{color:#b98f35;font-size:11.5px;text-align:center}
+  .tag{color:#5d6577;font-size:11px;text-align:center;line-height:1.5}
+  .sep{width:1px;height:340px;background:rgba(255,255,255,.08)}
+</style>
+</head>
+<body>
+<h1>立绘尺寸对照：同一个角色，三种呈现位</h1>
+<div class="sub">用游戏真实 CSS + 真实 Portraits.render()；位图仅在 size='lg' 时启用</div>
+<div class="row">
+  <div class="col"><div class="lab">对白槽 · 68px · SVG</div>
+    <div class="box" style="--w:68px" id="s68"></div>
+    <div class="tag">细节不可见<br>靠剪影+眼睛认人</div></div>
+  <div class="sep"></div>
+  <div class="col"><div class="lab">图鉴 · 160px · 位图</div>
+    <div class="box" style="--w:160px" id="s160"></div>
+    <div class="tag">褶皱/扣具开始可辨</div></div>
+  <div class="col"><div class="lab">Boss 出场 · 300px · 位图</div>
+    <div class="box" style="--w:300px" id="s300"></div>
+    <div class="tag">撕边、锁链、金属高光全部成立</div></div>
+  <div class="sep"></div>
+  <div class="col"><div class="lab">同尺寸对照 · 300px · SVG</div>
+    <div class="box" style="--w:300px" id="svg300"></div>
+    <div class="tag">放大后暴露"符号化"</div></div>
+</div>
+<script src="../js/portraits.js"></script>
+<script>
+  const P = window.Portraits;
+  document.getElementById('s68').innerHTML  = P.render('魔王', 'hard', null, null);
+  document.getElementById('s160').innerHTML = P.render('魔王', 'hard', null, 'lg');
+  document.getElementById('s300').innerHTML = P.render('魔王', 'hard', null, 'lg');
+  document.getElementById('svg300').innerHTML = P.render('魔王', 'hard', null, null);
+  // 本页在 /tools/ 下，render() 里的 assets/ 是相对站点根写的，这里补 ../ 才能加载
+  document.querySelectorAll('img.pt-img').forEach(im => { im.src = '../' + im.getAttribute('src'); });
+  const imgs = document.querySelectorAll('img.pt-img');
+  document.title = 'imgs=' + imgs.length + ' loaded=' + [...imgs].filter(i => i.complete && i.naturalWidth > 0).length;
+</script>
+</body>
+</html>

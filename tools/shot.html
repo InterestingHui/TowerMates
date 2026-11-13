@@ -250,8 +250,36 @@
         await wait(260);
         const s = E.state();
         s.flags.codex = true; s.floor = 4; s.atk = 30; s.def = 22;
+        // 人物区：点亮六位，留两个未知做对比（截图要能看出「已相遇/未相遇」两态）
+        ['烛', '薇拉', '秤', '炎魔', '墨妖', '魔王'].forEach((w) => T.Meta.metChar(w));
         T.openCodex();
         await wait(400);
+      } else if (scene === 'codexzoom') {
+        // 图鉴大图：320px 位图展示位（点人物卡触发）
+        d.getElementById('btnNew').click();
+        await wait(200);
+        const _vcz = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
+        if (_vcz) _vcz.click();
+        await wait(260);
+        const sZ = E.state();
+        sZ.flags.codex = true;
+        ['烛', '薇拉', '秤', '炎魔', '墨妖', '魔王'].forEach((x) => T.Meta.metChar(x));
+        T.openCodex();
+        await wait(300);
+        const cz = d.querySelector('.cx-char[data-who="墨妖"]');
+        if (cz) cz.click();
+        await wait(700);
+      } else if (scene === 'bossintro') {
+        // Boss 出场卡样板：320px 位图 + 名字条；只截图，不接管流程
+        d.getElementById('btnNew').click();
+        await wait(200);
+        const _vcb = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
+        if (_vcb) _vcb.click();
+        await wait(260);
+        const dlB = d.getElementById('dialogOverlay');
+        for (let i = 0; i < 8; i++) { dlB.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
+        T.showBossIntro({ boss: true, name: '墨妖', title: '第一位工匠 · 名册之锁', chapter: 1 }, 2, null, true);
+        await wait(700);
       } else if (scene === 'cfg') {
         d.getElementById('btnNew').click();
         await wait(200);

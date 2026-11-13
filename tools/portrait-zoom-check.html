@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>portrait-zoom-check</title>
+<style>
+  body{margin:0;background:#05070c;padding:14px;display:flex;gap:16px;font:12px monospace;color:#b98f35}
+  .col{display:flex;flex-direction:column;gap:6px}
+  iframe{width:430px;height:640px;border:1px solid #1b2433;border-radius:8px;background:#07090f}
+</style>
+</head>
+<body>
+<div class="col"><span>① 对白里的小立绘（68px）</span><iframe id="a" src="../index.html"></iframe></div>
+<div class="col"><span>② 点击立绘 → 放大（320px 位图）</span><iframe id="b" src="../index.html"></iframe></div>
+<script>
+const wait = (ms) => new Promise(r => setTimeout(r, ms));
+function openLine(win, who, mood, cls, text) {
+  const doc = win.document;
+  doc.getElementById('dialogOverlay').classList.add('show');
+  const w = doc.getElementById('dlgWho');
+  w.textContent = who; w.className = 'dlg-who ' + cls;
+  doc.getElementById('dlgBox').classList.remove('narration');
+  doc.getElementById('dlgText').innerHTML = text;
+  doc.getElementById('dlgCue').textContent = '▼';
+  doc.getElementById('dlgPortrait').innerHTML = win.Portraits.render(who, mood);
+}
+(async () => {
+  const A = document.getElementById('a'), B = document.getElementById('b');
+  await new Promise(r => { A.onload = r; });
+  await new Promise(r => { B.onload = r; });
+  await wait(600);
+  openLine(A.contentWindow, '魔王', 'hard', 'boss', '钥匙在我手里。想上楼，先证明你配得上这把锁。');
+  openLine(B.contentWindow, '魔王', 'hard', 'boss', '钥匙在我手里。想上楼，先证明你配得上这把锁。');
+  await wait(400);
+  // 复刻 main.js 里点击处理的三行核心（真实对白里 typing 有值时走同一段逻辑）
+  const bw = B.contentWindow, bd = B.contentDocument;
+  bd.getElementById('ptZoom').innerHTML = bw.Portraits.render('魔王', 'hard', null, 'lg');
+  bd.getElementById('portraitOverlay').classList.add('show');
+  await wait(500);
+  const ov = B.contentDocument.getElementById('portraitOverlay');
+  const img = B.contentDocument.querySelector('#ptZoom img.pt-img');
+  const cs = ov ? B.contentWindow.getComputedStyle(ov) : null;
+  const rect = ov ? ov.getBoundingClientRect() : null;
+  document.title = 'cls=' + (ov ? ov.className : 'none') +
+    ' disp=' + (cs ? cs.display : '-') + ' z=' + (cs ? cs.zIndex : '-') +
+    ' rect=' + (rect ? Math.round(rect.width) + 'x' + Math.round(rect.height) : '-') +
+    ' img=' + (img ? (img.complete && img.naturalWidth) + 'x' + img.naturalHeight : 'none');
+})();
+</script>
+</body>
+</html>

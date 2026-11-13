@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>portrait-check</title>
+<style>
+  body{margin:0;background:#05070c;color:#8ef;font:12px/1.6 monospace;display:flex;gap:14px;padding:14px}
+  .col{display:flex;flex-direction:column;gap:6px}
+  .cap{color:#b98f35;font-size:11px}
+  iframe{width:430px;height:640px;border:1px solid #1b2433;border-radius:8px;background:#07090f}
+</style>
+</head>
+<body>
+<iframe id="f1" src="../index.html"></iframe>
+<iframe id="f2" src="../index.html"></iframe>
+<iframe id="f3" src="../index.html"></iframe>
+<script>
+// 用游戏真实的对白层做立绘验证：不造假 DOM、不复制样式，直接驱动 index.html
+const CASES = [
+  { id: 'f1', who: '烛',   mood: 'warm',  cls: 'ghost',
+    text: '……石阶上留着新鲜的铁屑。锁芯转到一半停住了，有人比我们更早到过这里。' },
+  { id: 'f2', who: '薇拉', mood: 'sad',   cls: 'vera',
+    text: '你听见了吗？雾里有钟声。三十年前那一夜，它也是这样响的。' },
+  { id: 'f3', who: '魔王', mood: 'hard',  cls: 'boss',
+    text: '钥匙在我手里。想上楼，先证明你配得上这把锁。' },
+];
+
+function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+(async () => {
+  for (const c of CASES) {
+    const f = document.getElementById(c.id);
+    await new Promise(r => {
+      if (f.contentDocument && f.contentDocument.readyState === 'complete') return r();
+      f.onload = r;
+    });
+    await wait(500);
+    const doc = f.contentDocument, win = f.contentWindow;
+    if (!win.Portraits) { doc.body.innerHTML = '<pre style="color:#f66">Portraits 未加载</pre>'; continue; }
+    doc.getElementById('dialogOverlay').classList.add('show');
+    const who = doc.getElementById('dlgWho');
+    who.textContent = c.who;
+    who.className = 'dlg-who ' + c.cls;
+    doc.getElementById('dlgBox').classList.remove('narration');
+    doc.getElementById('dlgText').innerHTML = c.text;
+    doc.getElementById('dlgCue').textContent = '▼';
+    doc.getElementById('dlgPortrait').innerHTML = win.Portraits.render(c.who, c.mood);
+  }
+  // 校验：是否真的用了 <img>、尺寸是否合理
+  const doc = document.getElementById('f1').contentDocument;
+  const img = doc.querySelector('.pt-img');
+  const pt = doc.querySelector('.pt');
+  const holder = doc.getElementById('dlgPortrait');
+  const r = (el) => el ? [Math.round(el.getBoundingClientRect().width), Math.round(el.getBoundingClientRect().height)].join('x') : 'none';
+  const cs = img ? win0(img) : '';
+  function win0(el){ const c = el.ownerDocument.defaultView.getComputedStyle(el); return c.width + '/' + c.height + '/' + c.objectFit; }
+  document.title = 'holder=' + r(holder) + ' pt=' + r(pt) + ' img=' + r(img) +
+    ' natural=' + (img ? img.naturalWidth + 'x' + img.naturalHeight : 'none') +
+    ' css=' + cs + ' complete=' + (img ? img.complete : false);
+})();
+</script>
+</body>
+</html>

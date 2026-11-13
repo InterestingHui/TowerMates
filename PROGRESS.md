@@ -29,7 +29,6 @@
 | 会话 | 认领事项 | 时间 | 涉及文件 |
 |---|---|---|---|
 | 自动@02:05 | [排队] P-C 决策页提示改触屏文案 + 提对比度（M-D1/M-D2） | 11-14 02:05 | 等 index.html / css/style.css |
-| TowerMates（美术升级） | [执行中] v2.2 美术升级：UI token / 8 角色剪影 / Boss 出场卡 / 人物图鉴 | 11-14 01:56 | css/style.css, js/main.js, js/portraits.js, index.html, tools/*, PROGRESS.md |
 
 挑活前先读本表：**已认领的事项不碰** → 挑定后加一行（会话ID = 当前工作目录末段）→ 做完删行 →
 跨多轮的长任务保留行并更新时间当心跳。跑 e2e / 部署前也在此登记，防互相清 temp 与并发上线。

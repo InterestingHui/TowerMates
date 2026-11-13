@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>art-flow-check</title>
+<style>
+  body{margin:0;background:#05070c;color:#d6dbe6;font:12px/1.7 monospace;padding:10px}
+  iframe{width:430px;height:900px;border:1px solid #1b2433;border-radius:6px}
+  pre{white-space:pre-wrap;margin:8px 0 0}
+</style>
+</head>
+<body>
+<iframe id="f" src="../index.html?dev=1"></iframe>
+<pre id="out">pending</pre>
+<script>
+// 验收两个新展示位的真实行为：
+// ① Boss 出场卡：进 Boss 层自动出现 → 1.2s 自动过 → 可点击跳过 → 不吞掉同层的章节对白
+// ② 图鉴大图：点人物卡 → 320px 位图 + CAP → ESC 关闭
+const wait = (ms) => new Promise(r => setTimeout(r, ms));
+const out = document.getElementById('out');
+const rows = [];
+const log = (k, v) => { rows.push(k + '=' + v); };
+(async () => {
+  const f = document.getElementById('f');
+  await new Promise(r => { f.onload = r; });
+  const w = f.contentWindow, d = f.contentDocument, T = w.__tm, E = w.Engine;
+  await wait(600);
+  // 开局（跳过立誓与序章）
+  d.getElementById('btnNew').click();
+  await wait(250);
+  const vc = d.querySelector('#vowCards .vow-card[data-vow="none"]');
+  if (vc) vc.click();
+  await wait(300);
+  for (let i = 0; i < 12; i++) { d.getElementById('dialogOverlay').dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(60); }
+  await wait(300);
+
+  // ① 第 6 层（第三章入口 + 魔王 Z）：Boss 卡必须先于章节对白
+  const s = E.state();
+  s.floor = 5; s.hp = 3000; s.maxHp = 3000; s.atk = 60; s.def = 30;
+  s.flags.boss_intro_Z = false; s.flags.ch3 = false;
+  T.enterFloor(false);
+  await wait(700);   // 等入场动画（440ms）结束再量，否则拿到的是缩放中的尺寸
+  const ov = d.getElementById('bossIntroOverlay');
+  const shown = ov.classList.contains('show');
+  const pr = d.querySelector('#biPortrait .pt');
+  const img = d.querySelector('#biPortrait img.pt-img');
+  // 用 offsetWidth/Height：无头虚拟时间下 CSS 入场动画停在 scale(.985)，getBoundingClientRect 会量到缩放值
+  log('boss_card_shown', shown);
+  log('boss_card_size', pr ? pr.offsetWidth + 'x' + pr.offsetHeight : 'none');
+  log('boss_img', img ? (img.complete && img.naturalWidth) + 'x' + img.naturalHeight : 'none');
+  log('boss_name', d.getElementById('biName').textContent);
+  // 自动过：1.2s。先在半途确认还开着，再确认关掉且楼层流程继续
+  await wait(300);
+  log('boss_still_at_1s', ov.classList.contains('show'));
+  await wait(320);
+  log('boss_autoclose', !ov.classList.contains('show'));
+  log('floor_continued', d.getElementById('floorCard').classList.contains('show') || s.floor === 5);
+  // 关掉章节对白，重置后测「点击跳过」延迟
+  for (let i = 0; i < 14; i++) { d.getElementById('dialogOverlay').dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(60); }
+  await wait(240);
+  s.flags.boss_intro_Z = false; s.flags.ch3 = true;
+  T.enterFloor(false);
+  await wait(160);
+  const t0 = performance.now();
+  ov.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  const dt = performance.now() - t0;
+  log('boss_skip_ms', Math.round(dt));
+  log('boss_skip_closed', !ov.classList.contains('show'));
+
+  // ② 图鉴大图：点亮角色 → 点卡 → 320px 位图 → ESC 关闭
+  s.flags.codex = true;
+  ['烛', '薇拉', '秤', '墨妖'].forEach((x) => T.Meta.metChar(x));
+  T.openCodex();
+  await wait(300);
+  const card = d.querySelector('.cx-char[data-who="墨妖"]');
+  log('codex_card', !!card);
+  if (card) card.click();
+  await wait(700);
+  const zoom = d.getElementById('portraitOverlay');
+  const zimg = d.querySelector('#ptZoom img.pt-img');
+  const zr = d.getElementById('ptZoom');
+  log('zoom_shown', zoom.classList.contains('show'));
+  log('zoom_size', zr.offsetWidth + 'x' + zr.offsetHeight);
+  log('zoom_img', zimg ? (zimg.complete && zimg.naturalWidth) + 'x' + zimg.naturalHeight : 'none');
+  log('zoom_cap', d.getElementById('ptZoomCap').textContent.slice(0, 16));
+  w.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  await wait(120);
+  log('zoom_esc_closed', !zoom.classList.contains('show'));
+  log('codex_kept', d.getElementById('codexOverlay').classList.contains('show'));
+  log('dialog_untouched', !d.getElementById('dialogOverlay').classList.contains('show'));
+
+  const txt = rows.join('\n');
+  out.textContent = txt;
+  document.title = 'FLOW|' + rows.map((x) => x.replace(/\n/g, ' ')).join('|');
+})();
+</script>
+</body>
+</html>

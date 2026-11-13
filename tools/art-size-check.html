@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>art-size-check</title>
+<style>
+  body{margin:0;background:#05070c;padding:10px;color:#d6dbe6;font:12px/1.6 monospace}
+  iframe{height:900px;border:1px solid #1b2433;border-radius:6px}
+  pre{margin:8px 0 0;white-space:pre-wrap;max-width:900px}
+</style>
+</head>
+<body>
+<iframe id="f" src="../index.html?dev=1"></iframe>
+<pre id="out">pending</pre>
+<script>
+// 量尺：真实页面 + 真实 CSS。用 offsetWidth/Height（不受入场动画 transform 影响）。
+// 用法：art-size-check.html?w=390  量 68px 对白槽；默认 430 量 84px 槽与 320px 大图。
+const Q = new URLSearchParams(location.search);
+const VW = Number(Q.get('w')) || 430;
+const wait = (ms) => new Promise(r => setTimeout(r, ms));
+const rows = [];
+(async () => {
+  const f = document.getElementById('f');
+  f.style.width = VW + 'px';
+  await new Promise(r => { f.onload = r; });
+  const w = f.contentWindow, d = f.contentDocument, T = w.__tm;
+  await wait(700);
+  // 必须有真实局内状态，HUD 主角卡/图鉴才有内容可量
+  d.getElementById('btnNew').click();
+  await wait(200);
+  const vc = d.querySelector('#vowCards .vow-card[data-vow="none"]');
+  if (vc) vc.click();
+  await wait(300);
+  for (let i = 0; i < 12; i++) { d.getElementById('dialogOverlay').dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
+  await wait(300);
+  const px = (n) => n ? n.offsetWidth + 'x' + n.offsetHeight : 'none';
+  const probe = (label, sel) => rows.push(label + ': ' + px(d.querySelector(sel)));
+  probe('viewport', '#app');
+  probe('hero-portrait', '.hero-portrait');
+  probe('topbar', '#topbar');
+  probe('canvas', '#game');
+  probe('chip-hp', '.chip.hp');
+  probe('floor-dots', '.floor-dots');
+  // 对白（68/84 槽）
+  d.getElementById('dialogOverlay').classList.add('show');
+  d.getElementById('dlgWho').textContent = '烛';
+  d.getElementById('dlgText').textContent = '你居然找到了密道。看来你是真打算走到塔顶。';
+  d.getElementById('dlgPortrait').innerHTML = w.Portraits.render('烛', 'calm');
+  await wait(120);
+  probe('dlg-box', '#dlgBox');
+  probe('dlg-portrait', '#dlgPortrait');
+  probe('dlg-pt', '#dlgPortrait .pt');
+  // 放大层
+  T.openPortraitZoom('魔王', '魔王 · 测试', 'hard');
+  await wait(120);
+  probe('pt-zoom', '#ptZoom');
+  probe('pt-zoom-img', '#ptZoom img.pt-img');
+  w.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  d.getElementById('dialogOverlay').classList.remove('show');
+  // Boss 出场卡
+  T.showBossIntro({ boss: true, name: '魔王', title: '第一位工匠 · 炉心之锁', chapter: 2 }, 5, null, true);
+  await wait(120);
+  probe('boss-portrait', '#biPortrait .pt');
+  probe('boss-name', '#biName');
+  T.closeBossIntro();
+  // 图鉴人物卡
+  const s = w.Engine.state();
+  if (s) { s.flags.codex = true; ['烛', '薇拉', '秤', '墨妖'].forEach((x) => T.Meta.metChar(x)); }
+  T.openCodex();
+  await wait(160);
+  probe('codex-panel', '.codex-panel');
+  probe('cx-grid', '.cx-chars');
+  probe('cx-card', '.cx-char');
+  probe('cx-thumb', '.cx-char .pt');
+  // 关键颜色（对比度另算）
+  const cs = (sel) => { const n = d.querySelector(sel); return n ? w.getComputedStyle(n).color : '-'; };
+  const bg = (sel) => { const n = d.querySelector(sel); return n ? w.getComputedStyle(n).backgroundColor : '-'; };
+  rows.push('color-text: ' + cs('.dlg-text'));
+  rows.push('color-muted: ' + cs('.floor-name'));
+  rows.push('bg-panel: ' + bg('.panel'));
+  rows.push('bg-topbar: ' + bg('#topbar'));
+  rows.push('token-l1: ' + w.getComputedStyle(d.documentElement).getPropertyValue('--l1').trim());
+  const txt = rows.join('\n');
+  document.getElementById('out').textContent = txt;
+  document.title = 'SZ ' + VW + ' | ' + rows.filter(r => /^dlg-portrait|^pt-zoom:|^boss-portrait|^cx-card|^hero-portrait/.test(r)).join(' | ');
+})();
+</script>
+</body>
+</html>

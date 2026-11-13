@@ -7,9 +7,9 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="build" content="5e127154f3">
+<meta name="build" content="e91c767072">
 <title>TowerMates · 魔塔</title>
-<link rel="stylesheet" href="css/style.css?v=5e127154f3">
+<link rel="stylesheet" href="css/style.css?v=e91c767072">
 </head>
 <body>
 <div id="app">
@@ -27,21 +27,27 @@
       <span class="vowtag" id="vowTag" hidden></span>
       <div class="floor-dots" id="floorDots"></div>
     </div>
-    <div class="chips">
-      <div class="chip hp"><span class="ico">❤️</span><b id="statHp" hidden>1000</b><div class="hpwrap"><div class="hpghost" id="hpGhost"></div><div class="hpbar" id="hpBar"></div><span class="hptext" id="hpText">1000</span></div></div>
-      <div class="chip"><span class="ico">⚔️</span><b id="statAtk">10</b></div>
-      <div class="chip"><span class="ico">🛡️</span><b id="statDef">10</b></div>
-      <div class="chip"><span class="ico">💰</span><b id="statGold">0</b></div>
-      <div class="chip"><span class="ico">⭐</span><b id="statLv">Lv.1</b></div>
-    </div>
-    <div class="keys">
-      <span class="keytag ky">黄 <b id="keyY">1</b></span>
-      <span class="keytag kr">红 <b id="keyR">0</b></span>
-      <div class="relics" id="relicRow"></div>
-      <span class="rings" id="ringRow"></span>
-      <span class="blockpip" id="blockPip" title="本层还有一次格挡">🛡</span>
-      <span class="compasspip" id="compassPip" hidden title="本层还剩几件东西没捡">🧭</span>
-      <span class="compasspip scopepip" id="scopePip" hidden title="本层还剩几只怪">⚔</span>
+    <div class="hero-card">
+      <div class="hero-portrait" id="heroPortrait" aria-hidden="true"></div>
+      <div class="hero-main">
+        <div class="hero-id"><b>守灯人 · 烛</b><i id="heroState">还有余力</i></div>
+        <div class="chips">
+          <div class="chip hp"><span class="ico">❤️</span><b id="statHp" hidden>1000</b><div class="hpwrap"><div class="hpghost" id="hpGhost"></div><div class="hpbar" id="hpBar"></div><span class="hptext" id="hpText">1000</span></div></div>
+          <div class="chip"><span class="ico">⚔️</span><b id="statAtk">10</b></div>
+          <div class="chip"><span class="ico">🛡️</span><b id="statDef">10</b></div>
+          <div class="chip"><span class="ico">💰</span><b id="statGold">0</b></div>
+          <div class="chip"><span class="ico">⭐</span><b id="statLv">Lv.1</b></div>
+        </div>
+        <div class="keys">
+          <span class="keytag ky">黄 <b id="keyY">1</b></span>
+          <span class="keytag kr">红 <b id="keyR">0</b></span>
+          <div class="relics" id="relicRow"></div>
+          <span class="rings" id="ringRow"></span>
+          <span class="blockpip" id="blockPip" title="本层还有一次格挡">🛡</span>
+          <span class="compasspip" id="compassPip" hidden title="本层还剩几件东西没捡">🧭</span>
+          <span class="compasspip scopepip" id="scopePip" hidden title="本层还剩几只怪">⚔</span>
+        </div>
+      </div>
     </div>
     <div class="stuck-bar" id="stuckBar" hidden>
       <span class="sb-ico">⚠</span>
@@ -139,6 +145,29 @@
     <div class="vow-cards" id="vowCards"></div>
     <div class="vow-locked" id="vowLocked" hidden></div>
     <div class="vow-hint">点一张开始</div>
+  </div>
+</div>
+
+<div class="overlay portrait" id="portraitOverlay">
+  <div class="pt-zoom-wrap">
+    <div class="pt-zoom" id="ptZoom"></div>
+    <div class="pt-zoom-cap" id="ptZoomCap"></div>
+    <div class="pt-zoom-hint">点击任意处 / ESC 关闭</div>
+  </div>
+</div>
+
+<!-- Boss 出场卡：进 Boss 层时 320px 位图 + 名字条，1.2 秒，点击/ESC 可跳过 -->
+<div class="overlay boss-intro" id="bossIntroOverlay">
+  <div class="bi-stage">
+    <div class="bi-kicker" id="biKicker">第 三 章 · 第 九 层</div>
+    <div class="bi-portrait" id="biPortrait"></div>
+    <div class="bi-bar">
+      <span class="bi-rule"></span>
+      <div class="bi-name" id="biName"></div>
+      <span class="bi-rule"></span>
+    </div>
+    <div class="bi-title" id="biTitle"></div>
+    <div class="bi-hint">点击 / ESC 跳过</div>
   </div>
 </div>
 
@@ -469,18 +498,18 @@
   </div>
 </div>
 
-<script src="js/data.js?v=5e127154f3"></script>
-<script src="js/story.js?v=5e127154f3"></script>
-<script src="js/portraits.js?v=5e127154f3"></script>
-<script src="js/achievements.js?v=5e127154f3"></script>
-<script src="js/engine.js?v=5e127154f3"></script>
-<script src="js/render.js?v=5e127154f3"></script>
-<script src="js/ads.js?v=5e127154f3"></script>
-<script src="js/main.js?v=5e127154f3"></script>
-<script src="js/challenge.js?v=5e127154f3"></script>
-<script src="js/wxbridge.js?v=5e127154f3"></script>
-<script src="js/touch.js?v=5e127154f3"></script>
-<script src="js/gate-forth.js?v=5e127154f3"></script>
-<script src="js/wxwire.js?v=5e127154f3"></script>
+<script src="js/data.js?v=e91c767072"></script>
+<script src="js/story.js?v=e91c767072"></script>
+<script src="js/portraits.js?v=e91c767072"></script>
+<script src="js/achievements.js?v=e91c767072"></script>
+<script src="js/engine.js?v=e91c767072"></script>
+<script src="js/render.js?v=e91c767072"></script>
+<script src="js/ads.js?v=e91c767072"></script>
+<script src="js/main.js?v=e91c767072"></script>
+<script src="js/challenge.js?v=e91c767072"></script>
+<script src="js/wxbridge.js?v=e91c767072"></script>
+<script src="js/touch.js?v=e91c767072"></script>
+<script src="js/gate-forth.js?v=e91c767072"></script>
+<script src="js/wxwire.js?v=e91c767072"></script>
 </body>
 </html>

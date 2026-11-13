@@ -1,0 +1,32 @@
+<!DOCTYPE html><html><head><meta charset="UTF-8"><title>portrait-zoom-static</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+  body{margin:0;background:#07090f;height:100vh;display:grid;grid-template-columns:1fr 1fr}
+  .side{position:relative;display:flex;align-items:center;justify-content:center}
+  .side + .side{border-left:1px solid rgba(255,255,255,.08)}
+  .cap{position:absolute;top:10px;left:12px;font:11px monospace;color:#b98f35}
+  /* 左：模拟游戏内对白 */
+  .mock-dlg{width:360px;display:flex;gap:12px;background:linear-gradient(180deg,rgba(17,22,33,.97),rgba(9,12,19,.98));
+    border:1px solid rgba(232,196,106,.26);border-radius:15px;padding:13px 15px 9px;min-height:104px}
+  .mock-dlg .dlg-portrait{width:84px}
+  .mock-dlg .dlg-main{flex:1}
+  .mock-dlg .dlg-who{font-size:12.5px;font-weight:700;letter-spacing:2.2px;color:#ff8f8f;margin-bottom:5px}
+  .mock-dlg .dlg-text{font-size:13px;line-height:1.75;color:#c9d1e0}
+</style></head><body>
+<div class="side"><div class="cap">游戏内对白 · 68px</div>
+  <div class="mock-dlg"><div class="dlg-portrait" id="p1"></div>
+    <div class="dlg-main"><div class="dlg-who">魔王</div>
+      <div class="dlg-text">钥匙在我手里。想上楼，先证明你配得上这把锁。</div></div></div>
+</div>
+<div class="side"><div class="cap">点击立绘 → 放大层</div>
+  <div class="overlay portrait show" id="ov" style="position:absolute;inset:0">
+    <div class="pt-zoom-wrap"><div class="pt-zoom" id="p2"></div>
+      <div class="pt-zoom-hint">点击任意处关闭</div></div>
+  </div>
+</div>
+<script src="../js/portraits.js"></script>
+<script>
+document.getElementById('p1').innerHTML = Portraits.render('魔王','hard');
+document.getElementById('p2').innerHTML = Portraits.render('魔王','hard',null,'lg');
+const im = document.querySelector('#p2 img'); if (im) im.src = '../' + im.getAttribute('src');
+</script></body></html>

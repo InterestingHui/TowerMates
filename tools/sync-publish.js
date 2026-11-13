@@ -39,6 +39,18 @@ fs.mkdirSync(path.join(OUT, 'css'), { recursive: true });
 JS_FILES.forEach((f) => fs.writeFileSync(path.join(OUT, 'js', f), js[f]));
 fs.writeFileSync(path.join(OUT, 'css', 'style.css'), css);
 fs.writeFileSync(path.join(OUT, 'index.html'), outHtml);
+
+// 静态资产（立绘等）：整目录同步，避免 publish/ 缺图导致回落成 SVG
+function copyDir(src, dst) {
+  if (!fs.existsSync(src)) return;
+  fs.mkdirSync(dst, { recursive: true });
+  for (const e of fs.readdirSync(src, { withFileTypes: true })) {
+    const s = path.join(src, e.name), d = path.join(dst, e.name);
+    if (e.isDirectory()) copyDir(s, d);
+    else fs.copyFileSync(s, d);
+  }
+}
+copyDir(path.join(ROOT, 'assets'), path.join(OUT, 'assets'));
 // 源码 index.html 同步指纹：本地/无头工具吃的是源码，指纹不跟就会加载旧 js
 // （并发写回旧指纹会互相踩，这里每次 sync 都强制刷成最新 build）
 fs.writeFileSync(path.join(ROOT, 'index.html'), outHtml);

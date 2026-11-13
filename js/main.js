@@ -142,7 +142,7 @@
   const LAMP_MAX = 13;    // 一层一盏，纯收藏，全解锁后的余烬出口
   const Meta = (() => {
     const KEY = 'towermates_meta';
-    const blank = () => ({ runs: 0, endings: {}, vowWins: {}, fullChapters: 0, heartTaken: 0, heartLeft: 0, deepest: 0, fastest: 0, bestSeal: '', emberRuns: [], firstVowWin: {}, lamps: 0, seenRelics: [], seenRings: [], marginCounts: {}, marginBest: '' });
+    const blank = () => ({ runs: 0, endings: {}, vowWins: {}, fullChapters: 0, heartTaken: 0, heartLeft: 0, deepest: 0, fastest: 0, bestSeal: '', emberRuns: [], firstVowWin: {}, lamps: 0, seenRelics: [], seenRings: [], marginCounts: {}, marginBest: '', metChars: [] });
     let data = { ember: 0, unlocked: [], resets: 0, memory: blank() };
     try { data = Object.assign(data, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) {}
     if (!data.memory) data.memory = blank();
@@ -165,6 +165,9 @@
     // 决战余裕跨局统计（老档补空，不作废）
     mem.marginCounts = (mem.marginCounts && typeof mem.marginCounts === 'object') ? mem.marginCounts : {};
     mem.marginBest = mem.marginBest || '';
+    // 人物图鉴：遇见过谁（跨局累计；老档至少算认识烛——他是叙述者）
+    mem.metChars = Array.isArray(mem.metChars) ? mem.metChars : [];
+    if (!mem.metChars.length) mem.metChars.push('烛');
     return {
       get ember() { return data.ember || 0; },
       get resets() { return data.resets || 0; },
@@ -180,6 +183,13 @@
         if (!id || mem.seenRings.indexOf(id) >= 0) return false;
         mem.seenRings.push(id); save(); return true;
       },
+      // 人物相遇：只增不减，图鉴里点亮条目
+      metChar(who) {
+        if (!who || mem.metChars.indexOf(who) >= 0) return false;
+        mem.metChars.push(who); save(); return true;
+      },
+      hasMet(who) { return mem.metChars.indexOf(who) >= 0; },
+      get metChars() { return mem.metChars; },
       // 锁环被选中 / 带它通关各记一笔（统计只增不减，清档时才归零）
       ringPicked(id) {
         if (!id) return;
@@ -547,6 +557,8 @@
     log: $('log'),
     startOverlay: $('startOverlay'), shopOverlay: $('shopOverlay'),
     endOverlay: $('endOverlay'), dialogOverlay: $('dialogOverlay'),
+    portraitOverlay: $('portraitOverlay'), ptZoom: $('ptZoom'),
+    bossIntroOverlay: $('bossIntroOverlay'),
     boardOverlay: $('boardOverlay'), codexOverlay: $('codexOverlay'),
     cfgOverlay: $('cfgOverlay'), choiceOverlay: $('choiceOverlay'),
     heartOverlay: $('heartOverlay'), heartTake: $('heartTake'), heartLeave: $('heartLeave'),
@@ -1173,6 +1185,7 @@
     stuckInfo = null;
   }
 
+  let heroMood = '';
   function refreshHud() {
     const s = Engine.state();
     if (!s) return;
@@ -1193,9 +1206,23 @@
       el.hpGhost.style.width = pct + '%';
     }
     lastPct = pct;
-    $('hpText').textContent = `${Math.max(0, Math.round(s.hp))} / ${Math.round(maxHp)}`;
+    $('hpText').textContent = `${Math.max(0, Math.round(s.hp))}/${Math.round(maxHp)}`;
     wrap.classList.toggle('low', pct <= 25);
     el.floorName.textContent = `第 ${s.floor + 1} 层 · ${D.floors[s.floor].name}`;
+    // 主角卡：立绘只换情绪，切层/掉血才重算 SVG；情绪同时给一句人话状态
+    const heroMoodNow = pct <= 30 ? 'sad' : pct <= 60 ? 'tired' : floorBossAlive(s) ? 'firm' : 'calm';
+    if (heroMoodNow !== heroMood) {
+      heroMood = heroMoodNow;
+      const hp = $('heroPortrait');
+      if (hp && window.Portraits) hp.innerHTML = Portraits.render('烛', heroMoodNow);
+    }
+    const hs = $('heroState');
+    if (hs) {
+      hs.textContent = pct <= 30 ? '快撑不住了'
+        : pct <= 60 ? '带着伤'
+          : s.hp >= maxHp ? '状态完好'
+            : '还有余力';
+    }
     el.statAtk.textContent = s.atk;
     el.statDef.textContent = s.def;
     el.statGold.textContent = s.gold;
@@ -1348,6 +1375,8 @@
     $('dlgPortrait').innerHTML = window.Portraits
       ? window.Portraits.render(line.who, line.mood || 'calm', typing.variant || null)
       : '';
+    // 说过话就算相遇：图鉴里点亮这个人
+    if (line.who && window.Portraits && Portraits.has(line.who)) Meta.metChar(line.who);
     $('dlgCue').textContent = typing.cue || (typing.idx >= typing.lines.length - 1 ? '点击结束' : '▼');
     const prev = $('dlgPrev');
     prev.disabled = typing.idx === 0;
@@ -1577,6 +1606,28 @@
   // ---------- 图鉴 ----------
   // 自动遍历全部怪物（v0.4 的手抄名单在扩层后丢了 8 只锁梁怪和 4 位 Boss），
   // 按「首次出现的楼层」排序——那是玩家认识它们的顺序
+  // 人物条目：图鉴上半区（大图走 320px 位图放大层）
+  const CHARACTERS = [
+    { who: '烛', role: '守灯人', cap: '守灯人 · 塔里唯一还肯说话的人' },
+    { who: '薇拉', role: '锁里的公主', cap: '薇拉 · 锁里的公主 · 王冠与面纱两种样子' },
+    { who: '秤', role: '流浪商人', cap: '秤 · 流浪商人 · 什么都收，什么都卖' },
+    { who: '炎魔', role: '守炉者', cap: '炎魔 · 守炉者 · 一炉里烧出来的东西' },
+    { who: '墨妖', role: '名册之锁', cap: '墨妖 · 第一位工匠 · 名册之锁 · 第 3 层' },
+    { who: '魔王', role: '炉心之锁', cap: '魔王 · 第一位工匠 · 炉心之锁 · 第 6 层' },
+    { who: '钟妖', role: '时辰之锁', cap: '钟妖 · 第五位工匠 · 时辰之锁 · 第 9 层' },
+    { who: '碑魔', role: '无名之锁', cap: '碑魔 · 第六位工匠 · 无名之锁 · 第 12 层' },
+  ];
+  const BOSS_WHO = { 墨妖: 1, 魔王: 1, 钟妖: 1, 碑魔: 1 };
+
+  function openPortraitZoom(who, cap, mood) {
+    if (!window.Portraits) return;
+    el.ptZoom.innerHTML = Portraits.render(who, mood || 'calm', null, 'lg');
+    const c = $('ptZoomCap');
+    if (c) c.textContent = cap || '';
+    el.portraitOverlay.classList.add('show');
+    if (window.Sound) Sound.play('talk');
+  }
+
   function openCodex() {
     const s = Engine.state();
     if (!s || !s.flags.codex) return;
@@ -1592,7 +1643,17 @@
     });
     const order = Object.keys(D.monsters).filter((ch) => D.monsters[ch] && !D.monsters[ch].ghost)
       .sort((a, b) => (firstFloor[a] ?? 99) - (firstFloor[b] ?? 99));
-    $('codexList').innerHTML = order.map((ch) => {
+    const metCount = CHARACTERS.filter((c) => Meta.hasMet(c.who)).length;
+    const charHtml = `<div class="cx-sec"><span>人 物</span><small>已相遇 ${metCount} / 8 · 点开看大图</small></div>
+      <div class="cx-chars">${CHARACTERS.map((c) => {
+        const met = Meta.hasMet(c.who);
+        const boss = BOSS_WHO[c.who] ? '<span class="cx-mark">Boss</span>' : '';
+        return `<button class="cx-char${met ? '' : ' off'}" data-who="${c.who}" data-cap="${c.cap}"${met ? '' : ' disabled'}>
+          ${window.Portraits ? Portraits.render(c.who, 'calm') : ''}
+          <b>${c.who}</b><i>${met ? c.role : '尚未相遇'}</i>${boss}
+        </button>`;
+      }).join('')}</div>`;
+    $('codexList').innerHTML = charHtml + order.map((ch) => {
       const m = D.monsters[ch];
       const p = Engine.predict(ch);
       let loss = '无法破防';
@@ -1620,6 +1681,11 @@
         ${mgRow}
       </div>`;
     }).join('');
+    $('codexList').querySelectorAll('.cx-char:not(.off)').forEach((b) => {
+      b.addEventListener('click', () => {
+        openPortraitZoom(b.dataset.who, b.dataset.cap);
+      });
+    });
     el.codexOverlay.classList.add('show');
   }
 
@@ -2987,6 +3053,34 @@
   }
 
   // ---------- 楼层卡片 ----------
+  // ---------- Boss 出场卡（进 Boss 层：320px 位图 + 名字条，1.2 秒） ----------
+  let bossIntroTimer = null;
+  let bossIntroCb = null;
+  const CN_NUM = ['一', '二', '三', '四', '五', '六'];
+  function showBossIntro(m, floor, cb, hold) {
+    if (!m || !m.boss) { if (cb) cb(); return; }
+    $('biKicker').textContent = `第 ${CN_NUM[(m.chapter || 1) - 1]} 章 · 第 ${floor + 1} 层`;
+    $('biName').textContent = m.name;
+    $('biTitle').textContent = m.title || '';
+    $('biPortrait').innerHTML = window.Portraits ? Portraits.render(m.name, 'hard', null, 'lg') : '';
+    bossIntroCb = cb || null;
+    el.bossIntroOverlay.classList.add('show');
+    if (window.Sound) Sound.play('open');
+    clearTimeout(bossIntroTimer);
+    // 1.2 秒自动过：它只负责「谁在拦你」，不接管任何流程
+    bossIntroTimer = hold ? null : setTimeout(closeBossIntro, Settings.fast ? 700 : 1200);
+  }
+  function closeBossIntro() {
+    clearTimeout(bossIntroTimer);
+    bossIntroTimer = null;
+    if (!el.bossIntroOverlay.classList.contains('show')) return;
+    el.bossIntroOverlay.classList.remove('show');
+    $('biPortrait').innerHTML = '';
+    const cb = bossIntroCb;
+    bossIntroCb = null;
+    if (cb) cb();
+  }
+
   let floorCardTimer = null;
   function showFloorCard(floor) {
     const f = D.floors[floor];
@@ -3198,6 +3292,14 @@
   function enterFloor(first) {
     const s = Engine.state();
     const f = D.floors[s.floor];
+    const bm = floorBossAlive(s);
+    if (!first && bm && bm.boss && !s.flags['boss_intro_' + f.boss]) {
+      s.flags['boss_intro_' + f.boss] = true;
+      Engine.save();
+      if (window.Portraits && Portraits.has(bm.name)) Meta.metChar(bm.name);
+      showBossIntro(bm, s.floor, () => enterFloor(first));
+      return;
+    }
     clearStuck();
     Renderer.fade(first ? 420 : 320);
     Renderer.setAmbient(s.floor);
@@ -3363,10 +3465,29 @@
     refreshHud();
   }
 
+  function closePortraitZoom() {
+    el.portraitOverlay.classList.remove('show');
+    const c = $('ptZoomCap');
+    if (c) c.textContent = '';
+    el.ptZoom.innerHTML = '';
+  }
+
   // ---------- 输入 ----------
   let lastKeyAt = 0;
   function bindInput() {
+    el.bossIntroOverlay.addEventListener('click', closeBossIntro);
     el.dialogOverlay.addEventListener('click', advanceDialog);
+    // 点对白立绘 → 放大看大图（只对已有位图资产的角色生效，其余角色点击仍是对白推进）
+    $('dlgPortrait').addEventListener('click', (e) => {
+      if (!typing) return;
+      const line = typing.lines[typing.idx];
+      if (!line || !line.who) return;
+      const P = window.Portraits;
+      if (!P || !P.hasRaster || !P.hasRaster(line.who)) return;
+      e.stopPropagation();
+      openPortraitZoom(line.who, line.who, line.mood || 'calm');
+    });
+    el.portraitOverlay.addEventListener('click', closePortraitZoom);
     $('dlgSkip').addEventListener('click', (e) => { e.stopPropagation(); skipDialog(); });
     $('dlgPrev').addEventListener('click', (e) => { e.stopPropagation(); prevDialog(); });
 
@@ -3382,6 +3503,15 @@
 
     window.addEventListener('keydown', (e) => {
       if (el.startOverlay.classList.contains('show')) return;
+      // 这两层叠在对白之上：先关上面那层，不能顺手把下面的对白也推进/跳过
+      if (el.bossIntroOverlay.classList.contains('show')) {
+        if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') { e.preventDefault(); closeBossIntro(); }
+        return;
+      }
+      if (el.portraitOverlay.classList.contains('show')) {
+        if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') { e.preventDefault(); closePortraitZoom(); }
+        return;
+      }
       if (el.dialogOverlay.classList.contains('show') || typing) {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); advanceDialog(); }
         else if (e.key === 'Escape') skipDialog();
@@ -4126,6 +4256,7 @@
   window.__tm = {
     playStory, showEnd, openShop, openCodex, openBoard, openCfg, closeCfg,
     showFloorCard, showEndingChoice, completeEnding, setChoiceFocus, openHeart, chooseHeart, setHeartFocus, openVow, chooseVow, openEvent, chooseEvent, openGate, jumpTo: (i) => doJump(i), Meta,
+    showBossIntro, closeBossIntro, openPortraitZoom, enterFloor,
     resolveBattle, act, clickMove, emberOf, refreshHud, refreshStartBadges,
     testRelicShowcase: () => { const st = Engine.state(); if (st) relicShowcase(st.x, st.y); },
     openEcho, chooseRing, closeEcho, resumePendingRing, setChapterColor, refreshCfg,
