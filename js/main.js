@@ -265,6 +265,7 @@
   // ---------- 本地漏斗缓冲 ----------
   // 没有后端：先把关键节点写进 localStorage（上限 200 条），接微信分析/SDK 时整批转发。
   // 只记事件名与局数/结局/层数这类粗粒度字段，不记任何可识别信息。
+  const LOAD_AT = Date.now();   // 页面打开时刻：用来算「加载→开局」这段新手摩擦
   const Funnel = (() => {
     const KEY = 'towermates_funnel';
     let list = [];
@@ -1952,7 +1953,7 @@
         ? `<span>图鉴新收录：${s.flags.collectNew.slice(0, 4).join('、')}${s.flags.collectNew.length > 4 ? ` 等 ${s.flags.collectNew.length} 件` : ''}（带走的东西不会因为倒下而丢失）</span>`
         : '');
     Meta.recordRun({ ending: null, won: false, vow: s.flags.vow || 'none', fullChapters: 0, heart: null, floor: s.floor, time: sum.time, seal, ember: emberGain });
-    Funnel.push('run_end', { n: Meta.memory.runs, won: 0, floor: s.floor + 1, seal, time: sum.time, dmg: s.damageTaken || 0 });
+    Funnel.push('run_end', { n: Meta.memory.runs, won: 0, floor: s.floor + 1, seal, time: sum.time, dmg: s.damageTaken || 0, sinceLoad: Math.max(0, Math.round((Date.now() - LOAD_AT) / 1000)) });
     Meta.add(emberGain);
     // 折戟里程碑：recordRun 之后喂事件，falls 已含本次（3 次「塔的常客」/ 10 次「不死不休」）
     const deathState = Object.assign({}, s, { flags: Object.assign({}, s.flags, { falls: Meta.memory.falls }) });
@@ -2769,7 +2770,7 @@
       // 这里比结算摘要里算余裕更早，直接问引擎，别依赖变量声明顺序
       margin: (Engine.battleMargin() || {}).grade || '',
     });
-    Funnel.push('run_end', { n: Meta.memory.runs, won: 1, floor: sum.floor, ending: s.ending || 'plain', seal, time: sum.time, dmg: s.damageTaken || 0 });
+    Funnel.push('run_end', { n: Meta.memory.runs, won: 1, floor: sum.floor, ending: s.ending || 'plain', seal, time: sum.time, dmg: s.damageTaken || 0, sinceLoad: Math.max(0, Math.round((Date.now() - LOAD_AT) / 1000)) });
     Meta.ringWin(Engine.rings());   // 图鉴里记「带它通关过几次」
     $('endScore').innerHTML = `<span class="es-grade ${seal}" data-seal="${seal}">${sealDef.name}</span>
       <span class="es-meta">${s.ending === 'true' ? '真结局' : '普通结局'}${s.flags.heart === 'taken' ? ' · 塔心带走' : s.flags.heart === 'left' ? ' · 塔心留下' : ''} · 回响 ${echoDone}/4 · 遗物 ${relicIds.length} · 锁环 ${ringList.length}</span>
@@ -3879,6 +3880,7 @@
       n: (Meta.memory.runs || 0) + 1,
       vow: vow || 'none',
       gap: lastEnd ? Math.max(0, Math.round((Date.now() - lastEnd.at) / 1000)) : -1,
+      sinceLoad: Math.max(0, Math.round((Date.now() - LOAD_AT) / 1000)),
     });
     endShown = false;
     deathShown = false; // 新一局要能重新弹死亡结算：上一局置的 true 必须清掉
@@ -3925,12 +3927,15 @@
   }
 
   // 调试页：?funnel=1 把本机漏斗渲染成一页（不上正式入口，只给排查/看数据用）
+  // 支持筛选：全部 / 关键（开局+结算）/ 退出；时间可正序倒序切换。
   function showFunnelView() {
     const rows = Funnel.all();
     const starts = rows.filter((x) => x.ev === 'run_start');
     const ends = rows.filter((x) => x.ev === 'run_end');
+    const hides = rows.filter((x) => x.ev === 'page_hide');
     const second = starts.find((x) => x.n === 2);
     const gap = second && second.gap >= 0 ? `${second.gap} 秒` : '—';
+    const loadToStart = starts.length && starts[0].sinceLoad >= 0 ? `${starts[0].sinceLoad} 秒` : '—';
     const box = document.createElement('div');
     box.id = 'funnelView';
     box.className = 'funnel-view';
@@ -3939,12 +3944,40 @@
       return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
     };
     box.innerHTML = `<h2>本机漏斗 · ${rows.length} 条</h2>`
-      + `<p class="fv-sum">首局→二局间隔：<b>${gap}</b> · 开局 ${starts.length} 次 / 结算 ${ends.length} 次</p>`
-      + `<div class="fv-list">${rows.length ? rows.slice().reverse().map((x) => {
-        const extra = Object.keys(x).filter((k) => k !== 'at' && k !== 'ev').map((k) => `${k}=${x[k]}`).join(' ');
-        return `<div class="fv-row"><time>${fmt(x.at)}</time><b>${x.ev}</b><span>${extra}</span></div>`;
-      }).join('') : '<p class="fv-empty">还没有记录。玩一局再回来。</p>'}</div>`
+      + `<p class="fv-sum">加载→开局：<b>${loadToStart}</b> · 首局→二局：<b>${gap}</b> · 开局 ${starts.length} / 结算 ${ends.length} / 退出 ${hides.length}</p>`
+      + `<div class="fv-tools">`
+      + `<button class="fv-chip on" data-f="all">全部 ${rows.length}</button>`
+      + `<button class="fv-chip" data-f="key">关键 ${starts.length + ends.length}</button>`
+      + `<button class="fv-chip" data-f="hide">退出 ${hides.length}</button>`
+      + `<button class="fv-chip fv-order" id="fvOrder">倒序 ↓</button>`
+      + `</div>`
+      + `<div class="fv-list" id="fvList"></div>`
       + `<p class="fv-note">清空：控制台执行 __tm.funnelClear() · 关闭：刷新页面</p>`;
+    let filter = 'all', desc = true;
+    const paint = () => {
+      const list = box.querySelector('#fvList');
+      const pick = filter === 'key' ? rows.filter((x) => x.ev === 'run_start' || x.ev === 'run_end')
+        : filter === 'hide' ? hides : rows;
+      const view = desc ? pick.slice().reverse() : pick;
+      list.innerHTML = view.length ? view.map((x) => {
+        const extra = Object.keys(x).filter((k) => k !== 'at' && k !== 'ev').map((k) => `${k}=${x[k]}`).join(' ');
+        return `<div class="fv-row" data-ev="${x.ev}"><time>${fmt(x.at)}</time><b>${x.ev}</b><span>${extra}</span></div>`;
+      }).join('') : '<p class="fv-empty">这一类还没有记录。</p>';
+    };
+    box.addEventListener('click', (e) => {
+      const chip = e.target.closest('.fv-chip');
+      if (!chip) return;
+      if (chip.id === 'fvOrder') {
+        desc = !desc;
+        chip.textContent = desc ? '倒序 ↓' : '正序 ↑';
+      } else {
+        filter = chip.dataset.f;
+        box.querySelectorAll('.fv-chip[data-f]').forEach((c) => c.classList.toggle('on', c === chip));
+      }
+      paint();
+    });
+    box.querySelector('#fvOrder').textContent = '倒序 ↓';
+    paint();
     document.body.appendChild(box);
   }
 

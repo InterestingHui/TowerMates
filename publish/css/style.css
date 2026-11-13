@@ -1135,6 +1135,9 @@ html, body {
   position: fixed;
   inset: 0;
   z-index: 9999;
+  width: 100vw;
+  max-width: 100vw;
+  overflow-x: hidden;
   overflow-y: auto;
   padding: 24px 16px 40px;
   background: #07090f;
@@ -1144,8 +1147,21 @@ html, body {
 .funnel-view h2 { margin: 0 0 6px; font-size: 15px; color: var(--gold); }
 .funnel-view .fv-sum { margin: 0 0 14px; color: #9fb0c8; }
 .funnel-view .fv-sum b { color: var(--gold); }
+.funnel-view .fv-tools { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 12px; max-width: 100%; }
+.funnel-view .fv-chip {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.04);
+  color: #9fb0c8;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.funnel-view .fv-chip.on { border-color: rgba(232,196,106,0.6); color: var(--gold); background: rgba(232,196,106,0.1); }
+.funnel-view .fv-order { margin-left: auto; }
 .funnel-view .fv-list { display: flex; flex-direction: column; gap: 4px; }
-.funnel-view .fv-row { display: grid; grid-template-columns: 62px 92px 1fr; gap: 8px; padding: 5px 8px; border-radius: 6px; background: rgba(255,255,255,0.03); }
+.funnel-view .fv-row { display: grid; grid-template-columns: 56px 80px minmax(0, 1fr); gap: 8px; padding: 5px 8px; border-radius: 6px; background: rgba(255,255,255,0.03); }
 .funnel-view .fv-row time { color: #6f7f96; }
 .funnel-view .fv-row b { color: #8fd0ff; font-weight: 600; }
 .funnel-view .fv-row span { color: #9aa8bb; word-break: break-all; }

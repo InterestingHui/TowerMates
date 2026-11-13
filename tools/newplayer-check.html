@@ -343,7 +343,8 @@ function load(url) { return new Promise((res) => { f.onload = () => res(); f.src
       await wait(400);
       const fl = JSON.parse(w.localStorage.getItem('towermates_funnel') || '[]');
       const evs = fl.map((x) => x.ev);
-      rec('F7 漏斗缓冲记下首局开始与结束', evs.indexOf('run_start') >= 0 && evs.indexOf('run_end') >= 0, evs.join(',') || '空');
+      const st7 = fl.find((x) => x.ev === 'run_start');
+      rec('F7 漏斗缓冲记下首局开始与结束', evs.indexOf('run_start') >= 0 && evs.indexOf('run_end') >= 0 && !!st7 && st7.sinceLoad >= 0, `事件=${evs.join(',')} 加载→开局=${st7 ? st7.sinceLoad : '—'}s`);
       // F8 有存档时首屏只推「继续游戏」，开新局折成一行小字
       await load('/index.html?p=f8');
       w = f.contentWindow; d = f.contentDocument;
@@ -362,6 +363,19 @@ function load(url) { return new Promise((res) => { f.onload = () => res(); f.src
       await wait(400);
       const fv = d.getElementById('funnelView');
       rec('F10 ?funnel=1 渲染本机漏斗', !!fv && /本机漏斗/.test(fv.textContent) && /run_start/.test(fv.textContent), fv ? fv.textContent.slice(0, 30).replace(/\s+/g, ' ') : '缺失');
+      // F11 筛选：关键（开局+结算）/ 退出，行数要和存档里的条数对上
+      const fl11 = JSON.parse(w.localStorage.getItem('towermates_funnel') || '[]');
+      const keyN = fl11.filter((x) => x.ev === 'run_start' || x.ev === 'run_end').length;
+      const hideN = fl11.filter((x) => x.ev === 'page_hide').length;
+      const chipKey = d.querySelector('#funnelView [data-f="key"]');
+      const chipHide = d.querySelector('#funnelView [data-f="hide"]');
+      if (chipKey) chipKey.click();
+      await wait(150);
+      const rowsKey = d.querySelectorAll('#funnelView .fv-row').length;
+      if (chipHide) chipHide.click();
+      await wait(150);
+      const rowsHide = d.querySelectorAll('#funnelView .fv-row').length;
+      rec('F11 漏斗页筛选（关键/退出）', rowsKey === keyN && rowsHide === hideN, `关键 ${rowsKey}/${keyN} · 退出 ${rowsHide}/${hideN}`);
 
     }
 
