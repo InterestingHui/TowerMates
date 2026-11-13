@@ -660,12 +660,13 @@ html, body {
 .bd-note { font-size: 10.5px; color: #8a93a5; padding: 6px 8px; border-left: 2px solid rgba(232,196,106,0.4); margin-bottom: 4px; line-height: 1.5; }
 .bd-rank { color: var(--dim); font-variant-numeric: tabular-nums; }
 .bd-name { color: #c6cdda; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* 影子勇者脚注：比名字暗一档的小字，川那句与断剑/薇拉台词互证 */
+/* 影子勇者脚注：独立成第二行（同格 nowrap 会把 11 字脚注截成省略号——430/390/360 实测全溢出） */
 .bd-rnote {
+  display: inline-block;
   font-style: normal;
   font-size: 9.5px;
   color: #7a8496;
-  margin-left: 5px;
+  margin-top: 1px;
 }
 .bd-end { color: var(--dim); font-size: 10.5px; }
 .bd-end.t { color: var(--cyan); }

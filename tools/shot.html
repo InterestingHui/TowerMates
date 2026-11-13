@@ -32,8 +32,8 @@
     stoneidle: base + '?dev=1#demo=12,5,8',
     adsdeath: base + '?ads=1&dev=1',
     adsend: base + '?ads=1&dev=1',
-    // 第八勇者线全链路：开局落在第 5 层狼厅断剑 (6,1) 下方一格 (6,2)
-    sword: base + '?dev=1#demo=4,6,2',
+    // 第八勇者线全链路：开局落在第 5 层狼厅 (6,1)，右移一步踩断剑 (7,1)
+    sword: base + '?dev=1#demo=4,6,1',
   }[scene] || base + '?dev=1';
   // 截图场景不触发新手提示对白，保持被测画面干净
   try {
@@ -158,51 +158,58 @@
         T.showEnd();
         await wait(1600);
       } else if (scene === 'sword') {
-        // 第八勇者线全链路验收：真开局 → 踩断剑（播小传+授遗物+成就「接过断剑」）
-        // → 传送塔顶踩公主（无手记 → 走认剑变体）→ 真结局抉择 → 结算（纸条+断剑句+执剑者）
-        const out = [];
-        d.getElementById('btnNew').click();
-        await wait(200);
+        // 第八勇者线全链路验收：demo 直达第 5 层（不点 btnNew——demo 模式下它会弹立誓面板挡路）
+        // → 踩断剑（小传+遗物+成就「接过断剑」）→ 传送塔顶踩公主（无手记 → 认剑变体）
+        // → 真结局抉择 → 结算（纸条+断剑句+执剑者）
+        q2push('sword-step0-loaded');   // 分支进入即写
         const dlW = d.getElementById('dialogOverlay');
         // demo 直达不播序章；点掉可能的开场教学
         for (let i = 0; i < 8; i++) { if (!dlW.classList.contains('show')) break; dlW.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(60); }
         await wait(200);
+        const vowOv = d.getElementById('vowOverlay');
+        if (vowOv.classList.contains('show')) {
+          // demo 直达不该弹立誓面板；万一弹了，选「不立誓」走正常入口
+          const vc0 = d.querySelector('#vowCards .vow-card[data-vow="none"]');
+          if (vc0) { vc0.click(); await wait(300); }
+        }
         const sw = E.state();
-        out.push('at=' + (sw.floor + 1) + 'F(' + sw.x + ',' + sw.y + ')');
-        // (6,2) 往上一步踩 (6,1) 的 S 断剑
-        T.act(0, -1);
+        q2push('at=' + (sw.floor + 1) + 'F(' + sw.x + ',' + sw.y + ')');
+        // (6,1) 右移一步踩 (7,1) 的 S 断剑（'#u.G...S.X#' 第 7 位）
+        T.act(1, 0);
         await wait(500);
         // 断剑小传先播 → 点完；随后烛的遗物提示再点完
         for (let i = 0; i < 12; i++) { if (!dlW.classList.contains('show')) break; dlW.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(60); }
         await wait(200);
         const sw2 = E.state();
-        out.push('edge=' + !!sw2.flags.relic_edge + ' atk=' + sw2.atk);
-        out.push('achEdge=' + (window.Achievements && window.Achievements.isUnlocked('edge') ? 'in' : 'MISS'));
-        // 传送塔顶（第 12 层 (5,3) 公主 (5,4) 上方）
+        q2push('edge=' + !!sw2.flags.relic_edge + ' atk=' + sw2.atk + ' at=' + (sw2.floor + 1) + 'F(' + sw2.x + ',' + sw2.y + ')');
+        q2push('achEdge=' + (w.Achievements && w.Achievements.isUnlocked('edge') ? 'in' : 'MISS'));
+        // 传送塔顶（第 12 层 (5,3)，往上一步踩 (5,1) 的 T 公主——中间 (5,2) 是空地、(5,3) 是墙
+        // 等等：row3='#....#....#' x=5 是墙！公主在 (5,1)，从 (5,3) 上不去。改放 (4,2)，act(1,0) 到 (5,2)，
+        // 再 act(0,-1) 踩 (5,1)=T。一次到位：直接放 (5,2)，act(0,-1)。
         sw2.floor = 11; sw2.x = 5; sw2.y = 2;
         sw2.flags.relic_edge = true;
         T.refreshHud();
         await wait(150);
-        T.act(0, 1);
+        T.act(0, -1);
         await wait(600);
-        out.push('veraVariant=' + (dlW.classList.contains('show') ? d.getElementById('dlgText').textContent.slice(0, 12) : 'no-dialog'));
-        // 点完变体对白 → 抉择面板
+        q2push('veraVariant=' + (dlW.classList.contains('show')
+          ? (d.getElementById('dlgText').textContent.includes('追上来了') ? 'vera-open'
+            : d.getElementById('dlgText').textContent.slice(0, 12)) : 'no-dialog'));
+        // 认剑变体验证：第二句应含「半截剑」——推进到第二句再查
+        await wait(120);
+        dlW.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        await wait(200);
+        q2push('swordVariant=' + (d.getElementById('dlgText').textContent.includes('半截剑') ? 'in' : 'MISS'));
+        // 无手记线：点完变体对白直接进平结局（choice 面板不该弹）
         const ch = d.getElementById('choiceOverlay');
-        for (let i = 0; i < 30; i++) { if (ch.classList.contains('show') || !dlW.classList.contains('show')) break; dlW.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(60); }
-        await wait(300);
-        out.push('choice=' + ch.classList.contains('show'));
-        d.getElementById('choiceTrue').click();
-        await wait(300);
         for (let i = 0; i < 30; i++) { if (!dlW.classList.contains('show')) break; dlW.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(60); }
         await wait(600);
         const epi = d.getElementById('endEpi').textContent;
-        out.push('end=' + d.getElementById('endOverlay').classList.contains('show')
-          + ' scaleNote=' + (d.querySelector('.end-epi-scale') ? 'in' : 'MISS')
-          + ' swordLine=' + (epi.includes('剑尖朝着塔顶') ? 'in' : 'MISS')
+        q2push('end=' + d.getElementById('endOverlay').classList.contains('show')
+          + ' choiceClosed=' + !ch.classList.contains('show')
+          + ' plainSwordLine=' + (epi.includes('灯座上多刻了一个「川」字') ? 'in' : 'MISS')
           + ' zealChip=' + (d.getElementById('endBrief').textContent.includes('替川走到了塔顶') ? 'in' : 'MISS')
-          + ' achFinish=' + (window.Achievements && window.Achievements.isUnlocked('edge_finish') ? 'in' : 'MISS'));
-        errBox.textContent = out.join('\n') + '\nerr=' + (errs.length ? errs.join('|') : 'none');
-        await wait(300);
+          + ' achFinish=' + (w.Achievements && w.Achievements.isUnlocked('edge_finish') ? 'in' : 'MISS'));
       } else if (scene === 'board') {
         d.getElementById('btnNew').click();
         await wait(200);
@@ -829,8 +836,13 @@
         await wait(200);
         T.openCollection();
         await wait(400);
-        errBox.textContent = 'COLLECTION ' + T.collectionText();
-        await wait(200);
+        // 提示行口径验证写进外层 err（dump-dom 不展开 iframe 内 DOM）
+        const hintTxt = (d.getElementById('colHint') || {}).textContent || '';
+        q2push('collHint=' + (hintTxt.includes('随机池') && hintTxt.includes('固定') ? 'split-ok' : 'OLD:' + hintTxt.slice(0, 30)));
+        // 「下一件」前三位不应含随机池遗物（有固定来源件剩余时）
+        const nextKinds = Array.from(d.querySelectorAll('.col-next-chip')).map((b) => b.dataset.id);
+        q2push('next3=' + nextKinds.join(','));
+        q2push('COLLECTION ' + T.collectionText());
       }
       await wait(600);
       const q2 = Q2.slice();   // 场景分支里可能已经 q2push 过
@@ -844,6 +856,21 @@
         const p = d.querySelector('.end-epi-scale');
         q2.push('scaleNote=' + (p ? p.textContent.slice(0, 24) : 'MISSING')
           + ' swordLine=' + (d.getElementById('endEpi').textContent.includes('断剑') ? 'in' : 'MISS'));
+      }
+      if (q.get('scene') === 'board' && q.get('measure') === '1') {
+        // 脚注换行后重测：川那行名字格不得再溢出（nowrap 已放开为两行）
+        const rows = Array.from(d.querySelectorAll('.bd-row .bd-name'));
+        const nm = rows.find((el) => el.textContent.includes('川'));
+        if (nm) {
+          const r = nm.getBoundingClientRect();
+          q2.push('chuanRowH=' + Math.round(r.height) + ' overflow=' + (nm.scrollWidth > nm.clientWidth ? 'YES' : 'no')
+            + ' fullText=' + nm.textContent + ' @' + window.innerWidth);
+        } else q2.push('chuanRow=MISSING rows=' + rows.length);
+      }
+      // sword 场景：sword 分支内部已把全链路断言写进 errBox（out 数组），此处不再覆盖；
+      // 若走到这里 errBox 仍是空的，说明分支中途抛错且未被捕获——补一行现场
+      if (q.get('scene') === 'sword' && !errBox.textContent) {
+        errBox.textContent = 'SWORD-INCOMPLETE iframeErr=' + (errs.join('|') || 'none');
       }
       errBox.textContent = (errs.length ? 'JS 错误：\n' + errs.join('\n') : '') + (q2.length ? '\n' + q2.join('\n') : '');
     } catch (e) {

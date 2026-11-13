@@ -15,7 +15,7 @@ const CHROME_CANDIDATES = [
   'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
   'C:/Program Files/Microsoft/Edge/Application/msedge.exe',
 ];
-const SCENES = ['start', 'play', 'critters', 'dialog', 'hint', 'stuck', 'battle', 'battleblock', 'bossphase', 'bossyan', 'bossdef', 'probecard', 'altar', 'choice', 'end', 'board', 'codex', 'cfg', 'hud', 'tower', 'core', 'heart', 'stoneidle', 'vow', 'event', 'eventdeep', 'gate', 'echo', 'goal', 'flow', 'showcase', 'death', 'collection', 'adsdeath', 'adsend'];
+const SCENES = ['start', 'play', 'critters', 'dialog', 'hint', 'stuck', 'battle', 'battleblock', 'bossphase', 'bossyan', 'bossdef', 'probecard', 'altar', 'choice', 'end', 'board', 'codex', 'cfg', 'hud', 'tower', 'core', 'heart', 'stoneidle', 'vow', 'event', 'eventdeep', 'gate', 'echo', 'goal', 'flow', 'showcase', 'death', 'collection', 'adsdeath', 'adsend', 'sword'];
 
 function run(cmd, args) {
   const r = spawnSync(cmd, args, { cwd: ROOT, encoding: 'utf8' });
@@ -83,9 +83,10 @@ if (!process.argv.includes('--no-shot')) {
       let bad = 0;
       for (const scene of SCENES) {
         const file = path.join(OUT, scene + '.png');
+        const budget = scene === 'sword' ? 20000 : 7000;   // sword 全链路要跑「踩剑→对白→平结局」
         const args = [
           '--headless=new', '--disable-gpu', '--hide-scrollbars',
-          '--window-size=430,900', '--virtual-time-budget=7000',
+          '--window-size=430,900', '--virtual-time-budget=' + budget,
           '--screenshot=' + file,
           `http://127.0.0.1:${PORT}/tools/shot.html?scene=${scene}`,
         ];
@@ -98,6 +99,30 @@ if (!process.argv.includes('--no-shot')) {
         const good = size > 8000;
         if (!good) bad++;
         console.log((good ? '✓' : '✗') + ` scene ${scene} ${(size / 1024).toFixed(0)}KB`);
+      }
+      // 第八勇者线全链路：踩断剑 → 认剑变体 → 平结局三件（熔灯句/替川胶囊/执剑者成就）
+      console.log('== 附加 · 第八勇者线全链路 ==');
+      {
+        const os = require('os');
+        const swArgs = [
+          '--headless=new', '--disable-gpu', '--no-sandbox', '--no-first-run', '--disable-extensions',
+          '--user-data-dir=' + path.join(os.tmpdir(), 'tm-sword-' + process.pid),
+          '--virtual-time-budget=30000',
+          '--dump-dom', `http://127.0.0.1:${PORT}/tools/shot.html?scene=sword`,
+        ];
+        const readSword = () => {
+          const p = spawnSync(chrome, swArgs, { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+          const t = p.stdout || '';
+          const m = /<pre id="err">([\s\S]*?)<\/pre>/.exec(t);
+          return m ? m[1] : '';
+        };
+        let swOut = readSword();
+        if (!swOut.includes('achFinish')) swOut = readSword();   // 偶发空 DOM：重试一次
+        const need = ['edge=true', 'achEdge=in', 'swordVariant=in', 'plainSwordLine=in', 'zealChip=in', 'achFinish=in'];
+        const okSword = need.every((k) => swOut.includes(k));
+        console.log((okSword ? '✓' : '✗') + ' 第八勇者线 ' + need.filter((k) => swOut.includes(k)).length + '/' + need.length + ' 项'
+          + (okSword ? '' : '\n' + swOut.slice(0, 400)));
+        var okSwordGate = okSword;
       }
       // 开放数据域榜单：三态排版截图（子域代码与 H5 调试页共用同一份绘制实现）
       for (const cs of ['full', 'empty', 'loading']) {
@@ -215,8 +240,8 @@ if (!process.argv.includes('--no-shot')) {
       const ui = run(process.execPath, ['tools/ui-test.js']);
       const okUi = ui.code === 0;
       console.log((okUi ? '✓' : '✗') + ' ui-test.js' + (okUi ? '' : '\n' + ui.out));
-      const all = okCheck && okSim && okSkip && okTest && okCode && okBsim && okOd && okUi && okProbe && okAds && okIntro && okWxb && okWx && bad === 0;
-      if (!all) console.log('  闸门明细:', JSON.stringify({ okCheck, okSim, okSkip, okTest, okCode, okBsim, okOd, okUi, okProbe, probeA3, okAds, adsLine, okIntro, introLine, okWxb, wxbLine, okWx, bad }));
+      const all = okCheck && okSim && okSkip && okTest && okCode && okBsim && okOd && okUi && okProbe && okAds && okIntro && okWxb && okWx && okSwordGate && bad === 0;
+      if (!all) console.log('  闸门明细:', JSON.stringify({ okCheck, okSim, okSkip, okTest, okCode, okBsim, okOd, okUi, okProbe, probeA3, okAds, adsLine, okIntro, introLine, okWxb, wxbLine, okWx, okSwordGate, bad }));
       console.log(all ? '✓ 质量闸门通过' : '✗ 质量闸门有失败项');
       process.exit(all ? 0 : 1);
     })();

@@ -840,6 +840,8 @@
     const g = Object.keys(D.rings).filter((id) => mem.seenRings.indexOf(id) >= 0).length;
     return `遗物 ${r}/${RELIC_ORDER.length} · 锁环 ${g}/${Object.keys(D.rings).length}`;
   }
+  // 行李堆随机池：from 带「随机」的遗物，一局只能见到三件里的三件，集齐靠多局碰
+  const RANDOM_POOL = Object.keys(D.relics).filter((id) => (D.relics[id].from || '').indexOf('随机') >= 0);
 
   // 图鉴还差几件（遗物按全表算，锁环按数据表算）
   function collectionRemain() {
@@ -904,9 +906,12 @@
     const mem = Meta.memory;
     const cap = max || 3;
     const out = [];
+    // 固定来源的遗物排前面（可规划：下一局照着拿）；随机池的排后面并标注「随缘」
     RELIC_ORDER.forEach((id) => {
       if (out.length >= cap || mem.seenRelics.indexOf(id) >= 0) return;
-      out.push({ kind: 'relic', id, name: D.relics[id].name, emoji: D.relics[id].emoji, from: D.relics[id].from });
+      const rand = RANDOM_POOL.indexOf(id) >= 0;
+      out.push({ kind: 'relic', id, name: D.relics[id].name, emoji: D.relics[id].emoji,
+        from: rand ? D.relics[id].from + ' · 随缘' : D.relics[id].from, rand });
     });
     for (const ch of D.chapters) {
       if (out.length >= cap) break;
@@ -915,6 +920,8 @@
         out.push({ kind: 'ring', id, name: D.rings[id].name, emoji: D.rings[id].emoji, from: `第 ${ch.id} 章 · 锁匠倒下后的三选一` });
       });
     }
+    // 随机件不该占「下一件」的前三——它们没法规划，只有固定件不足时才顶上来
+    out.sort((a, b) => (a.rand ? 1 : 0) - (b.rand ? 1 : 0));
     return out;
   }
 
@@ -989,9 +996,17 @@
     const remain = collectionRemain();
     const hint = $('colHint');
     if (hint) {
-      hint.textContent = remain > 0
-        ? `还差 ${remain} 件集齐。拿过一次就记进图鉴，跨局保留；点卡片看来源。`
-        : '全部集齐了。这座塔里再没有你没见过的东西。';
+      if (remain <= 0) { hint.textContent = '全部集齐了。这座塔里再没有你没见过的东西。'; }
+      else {
+        // 剩余构成拆开说：固定来源的（可规划，下一局照着拿）与随机池的（行李堆三选一，随缘）
+        const mem2 = Meta.memory;
+        const randLeft = RANDOM_POOL.filter((id) => mem2.seenRelics.indexOf(id) < 0).length;
+        const fixedLeft = remain - randLeft;
+        hint.textContent = `还差 ${remain} 件`
+          + (fixedLeft > 0 ? ` · ${fixedLeft} 件来源固定，点「下一件」照着拿` : '')
+          + (randLeft > 0 ? ` · ${randLeft} 件在行李堆随机池，三选一随缘，多爬几局总能碰上` : '')
+          + '。拿过一次就记进图鉴，跨局保留。';
+      }
     }
     el.collectionOverlay.classList.add('show');
     Sound.play('buy');
@@ -1331,7 +1346,7 @@
       const note = !r.mine && !r.rival && RIVAL_NOTE[r.name] ? `<i class="bd-rnote">${RIVAL_NOTE[r.name]}</i>` : '';
       return `<div class="bd-row ${r.mine ? 'mine' : ''} ${r.rival ? 'rival' : ''}">
         <span class="bd-rank">${i + 1}</span>
-        <span class="bd-name">${name}${note}${v.name === '不立誓' ? '' : `<i class="bd-vowtag">${v.tag[0]}</i>`}</span>
+        <span class="bd-name">${name}${note ? '<br>' + note : ''}${v.name === '不立誓' ? '' : `<i class="bd-vowtag">${v.tag[0]}</i>`}</span>
         <span class="bd-end ${r.ending === 'true' ? 't' : ''}">${endName(r.ending)}</span>
         ${r.margin ? `<span class="bd-margin" title="决战余裕：打完碑魔剩下多少血">${r.margin}</span>` : ''}
         <span class="bd-floor">${r.floor}层</span>
