@@ -15,7 +15,7 @@ const CHROME_CANDIDATES = [
   'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
   'C:/Program Files/Microsoft/Edge/Application/msedge.exe',
 ];
-const SCENES = ['start', 'play', 'bossintro', 'codexzoom', 'critters', 'dialog', 'hint', 'stuck', 'battle', 'battleblock', 'bossphase', 'bossyan', 'bossdef', 'probecard', 'altar', 'choice', 'end', 'board', 'codex', 'cfg', 'hud', 'tower', 'core', 'heart', 'stoneidle', 'vow', 'event', 'eventdeep', 'gate', 'echo', 'goal', 'flow', 'showcase', 'death', 'death1', 'collection', 'adsdeath', 'adsend', 'sword'];
+const SCENES = ['start', 'play', 'bossintro', 'codexzoom', 'critters', 'dialog', 'hint', 'stuck', 'battle', 'battleblock', 'bossphase', 'bossyan', 'bossdef', 'probecard', 'altar', 'choice', 'end', 'board', 'codex', 'cfg', 'hud', 'tower', 'core', 'heart', 'stoneidle', 'vow', 'event', 'eventdeep', 'gate', 'echo', 'goal', 'flow', 'showcase', 'death', 'death1', 'collection', 'adsdeath', 'adsend', 'sword', 'daily', 'dailyboard', 'dailyend'];
 
 function run(cmd, args) {
   const r = spawnSync(cmd, args, { cwd: ROOT, encoding: 'utf8' });
@@ -293,15 +293,46 @@ if (!process.argv.includes('--no-shot')) {
         paceLine = `首屏 ${r.start} / HUD隐藏 ${r.hud} / 立誓 ${r.vow} / 首层 ${r.floor1} / 可操作 ${r.ready} / 教学弹窗 ${r.modals} / 首战 ${r.firstFight < 0 ? '—' : r.firstFight + 's'}`;
         console.log((okPace ? '✓' : '✗') + ' 首局节奏 ' + paceLine + '（预算 1 / 1 / 4 / 3 / ≤2 / ≤70s）');
       }
-      server.kill();
-      console.log(bad === 0 ? `\n✓ 截图全部生成（${SCENES.length} 张，见 tools/out/）` : `\n✗ ${bad} 张截图异常`);
+      // 今日一塔（P-B）：入口带日期 / 「今日」档只收当天 / 结算标出是哪天的塔
+      console.log('== 附加 · 今日一塔自检 ==');
+      let okDaily = true, dailyLine = '';
+      {
+        const os = require('os');
+        const readShot = (sceneName, budget) => {
+          const args = [
+            '--headless=new', '--disable-gpu', '--no-sandbox', '--no-first-run', '--disable-extensions',
+            '--user-data-dir=' + path.join(os.tmpdir(), 'tm-daily-' + sceneName + '-' + process.pid),
+            '--virtual-time-budget=' + budget,
+            '--dump-dom', `http://127.0.0.1:${PORT}/tools/shot.html?scene=${sceneName}`,
+          ];
+          const p = spawnSync(chrome, args, { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+          const m = /<pre id="err">([\s\S]*?)<\/pre>/.exec(p.stdout || '');
+          return m ? m[1] : '';
+        };
+        let outD = readShot('daily', 30000);
+        if (outD.indexOf('dailyBtn=') < 0) outD = readShot('daily', 30000);
+        const btnOk = /dailyBtn=.*今日一塔/.test(outD) && /@block/.test(outD);
+        let outB = readShot('dailyboard', 30000);
+        if (outB.indexOf('dailyRows=') < 0) outB = readShot('dailyboard', 30000);
+        const bm = /dailyRows=(\d+) empty=(\d)/.exec(outB);
+        // 预置了 3 条：今天那条 + 元旦那条 + 无日签的普通局 → 「今日」档只能剩 1 条
+        const boardOk = !!bm && Number(bm[1]) === 1;
+        let outE = readShot('dailyend', 45000);
+        if (outE.indexOf('briefDaily=') < 0) outE = readShot('dailyend', 45000);
+        const km = /dailyKey=([^\s]+)/.exec(outE);
+        const endOk = !!km && km[1].indexOf('NONE') < 0 && /briefDaily=in/.test(outE);
+        okDaily = !!btnOk && boardOk && endOk;
+        dailyLine = `入口 ${btnOk ? '在' : '缺'} / 今日档 ${bm ? bm[1] + ' 条' : '读数失败'} / 结算日签 ${endOk ? '在' : '缺'}`;
+        console.log((okDaily ? '✓' : '✗') + ' 今日一塔 ' + dailyLine);
+      }
+      server.kill();      console.log(bad === 0 ? `\n✓ 截图全部生成（${SCENES.length} 张，见 tools/out/）` : `\n✗ ${bad} 张截图异常`);
 
       console.log('== 浏览器 UI 自检 ==');
       const ui = run(process.execPath, ['tools/ui-test.js']);
       const okUi = ui.code === 0;
       console.log((okUi ? '✓' : '✗') + ' ui-test.js' + (okUi ? '' : '\n' + ui.out));
-      const all = okCheck && okSim && okSkip && okTest && okCode && okBsim && okOd && okUi && okProbe && okAds && okIntro && okWxb && okNew && okWx && okSwordGate && okPace && bad === 0;
-      if (!all) console.log('  闸门明细:', JSON.stringify({ okCheck, okSim, okSkip, okTest, okCode, okBsim, okOd, okUi, okProbe, probeA3, okAds, adsLine, okIntro, introLine, okWxb, wxbLine, okNew, newLine, okWx, okSwordGate, okPace, paceLine, bad }));
+      const all = okCheck && okSim && okSkip && okTest && okCode && okBsim && okOd && okUi && okProbe && okAds && okIntro && okWxb && okNew && okWx && okSwordGate && okPace && okDaily && bad === 0;
+      if (!all) console.log('  闸门明细:', JSON.stringify({ okCheck, okSim, okSkip, okTest, okCode, okBsim, okOd, okUi, okProbe, probeA3, okAds, adsLine, okIntro, introLine, okWxb, wxbLine, okNew, newLine, okWx, okSwordGate, okPace, paceLine, okDaily, dailyLine, bad }));
       console.log(all ? '✓ 质量闸门通过' : '✗ 质量闸门有失败项');
       process.exit(all ? 0 : 1);
     })();

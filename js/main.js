@@ -1471,7 +1471,7 @@
   const endName = (e) => (e === 'true' ? '第六个名字' : e === 'plain' ? '铁与霜' : '未竟');
 
   let boardFilter = 'all';
-  const VOW_TABS = [['all', '全部'], ['none', '不立誓'], ['mercy', '慈悲'], ['greed', '贪婪'], ['guard', '铁壁']];
+  const VOW_TABS = [['all', '全部'], ['daily', '今日'], ['none', '不立誓'], ['mercy', '慈悲'], ['greed', '贪婪'], ['guard', '铁壁']];
 
   function openBoard() {
     const mine = loadBoard().map((x) => Object.assign({ mine: true, vow: x.vow || 'none' }, x));
@@ -1484,7 +1484,10 @@
     $('boardTabs').querySelectorAll('.btab').forEach((b) => {
       b.addEventListener('click', () => { boardFilter = b.dataset.f; openBoard(); });
     });
-    const rows = boardFilter === 'all' ? all : all.filter((r) => (r.vow || 'none') === boardFilter);
+    const todayKey = Daily.keyOf(Date.now());
+    const rows = boardFilter === 'daily'
+      ? all.filter((r) => r.daily === todayKey)
+      : boardFilter === 'all' ? all : all.filter((r) => (r.vow || 'none') === boardFilter);
     const myFloor = mine.length ? Math.max.apply(null, mine.map((x) => x.floor || 0)) : 0;
     const crushed = myFloor > 0 && all[0] && all[0].mine !== true && (all[0].floor || 0) < myFloor;
     // 影子勇者的脚注：名字后面带一句他们的终点——川那句与断剑小传、薇拉台词三方互证
@@ -1493,22 +1496,26 @@
       '第五位勇者·岩': '停在第 3 层',
       '第八位勇者·川': '剑断在第五层',
     };
-    $('boardList').innerHTML = (rows.length ? (crushed && boardFilter === 'all'
-      ? '<div class="bd-note">影子勇者都停在前五层。你已经走到他们没到过的地方。</div>'
-      : '') + rows.slice(0, 10).map((r, i) => {
+    const bdNote = boardFilter === 'daily'
+      ? '<div class="bd-note">这一座塔每天零点换一次：同一天走进来的人遇到的是同一座，所以「今天谁走得远」是能比的。</div>'
+      : (crushed && boardFilter === 'all' ? '<div class="bd-note">影子勇者都停在前五层。你已经走到他们没到过的地方。</div>' : '');
+    $('boardList').innerHTML = (rows.length ? bdNote + rows.slice(0, 10).map((r, i) => {
       const v = D.vows[r.vow] || D.vows.none;
       const name = r.mine ? '你' : r.rival ? `挑战·朋友 第 ${r.floor} 层` : r.name;
       const note = !r.mine && !r.rival && RIVAL_NOTE[r.name] ? `<i class="bd-rnote">${RIVAL_NOTE[r.name]}</i>` : '';
       return `<div class="bd-row ${r.mine ? 'mine' : ''} ${r.rival ? 'rival' : ''}">
         <span class="bd-rank">${i + 1}</span>
         <span class="bd-name">${name}${note ? '<br>' + note : ''}${v.name === '不立誓' ? '' : `<i class="bd-vowtag">${v.tag[0]}</i>`}</span>
-        <span class="bd-end ${r.ending === 'true' ? 't' : ''}">${endName(r.ending)}</span>
-        ${r.margin ? `<span class="bd-margin" title="决战余裕：打完碑魔剩下多少血">${r.margin}</span>` : ''}
+        <span class="bd-end ${r.ending === 'true' ? 't' : ''}">${endName(r.ending)}${r.margin
+          ? `<i class="bd-margin" title="决战余裕：打完碑魔剩下多少血">${r.margin}</i>`
+          : ''}</span>
         <span class="bd-floor">${r.floor}层</span>
         <span class="bd-steps">${r.steps}步</span>
         <span class="bd-time">${r.time ? fmtTime(r.time) : '—'}</span>
       </div>`;
-    }).join('') : '<div class="bd-empty">这一档还没有人。去立一条誓约，回来占第一位。</div>');    const codeEl = $('myCode');
+    }).join('') : (boardFilter === 'daily'
+      ? `<div class="bd-empty">今天还没走完一局今日一塔。<br>${Daily.label(todayKey)} 这座塔零点就换掉了。</div>`
+      : '<div class="bd-empty">这一档还没有人。去立一条誓约，回来占第一位。</div>'));    const codeEl = $('myCode');
     codeEl.textContent = mine.length ? encodeChallenge(mine[0]) : '—— 通关后生成 ——';
     $('achCount').textContent = `成就 ${Achievements.count()}/${Achievements.DEFS.length}`;
     // 计数即入口：点一下直跳图鉴成就墙（此前只是死数字，没人知道成就列表在图鉴里）
@@ -2764,6 +2771,8 @@
     const s = Engine.state();
     const E = s.ending === 'true' ? S.endingTrue : S.endingPlain;
     const sum = Engine.summary();
+    // 今日一塔的日签跟着结算走：榜单「🗓 今日」按这个字段归堆，普通局是 null
+    sum.daily = (s.flags && s.flags.daily) || null;
 
     Sound.play('win');
     Sound.stopMotif();
@@ -2863,6 +2872,8 @@
     $('endTag').textContent = sealDef.desc;
     renderNextVow((Meta.memory.runs || 0) === 1);
     const brief = [];
+    // 今日一塔排第一：这是「哪座塔」的上下文，藏在「＋N 项」里等于没写
+    if (sum.daily) brief.push(`今日一塔 · ${Daily.label(sum.daily)}`);
     brief.push(`带走 ${relicIds.length} 件遗物 · 击杀 ${s.flags.killCount || 0} 只`);
     if (s.flags.worstHit) brief.push(`最狠的一场：${s.flags.worstName} −${s.flags.worstHit}`);
     brief.push(s.flags.retries ? `重来本层 ${s.flags.retries} 次` : '一次没回头');
@@ -3015,6 +3026,26 @@
     if (nr) nr.style.display = has ? 'flex' : 'none';
   }
 
+  // 通用二次确认（不放参数＝原来的「重置这一局」文案）：今日一塔要覆盖进度时也走这里
+  let confirmCb = null;
+  const CONFIRM_DEFAULT = {
+    emoji: '🗘',
+    title: '重置这一局？',
+    text: '放弃当前进度，从立誓重新开始。<br>成就、余烬与誓约解锁都会保留。',
+    ok: '确认重置',
+  };
+  function askConfirm(o) {
+    const opt = o || {};
+    const box = el.resetConfirmOverlay;
+    if (!box) return;
+    box.querySelector('.rc-emoji').textContent = opt.emoji || CONFIRM_DEFAULT.emoji;
+    box.querySelector('.rc-title').textContent = opt.title || CONFIRM_DEFAULT.title;
+    box.querySelector('.rc-text').innerHTML = opt.text || CONFIRM_DEFAULT.text;
+    $('resetConfirm').textContent = opt.ok || CONFIRM_DEFAULT.ok;
+    confirmCb = opt.cb || null;
+    box.classList.add('show');
+  }
+
   // ---------- 标题页 ----------
   function refreshStartBadges() {
     const plain = Achievements.isUnlocked('end_plain');
@@ -3028,6 +3059,12 @@
       const b = $(id);
       if (b) b.style.display = metaOn ? '' : 'none';
     });
+    // 今日一塔同样是「第 2 局起」的东西：首局没有比较对象，多一个入口只会挤占开屏
+    const bd = $('btnDaily');
+    if (bd) {
+      bd.style.display = metaOn ? 'block' : 'none';
+      bd.textContent = `今日一塔 · ${Daily.label(Daily.keyOf(Date.now()))}`;
+    }
     // 首次进塔不显示徽章：新人先看到「开始游戏」，收藏品等玩过一局再露脸
     $('endingBadges').innerHTML = (plain || tru || Achievements.count())
       ? `
@@ -3730,11 +3767,13 @@
       log('已重置本局 · 从头开始', 'gold');
       warn(`本局已重置（成就、余烬与解锁保留）· 第 ${n} 次重来`);
     }
-    $('cfgReset').addEventListener('click', () => { el.resetConfirmOverlay.classList.add('show'); });
-    $('resetCancel').addEventListener('click', () => { el.resetConfirmOverlay.classList.remove('show'); });
+    $('cfgReset').addEventListener('click', () => askConfirm({ cb: doResetRun }));
+    $('resetCancel').addEventListener('click', () => { el.resetConfirmOverlay.classList.remove('show'); confirmCb = null; });
     $('resetConfirm').addEventListener('click', () => {
+      const cb = confirmCb;
       el.resetConfirmOverlay.classList.remove('show');
-      doResetRun();
+      confirmCb = null;
+      if (cb) cb();
     });
     $('gateClose').addEventListener('click', () => el.gateOverlay.classList.remove('show'));
     $('btnAgain').addEventListener('click', () => {
@@ -4009,8 +4048,8 @@
   }
 
   // ---------- 启动 ----------
-  function startGame(vow) {
-    Engine.newGame(vow);
+  function startGame(vow, opts) {
+    Engine.newGame(vow, opts);
     stopWalk();
     document.body.classList.remove('at-start');
     // 距上一局结束多久：从漏斗里最后一条 run_end 反推（没有就是 -1，表示首局）
@@ -4020,6 +4059,7 @@
       vow: vow || 'none',
       gap: lastEnd ? Math.max(0, Math.round((Date.now() - lastEnd.at) / 1000)) : -1,
       sinceLoad: Math.max(0, Math.round((Date.now() - LOAD_AT) / 1000)),
+      daily: (opts && opts.daily) || null,
     });
     endShown = false;
     deathShown = false; // 新一局要能重新弹死亡结算：上一局置的 true 必须清掉
@@ -4049,9 +4089,38 @@
     else playStory('intro', begin);
   }
 
+  // ---------- 今日一塔 ----------
+  // 同一天走进来的人拿到的是同一座塔：地图换位、路遇串、锁环与祭坛候选、Boss 台词全部由日期种子
+  // 决定，固定不立誓（没法靠挑誓约打出不可比的分）。只改「看到什么」，一个数值都不动。
+  function startDaily() {
+    const key = Daily.keyOf(Date.now());
+    startGame('none', { seed: Daily.seedOf(key), daily: key });
+    warn(`今日一塔 · ${Daily.label(key)}：今天走进塔的人，遇到的都是同一座。零点换下一座。`, 5200);
+  }
+  function enterDaily() {
+    if (Engine.hasSave()) {
+      askConfirm({
+        emoji: '🗓',
+        title: '开始今日一塔？',
+        text: '当前这局的进度会被放下（成就、余烬与誓约解锁都保留）。<br>今日一塔固定不立誓，每天零点换一座新塔。',
+        ok: '开始今日一塔',
+        cb: startDaily,
+      });
+      return;
+    }
+    startDaily();
+  }
+
   function continueGame() {
     const s = Engine.load();
     if (!s) { openVow(); return; }
+    // 昨天的今日一塔接着玩＝普通局：清掉日签，免得结算与榜单还挂着「今日一塔」的标签
+    if (s.flags && s.flags.daily && !Daily.isToday(s.flags.daily)) {
+      s.flags.daily = null;
+      s.flags.rngSeed = null;
+      s.flags.rngN = null;
+      Engine.save();
+    }
     document.body.classList.remove('at-start');
     el.startOverlay.classList.remove('show');
     endShown = false;
@@ -4190,8 +4259,9 @@
 
     refreshStartActions();
     $('btnNew').addEventListener('click', openVow);
-    $('btnNewRun').addEventListener('click', () => el.resetConfirmOverlay.classList.add('show'));
+    $('btnNewRun').addEventListener('click', () => askConfirm({ cb: doResetRun }));
     $('btnContinue').addEventListener('click', continueGame);
+    $('btnDaily').addEventListener('click', enterDaily);
 
     // 开发用：index.html#demo=楼层,x,y 直接进游戏（不播序章）
     const demo = /demo=(\d+),(\d+),(\d+)/.exec(location.hash || '');

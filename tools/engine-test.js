@@ -1305,5 +1305,38 @@ const seed777 = E.newGame(null, { seed: 777 });
 ok(seed777.maps[0][7][8] === '.', '散落物挪走后原格变回地面');
 ok(E.shuffleFloor1(null, 1) === false, '空地图不崩（shuffleFloor1 边界）');
 
+// ---------- 今日一塔：同一天走进来的是同一座塔 ----------
+const Daily = require('../js/daily.js');
+const dayA = Daily.keyOf(new Date(2026, 10, 14, 10, 0, 0));
+const dSeed = Daily.seedOf(dayA);
+ok(/^2026-11-14$/.test(dayA), '日期键按本地日子拼成 YYYY-MM-DD');
+ok(Daily.keyOf(new Date(2026, 0, 5, 23, 59, 0)) === '2026-01-05', '月/日补零，跨年跨月不串');
+ok(Number.isInteger(dSeed) && dSeed > 0, '每日种子是正整数（0 留给原版布局）');
+ok(Daily.seedOf(dayA) === dSeed, '同一天必得同一颗种子');
+ok(Daily.seedOf('2026-11-15') !== dSeed && Daily.seedOf('2026-11-13') !== dSeed, '换一天就是另一颗种子');
+ok(Daily.label(dayA) === '11月14日' && Daily.label('乱码') === '', '面板短标签：2026-11-14 → 11月14日，脏输入给空');
+
+const dailyA = E.newGame('none', { seed: dSeed, daily: dayA });
+const mapA = dailyA.maps[0].join('|');
+const dailyB = E.newGame('none', { seed: dSeed, daily: dayA });
+ok(dailyB.maps[0].join('|') === mapA, '同一天同一颗种子 → 首层换位完全一致');
+ok(dailyB.flags.daily === dayA && dailyB.flags.rngSeed === dSeed && dailyB.flags.rngN === 0, '日签/种子/计数写进存档');
+ok(dailyB.flags.phaseSeed === dSeed, 'Boss 台词同一天同一套（按日期种子定）');
+
+const drawSeq = () => { const out = []; for (let i = 0; i < 5; i++) out.push(E.nextRand()); return out; };
+E.newGame('none', { seed: dSeed, daily: dayA });
+const seq1 = drawSeq();
+E.newGame('none', { seed: dSeed, daily: dayA });
+const seq2 = drawSeq();
+ok(seq1.join(',') === seq2.join(',') && seq1.every((v) => v >= 0 && v < 1), '同种子抽取序列可复现（路遇/锁环/祭坛）');
+ok(E.state().flags.rngN === 5, '抽取计数跟着存档走（中途刷新续玩不重摇整串）');
+const dailyC = E.newGame('none', { seed: Daily.seedOf('2026-11-15'), daily: '2026-11-15' });
+ok(dailyC.maps[0].join('|') !== mapA, '明天是另一座塔');
+
+E.newGame('none', { seed: 12345 });
+ok(!E.state().flags.daily && typeof E.state().flags.rngSeed !== 'number', '普通局不带日签');
+const anyRand = E.nextRand();
+ok(anyRand >= 0 && anyRand < 1 && E.state().flags.rngN === null, '普通局抽取仍走 Math.random（行为不变）');
+
 console.log(fail === 0 ? '\n✓ 全部通过' : `\n✗ ${fail} 项失败`);
 process.exit(fail ? 1 : 0);

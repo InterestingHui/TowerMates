@@ -781,7 +781,7 @@ html, body {
 .board-list { display: flex; flex-direction: column; gap: 3px; max-height: 40dvh; overflow-y: auto; }
 .bd-row {
   display: grid;
-  grid-template-columns: 20px 1fr 72px 34px 42px 60px;
+  grid-template-columns: 20px 1fr 76px 30px 36px auto;
   gap: 4px;
   align-items: center;
   font-size: var(--fs-aux);
@@ -802,9 +802,9 @@ html, body {
   color: #7a8496;
   margin-top: 1px;
 }
-.bd-end { color: var(--dim); font-size: var(--fs-tag); }
+.bd-end { color: var(--dim); font-size: var(--fs-tag); display: flex; align-items: center; gap: 3px; white-space: nowrap; }
 .bd-end.t { color: var(--cyan); }
-.bd-floor, .bd-steps { color: #a2abbd; text-align: right; font-variant-numeric: tabular-nums; }
+.bd-floor, .bd-steps { color: #a2abbd; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 /* 决战余裕徽记（S/A/B/C）：金色留给 S，其余走中性，别抢塔印的重点 */
 .bd-margin {
   font-size: var(--fs-tag);
@@ -817,7 +817,8 @@ html, body {
   border: 1px solid rgba(232, 196, 106, 0.28);
 }
 .bd-margin:not(:empty):where([title]) { letter-spacing: 0.4px; }
-.bd-time { color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+/* 用时列吃 auto 宽度：10分40秒 这类 6 字时间在固定 60px 里会竖着断成四行 */
+.bd-time { color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 .code-row {
   display: flex;
@@ -1184,7 +1185,7 @@ html, body {
   #log { height: 80px; font-size: var(--fs-tag); }
   #bottom { min-height: 80px; }
   #dpad { grid-template-columns: repeat(3, 34px); grid-template-rows: repeat(3, 34px); }
-  .bd-row { grid-template-columns: 18px 1fr 58px 30px 38px 52px; font-size: var(--fs-tag); }
+  .bd-row { grid-template-columns: 18px 1fr 64px 26px 30px auto; font-size: var(--fs-tag); }
   .dlg-portrait { width: 68px; }
   .dlg-text { font-size: var(--fs-body); }
   .choice-card { min-height: 168px; }

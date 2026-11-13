@@ -29,6 +29,16 @@
     };
   }
 
+  // 「今日一塔」要的是「同一天谁抽到的东西一样」，所以这类抽取必须能按种子复现；
+  // 普通局没有 rngSeed，原样走 Math.random（行为一字不改）。
+  // 计数 rngN 跟着存档走：中途刷新/续玩，后续抽取仍接在同一条序列上，不会整段重摇。
+  function nextRand() {
+    if (!s || !s.flags || typeof s.flags.rngSeed !== 'number') return Math.random();
+    s.flags.rngN = (s.flags.rngN || 0) + 1;
+    const r = mulberry32((s.flags.rngSeed ^ Math.imul(s.flags.rngN, 0x9E3779B1)) | 0);
+    return r();
+  }
+
   function shuffleFloor1(map, seed) {
     if (!seed || !map) return false;
     // 起点周围 3×3 保持原样：开局 60 秒的教学节奏（教练卡→首战）不跟着变
@@ -63,6 +73,8 @@
   function newGame(vow, opts) {
     const v = D.vows[vow] ? vow : 'none';
     const mapSeed = opts && typeof opts.seed === 'number' ? opts.seed : (Math.random() * 1e9) | 0;
+    // 今日一塔：带着日期键进来，本局的地图换位 / 路遇 / 锁环与祭坛候选 / Boss 台词全部按同一颗种子复现
+    const daily = opts && typeof opts.daily === 'string' && opts.daily ? opts.daily : null;
     s = {
       floor: 0, x: 1, y: 1,
       hp: 1000, maxHp: 1000, atk: 10, def: 10,
@@ -70,7 +82,12 @@
       keys: { y: 1, r: 0 },
       maps: floorMaps(),
       over: false, won: false, ending: null,
-      flags: { vow: v, rings: [], phaseSeed: (Math.random() * 1e9) | 0, hasBlock: false, mapSeed: mapSeed },
+      flags: {
+        vow: v, rings: [], phaseSeed: daily ? mapSeed : (Math.random() * 1e9) | 0,
+        hasBlock: false, mapSeed: mapSeed,
+        rngSeed: daily ? mapSeed : null, rngN: daily ? 0 : null,
+        daily: daily,
+      },
       ver: 5,
       steps: 0,
       startedAt: Date.now(),
@@ -212,7 +229,7 @@
     const owned = rings();
     const pool = (D.ringPools[ch] || []).filter((id) => owned.indexOf(id) < 0);
     for (let i = pool.length - 1; i > 0; i--) {
-      const j = (Math.random() * (i + 1)) | 0;
+      const j = (nextRand() * (i + 1)) | 0;
       const t = pool[i]; pool[i] = pool[j]; pool[j] = t;
     }
     return pool.slice(0, 3);
@@ -727,7 +744,7 @@
 
   function pickEvent(floor) {
     const pool = eventPool(floor === undefined ? (s ? s.floor : 0) : floor);
-    return pool[(Math.random() * pool.length) | 0].id;
+    return pool[(nextRand() * pool.length) | 0].id;
   }
 
   function applyEffect(eff) {
@@ -1069,7 +1086,7 @@
     if (!s) return [];
     const pool = D.altarPool.filter((id) => !hasRelic(id));
     for (let i = pool.length - 1; i > 0; i--) {
-      const j = (Math.random() * (i + 1)) | 0;
+      const j = (nextRand() * (i + 1)) | 0;
       const t = pool[i]; pool[i] = pool[j]; pool[j] = t;
     }
     return pool.slice(0, Math.max(1, count || 3));
@@ -1316,7 +1333,7 @@
   }
 
   window.Engine = {
-    setHooks, newGame, load, reset, hasSave, save, state, tile, predict, predictOpt, shuffleFloor1,
+    setHooks, newGame, load, reset, hasSave, save, state, tile, predict, predictOpt, shuffleFloor1, nextRand,
     predictAt(dx, dy) {
       if (!s) return null;
       const ch = tile(s.x + dx, s.y + dy);

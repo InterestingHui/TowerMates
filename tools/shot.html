@@ -46,6 +46,13 @@
       cfg0.dpad = true;
       localStorage.setItem('towermates_cfg_v2', JSON.stringify(cfg0));
     }
+    // 今日一塔相关场景要「老玩家」态：首局（runs=0）入口是故意藏起来的，不预置就截不到
+    if (scene.indexOf('daily') === 0) {
+      localStorage.setItem('towermates_meta', JSON.stringify({
+        ember: 12, unlocked: [], resets: 0,
+        memory: { runs: 3, deepest: 9, endings: { plain: 2 }, vowWins: {}, fullChapters: 1, heartTaken: 1, heartLeft: 0 },
+      }));
+    }
   } catch (e) {}
   f.src = src;
 
@@ -157,6 +164,53 @@
         s.flags.hasBlock = true; s.flags.hasBlock2 = true;
         T.showEnd();
         await wait(1600);
+      } else if (scene === 'daily') {
+        // 老玩家回来看开始页：今日一塔入口应带日期、只占一行、不与「继续/开新局」抢位置
+        T.refreshStartBadges();
+        await wait(250);
+        const bdD = d.getElementById('btnDaily');
+        q2push('dailyBtn=' + (bdD ? (bdD.textContent.trim() + '@' + (bdD.style.display || 'block')) : 'MISS'));
+      } else if (scene === 'dailyboard') {
+        // 「🗓 今日」档：只收今天那一座塔的结算，普通局的条目不许串进来
+        const dKey = w.Daily.keyOf(Date.now());
+        localStorage.setItem('towermates_board', JSON.stringify([
+          { floor: 13, ending: 'true', vow: 'none', time: 660, steps: 620, seal: 'clear', goals: 4, margin: 'S', daily: dKey },
+          { floor: 12, ending: 'true', vow: 'mercy', time: 500, steps: 600, seal: 'clear', goals: 4, margin: 'S', daily: '2026-01-01' },
+          { floor: 7, ending: 'plain', vow: 'none', time: 800, steps: 900, seal: 'rough', goals: 1, margin: '' },
+        ]));
+        T.openBoard();
+        await wait(350);
+        const tabD = d.querySelector('#boardTabs .btab[data-f="daily"]');
+        if (tabD) tabD.click();
+        await wait(350);
+        q2push('dailyRows=' + d.querySelectorAll('#boardList .bd-row').length
+          + ' empty=' + (d.querySelector('#boardList .bd-empty') ? 1 : 0));
+      } else if (scene === 'dailyend') {
+        // 走「今日一塔」入口 → 结算面板必须标出这是哪天的塔，且日签进了榜单数据
+        const dlD = d.getElementById('dialogOverlay');
+        for (let i = 0; i < 6; i++) {
+          if (!dlD.classList.contains('show')) break;
+          dlD.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+          await wait(60);
+        }
+        d.getElementById('btnDaily').click();
+        await wait(320);
+        if (d.getElementById('resetConfirmOverlay').classList.contains('show')) {
+          q2push('confirm=shown');
+          d.getElementById('resetConfirm').click();
+          await wait(320);
+        }
+        for (let i = 0; i < 6; i++) {
+          if (!dlD.classList.contains('show')) break;
+          dlD.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+          await wait(60);
+        }
+        const sd = E.state();
+        q2push('dailyKey=' + ((sd.flags && sd.flags.daily) || 'NONE') + ' vow=' + sd.flags.vow);
+        sd.ending = 'true'; sd.won = true; sd.startedAt = Date.now() - 600000;
+        T.showEnd();
+        await wait(1500);
+        q2push('briefDaily=' + (d.getElementById('endBrief').textContent.indexOf('今日一塔') >= 0 ? 'in' : 'MISS'));
       } else if (scene === 'sword') {
         // 第八勇者线全链路验收：demo 直达第 5 层（不点 btnNew——demo 模式下它会弹立誓面板挡路）
         // → 踩断剑（小传+遗物+成就「接过断剑」）→ 传送塔顶踩公主（无手记 → 认剑变体）
