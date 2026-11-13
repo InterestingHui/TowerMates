@@ -256,6 +256,33 @@ if (!process.argv.includes('--no-shot')) {
         newLine = r.bits ? `${(r.bits.match(/1/g) || []).length}/${r.bits.length} 项` : '读数失败';
         console.log((okNew ? '✓' : '✗') + ` 新玩家可理解性 ${newLine}`);
       }
+      // 节奏预算守门：首局 60 秒窗口不许再堆元素（PROGRESS《四、体验验收基线》）
+      console.log('== 附加 · 首局节奏预算 ==');
+      let okPace = true, paceLine = '';
+      {
+        const os = require('os');
+        const args = [
+          '--headless=new', '--disable-gpu', '--no-sandbox', '--no-first-run', '--disable-extensions',
+          '--user-data-dir=' + path.join(os.tmpdir(), 'tm-pace-' + process.pid),
+          '--virtual-time-budget=60000',
+          '--dump-dom', `http://127.0.0.1:${PORT}/tools/pace-audit.html`,
+        ];
+        const readPace = () => {
+          const p = spawnSync(chrome, args, { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+          const t = p.stdout || '';
+          const pick = (tag) => {
+            const m = new RegExp('\\[' + tag + '[^\\]]*\\][\\s\\S]*?可交互 (\\d+)').exec(t);
+            return m ? Number(m[1]) : -1;
+          };
+          return { vow: pick('B'), floor1: pick('D'), ready: pick('E') };
+        };
+        let r = readPace();
+        if (r.vow < 0 || r.floor1 < 0) r = readPace(); // 偶发空 DOM 重试一次
+        // 立誓屏首局只留 1 张确认卡；第 1 层（教练卡态）≤4（含画布）；可操作态 ≤3
+        okPace = r.vow >= 0 && r.vow <= 1 && r.floor1 >= 0 && r.floor1 <= 4 && r.ready >= 0 && r.ready <= 3;
+        paceLine = `立誓 ${r.vow} / 首层 ${r.floor1} / 可操作 ${r.ready}`;
+        console.log((okPace ? '✓' : '✗') + ' 首局元素 ' + paceLine + '（预算 1 / 4 / 3）');
+      }
       server.kill();
       console.log(bad === 0 ? `\n✓ 截图全部生成（${SCENES.length} 张，见 tools/out/）` : `\n✗ ${bad} 张截图异常`);
 
@@ -263,8 +290,8 @@ if (!process.argv.includes('--no-shot')) {
       const ui = run(process.execPath, ['tools/ui-test.js']);
       const okUi = ui.code === 0;
       console.log((okUi ? '✓' : '✗') + ' ui-test.js' + (okUi ? '' : '\n' + ui.out));
-      const all = okCheck && okSim && okSkip && okTest && okCode && okBsim && okOd && okUi && okProbe && okAds && okIntro && okWxb && okNew && okWx && okSwordGate && bad === 0;
-      if (!all) console.log('  闸门明细:', JSON.stringify({ okCheck, okSim, okSkip, okTest, okCode, okBsim, okOd, okUi, okProbe, probeA3, okAds, adsLine, okIntro, introLine, okWxb, wxbLine, okNew, newLine, okWx, okSwordGate, bad }));
+      const all = okCheck && okSim && okSkip && okTest && okCode && okBsim && okOd && okUi && okProbe && okAds && okIntro && okWxb && okNew && okWx && okSwordGate && okPace && bad === 0;
+      if (!all) console.log('  闸门明细:', JSON.stringify({ okCheck, okSim, okSkip, okTest, okCode, okBsim, okOd, okUi, okProbe, probeA3, okAds, adsLine, okIntro, introLine, okWxb, wxbLine, okNew, newLine, okWx, okSwordGate, okPace, paceLine, bad }));
       console.log(all ? '✓ 质量闸门通过' : '✗ 质量闸门有失败项');
       process.exit(all ? 0 : 1);
     })();

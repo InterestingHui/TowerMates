@@ -275,36 +275,46 @@ ok(healFight.type === 'fight' && healFight.heal === 20, '余烬灯芯：击杀�
 ok(s.hp === 500 - healFight.damage + 20, '回血正确结算');
 
 // ---------- 9b. 祭坛三选一 ----------
-// 祭坛 X 不焊死在固定坐标：从地图里找，站它旁边走上去（布局调整不用再改测试）
+// 祭坛 X 不焊死在固定坐标：从全塔地图里找，站它旁边走上去（布局调整不用再改测试）
 E.newGame();
 s = E.state();
-s.floor = 2;
-let ax = -1, ay = -1;
-for (let y = 1; y < 10 && ax < 0; y++) {
-  for (let x = 1; x < 10; x++) {
-    if (D.floors[2].map[y][x] === 'X') {
+let af = -1, ax = -1, ay = -1, tx = -1, ty = -1;
+for (let f = 0; f < D.floors.length && ax < 0; f++) {
+  const m = D.floors[f].map;
+  for (let y = 1; y < 10 && ax < 0; y++) {
+    for (let x = 1; x < 10; x++) {
+      if (m[y][x] !== 'X') continue;
       for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-        const c = D.floors[2].map[y + dy] && D.floors[2].map[y + dy][x + dx];
-        if (c && c !== '#') { ax = x + dx; ay = y + dy; break; }
+        const c = m[y + dy] && m[y + dy][x + dx];
+        if (c && c !== '#') { af = f; ax = x + dx; ay = y + dy; tx = x; ty = y; break; }
       }
       if (ax >= 0) break;
     }
   }
 }
+s.floor = af;
 s.x = ax; s.y = ay;
-ev = E.tryMove(Math.sign(ax === 7 ? 1 : (ax < D.floors[2].map[8].indexOf('X') ? 1 : -1)), 0);
+ev = E.tryMove(tx - ax, ty - ay);
 ok(ev.type === 'altar', '踩到行李堆弹出三选一');
 const choices = E.altarChoices();
 ok(choices.length === 3 && choices.every((id) => !!D.relics[id]), '祭坛给出 3 件可拿的遗物');
 const atkA = s.atk, defA = s.def;
 const pick = E.pickRelic('steel');
 ok(pick.type === 'relic' && s.atk === atkA + 3 && s.def === defA + 3, '鸦的铁腕：攻击/防御 +3');
-ok(s.flags.altar === true && E.tile(8, 8) === '.', '祭坛拿走一次后清空');
+ok(s.flags.altar === true && E.tile(tx, ty) === '.', '祭坛拿走一次后清空');
 ok(E.pickRelic('steel').type === 'refuse', '同一件不能拿两次');
 // 焦点 C 二轮：构筑位不许被消耗品占着——窥探之镜在秤那里只值 100 金，不配进祭坛三选一
 ok(!D.altarPool.includes('scout'), '祭坛池不含窥探之镜（100 金道具不占构筑位）');
 ok(D.altarPool.length === 6, '祭坛池 6 件，三选一仍然成立');
 ok(D.rings.scout2 && /还剩几件/.test(D.rings.scout2.desc), '窥探之环自带罗盘信息（不再只给一枚镜子）');
+
+// ---------- 9b+. 首发节奏的数据口径（PROGRESS《四、体验验收基线》） ----------
+E.newGame();
+s = E.state();
+const flatMap = (f) => s.maps[f].join('');
+ok(!flatMap(0).includes('?') && !flatMap(1).includes('?'), '第 1/2 层不再放路遇点（首次路遇后移到第 3 层）');
+ok(flatMap(2).includes('X'), '第 3 层祭坛保留（挪到第 4 层会让墨妖前少一件遗物，实测承伤 +16%）');
+ok(flatMap(0).includes('a') && !flatMap(0).includes('s'), '第 1 层武器升为精钢剑（补回取消首层路遇后的攻击成长）');
 
 // ---------- 9b2. 第二座祭坛（第 5 层，二选一） ----------
 E.newGame();
@@ -402,10 +412,12 @@ s.keys.y = 3;
 ok(E.eventCost(bridge.options[keyOpt]) === null, '钥匙够了就可以选');
 
 // ---------- 9i. 路遇事件 ----------
+// 节奏纠偏后第 1/2 层不再放 ?（首次路遇后移到第 3 层），这里统一用第 3 层的 ? 测
 E.newGame();
 s = E.state();
-s.x = 4; s.y = 4;
-ev = E.tryMove(0, -1);
+s.floor = 2;
+s.x = 8; s.y = 6;
+ev = E.tryMove(0, 1);
 ok(ev.type === 'event' && !!ev.eventId, '踩到路遇点弹出事件');
 
 // ---------- 9i-2. 回血来源口径：除「本层首次踏足」外，其余回血都不许原地反复刷 ----------
@@ -432,13 +444,16 @@ if (potPos) {
 // ② 路遇事件结算后格变地面、同层不再触发（ev_f 标记）
 E.newGame();
 s = E.state();
-s.x = 4; s.y = 4;
-const ev0 = E.tryMove(0, -1);
+s.floor = 2;
+s.x = 8; s.y = 6;
+const ev0 = E.tryMove(0, 1);
+// 第 3 层是深层事件池，选项可能标价：先把资源给足，保证 opt 0 能结算
+s.gold = 500; s.keys.y = 3; s.keys.r = 3;
 const optIdx = 0;
 E.resolveEvent(ev0.eventId, optIdx);
-ok(E.tile(4, 3) === '.', '事件格结算后变地面');
+ok(E.tile(8, 7) === '.', '事件格结算后变地面');
 s.hp = 500;
-const evAgain = E.tryMove(0, -1);
+const evAgain = E.tryMove(0, -1) && E.tryMove(0, 1);
 ok(evAgain.type === 'move' && s.hp === 500, '事件格不能再踩出第二次回血');
 
 // ---------- 9m. 第一层的碑文 ----------
@@ -471,20 +486,27 @@ if (steleTile) {
   }
 }
 ok(!!D.events.find((x) => x.id === ev.eventId), '事件来自数据池');
-// 用固定事件，避免随机导致用例飘
+// 用固定事件，避免随机导致用例飘。注意：上面的碑文段已 newGame 回第 1 层，
+// 所以这里要重新造一个「站在第 3 层 ? 上」的局面，否则清格/标记断言测的是另一层。
+E.newGame();
+s = E.state();
+s.floor = 2;
+s.x = 8; s.y = 6;
+E.tryMove(0, 1);
 s.gold = 500;
 const atkA2 = s.atk, maxA2 = s.maxHp;
 const eRes = E.resolveEvent('smith', 0);
 ok(eRes.type === 'event' && typeof eRes.msg === 'string', '选择后返回结果文案');
 ok(s.atk === atkA2 + 2 && s.maxHp === maxA2 - 120, '铁匠磨刃：攻击 +2、上限 −120');
-ok(E.tile(4, 3) === '.', '路遇点用掉后清空');
-ok(s.flags.ev_f0 === true, '本层路遇只触发一次');
+ok(E.tile(8, 7) === '.', '路遇点用掉后清空');
+ok(s.flags.ev_f2 === true, '本层路遇只触发一次');
 ok(D.events.find((e) => e.id === 'broker').options[0].effect.atk === 3, '深层事件「赌命的商人」存在');
 
 E.newGame();
 s = E.state();
-s.x = 4; s.y = 4;
-const ev2 = E.tryMove(0, -1);
+s.floor = 2;
+s.x = 8; s.y = 6;
+const ev2 = E.tryMove(0, 1);
 s.gold = 0;
 const poorIdx = D.events.find((x) => x.id === ev2.eventId).options.findIndex((o) => o.effect.gold < 0);
 if (poorIdx >= 0) ok(E.resolveEvent(ev2.eventId, poorIdx).type === 'refuse', '金币不够时该选项被拒绝');

@@ -260,6 +260,41 @@ function load(url) { return new Promise((res) => { f.onload = () => res(); f.src
       }
     }
 
+    // ===== F. 首局节奏：塔友榜 / 立誓面板按局数分级开放 =====
+    {
+      await load('/index.html?dev=1&p=f0');
+      w = f.contentWindow; d = f.contentDocument;
+      await waitFor(() => w.__tm && w.__tm.openVow);
+      await wait(300);
+      w.localStorage.removeItem('towermates_meta');
+      w.localStorage.removeItem('towermates_save_v5');
+      await load('/index.html?p=f1');
+      w = f.contentWindow; d = f.contentDocument;
+      await waitFor(() => w.__tm && w.__tm.openVow);
+      await wait(300);
+      const b1 = d.getElementById('btnBoard'), b2 = d.getElementById('btnBoard2');
+      rec('F1 首局不露塔友榜入口', b1.style.display === 'none' && b2.style.display === 'none', `顶栏=${b1.style.display || '显示'} 开始页=${b2.style.display || '显示'}`);
+      w.__tm.openVow();
+      await wait(300);
+      const cards0 = d.querySelectorAll('#vowCards .vow-card');
+      const chips0 = d.querySelectorAll('#vowLocked .vow-chip');
+      rec('F2 首局立誓只有 1 张确认卡', cards0.length === 1 && cards0[0].dataset.vow === 'none' && chips0.length === 0, `卡 ${cards0.length} / chip ${chips0.length}`);
+      const em0 = d.getElementById('vowEmber'), en0 = d.getElementById('vowEmberNote');
+      rec('F3 首局不露余烬行', em0.hidden === true && en0.hidden === true, `余额=${em0.hidden} 注释=${en0.hidden}`);
+      // 造一份「进过塔」的档 → 塔友榜与四张誓约回来
+      const raw0 = JSON.parse(w.localStorage.getItem('towermates_meta') || '{}');
+      raw0.memory = Object.assign({}, raw0.memory || {}, { runs: 1 });
+      w.localStorage.setItem('towermates_meta', JSON.stringify(raw0));
+      await load('/index.html?dev=1&p=f2');
+      w = f.contentWindow; d = f.contentDocument;
+      await waitFor(() => w.__tm && w.__tm.openVow);
+      await wait(300);
+      const b1b = d.getElementById('btnBoard');
+      w.__tm.openVow();
+      await wait(300);
+      rec('F4 第二局起恢复塔友榜与四张誓约', b1b.style.display !== 'none' && d.querySelectorAll('#vowCards .vow-card').length === 4, `顶栏=${b1b.style.display || '显示'} 卡 ${d.querySelectorAll('#vowCards .vow-card').length}`);
+    }
+
     out.textContent = R.map((r) => `${r.ok ? '✓' : '✗'} ${r.name}${r.note ? ' — ' + r.note : ''}`).join('\n')
       + '\n\n' + (R.every((r) => r.ok) ? 'ALL PASS' : 'HAS FAIL');
     document.title = (R.every((r) => r.ok) ? 'ALLPASS|' : 'HASFAIL|') + R.map((r) => (r.ok ? '1' : '0')).join('');

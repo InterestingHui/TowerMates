@@ -2378,14 +2378,21 @@
     const s = Engine.state();
     if (!s || !Engine.hasRelic('gate')) return;
     const max = Engine.visitedMax();
-    el.gateList.innerHTML = D.floors.map((f, i) => {
+    // 节奏纠偏：只列「走过的层」，没到过的收成一行——13 条全列出来是 13 个按钮，
+    // 玩家这一刻只需要「回哪一层」，不需要把整座塔的目录读一遍。
+    const rows = [];
+    for (let i = 0; i <= max && i < D.floors.length; i++) {
+      const f = D.floors[i];
       const here = i === s.floor;
-      const locked = i > max;
-      const tip = here ? '你在这里' : locked ? '没到过' : '跳过去';
-      return `<button class="gate-row ${here ? 'here' : ''}" data-f="${i}" ${here || locked ? 'disabled' : ''}>
-        <b>${i + 1}</b><span>${f.name}</span><small>${tip}</small>
-      </button>`;
-    }).join('');
+      rows.push(`<button class="gate-row ${here ? 'here' : ''}" data-f="${i}" ${here ? 'disabled' : ''}>
+        <b>${i + 1}</b><span>${f.name}</span><small>${here ? '你在这里' : '跳过去'}</small>
+      </button>`);
+    }
+    const hidden = D.floors.length - (max + 1);
+    if (hidden > 0) {
+      rows.push(`<div class="gate-fold"><b>未到过 · ${hidden} 层</b><small>往上走才会亮 · 塔共 ${D.floors.length} 层</small></div>`);
+    }
+    el.gateList.innerHTML = rows.join('');
     el.gateList.querySelectorAll('.gate-row').forEach((b) => {
       b.addEventListener('click', () => doJump(Number(b.dataset.f)));
     });
