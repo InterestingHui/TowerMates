@@ -2187,6 +2187,15 @@
     const ch = Engine.tile(tx, ty);
     const m = D.monsters[ch];
     if (!m) return;
+    // 首战埋点（只记一次/局）：漏斗「加载→开局→首战」的第三环。
+    // 与格挡教学解耦后的真实战斗入口才算——教学对白里的预演不算。
+    if (!s.flags.firstFightAt) {
+      s.flags.firstFightAt = Date.now();
+      Funnel.push('first_fight', {
+        floor: s.floor + 1,
+        sinceLoad: Math.max(0, Math.round((Date.now() - LOAD_AT) / 1000)),
+      });
+    }
     // 用"带格挡视角"的预测：残血玩家可以用本层的格挡换命，而不是被拦在外面
     const pred = Engine.predictOpt(ch, true) || Engine.predict(ch);
     if (!pred) return;
@@ -3947,14 +3956,15 @@
     const runs = [];
     let cur = null;
     rows.forEach((x) => {
-      if (x.ev === 'run_start') { cur = { n: x.n, vow: x.vow, at: x.at, sinceLoad: x.sinceLoad, ends: [], gaps: 0 }; runs.push(cur); }
+      if (x.ev === 'run_start') { cur = { n: x.n, vow: x.vow, at: x.at, sinceLoad: x.sinceLoad, ends: [], gaps: 0, ff: null }; runs.push(cur); }
+      else if (x.ev === 'first_fight' && cur) { cur.ff = x.sinceLoad; }
       else if (x.ev === 'run_end' && cur) { cur.ends.push(x); cur = null; }
     });
     const runCards = runs.slice(-6).reverse().map((r) => {
       const last = r.ends[r.ends.length - 1];
       if (!last) return `<div class="fv-run"><b>第 ${r.n} 局</b><span>进行中…</span></div>`;
       const tag = last.won ? '🏆' : '💀';
-      return `<div class="fv-run"><b>${tag} 第 ${r.n} 局</b><span>${last.won ? '通关' : '倒在第 ' + last.floor + ' 层'} · ${r.vow === 'none' ? '不立誓' : (r.vow || '')} · 用时 ${last.time}s · 承伤 ${last.dmg} · 塔印 ${last.seal}${r.sinceLoad >= 0 ? ' · 开局@' + r.sinceLoad + 's' : ''}</span></div>`;
+      return `<div class="fv-run"><b>${tag} 第 ${r.n} 局</b><span>${last.won ? '通关' : '倒在第 ' + last.floor + ' 层'} · ${r.vow === 'none' ? '不立誓' : (r.vow || '')} · 用时 ${last.time}s · 承伤 ${last.dmg} · 塔印 ${last.seal}${r.sinceLoad >= 0 ? ' · 开局@' + r.sinceLoad + 's' : ''}${r.ff != null ? ' · 首战@' + r.ff + 's' : ''}</span></div>`;
     }).join('');
     box.innerHTML = `<h2>本机漏斗 · ${rows.length} 条</h2>`
       + `<p class="fv-sum">加载→开局：<b>${loadToStart}</b> · 首局→二局：<b>${gap}</b> · 开局 ${starts.length} / 结算 ${ends.length} / 退出 ${hides.length}</p>`
@@ -3970,7 +3980,7 @@
     let filter = 'all', desc = true;
     const paint = () => {
       const list = box.querySelector('#fvList');
-      const pick = filter === 'key' ? rows.filter((x) => x.ev === 'run_start' || x.ev === 'run_end')
+      const pick = filter === 'key' ? rows.filter((x) => x.ev === 'run_start' || x.ev === 'first_fight' || x.ev === 'run_end')
         : filter === 'hide' ? hides : rows;
       const view = desc ? pick.slice().reverse() : pick;
       list.innerHTML = view.length ? view.map((x) => {
