@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>pace-audit</title>
+<style>
+body{margin:0;background:#05070c;color:#8ef;font:12px/1.5 monospace}
+#f{width:430px;height:900px;border:0;display:block;position:absolute;left:-9999px}
+#out{padding:10px;white-space:pre-wrap}
+</style>
+</head>
+<body>
+<iframe id="f"></iframe>
+<pre id="out">running…</pre>
+<script>
+// 节奏纠偏 · 元素盘点点：按「正常阅读节奏」走一遍首局，逐屏统计看得见 / 点得动的元素。
+// 不改游戏代码，只读 DOM。口径：
+//   有遮罩时只算遮罩内的元素（背后的 HUD 被盖住，玩家看不见）
+//   可交互 = button / input / a[href] / [role=button]；无遮罩时画布算 1 个核心动词面
+//   信息   = 常驻 chip / 钥匙 / 遗物位 / 锁环位 / pip / 楼层点阵 / 日志行
+//   提示条 = 教练卡 / 楼层卡 / 底部引导条 / 卡关条 / 成就吐司 / 顶部警告（单独计）
+const f = document.getElementById('f');
+const out = document.getElementById('out');
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const R = [];
+const t0 = performance.now();
+
+function shown(el) {
+  if (!el) return false;
+  if (el.closest('[hidden]')) return false;
+  const cs = getComputedStyle(el);
+  if (cs.display === 'none' || cs.visibility === 'hidden') return false;
+  const r = el.getBoundingClientRect();
+  if (!(r.width > 2 && r.height > 2)) return false;
+  if (el.closest('#dpadWrap.dpad-hidden #dpad')) return false;
+  return true;
+}
+function label(el) {
+  let t = (el.getAttribute('aria-label') || el.title || el.textContent || '').replace(/\s+/g, ' ').trim();
+  if (!t && el.id) t = '#' + el.id;
+  return t.slice(0, 24);
+}
+function snap(tag, note) {
+  const w = f.contentWindow, d = f.contentDocument;
+  const overlays = Array.from(d.querySelectorAll('.overlay.show'));
+  const ov = overlays.length ? overlays[overlays.length - 1] : null;
+  const scope = ov || d.getElementById('app');
+  const all = Array.from(scope.querySelectorAll('button, input, a[href], [role="button"]'))
+    .filter((el) => shown(el) && (ov || !el.closest('.overlay')));
+  const clickable = all.filter((el) => !all.some((o) => o !== el && o.contains(el)))
+    // 空遗物位不是按钮，但 gate 遗物是 span 可点——单独补
+    ;
+  const gateChip = ov ? null : Array.from(d.querySelectorAll('#relicRow .relic[data-relic]')).filter(shown);
+  const items = clickable.map(label).concat((gateChip || []).map(label));
+  const info = [];
+  if (!ov) {
+    const q = (sel, name) => {
+      const els = Array.from(d.querySelectorAll(sel)).filter(shown);
+      if (els.length) info.push(`${name}×${els.length}`);
+    };
+    q('#topbar .chip', '数值chip');
+    q('#topbar .keytag', '钥匙');
+    q('#relicRow .relic.empty', '空遗物位');
+    q('#ringRow >*', '锁环位');
+    q('#blockPip', '格挡pip');
+    q('#compassPip', '罗盘pip');
+    q('#scopePip', '明镜pip');
+    q('#floorDots i', '楼层点');
+    q('#log > *', '日志行');
+  }
+  const tips = [];
+  const on = (id, cls, name) => {
+    const el = d.getElementById(id);
+    if (el && (cls ? el.classList.contains(cls) : !el.hidden)) tips.push(name);
+  };
+  on('coachCard', null, '教练卡');
+  on('floorCard', 'show', '楼层卡');
+  on('guide', 'show', '底部引导条');
+  on('stuckBar', null, '卡关条');
+  on('toast', 'show', '成就吐司');
+  on('warnPill', 'show', '顶部警告');
+  const canvasLive = !!ov ? false : shown(d.getElementById('game'));
+  // 战斗遮罩整块可点（点一下跳过）；不算按钮，但算 1 个可交互面
+  const battleTap = ov && ov.id === 'battleScene' ? 1 : 0;
+  const s = (() => { try { return w.Engine.state(); } catch (e) { return null; } })();
+  R.push({ tag, at: Math.round((performance.now() - t0) / 100) / 10, note: note || '',
+    overlay: ov ? ov.id : '—', floor: s ? (s.floor + 1) + '层' : '无局',
+    hp: s ? `${s.hp}/${s.maxHp}` : '-', gold: s ? s.gold : '-',
+    clickable: items, info, tips, canvasLive,
+    tap: battleTap, block: !!(s && s.flags && s.flags.hasBlock) });
+  render();
+}
+function render() {
+  out.textContent = R.map((r) => {
+    const n = r.clickable.length + (r.canvasLive ? 1 : 0) + (r.tap || 0);
+    const total = n + r.tips.length;
+    return `[${r.tag}] ${r.at}s 遮罩=${r.overlay} 楼层=${r.floor} 血=${r.hp} 金=${r.gold} 画布=${r.canvasLive ? '可操作' : '否'} 格挡=${r.block ? '已学' : '未学'}\n`
+      + `  显性总数(含提示条) ${total}｜可交互 ${n}${r.canvasLive ? '(含画布)' : ''}${r.tap ? '(含战斗面板)' : ''}｜提示条 ${r.tips.length}${r.tips.length ? '(' + r.tips.join('/') + ')' : ''}\n`
+      + `  可点: ${r.clickable.map((x, i) => (i + 1) + '.' + x).join(' | ') || '无'}\n`
+      + `  信息: ${r.info.join(' ') || '无'}${r.note ? '\n  备注: ' + r.note : ''}`;
+  }).join('\n\n');
+  document.title = 'PACE|' + R.map((r) => r.tag + ':' + (r.clickable.length + (r.canvasLive ? 1 : 0) + (r.tap || 0))).join(',');
+  window.__report = R;
+}
+function load(url) { return new Promise((res) => { f.onload = () => res(); f.src = url; }); }
+async function ready() {
+  const t = performance.now();
+  while (performance.now() - t < 12000) {
+    try { if (f.contentWindow.__tm && f.contentWindow.Engine && f.contentWindow.__tm.refreshHud) return true; } catch (e) {}
+    await wait(50);
+  }
+  return false;
+}
+function click(w, d, sel) {
+  const el = typeof sel === 'string' ? d.querySelector(sel) : sel;
+  if (!el) return false;
+  el.click();
+  return true;
+}
+
+(async () => {
+  try {
+    await load('/index.html?pace=warm');
+    await ready();
+    f.contentWindow.localStorage.clear();
+    await load('/index.html?pace=run');
+    await ready();
+    await wait(600);
+    // ===== 0-60 秒 =====
+    snap('A 开始页', '冷启动首屏；读简介+犹豫约 8-12 秒');
+    await wait(9000);
+    const w = f.contentWindow, d = f.contentDocument;
+    click(w, d, '#btnNew');
+    await wait(1200);
+    snap('B 立誓', '4 张誓约卡 + 2 个锁定 chip（首局 ✦ 余额行 + 解释行都在）');
+    await wait(16000);
+    click(w, d, '.vow-card[data-vow="none"]');
+    await wait(900);
+    snap('C 序章对白', '4 段旁白，每段读 3-4 秒');
+    for (let i = 0; i < 4; i++) { await wait(3800); click(w, d, '#dialogOverlay'); }
+    await wait(1000);
+    snap('D 第1层·教练卡', '高亮格 + 说明卡，点「知道了」才走');
+    await wait(9000);
+    click(w, d, '#coachOk');
+    await wait(700);
+    snap('E 第1层·可操作', '首次真正可走');
+    w.__tm.clickMove(2, 4);
+    await wait(600);
+    snap('F 首次点格子', '自动寻路 + 底部引导条（7 秒后自收）');
+    await wait(6500);
+    w.__tm.clickMove(6, 5);
+    await wait(2200);
+    snap('G 第一次战斗', '点史莱姆 → 自动近身开战');
+    await wait(5000);
+    click(w, d, '#battleScene');
+    await wait(2600);
+    snap('H 战斗后', '首次击杀 → 成就吐司');
+    // ===== 1-3 分钟：第 2 层 =====
+    await load('/index.html?pace=f2#demo=1,3,5');
+    await ready();
+    await wait(700);
+    snap('I 第2层', '回廊：盾谱(8,1)、铁盾(5,5)、3 骷髅、僵尸、怨灵、石像鬼、黄门');
+    const w2 = f.contentWindow, d2 = f.contentDocument;
+    w2.Engine.state().x = 8; w2.Engine.state().y = 2;
+    w2.__tm.act(0, -1);
+    await wait(2600);
+    snap('J 学会格挡', '踩盾谱 → 小传对白 → 烛的用法教学');
+    for (let i = 0; i < 4; i++) { click(w2, d2, '#dialogOverlay'); await wait(700); }
+    await wait(900);
+    snap('K 格挡教学后', '顶栏出现格挡 pip');
+    // ===== 3-10 分钟：第 3、4 层 =====
+    await load('/index.html?pace=f3#demo=2,4,6');
+    await ready();
+    await wait(700);
+    snap('L 第3层', '集市层：商店 + 祭坛 + 路遇 + Boss 同层');
+    const w3 = f.contentWindow, d3 = f.contentDocument;
+    w3.Engine.state().gold = 400;
+    w3.__tm.openShop();
+    await wait(900);
+    snap('M 商店', '8 件货 × 8 个购买按钮 + 金币 + 离开');
+    click(w3, d3, '#shopClose');
+    await wait(500);
+    w3.Engine.state().x = 7; w3.Engine.state().y = 7;
+    w3.__tm.act(0, 1);
+    await wait(900);
+    snap('N 祭坛', '墙角行李三选一');
+    click(w3, d3, '#altarOverlay .altar-card');
+    await wait(700);
+    await load('/index.html?pace=f4#demo=3,5,1');
+    await ready();
+    await wait(700);
+    snap('O 第4层', '密道：层阶之钥 Q + 石像鬼 + 路遇 + 手记 J');
+    const w4 = f.contentWindow, d4 = f.contentDocument;
+    w4.Engine.state().x = 6; w4.Engine.state().y = 2;
+    w4.__tm.act(0, -1);
+    await wait(900);
+    snap('P 拾取层阶之钥', '遗物上栏 + 顶部警告 + 遗物说明');
+    click(w4, d4, '#relicRow .relic[data-relic="gate"]');
+    await wait(700);
+    snap('Q 层阶之钥面板', '12 层跳转列表');
+    // 章末回响
+    await load('/index.html?pace=echo#demo=2,4,6');
+    await ready();
+    await wait(700);
+    const w5 = f.contentWindow, d5 = f.contentDocument;
+    const st = w5.Engine.state();
+    st.flags.chapterCleared = 1;
+    try {
+      const echo = { chapter: 1, title: '第一章', pending: true };
+      const pool = w5.Engine.ringChoices ? w5.Engine.ringChoices(1) : null;
+      st.flags['ringChoices_1'] = pool || Object.keys(w5.GAME_DATA.rings).slice(0, 3);
+      w5.__tm.openEcho(echo);
+    } catch (e) { out.textContent += '\nECHO-ERR ' + e.message; }
+    await wait(800);
+    snap('R 章末回响', '锁环三选一（首章 Boss 后）');
+    out.textContent += '\n\nDONE ' + JSON.stringify(R.map((r) => ({ tag: r.tag, at: r.at, n: r.clickable.length + (r.canvasLive ? 1 : 0) + (r.tap || 0), tips: r.tips.length })));
+  } catch (e) {
+    out.textContent += '\n\nERR ' + (e && e.stack || e);
+    document.title = 'PACE-ERR';
+  }
+})();
+</script>
+</body>
+</html>
