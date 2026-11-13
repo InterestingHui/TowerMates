@@ -16,10 +16,10 @@
   const floorMaps = () => D.floors.map((f) => f.map.map((row) => row.split('')));
 
   // ---------- 开局微变（P-A / 打 S-D1「前 3 层每局逐格相同」）----------
-  // 只挪第 1 层「散落的拾取物」（红药水 / 金币），地图骨架、怪物、门、总道具量全部不动：
+  // 只挪「散落的拾取物」（红药水 / 金币），地图骨架、怪物、门、商店、祭坛、楼梯、总道具量全部不动：
   // 改的是「先走哪边、先捡什么」，第二局开局不再是逐格照抄已知解，且不碰任何数值。
   // 种子 0 = 保持原版布局（需要可复现读数的工具场景用它要回原图）。
-  const FLOOR1_FREE = ['p', '$'];
+  const FREE_PICKUPS = ['p', '$'];
   function mulberry32(a) {
     return function () {
       a = (a + 0x6D2B79F5) | 0;
@@ -39,10 +39,11 @@
     return r();
   }
 
-  function shuffleFloor1(map, seed) {
+  function shufflePickups(map, seed) {
     if (!seed || !map) return false;
-    // 起点周围 3×3 保持原样：开局 60 秒的教学节奏（教练卡→首战）不跟着变
-    let sx = 1, sy = 1;
+    // 有起点的那层（第 1 层）起点周围 3×3 保持原样：开局 60 秒的教学节奏（教练卡→首战）不跟着变。
+    // 第 2–3 层没有 '@'，把排除中心放到图外，等于不排除——否则左上角会被白白扣掉 9 格候选。
+    let sx = -9, sy = -9;
     for (let y = 0; y < SIZE; y++) for (let x = 0; x < SIZE; x++) if (map[y][x] === '@') { sx = x; sy = y; }
     const cells = [];
     for (let y = 1; y < SIZE - 1; y++) {
@@ -55,7 +56,7 @@
     const from = [];
     for (let y = 0; y < SIZE; y++) {
       for (let x = 0; x < SIZE; x++) {
-        if (FLOOR1_FREE.indexOf(map[y][x]) >= 0) from.push({ x: x, y: y, ch: map[y][x] });
+        if (FREE_PICKUPS.indexOf(map[y][x]) >= 0) from.push({ x: x, y: y, ch: map[y][x] });
       }
     }
     if (!from.length || from.length > cells.length) return false;
@@ -69,6 +70,12 @@
     from.forEach((o, i) => { map[cells[i][1]][cells[i][0]] = o.ch; });
     return true;
   }
+  // 旧名保留：工具/单测里还叫它 shuffleFloor1
+  function shuffleFloor1(map, seed) { return shufflePickups(map, seed); }
+
+  // 第 2–3 层：各派生一颗子种子，三层布局互不牵连（又不是同一个洗牌结果）
+  const SUBSEED_F2 = 0x5BF03635, SUBSEED_F3 = 0x1B56C4E9;
+  function subSeed(base, x) { const v = (base ^ x) | 0; return v === 0 ? 1 : v; }
 
   function newGame(vow, opts) {
     const v = D.vows[vow] ? vow : 'none';
@@ -95,7 +102,11 @@
       floorEnter: null,
     };
     if (v === 'mercy') s.atk = Math.max(1, s.atk - 3);
-    shuffleFloor1(s.maps[0], mapSeed);
+    // 前 3 层「先走哪边、先捡什么」每局都不同（今日一塔=同一天同一座塔）：
+    // 第 1 层用主种子（工具场景传 seed 0 即原版布局），第 2/3 层各派生一颗子种子。
+    shufflePickups(s.maps[0], mapSeed);
+    shufflePickups(s.maps[1], subSeed(mapSeed, SUBSEED_F2));
+    shufflePickups(s.maps[2], subSeed(mapSeed, SUBSEED_F3));
     
     const map = s.maps[0];
     outer: for (let y = 0; y < SIZE; y++) {
@@ -1333,7 +1344,7 @@
   }
 
   window.Engine = {
-    setHooks, newGame, load, reset, hasSave, save, state, tile, predict, predictOpt, shuffleFloor1, nextRand,
+    setHooks, newGame, load, reset, hasSave, save, state, tile, predict, predictOpt, shuffleFloor1, shufflePickups, nextRand,
     predictAt(dx, dy) {
       if (!s) return null;
       const ch = tile(s.x + dx, s.y + dy);

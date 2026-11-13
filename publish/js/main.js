@@ -3068,7 +3068,8 @@
     const bd = $('btnDaily');
     if (bd) {
       bd.style.display = metaOn ? 'block' : 'none';
-      bd.textContent = `今日一塔 · ${Daily.label(Daily.keyOf(Date.now()))}`;
+      // 文案里写明「不立誓」：这一模式跳过开局立誓，不说清楚会让老玩家以为少了第一步
+      bd.textContent = `今日一塔 · ${Daily.label(Daily.keyOf(Date.now()))} · 不立誓`;
     }
     // 首次进塔不显示徽章：新人先看到「开始游戏」，收藏品等玩过一局再露脸
     $('endingBadges').innerHTML = (plain || tru || Achievements.count())
@@ -4268,10 +4269,11 @@
     $('btnContinue').addEventListener('click', continueGame);
     $('btnDaily').addEventListener('click', enterDaily);
 
-    // 开发用：index.html#demo=楼层,x,y 直接进游戏（不播序章）
-    const demo = /demo=(\d+),(\d+),(\d+)/.exec(location.hash || '');
+    // 开发用：index.html#demo=楼层,x,y[,种子] 直接进游戏（不播序章）
+    // 带第 4 段种子＝可复现布局（截图套件要看「第 2–3 层换位后的样子」，不能每次随机）
+    const demo = /demo=(\d+),(\d+),(\d+)(?:,(\d+))?/.exec(location.hash || '');
     if (demo) {
-      Engine.newGame();
+      Engine.newGame(null, demo[4] ? { seed: +demo[4] } : undefined);
       document.body.classList.remove('at-start');
       const st = Engine.state();
       st.floor = +demo[1];

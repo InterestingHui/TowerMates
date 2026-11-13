@@ -489,14 +489,20 @@ const potPos = (() => {
 })();
 ok(!!potPos, '第 1 层找得到红药水');
 if (potPos) {
-  s.x = potPos.x; s.y = potPos.y - 1; s.hp = 500;
+  // 首层散落物每局换位后，药水可能贴墙——先找一个站得住脚的相邻格，别假设它上方一定是地面。
+  // 注意方向：站在「药水 + 偏移」处，要踩上去得朝 -偏移 走。
+  const side = [[0, -1], [0, 1], [-1, 0], [1, 0]]
+    .filter(([dx, dy]) => E.tile(potPos.x + dx, potPos.y + dy) === '.')
+    .map(([dx, dy]) => ({ x: potPos.x + dx, y: potPos.y + dy, dx: dx, dy: dy }))[0];
+  ok(!!side, '药水旁有可站立的格子（换位不会把它封死）');
+  s.x = side.x; s.y = side.y; s.hp = 500;
   const hpBeforePot = s.hp;
-  const potEv = E.tryMove(0, 1);
+  const potEv = E.tryMove(-side.dx, -side.dy);
   const hpAfterPot = s.hp;
   ok(potEv.type === 'pickup' && hpAfterPot > hpBeforePot, '踩药水回血');
   ok(E.tile(potPos.x, potPos.y) === '.', '药水格被清空');
   s.hp = 500;
-  const again = E.tryMove(0, -1) && E.tryMove(0, 1);
+  const again = E.tryMove(side.dx, side.dy) && E.tryMove(-side.dx, -side.dy);
   ok(s.hp === 500 && again.type === 'move', '在同一格来回走不会重复回血');
 }
 // ② 路遇事件结算后格变地面、同层不再触发（ev_f 标记）
@@ -504,6 +510,8 @@ E.newGame();
 s = E.state();
 s.floor = 2;
 s.x = 8; s.y = 6;
+// 第 3 层散落物每局换位，可能正好摆在这一格：本测试只关心事件格，先清干净
+s.maps[2][6][8] = '.';
 const ev0 = E.tryMove(0, 1);
 // 第 3 层是深层事件池，选项可能标价：先把资源给足，保证 opt 0 能结算
 s.gold = 500; s.keys.y = 3; s.keys.r = 3;
@@ -1334,8 +1342,8 @@ s.ending = 'plain';
 A.evaluate('end', s, () => {});
 ok(!A.isUnlocked('edge_finish'), '没带断剑不解锁执剑者');
 
-// ---------- 9z. 开局微变：第 1 层散落物每局换位（P-A / S-D1）----------
-// 目的是让第二局开局不再逐格照抄已知解；约束是「总量不变、起点周围不动、数值不变」。
+// ---------- 9z. 开局微变：前 3 层散落物每局换位（P-A + P-A2 / S-D1）----------
+// 目的是让第二局开局不再逐格照抄已知解；约束是「总量不变、骨架不动、数值不变、起点周围不动」。
 const floor1Spots = (seed) => {
   const st = E.newGame(null, { seed: seed });
   const m = st.maps[0];
@@ -1362,6 +1370,49 @@ ok(!nearStart(v1.p[0]) && !nearStart(v1.$[0]) && !nearStart(v2.p[0]), '散落物
 const seed777 = E.newGame(null, { seed: 777 });
 ok(seed777.maps[0][7][8] === '.', '散落物挪走后原格变回地面');
 ok(E.shuffleFloor1(null, 1) === false, '空地图不崩（shuffleFloor1 边界）');
+ok(E.shufflePickups(null, 1) === false && E.shuffleFloor1([[]], 0) === false, 'shufflePickups 边界：空图 / 种子 0 都不改图');
+
+// 第 2–3 层同一套规则（P-A2：S-D1 的另一半——只治首层，中段仍是照已知解）
+const floorSpots = (seed, fi) => {
+  const st = E.newGame(null, { seed: seed });
+  const m = st.maps[fi];
+  const out = { p: [], $: [] };
+  for (let y = 0; y < 11; y++) {
+    for (let x = 0; x < 11; x++) {
+      if (m[y][x] === 'p') out.p.push([x, y]);
+      if (m[y][x] === '$') out.$.push([x, y]);
+    }
+  }
+  return out;
+};
+// 把拾取物抹成地面后剩下的部分＝骨架（墙/怪/门/楼梯/商店/祭坛/事件）
+const skeleton = (seed, fi) => E.newGame(null, { seed: seed }).maps[fi]
+  .map((row) => row.map((c) => (c === 'p' || c === '$' ? '.' : c)).join('|')).join('/');
+
+const f2base = floorSpots(0, 1);
+const f3base = floorSpots(0, 2);
+ok(f2base.$.length === 2 && f2base.p.length === 1, '种子 0 第 2 层保持原版（金币 2 / 药水 1）');
+ok(f3base.$.length === 2 && f3base.p.length === 2, '种子 0 第 3 层保持原版（金币 2 / 药水 2）');
+
+const f2a = floorSpots(11, 1);
+const f2b = floorSpots(12, 1);
+const f3a = floorSpots(11, 2);
+ok(f2a.$.length === 2 && f2a.p.length === 1, '第 2 层换位后总量不变（金币 2 / 药水 1）');
+ok(f3a.$.length === 2 && f3a.p.length === 2, '第 3 层换位后总量不变（金币 2 / 药水 2）');
+const moved = (a, b) => a.length !== b.length || a.some((s, i) => !dot(s, b[i]))
+  || a.slice().sort().join() !== b.slice().sort().join();
+ok(moved(f2a.$, f2base.$) || moved(f2a.p, f2base.p), '第 2 层散落物真的换位了（不再逐格照抄）');
+ok(moved(f3a.$, f3base.$) || moved(f3a.p, f3base.p), '第 3 层散落物真的换位了');
+ok(skeleton(11, 1) === skeleton(0, 1) && skeleton(11, 2) === skeleton(0, 2),
+  '第 2–3 层骨架零改动（墙/怪/门/商店/祭坛/楼梯全部原位）');
+ok(skeleton(11, 0) === skeleton(0, 0), '第 1 层骨架同样零改动');
+ok(f2a.$.slice().sort().join() !== f2b.$.slice().sort().join()
+  || f2a.p.join() !== f2b.p.join(), '第 2 层不同种子给出不同布局（每局不一样）');
+// 三层各用各的子种子：同一颗种子下三层不会挪成同一个花样
+const sameLayout = (a, b) => a.p.map(String).sort().join() === b.p.map(String).sort().join()
+  && a.$.map(String).sort().join() === b.$.map(String).sort().join();
+ok(!(sameLayout(f2a, f3a) && f2a.p.length === f3a.p.length && f2a.$.length === f3a.$.length)
+  || f2a.$.length !== f3a.$.length, '第 2/3 层各用派生子种子（不共用同一份洗牌结果）');
 
 // ---------- 今日一塔：同一天走进来的是同一座塔 ----------
 const Daily = require('../js/daily.js');
@@ -1377,9 +1428,12 @@ ok(Daily.label(dayA) === '11月14日' && Daily.label('乱码') === '', '面板�
 const dailyA = E.newGame('none', { seed: dSeed, daily: dayA });
 const mapA = dailyA.maps[0].join('|');
 const dailyB = E.newGame('none', { seed: dSeed, daily: dayA });
+const dailyC0 = E.newGame('none', { seed: dSeed, daily: dayA });
 ok(dailyB.maps[0].join('|') === mapA, '同一天同一颗种子 → 首层换位完全一致');
 ok(dailyB.flags.daily === dayA && dailyB.flags.rngSeed === dSeed && dailyB.flags.rngN === 0, '日签/种子/计数写进存档');
 ok(dailyB.flags.phaseSeed === dSeed, 'Boss 台词同一天同一套（按日期种子定）');
+ok(dailyC0.maps[1].join('|') === dailyB.maps[1].join('|') && dailyC0.maps[2].join('|') === dailyB.maps[2].join('|'),
+  '今日一塔：第 2–3 层换位也跟着日签走（同一天同一座塔）');
 
 const drawSeq = () => { const out = []; for (let i = 0; i < 5; i++) out.push(E.nextRand()); return out; };
 E.newGame('none', { seed: dSeed, daily: dayA });

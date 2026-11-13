@@ -82,7 +82,7 @@ const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-ui-'));
   ok(out.clickTarget !== null && out.clickDist >= 2, '找到一只不相邻的怪物作点击目标');
   ok(out.clickKills === 1, '只点一次怪物就自动走到跟前并完成战斗');
   ok(out.clickCleared === true && out.clickOnTile === true, '战斗后怪物消失、人物站上它的格子');
-  ok(out.f3Ledge === '.' && out.f3ReachLedge === true, '第 3 层打墨妖的立足格可直达');
+  ok(out.f3Walkable === true && out.f3ReachLedge === true, '第 3 层打墨妖的立足格可直达');
   ok(Array.isArray(out.shopChain) && out.shopChain.length === 3, '三层商人（8/11/13）都跑过单击流程');
   ok(out.shopChain.every((r) => r.hasM && r.hasStart), '每层商人与可走到的起点都找得到');
   ok(out.shopChain.every((r) => r.reached), '单击商店格一次就走到商人跟前（不再被教学对白打断寻路）');

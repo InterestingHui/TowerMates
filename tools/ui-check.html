@@ -265,6 +265,8 @@ async function run() {
     var s5 = E.state();
     s5.floor = 2; s5.x = 5; s5.y = 9;
     out.f3Ledge = E.tile(5, 6);
+    // 第 2–3 层散落物每局换位：立足格上可能正好摆了药水/金币（都是可走格），不能只认 '.'
+    out.f3Walkable = ['.', 'p', '$'].indexOf(out.f3Ledge) >= 0;
     var p5 = E.pathTo(5, 6);
     out.f3ReachLedge = !!(p5 && p5.length);
     var qx = 5, qy = 9, hitShop = false;
