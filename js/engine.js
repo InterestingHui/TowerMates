@@ -237,7 +237,7 @@
 
   // 章末回响：击败 Boss 必得，直接开锁环三选一（塔规已移除，不再设门槛）
   // 靠格挡吃饭的环：铁壁/苦行/无名三条誓约不能格挡，抽到就是白抽一张
-  const BLOCK_RINGS = ['parry', 'twice'];
+  const BLOCK_RINGS = ['parry', 'twice', 'spare'];
   function ringChoices(ch) {
     const owned = rings();
     const noBlock = vowForbidsBlock();
@@ -348,6 +348,7 @@
   function changeFloor(dir) {
     const target = s.floor + dir;
     if (target < 0 || target >= D.floors.length) return null;
+    const from = s.floor;
     s.floor = target;
     const map = s.maps[target];
     const mark = dir > 0 ? 'n' : 'u';
@@ -380,7 +381,18 @@
     }
     // 基石之环：残血进新层才触发（30% 以下回 15%），是「救命」不是「续航」，与借灯类不冲突
     if (dir > 0 && firstVisit && hasRing('bulwark') && s.maxHp > 0 && s.hp / s.maxHp < 0.3) gain(0.15);
-    return { floor: target, x: nx, y: ny, heal };
+    // 惜挡之环：这一层一次格挡都没动，离开时补 90 金——盾成了「保命还是换钱」的一笔账。
+    // 每层只结一次（spare_f<层>），上下楼来回走刷不到；没学盾谱、或三条「不能格挡」的
+    // 誓约拿不到这笔钱，否则它就成了无条件发钱的老好人环。
+    let gold = 0;
+    const spareKey = 'spare_f' + from;
+    if (dir > 0 && hasRing('spare') && s.flags.hasBlock && !vowForbidsBlock()
+        && !s.flags[spareKey] && blockUsedAt(from) === 0) {
+      s.flags[spareKey] = true;
+      gold = SPARE_GOLD;
+      s.gold += gold;
+    }
+    return { floor: target, x: nx, y: ny, heal, gold };
   }
 
   function predict(ch) {
@@ -861,12 +873,19 @@
   // 每层一次「格挡」：这一战的承伤降到 55%（铁壁之誓放弃它）
   // 格挡不再是开局白送：要先学到「半部盾谱」（地图拾取 / 商店购买 / 老兵讨教）才会
   // 双挡之环把每层次数抬到 2；次数用「计数」而不是布尔记，老档只有布尔就按 1 次算
+  // 惜挡之环：一整层没动格挡，上楼时补多少金（唯一数值出口，改价只改这里）
+  const SPARE_GOLD = 90;
   const blockLimit = () => (hasRing('twice') ? 2 : 1);
-  function blockUsed() {
+  // 按层读「这一层已经挡过几次」：count 字段优先，老档只有布尔时按 1 次算。
+  // 拆成按楼层参数，是因为换层后 s.floor 已经指向新层，结算上一层必须显式指定。
+  function blockUsedAt(f) {
     if (!s) return 0;
-    const n = s.flags['block_n' + s.floor];
+    const n = s.flags['block_n' + f];
     if (typeof n === 'number') return n;
-    return s.flags['block_f' + s.floor] ? 1 : 0;
+    return s.flags['block_f' + f] ? 1 : 0;
+  }
+  function blockUsed() {
+    return s ? blockUsedAt(s.floor) : 0;
   }
   // 还剩几次：没学盾谱 / 这条誓约不能格挡时恒为 0，界面与战斗入口都靠它
   function blockLeft() {
@@ -1401,7 +1420,7 @@
       const ch = tile(s.x + dx, s.y + dy);
       return D.monsters[ch] ? predict(ch) : null;
     },
-    tryMove, fight, canBlock, blockLimit, blockLeft, grantBlock, vowForbidsBlock, buy, priceOf, shopStock, dealOf, openShopAt, floorMonsterCount, floorPickupCount, battleMargin, potionHeal, finish, altarChoices, pickRelic, pathTo, pathThrough, pathToNear, pathsTo,
+    tryMove, fight, canBlock, blockLimit, blockLeft, blockUsedAt, grantBlock, vowForbidsBlock, buy, priceOf, shopStock, dealOf, openShopAt, floorMonsterCount, floorPickupCount, battleMargin, potionHeal, finish, altarChoices, pickRelic, pathTo, pathThrough, pathToNear, pathsTo,
     nextLevelExp, margin, keyName, summary, hasRelic, ownedRelics, beginFloor, restoreFloor, revealCore, heartState, heartTake, heartLeave, vow, pickEvent, eventPool, eventCost, resolveEvent, applyEffect, jumpTo, visitedMax, gateForth, sealPlan,
     rings, hasRing, ringBlockScale, zealScale, fightDamage, bossPhases, settleChapter, ringChoices, pendingRing, pickRing,
   };

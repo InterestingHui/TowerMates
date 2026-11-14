@@ -79,6 +79,13 @@ Object.keys(D.rings).forEach((id) => {
     add(id, '血量', Math.round(1.5 * B.maxHp * pct), '一局约触发 1-2 次');
   } else if (/四位锁匠全倒时/.test(d)) {
     add(id, '余烬', 3 * EMBER_W, '四锁匠全倒才给');
+  } else if (/每层可以格挡两次/.test(d)) {
+    // 第二挡按「整塔约 8 层各多挡一场」估：每场平均承伤 × 45%
+    add(id, '减伤', Math.round(8 * (B.dmg / B.kills) * 0.45), '8 层 × 每场均伤 × 45%');
+  } else if (/一整层没动用格挡，上楼时 \+(\d+) 金币/.test(d)) {
+    // 9 层可结算（第 13 层没有上楼）；实务上后期很难整层不挡，按一半兑现
+    const per = Number(/上楼时 \+(\d+) 金币/.exec(d)[1]);
+    add(id, '金币', Math.round(9 * 0.5 * per * 1.5), `9 段上楼 × 约五成兑现 × ${per} 金`);
   } else {
     add(id, '?', 0, '未识别：' + d);
   }

@@ -1788,10 +1788,15 @@
     // 小架不值得给选项：伤害不到 5% 上限的杂兵战不显示格挡，免得每次都弹
     // 没学会格挡时也整个不显示——它不再是开局白送的能力
     const worth = s.flags.hasBlock && (m.boss || pred.damage >= heroMax * 0.05);
+    // 挡完还剩多少血：整场战斗只有一个主动决策，这个数不写出来，玩家就得自己乘百分比。
+    // 数值直接取引擎的真实承伤（含誓约/锁环乘区），与结算一字不差。
+    const blockAfter = info.dmgBlock && typeof info.dmgBlock.damage === 'number'
+      ? Math.max(0, Math.round(heroHp - info.dmgBlock.damage))
+      : null;
     el.bsBlock.style.display = worth ? '' : 'none';
     el.bsBlock.classList.remove('done');
     el.bsBlock.disabled = !canB;
-    el.bsBlock.innerHTML = `<b>🛡 格挡</b><span>${blockLimitN > 1 ? `本层剩 ${blockLeftN} 次` : '本层一次'} · 承伤 −${Math.round((1 - scaleWhenBlocked) * 100)}%</span>`;
+    el.bsBlock.innerHTML = `<b>🛡 格挡</b><span>${blockLimitN > 1 ? `本层剩 ${blockLeftN} 次` : '本层一次'} · 承伤 −${Math.round((1 - scaleWhenBlocked) * 100)}%${blockAfter !== null && blockAfter > 0 ? ` · 挡后剩 ${blockAfter}` : ''}</span>`;
     if (worth && Tips.mark('block')) Tips.banner('block');
     el.bsBlock.onclick = (e) => {
       e.stopPropagation();
@@ -3472,6 +3477,11 @@
         break;
       case 'floor':
         Sound.play('door');
+        // 惜挡之环：这一层一次格挡都没动，走的时候补了一笔钱——当场说明白，别让它悄悄进账
+        if (ev.at && ev.at.gold > 0) {
+          log(`惜挡之环：这一层没动格挡，上楼时留下 ${ev.at.gold} 金币。`, 'gold');
+          Renderer.addFloat(`+${ev.at.gold}💰`, Engine.state().x * T + T / 2, Engine.state().y * T - 8, '#e8c46a');
+        }
         enterFloor(false);
         break;
       case 'story':

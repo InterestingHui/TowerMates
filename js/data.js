@@ -251,11 +251,18 @@ window.GAME_DATA = (function () {
     // ---- 第四轮扩容（第 2 章 9→10）：第一个「改规则」而不改资源的环 ——
     // 双挡把「这一层留给哪一场」从一次判断变成两次判断，逼玩家回头审视还没打的怪。
     twice:    { name: '双挡之环', emoji: '🛡️', short: '双', chapter: 2, desc: '每层可以格挡两次（上楼才恢复）' },
+
+    // ---- 第五轮扩容（第 1 章 9→10）：把格挡本身变成一笔账 ——
+    // 刻痕之章的主题是「规矩与计数」，这枚环让「忍住不挡」有价：
+    // 一层里一次格挡都没动，上楼时补 90 金。它不改任何数值，只把
+    // 「盾留给哪一场」这道判断从「保命」扩成「保命还是换钱」。
+    // 没学盾谱 / 不能格挡的三条誓约拿不到这笔钱，所以候选池里直接滤掉。
+    spare:    { name: '惜挡之环', emoji: '✋', short: '惜', chapter: 1, desc: '一整层没动用格挡，上楼时 +90 金币' },
   };
 
   // 每章抽 3 个给玩家选（池 9 个 → 每局的构筑起点不同）
   const ringPools = {
-    1: ['ledger', 'lamp', 'coin', 'keyring', 'pace', 'ward2', 'ration', 'tally', 'notch'],
+    1: ['ledger', 'lamp', 'coin', 'keyring', 'pace', 'ward2', 'ration', 'tally', 'notch', 'spare'],
     2: ['parry', 'cinder', 'thrift2', 'vitality', 'ash', 'scout2', 'bargain', 'toll', 'chain', 'twice'],
     3: ['bell', 'stair', 'scope', 'hour', 'ledger2', 'vitality2', 'compass', 'tome', 'bulwark'],
     4: ['seventh', 'chisel', 'heart', 'oath', 'coin2', 'lamp2', 'signature', 'quill', 'finale'],

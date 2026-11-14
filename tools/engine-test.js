@@ -634,8 +634,8 @@ ok(ev.at.heal === Math.round(s.maxHp * 0.13), '三枚回血环叠加：首访回
 {
   [1, 2, 3, 4].forEach((c) => {
     const pool = D.ringPools[c];
-    // 第 2 章 10 枚（双挡之环），其余 9 枚；组合数 = C(n,3)
-    const n = c === 2 ? 10 : 9;
+    // 第 1/2 章各 10 枚（惜挡 / 双挡），第 3/4 章 9 枚；组合数 = C(n,3)
+    const n = (c === 1 || c === 2) ? 10 : 9;
     ok(pool.length === n, `第 ${c} 章锁环池 ${n} 枚（组合数 ${(n * (n - 1) * (n - 2)) / 6}）`);
     ok(pool.every((id) => D.rings[id] && D.rings[id].chapter === c), `第 ${c} 章池内 id 与章号一致`);
   });
@@ -1540,6 +1540,77 @@ E.openShopAt(2);
 E.dealOf(2);
 const seqAfterDeal = drawSeq();
 ok(seqAfterDeal.join(',') === seq1.join(','), '行情不挤占 nextRand 序列（抽取顺序一字不动）');
+
+// ---------- 9j. 惜挡之环：一整层没动格挡，上楼补 90 金（每层只结一次） ----------
+// 把「盾留给哪一场」从纯保命扩成「保命还是换钱」——它不改任何数值，只把格挡变成一笔账
+function climbUp() {
+  const map = s.maps[s.floor];
+  for (let y = 0; y < map.length; y++) {
+    for (let x = 0; x < map[y].length; x++) {
+      if (map[y][x] !== 'u') continue;
+      const dirs = [[0, -1], [0, 1], [-1, 0], [1, 0]];
+      for (let k = 0; k < dirs.length; k++) {
+        const px = x - dirs[k][0], py = y - dirs[k][1];
+        if (py < 0 || py >= map.length || px < 0 || px >= map[0].length) continue;
+        if ('.@p$'.indexOf(map[py][px]) < 0) continue;
+        s.x = px; s.y = py;
+        return E.tryMove(dirs[k][0], dirs[k][1]);
+      }
+    }
+  }
+  return null;
+}
+E.newGame();
+s = E.state();
+s.flags.rings = ['spare'];
+s.flags.hasBlock = true;
+s.gold = 100;
+{
+  const up1 = climbUp();
+  ok(up1 && up1.type === 'floor' && up1.at.gold === 90 && s.gold === 190,
+    '惜挡之环：这一层没动格挡，上楼 +90 金');
+  ok(s.flags['spare_f0'] === true, '结算落在 flags.spare_f0（每层一个标记）');
+  const up2 = climbUp();
+  ok(up2 && up2.at.gold === 90, `换一层重新算（第 2 层上楼也 +90）`);
+  s.floor = 0;
+  const up3 = climbUp();
+  ok(up3 && up3.at.gold === 0 && s.gold === 280, '同一层来回上下楼不重复结这笔钱');
+}
+// 这一层挡过一次：没有这笔钱
+E.newGame();
+s = E.state();
+s.flags.rings = ['spare'];
+s.flags.hasBlock = true;
+s.gold = 100;
+s.flags['block_n0'] = 1;
+{
+  const upB = climbUp();
+  ok(upB && upB.at.gold === 0 && s.gold === 100, '惜挡之环：这一层挡过，就不再补钱');
+}
+// 没学盾谱（没有格挡可省）：不发钱，否则它成了无条件发钱的老好人环
+E.newGame();
+s = E.state();
+s.flags.rings = ['spare'];
+s.gold = 100;
+{
+  const upC = climbUp();
+  ok(upC && upC.at.gold === 0 && s.gold === 100, '惜挡之环：没学盾谱拿不到这笔钱');
+}
+// 不能格挡的三条誓约：拿不到，且候选池里直接不出现（抽到就是白拿一张）
+E.newGame('guard');
+s = E.state();
+s.flags.rings = ['spare'];
+s.flags.hasBlock = true;
+s.gold = 100;
+ok(climbUp().at.gold === 0 && s.gold === 100, '铁壁之誓：整层没格挡也拿不到这笔钱（它本来就不能挡）');
+{
+  let seen = 0;
+  for (let k = 0; k < 40; k++) { E.newGame('guard'); if (E.ringChoices(1).indexOf('spare') >= 0) seen++; }
+  ok(seen === 0, '铁壁之誓第 1 章候选池里不出现惜挡之环（40 次抽取 0 次）');
+  let seenFree = 0;
+  for (let k = 0; k < 40; k++) { E.newGame('none'); if (E.ringChoices(1).indexOf('spare') >= 0) seenFree++; }
+  ok(seenFree > 0, `不立誓时能正常抽到（40 次里出现 ${seenFree} 次）`);
+}
 
 console.log(fail === 0 ? '\n✓ 全部通过' : `\n✗ ${fail} 项失败`);
 process.exit(fail ? 1 : 0);
