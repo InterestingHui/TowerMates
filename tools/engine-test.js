@@ -1735,5 +1735,58 @@ s.hp = E.fightDamage('A', false, false).damage;   // 刚好活不下来
 ok(E.fight(1, 0, { rush: true }).type === 'refuse', '血不够白打时抢攻仍被拒（它不是保命按钮）');
 ok(E.rushInfo('A').save < E.fightDamage('A', false, false).damage, '抢攻只省得下一轮，救不回一场打不过的架');
 
+// ---------- 本层威胁读数（floorThreat）：还剩几只 / 最贵的那只值多少血 ----------
+E.newGame();
+s = E.state();
+s.floor = 3; s.x = 5; s.y = 5;
+s.maps[3] = Array.from({ length: 11 }, () => new Array(11).fill('.'));
+s.maps[3][2][2] = 'A';    // 蝙蝠
+s.maps[3][3][3] = 'C';    // 骷髅兵（更硬）
+s.maps[3][4][4] = 'G';    // 烛：幽灵 NPC，不是敌人
+const th = E.floorThreat();
+ok(!!th, '第 4 层能给出一份威胁读数');
+ok(th.count === 2, `幽灵 NPC 不算敌人（读到 ${th.count} 只）`);
+ok(th.count === E.floorMonsterCount(), '威胁读数与本层怪物计数同源');
+ok(!!th.worst && th.worst.ch === 'C', `最贵的是骷髅兵（读到 ${th.worst && th.worst.name}）`);
+ok(th.worst.damage === E.fightDamage('C', false, false).damage, '威胁读数与战斗面板「承伤 −N」同源');
+ok(th.worst.damage === Math.max(E.fightDamage('A', false, false).damage, E.fightDamage('C', false, false).damage), '取的是承伤最高的那只，不是第一只');
+ok(th.wall === null, '都破得了防时不报「打不穿」');
+
+// 破不了防的那只单独报：破不了防时谈掉多少血都是空话，它比「最贵」更该先知道
+E.newGame();
+s = E.state();
+s.floor = 3; s.x = 5; s.y = 5;
+s.maps[3] = Array.from({ length: 11 }, () => new Array(11).fill('.'));
+s.maps[3][2][2] = 'A';
+s.maps[3][3][3] = 'E';    // 石像鬼：攻 5 打不穿（防 15）
+s.atk = 5;
+const thWall = E.floorThreat();
+ok(!!thWall.wall && thWall.wall.ch === 'E', '打不穿的那只单独报出来');
+ok(thWall.worst && thWall.worst.ch === 'A', '打不穿的混不进「最贵」（最贵只算破得了防的）');
+ok(thWall.count === 2, '打不穿的照样算进「还剩几只」');
+
+// skip：战斗面板要把「正在打的这只」排除在外，否则读数会变成
+// 「这一层还剩 2 只 · 最贵的 石像鬼」而石像鬼正是眼前这只
+E.newGame();
+s = E.state();
+s.floor = 3; s.x = 5; s.y = 5;
+s.maps[3] = Array.from({ length: 11 }, () => new Array(11).fill('.'));
+s.maps[3][4][5] = 'E';    // 正在打的那只（位置 (5,4)）
+s.maps[3][2][2] = 'A';
+const thSkip = E.floorThreat(3, { x: 5, y: 4 });
+ok(thSkip.count === 1, `排除正在打的这只后只剩 ${thSkip.count} 只`);
+ok(thSkip.worst && thSkip.worst.ch === 'A', '最贵改成排除之后的那只（不再是自己）');
+ok(E.floorThreat(3, { x: 5, y: 4 }).count === E.floorThreat(3).count - 1, 'skip 只减掉那一格，不多减');
+ok(E.floorThreat(3, { x: 0, y: 0 }).count === E.floorThreat(3).count, '空格上 skip 不影响计数');
+
+// 空层 / 越界：面板据此整行不显示，引擎也不能崩
+E.newGame();
+s = E.state();
+s.maps[3] = Array.from({ length: 11 }, () => new Array(11).fill('.'));
+const thEmpty = E.floorThreat(3);
+ok(thEmpty.count === 0 && thEmpty.worst === null && thEmpty.wall === null, '空楼层给 0 只、不给最贵项');
+ok(E.floorThreat(99) === null, '没有这一层时返回 null');
+ok(!!E.floorThreat(0), '第 1 层本身不设限（「第 2 章起才显示」是面板的时机规则，不是引擎的）');
+
 console.log(fail === 0 ? '\n✓ 全部通过' : `\n✗ ${fail} 项失败`);
 process.exit(fail ? 1 : 0);

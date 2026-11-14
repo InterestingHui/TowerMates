@@ -371,8 +371,14 @@ if (!process.argv.includes('--no-shot')) {
         const saved = /"save":(\d+)/.exec(outR);
         const saveOk = !!saved && outR.indexOf('承伤 −' + saved[1]) >= 0;
         const costOk = outR.indexOf('这战没经验') >= 0;
-        okRush = shown && saveOk && costOk;
-        rushLine = `面板 ${shown ? '在' : '缺'} / 承伤与引擎同源 ${saveOk ? saved[1] : '不符'} / 代价写明 ${costOk ? '是' : '否'}`;
+        // 本层威胁读数（同一次面板）：还剩 N 只的数字必须与引擎读到的一致
+        const thM = /bsThreat=([\s\S]*?) threat=/.exec(outR);
+        const thTxt = thM ? thM[1].trim() : '';
+        const thCount = /"count":(\d+)/.exec(outR);
+        const thNum = /这一层还剩 (\d+) 只/.exec(thTxt);
+        const thOk = !!thNum && !!thCount && thNum[1] === thCount[1] && /(最贵|打不穿)/.test(thTxt);
+        okRush = shown && saveOk && costOk && thOk;
+        rushLine = `面板 ${shown ? '在' : '缺'} / 承伤与引擎同源 ${saveOk ? saved[1] : '不符'} / 代价写明 ${costOk ? '是' : '否'} / 威胁行 ${thOk ? '对得上' : '缺或对不上'}（${thTxt || '无'}）`;
         console.log((okRush ? '✓' : '✗') + ' 抢攻面板 ' + rushLine);
       }
       server.kill();      console.log(bad === 0 ? `\n✓ 截图全部生成（${SCENES.length} 张，见 tools/out/）` : `\n✗ ${bad} 张截图异常`);

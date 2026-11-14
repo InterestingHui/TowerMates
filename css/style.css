@@ -940,6 +940,16 @@ html, body {
   text-shadow: 0 0 10px rgba(232, 196, 106, 0.35);
 }
 .bs-zeal[hidden] { display: none; }
+/* 本层威胁：还剩几只、最硬的那只值多少血（只读数，不是按钮） */
+.bs-threat {
+  text-align: center;
+  font-size: var(--fs-tag);
+  color: var(--muted);
+  margin-top: 3px;
+  letter-spacing: 0.2px;
+}
+.bs-threat b { color: var(--text); font-weight: 700; }
+.bs-threat[hidden] { display: none; }
 .bs-numbers { position: fixed; inset: 0; pointer-events: none; }
 .bs-dmg {
   position: absolute;

@@ -574,7 +574,7 @@
     bsHeroHp: $('bsHeroHp'), bsFoeHp: $('bsFoeHp'),
     bsName: $('bsName'), bsRounds: $('bsRounds'), bsNumbers: $('bsNumbers'),
     bsPhase: $('bsPhase'), bsPhaseTitle: $('bsPhaseTitle'), bsPhaseText: $('bsPhaseText'),
-    bsBlock: $('bsBlock'), bsRush: $('bsRush'), blockPip: $('blockPip'), compassPip: $('compassPip'), scopePip: $('scopePip'), zealPip: $('zealPip'),
+    bsBlock: $('bsBlock'), bsRush: $('bsRush'), bsThreat: $('bsThreat'), blockPip: $('blockPip'), compassPip: $('compassPip'), scopePip: $('scopePip'), zealPip: $('zealPip'),
     bsPanel: document.querySelector('.bs-panel'),
     guide: $('guide'),
     stuckBar: $('stuckBar'), stuckText: $('stuckText'),
@@ -1801,6 +1801,24 @@
       if (z < 1) zealEl.textContent = `🗡️ 战意 −${Math.round((1 - z) * 100)}% · 已击败 ${Engine.state().flags.killCount || 0} 只`;
     }
 
+    // 本层威胁读数（第 2 章起）：还剩几只、最贵的那只白打要掉多少血。
+    // 「先打谁、要不要绕过去」是在战斗外决定的——这一行把它从心里的估数变成屏幕上的数。
+    // 只有一行字、不加按钮，数字取引擎同源（与面板上的「承伤 −N」同一个口径）。
+    if (el.bsThreat) {
+      // skip 掉正在打的这只：它马上倒下，算进「还剩几只 / 最贵」只会让读数变成
+      // 「我在打的就是最贵的」——白占一行
+      const th = s.floor >= 3 ? Engine.floorThreat(undefined, info.skip) : null;
+      // 排除在打的这只后一只不剩 → 这一层就清完了，没得选，整行不出现
+      const showThreat = !!th && th.count >= 1 && !!(th.wall || th.worst);
+      el.bsThreat.hidden = !showThreat;
+      if (showThreat) {
+        el.bsThreat.innerHTML = th.wall
+          ? `这一层还剩 ${th.count} 只 · <b>打不穿</b> ${th.wall.name}`
+          : `这一层还剩 ${th.count} 只 · 最贵 ${th.worst.name} 白打 <b>−${th.worst.damage}</b>`;
+        el.bsThreat.title = '白打这一只要掉多少血（不格挡、不抢攻）——破不了防的另算';
+      }
+    }
+
     // 格挡：每层一次，按下后整场承伤 ×0.6（引擎按同样比例结算，数字对得上）
     let blockScale = 1;
     let blockOn = false;
@@ -2425,6 +2443,7 @@
     playBattleScene({
       monster: m, pred, dmgBase, dmgBlock, dmgRush,
       phases: m.boss ? Engine.bossPhases(ch) : null,
+      skip: { x: tx, y: ty },     // 本层威胁读数要排除的格子（正在打的这只）
     }, (opt) => {
       // 这一战只有格挡才能活：玩家撞上去就是求战，结算时自动带上格挡
       const res = Engine.fight(dx, dy, { block: opt.block || !!pred.blockSave, rush: opt.rush });

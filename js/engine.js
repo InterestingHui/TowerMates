@@ -1155,6 +1155,42 @@
     return n;
   }
 
+  // 本层还剩几只怪、其中「最硬的一只」白打要掉多少血（战斗面板那一行读数）。
+  // 只给账、不给建议——「先打哪只、要不要绕过去」仍由玩家自己判断；
+  // 数值走 fightDamage 的白打视角（誓约/锁环乘区在内、不含格挡），
+  // 与战斗面板上的「承伤 −N」是同一个数，不会各算各的。
+  // skip：战斗中传当前目标那一格——它马上就要倒，算进「还剩几只 / 最贵」只会让读数
+  // 变成「我在打的这只就是最贵的」，白占一行。
+  // 打不穿（攻击力不够破防）的那只单独报：它比「掉血多」更该先知道——
+  // 破不了防时谈掉多少血都是空话。
+  function floorThreat(floor, skip) {
+    if (!s) return null;
+    const f = floor === undefined ? s.floor : floor;
+    const map = s.maps[f];
+    if (!map) return null;
+    let count = 0;
+    let worst = null;   // 白打承伤最高的那只
+    let wall = null;    // 第一只打不穿的
+    for (let y = 0; y < SIZE; y++) {
+      for (let x = 0; x < SIZE; x++) {
+        if (skip && skip.x === x && skip.y === y) continue;
+        const ch = map[y][x];
+        const m = D.monsters[ch];
+        if (!m || m.ghost) continue;
+        count++;
+        const p = predictBase(ch);
+        if (!p || p.damage === null) {
+          if (!wall) wall = { ch, name: m.name };
+          continue;
+        }
+        const fd = fightDamage(ch, false);
+        const dmg = fd && fd.damage !== null ? fd.damage : p.damage;
+        if (!worst || dmg > worst.damage) worst = { ch, name: m.name, damage: dmg };
+      }
+    }
+    return { count, worst, wall };
+  }
+
   // 本层还剩几件「能捡的东西」（罗盘之环用）：道具与金币都算，
   // 门 / 怪 / 楼梯 / 商店 / 祭坛这些「踩上去是交互」的不算——罗盘回答的是「还有没有漏拿的收益」。
   function floorPickupCount(floor) {
@@ -1473,7 +1509,7 @@
       const ch = tile(s.x + dx, s.y + dy);
       return D.monsters[ch] ? predict(ch) : null;
     },
-    tryMove, fight, canBlock, blockLimit, blockLeft, blockUsedAt, grantBlock, vowForbidsBlock, buy, priceOf, shopStock, dealOf, openShopAt, floorMonsterCount, floorPickupCount, battleMargin, potionHeal, finish, altarChoices, pickRelic, pathTo, pathThrough, pathToNear, pathsTo,
+    tryMove, fight, canBlock, blockLimit, blockLeft, blockUsedAt, grantBlock, vowForbidsBlock, buy, priceOf, shopStock, dealOf, openShopAt, floorMonsterCount, floorPickupCount, floorThreat, battleMargin, potionHeal, finish, altarChoices, pickRelic, pathTo, pathThrough, pathToNear, pathsTo,
     nextLevelExp, margin, keyName, summary, hasRelic, ownedRelics, beginFloor, restoreFloor, revealCore, heartState, heartTake, heartLeave, vow, pickEvent, eventPool, eventCost, resolveEvent, applyEffect, jumpTo, visitedMax, gateForth, sealPlan,
     rings, hasRing, ringBlockScale, zealScale, zealNext, zealNeed, cleanEmber, fightDamage, rushInfo, bossPhases, settleChapter, ringChoices, pendingRing, pickRing,
   };

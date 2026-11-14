@@ -139,6 +139,11 @@
           q2push('bsRush=' + (rb && rb.style.display !== 'none' ? rb.textContent.replace(/\s+/g, ' ').trim() : 'HIDDEN')
             + ' info=' + JSON.stringify(info)
             + ' plain=' + plain + ' quick=' + quick);
+          // 本层威胁读数：还剩几只 / 最贵的那只值多少血（面板数字必须与引擎同源）
+          // 面板会 skip 掉正在打的那只（场景固定从 (5,5) 往上打 (5,4)），探针按同一口径读
+          const tb = d.getElementById('bsThreat');
+          q2push('bsThreat=' + (tb && !tb.hidden ? tb.textContent.replace(/\s+/g, ' ').trim() : 'HIDDEN')
+            + ' threat=' + JSON.stringify(E.floorThreat(undefined, { x: 5, y: 4 })));
         }
         if (scene === 'shop') {
           await wait(200);
