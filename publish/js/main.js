@@ -2602,12 +2602,15 @@
     }, (opt) => {
       // 这一战只有格挡才能活：玩家撞上去就是求战，结算时自动带上格挡
       // opt.block 可能是 true（挡这一场）或 'all'（架盾）——原样透传给引擎
-      const res = Engine.fight(dx, dy, { block: opt.block || (pred.blockSave ? true : false), tangle: opt.tangle });
+      // auto：这一记挡不是玩家按的（他没有选任何打法，是系统替他挡下来保命）。
+      // 只给引擎用来区分记账口径（dec 的 'f' 与 'b'），不参与任何数值。
+      const autoBlock = !opt.block && !!pred.blockSave;
+      const res = Engine.fight(dx, dy, { block: opt.block || (pred.blockSave ? true : false), tangle: opt.tangle, auto: autoBlock });
       battleBusy = false;
       if (res.type === 'fight') {
-        // 打法计数只记打成了的（战斗中断不算一次选择）；blockSave 的自动挡单记 f，别混进玩家的格挡率
-        const pick = opt.block === 'all' ? 'g' : (opt.block ? 'b' : (opt.tangle ? 't' : (pred.blockSave ? 'f' : 'n')));
-        logBattlePick(s, pick);
+        // 打法计数只记打成了的（战斗中断不算一次选择）；归属由引擎给（Engine.fight 的 pick 字段），
+        // 单一口径——面板怎么摆、引擎怎么结算、账本怎么记，三处不许各算各的
+        logBattlePick(s, res.pick);
         applyFightResult(res, tx, ty);
       } else { warn(res.msg || '战斗中断'); refreshHud(); }
     });
