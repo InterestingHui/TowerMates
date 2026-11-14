@@ -1402,6 +1402,15 @@ ok(FL.survive === (s.hp > FL.white), '塔顶的账：撑不撑得过按当前血
 ok(FL.hp === s.hp && FL.maxHp === s.maxHp, '塔顶的账：血量取当前状态');
 ok(FL.zeal === 1, '塔顶的账：没到门槛时 zeal=1（白打不打折）');
 ok(FL.rush === E.fightDamage('U', false, true).damage, '塔顶的账：抢攻给的是少挨一轮之后的数');
+// 「省得多」≠「救得下」：引擎的生死判定只认白打与格挡，抢攻保不了命。
+// 账面上必须能分出「格挡能救」与「连格挡也救不下」，否则最便宜的抢攻会把人送去送死。
+s.hp = 1400;
+let savedL = E.finalLedger();
+ok(savedL.survive === false && savedL.blockSave === true, '塔顶的账：白打撑不过但格挡能救（blockSave 单独给）');
+s.hp = 400;
+let doomedL = E.finalLedger();
+ok(doomedL.survive === false && doomedL.blockSave === false, '塔顶的账：格挡也救不下时 blockSave=false（不许拿抢攻当救命稻草）');
+s.hp = 1400;
 // 没学格挡 / 这一层已经用光 → 不许给「留着格挡」这种画饼数
 s.flags.hasBlock = false;
 ok(E.finalLedger().block === null, '塔顶的账：没学格挡时不给格挡价');

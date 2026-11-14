@@ -1362,14 +1362,25 @@
           warn(`💀 **塔顶的账**：以现在 ${Engine.state().atk} 点攻击，破不了碑魔的防——先把攻加上去，谈掉多少血都是空话。`);
           return;
         }
-        // 「最省的一招」：只报白打会把本来能过关的人劝退（格挡 / 抢攻都能压下来）
+        // 「最省的一招」：只报白打会把本来能过关的人劝退（格挡 / 抢攻都能压下来）。
+        // 但「省得多」不等于「救得下」——引擎的生死判定只认白打与格挡，
+        // 抢攻保不了命，所以撑不过时不能把抢攻摆在最前面当救命稻草。
         const saves = [];
         if (L.block !== null) saves.push({ dmg: L.block, txt: '格挡' });
         if (L.rush !== null) saves.push({ dmg: L.rush, txt: '抢攻（这战没经验）' });
         saves.sort((a, b) => a.dmg - b.dmg);
-        const saveTxt = saves.length && saves[0].dmg < L.white
-          ? ` · 最省的一招：${saves[0].txt}可压到 −${saves[0].dmg}`
-          : '';
+        let saveTxt = '';
+        if (saves.length && saves[0].dmg < L.white) {
+          if (L.survive) {
+            saveTxt = ` · 最省的一招：${saves[0].txt}可压到 −${saves[0].dmg}`;
+          } else if (L.blockSave) {
+            saveTxt = ` · **格挡能撑住**（−${L.block}），抢攻救不了这一场`;
+          } else if (L.block !== null) {
+            saveTxt = ` · 格挡也只能压到 −${L.block}，还是撑不过——先回去加攻防/补血`;
+          } else {
+            saveTxt = ' · 没格挡可用，这一场撑不过——先回去加攻防/补血';
+          }
+        }
         const fullTxt = L.toFull > 0
           ? ` · 再打 ${L.toFull} 只满战意（${L.full} 只 −36%）`
           : ' · 战意已满 −36%';

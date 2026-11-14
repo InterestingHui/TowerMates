@@ -253,7 +253,7 @@
       hp: s.hp, maxHp: s.maxHp,
       wall: base.damage === null,
       white: base.damage, block: null, rush: null, zeal: 1,
-      survive: false,
+      survive: false, blockSave: false,
     };
     if (out.wall) return out;
     const w = fightDamage(FINAL_KEY, false);
@@ -262,12 +262,19 @@
     out.survive = s.hp > w.damage;
     // 「还有别的打法能救」也是账的一部分：只报白打、不说格挡与抢攻，
     // 一句「撑不过」会把本来能过关的玩家劝退。
+    // 但「能省血」与「能救命」是两件事——引擎的生死判定只放行白打与格挡
+    // （抢攻不参与 allowed：它省得下一轮，救不回一场本来打不过的架），
+    // 所以撑不过时必须单独告诉玩家「格挡到底救不救得下这一场」，
+    // 否则账面上最便宜的「抢攻」会把人送去送死。
     const r = fightDamage(FINAL_KEY, false, true);
     if (r && r.damage !== null) out.rush = r.damage;
     // 格挡只在「这一场真能用」时给数：没学、用光、禁挡誓约都不给，否则就是画饼
     if (canBlock()) {
       const b = fightDamage(FINAL_KEY, true);
-      if (b && b.damage !== null) out.block = b.damage;
+      if (b && b.damage !== null) {
+        out.block = b.damage;
+        out.blockSave = s.hp > b.damage;
+      }
     }
     return out;
   }
