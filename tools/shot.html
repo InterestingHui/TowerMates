@@ -46,11 +46,13 @@
     zeal: base + '?dev=1#demo=9,2,1,424242',
     // 塔顶的账：同层顶栏「💀 决战」那一格（只截图、不推调试文本，否则 #err 会盖住顶栏）
     final: base + '?dev=1#demo=9,2,1,424242',
+    // 顶栏徽记满载：第 10 层五格同时在场（盾/罗盘/明镜/战意/决战），量顶栏会不会挤爆
+    hudmax: base + '?dev=1#demo=9,2,1,424242',
   }[scene] || base + '?dev=1';
   // 截图场景不触发新手提示对白，保持被测画面干净
   try {
     localStorage.setItem('towermates_tips_v2', JSON.stringify({
-      walk: 1, fight: 1, block: 1, blocksave: 1, low: 1, relic: 1, goal: 1, echo: 1, ring: 1, tooStrong: 1, opening: 1
+      walk: 1, fight: 1, block: 1, blocksave: 1, low: 1, relic: 1, goal: 1, echo: 1, ring: 1, tooStrong: 1, opening: 1, finalLedger: 1
     }));
     // dpadopen 场景需要在 iframe 引擎启动前预置「展开方向键」设置（dpadclosed 用默认的收起态）
     if (scene === 'dpadopen') {
@@ -86,7 +88,20 @@
       await wait(120);
       const T = w.__tm;
       const E = w.Engine;
-      if (scene === 'start' || scene === 'floor5' || scene === 'battle' || scene === 'battletwice' || scene === 'battleblock' || scene === 'tanglebattle' || scene === 'guardbattle' || scene === 'shop' || scene === 'tower' || scene === 'core' || scene === 'zeal' || scene === 'final') {
+      if (scene === 'start' || scene === 'floor5' || scene === 'battle' || scene === 'battletwice' || scene === 'battleblock' || scene === 'tanglebattle' || scene === 'guardbattle' || scene === 'shop' || scene === 'tower' || scene === 'core' || scene === 'zeal' || scene === 'final' || scene === 'hudmax') {
+        if (scene === 'hudmax') {
+          // 真满载（一局里可能的最挤一屏）：三件遗物 + 三枚锁环（第 3 章拿到罗盘那份）+ 三格徽记
+          // 🛡双挡 / 🧭罗盘 / 💀决战。顶栏预算的数值断言在 tools/ui-check.html 的 hudBudget。
+          await wait(200);
+          const sh = E.state();
+          sh.flags.hasBlock = true;
+          sh.flags.rings = ['twice', 'spare', 'compass'];
+          ['ward', 'edge', 'ember'].forEach((id) => { sh.flags['relic_' + id] = true; });
+          sh.flags.killCount = 12;
+          sh.atk = 120; sh.def = 60; sh.hp = 1400; sh.maxHp = 1400;
+          T.refreshHud();
+          await wait(200);
+        }
         if (scene === 'final') {
           // 塔顶的账：给一身真实攻防，让这一格显示「撑不过」的血色态（纯截图，不推调试文本）
           await wait(200);

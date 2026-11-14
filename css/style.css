@@ -204,8 +204,12 @@ html, body {
 .chip.hp { flex-direction: column; gap: 2px; padding: 3px 4px; }
 .chip.hp b { display: none; }
 
-.keys { display: flex; gap: var(--sp-1); font-size: var(--fs-tag); align-items: center; }
-.keytag { padding: 2px 8px; border-radius: var(--r-pill); border: 1px solid transparent; font-variant-numeric: tabular-nums; }
+/* 钥匙 / 遗物 / 锁环 / 徽记四组混排：允许整行换行（满了以后把「徽记组」整体推到第二行），
+   但钥匙是硬信息——不许被挤扁改行，宁可整组往下走。见 PROGRESS 规格卡「顶栏徽记预算」。 */
+.keys { display: flex; flex-wrap: wrap; gap: var(--sp-1); row-gap: 4px; font-size: var(--fs-tag); align-items: center; }
+/* 徽记组：组内不拆，整组一起换行 */
+.pips { display: flex; gap: 4px; align-items: center; flex-shrink: 0; }
+.keytag { padding: 2px 8px; border-radius: var(--r-pill); border: 1px solid transparent; font-variant-numeric: tabular-nums; flex-shrink: 0; white-space: nowrap; }
 .keytag b { font-weight: 700; }
 .ky { color: var(--gold2); background: rgba(185, 143, 53, 0.10); border-color: rgba(185, 143, 53, 0.30); }
 .kr { color: #e07070; background: rgba(201, 74, 82, 0.10); border-color: rgba(201, 74, 82, 0.30); }
@@ -2453,6 +2457,10 @@ body.at-start #bottom { visibility: hidden; }
   cursor: pointer;
 }
 .compasspip[hidden] { display: none; }
+
+/* 顶栏那一排可点的小块（遗物 / 锁环 / 徽记）原来只有 cursor:pointer，按下去毫无反馈——
+   触屏上「点了像没点」，只能等事后那条提示条冒出来。按压手感与全站按钮对齐（scale 0.9）。 */
+.relic[data-relic]:active, .ring-chip:active, .blockpip:active, .compasspip:active { transform: scale(0.9); }
 
 /* 收藏图鉴 · 「下一件」：还没收录的三件，带去处线索 */
 .col-next { margin: 2px 0 12px; }

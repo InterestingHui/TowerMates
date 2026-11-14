@@ -137,6 +137,18 @@ const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-ui-'));
   ok(out.adBtnShown === true && out.adBtnPending === true, '桩模式下按钮显形且点击后进入等待态');
   ok(out.adRevived === true && out.adRevivedHp > 0 && out.adReviveFlag === true, '看完视频原地复活：血回四成、over 复位、次数入档');
   ok(out.renderErrors === 0, '整轮 UI 自检零渲染异常（rAF 兜底探针）');
+  // 顶栏徽记预算（规格卡「顶栏徽记预算」行）：一组读数格最多 3 格同场，且不许把钥匙挤变形
+  const hb = out.hudBudget || {};
+  const hbKeys = Object.keys(hb);
+  ok(hbKeys.length === 5, '顶栏徽记预算：五组满载组合都量到了');
+  ok(hbKeys.every((k) => hb[k].pips <= 3), `可见徽记 ≤ 3 格（实测 ${hbKeys.map((k) => k + '=' + hb[k].pips).join(' ')}）`);
+  ok(hbKeys.every((k) => hb[k].clipped.length === 0), '徽记一格都没被裁到内边距外');
+  ok(hbKeys.every((k) => hb[k].over <= 0), `徽记区不横向溢出（实测 over ${hbKeys.map((k) => hb[k].over).join('/')}）`);
+  ok((hb.base && hb.base.rowH <= 24) && (hb.rings3 && hb.rings3.rowH <= 24),
+    `三枚锁环 + 三件遗物仍是一行（${hb.base && hb.base.rowH}px / ${hb.rings3 && hb.rings3.rowH}px）`);
+  ok(hb.full && hb.full.rowH <= 46, `决战线满载最多两行（${hb.full && hb.full.rowH}px，上限 46）`);
+  ok(hb.full && hb.full.kids.every((s) => !/^keytag/.test(s) || /x21$/.test(s)),
+    '钥匙不被挤扁（仍是 39×21，文字不折行）');
 
   if (bad) console.log('  诊断：' + JSON.stringify(out).slice(0, 700));
   console.log(bad === 0 ? '✓ UI 自检通过' : `✗ UI 自检 ${bad} 项失败`);

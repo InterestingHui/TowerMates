@@ -4,7 +4,7 @@
 <script>
 // 自动化场景不触发新手提示，保持被测画面干净
 try { localStorage.setItem('towermates_tips_v2', JSON.stringify({
-  walk:1, fight:1, block:1, blocksave:1, low:1, relic:1, goal:1, echo:1, ring:1, tooStrong:1, opening:1
+  walk:1, fight:1, block:1, blocksave:1, low:1, relic:1, goal:1, echo:1, ring:1, tooStrong:1, opening:1, finalLedger:1
 })); } catch (e) {}
 </script>
 </head>
@@ -439,6 +439,66 @@ async function run() {
         if (nc2) nc2.click();
         out.colNextDetail = cd.classList.contains('show') && cd.textContent.indexOf('未获得') >= 0;
         w.__tm.closeCollection();
+        // 顶栏徽记预算：三种「满载」组合各量一次——可见格数 / keys 行有没有换行 / 有没有溢出被裁。
+        // 预算写死 3 格（规格卡「顶栏徽记预算」行）：🛡格挡 + 第 3 章读数额 + 💀决战。
+        // 第 3 章的 罗盘/明镜/战意 三枚同池互斥（一局只会拿一枚），所以 3 就是真实上限。
+        out.hudBudget = (function () {
+          var PIPS = ['blockPip', 'compassPip', 'scopePip', 'zealPip', 'finalPip'];
+          var REL = ['ward', 'edge', 'ember'];
+          var cases = {
+            // 对照组：第 6 层（无 💀决战）+ 三件遗物、零枚锁环 → 单行基准高度
+            base: { floor: 5, rings: [], block: false, relics: REL },
+            // 加成 1：只加三枚锁环（一局最满的章末收获），不加任何徽记
+            rings3: { floor: 5, rings: ['twice', 'spare', 'merit'], block: false, relics: REL },
+            // 加成 2：真满载——三遗物 + 三锁环 + 三格徽记（🛡/🧭/💀）
+            full: { floor: 9, rings: ['twice', 'spare', 'compass'], block: true, relics: REL },
+            // 另两条第 3 章读数（与罗盘同池互斥，各自单独在场面）
+            zealish: { floor: 9, rings: ['twice', 'spare', 'merit'], block: true, relics: REL },
+            scopeish: { floor: 9, rings: ['twice', 'spare', 'scope'], block: true, relics: REL },
+          };
+          var res = {};
+          Object.keys(cases).forEach(function (k) {
+            var c = cases[k];
+            E.newGame();
+            var st = E.state();
+            st.floor = c.floor;           // 9 = 第 10 层：💀决战的可见窗口
+            st.maxFloor = c.floor;
+            st.flags.hasBlock = !!c.block;
+            st.flags.rings = c.rings.slice();
+            (c.relics || []).forEach(function (id) { st.flags['relic_' + id] = true; });
+            st.flags.killCount = 12;
+            st.atk = 120; st.def = 60; st.hp = 1400; st.maxHp = 1400;
+            w.__tm.refreshHud();
+            var keys = d.querySelector('.keys');
+            var kr = keys.getBoundingClientRect();
+            var pads = parseFloat(w.getComputedStyle(keys).paddingRight) || 0;
+            var shown = [];
+            var clipped = [];
+            PIPS.forEach(function (id) {
+              var n = d.getElementById(id);
+              if (!n || n.hidden) return;
+              shown.push(id);
+              var r = n.getBoundingClientRect();
+              if (r.right > kr.right - pads + 0.5) clipped.push(id);   // 压出右内边距 = 被裁
+            });
+            res[k] = {
+              pips: shown.length,
+              ids: shown,
+              rowH: Math.round(kr.height),          // 单行 20px；换行会变大
+              over: keys.scrollWidth - keys.clientWidth,
+              clipped: clipped,
+              // 各格实际落点：换行/挤压时能一眼看出是谁把行撑大的
+              kids: Array.from(keys.children).filter(function (n) { return !n.hidden && n.getBoundingClientRect().width > 0; })
+                .map(function (n) {
+                  var r = n.getBoundingClientRect();
+                  return (n.id || n.className) + '@' + Math.round(r.left) + ',' + Math.round(r.top) + ',' + Math.round(r.width) + 'x' + Math.round(r.height);
+                }),
+            };
+          });
+          E.newGame();
+          w.__tm.refreshHud();
+          return res;
+        })();
         // 渲染异常探针：整轮 UI 自检跑下来一次都不许有
         out.renderErrors = (w.__tmRenderErrors || []).length;
         out.renderErrorSample = (w.__tmRenderErrors || []).slice(0, 2);

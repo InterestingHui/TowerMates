@@ -43,11 +43,15 @@
           <span class="keytag kr">红 <b id="keyR">0</b></span>
           <div class="relics" id="relicRow"></div>
           <span class="rings" id="ringRow"></span>
-          <span class="blockpip" id="blockPip" title="本层还有一次格挡">🛡</span>
-          <span class="compasspip" id="compassPip" hidden title="本层还剩几件东西没捡">🧭</span>
-          <span class="compasspip scopepip" id="scopePip" hidden title="本层还剩几只怪">🗡️</span>
-          <span class="compasspip zealpip" id="zealPip" hidden title="战意：击败到门槛，决战承伤打折">🎯</span>
-          <span class="compasspip finalpip" id="finalPip" hidden title="塔顶的账：碑魔这一场要挨多少">💀 决战</span>
+          <!-- 徽记组：整组换行，组内不拆。顶栏徽记预算 = 3 格（规格卡「顶栏徽记预算」行），
+               再多就得先合并/替换旧的，不许直接往这一组里追加。 -->
+          <span class="pips" id="pipRow">
+            <span class="blockpip" id="blockPip" title="本层还有一次格挡">🛡</span>
+            <span class="compasspip" id="compassPip" hidden title="本层还剩几件东西没捡">🧭</span>
+            <span class="compasspip scopepip" id="scopePip" hidden title="本层还剩几只怪">🗡️</span>
+            <span class="compasspip zealpip" id="zealPip" hidden title="战意：击败到门槛，决战承伤打折">🎯</span>
+            <span class="compasspip finalpip" id="finalPip" hidden title="塔顶的账：碑魔这一场要挨多少">💀 决战</span>
+          </span>
         </div>
       </div>
     </div>
