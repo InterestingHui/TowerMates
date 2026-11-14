@@ -241,8 +241,12 @@
   function ringChoices(ch) {
     const owned = rings();
     const noBlock = vowForbidsBlock();
+    // 没学盾谱时「惜挡之环」是废卡（它奖励的是「忍住不挡」，而你根本挡不了）：
+    // 与禁挡誓约同样的口径，直接不进候选池
+    const noShield = !s.flags.hasBlock;
     const pool = (D.ringPools[ch] || []).filter((id) => owned.indexOf(id) < 0
-      && !(noBlock && BLOCK_RINGS.indexOf(id) >= 0));
+      && !(noBlock && BLOCK_RINGS.indexOf(id) >= 0)
+      && !(id === 'spare' && noShield));
     for (let i = pool.length - 1; i > 0; i--) {
       const j = (nextRand() * (i + 1)) | 0;
       const t = pool[i]; pool[i] = pool[j]; pool[j] = t;

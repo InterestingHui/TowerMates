@@ -1587,7 +1587,7 @@ s.flags['block_n0'] = 1;
   const upB = climbUp();
   ok(upB && upB.at.gold === 0 && s.gold === 100, '惜挡之环：这一层挡过，就不再补钱');
 }
-// 没学盾谱（没有格挡可省）：不发钱，否则它成了无条件发钱的老好人环
+// 没学盾谱（没有格挡可省）：不发钱，且候选池里不出现（抽到就是废卡）
 E.newGame();
 s = E.state();
 s.flags.rings = ['spare'];
@@ -1595,6 +1595,9 @@ s.gold = 100;
 {
   const upC = climbUp();
   ok(upC && upC.at.gold === 0 && s.gold === 100, '惜挡之环：没学盾谱拿不到这笔钱');
+  let seenNoShield = 0;
+  for (let k = 0; k < 40; k++) { E.newGame('none'); if (E.ringChoices(1).indexOf('spare') >= 0) seenNoShield++; }
+  ok(seenNoShield === 0, '没学盾谱时第 1 章候选池里不出现惜挡之环（40 次抽取 0 次）');
 }
 // 不能格挡的三条誓约：拿不到，且候选池里直接不出现（抽到就是白拿一张）
 E.newGame('guard');
@@ -1605,11 +1608,11 @@ s.gold = 100;
 ok(climbUp().at.gold === 0 && s.gold === 100, '铁壁之誓：整层没格挡也拿不到这笔钱（它本来就不能挡）');
 {
   let seen = 0;
-  for (let k = 0; k < 40; k++) { E.newGame('guard'); if (E.ringChoices(1).indexOf('spare') >= 0) seen++; }
+  for (let k = 0; k < 40; k++) { E.newGame('guard'); E.state().flags.hasBlock = true; if (E.ringChoices(1).indexOf('spare') >= 0) seen++; }
   ok(seen === 0, '铁壁之誓第 1 章候选池里不出现惜挡之环（40 次抽取 0 次）');
   let seenFree = 0;
-  for (let k = 0; k < 40; k++) { E.newGame('none'); if (E.ringChoices(1).indexOf('spare') >= 0) seenFree++; }
-  ok(seenFree > 0, `不立誓时能正常抽到（40 次里出现 ${seenFree} 次）`);
+  for (let k = 0; k < 40; k++) { E.newGame('none'); E.state().flags.hasBlock = true; if (E.ringChoices(1).indexOf('spare') >= 0) seenFree++; }
+  ok(seenFree > 0, `学了盾谱、没立禁挡誓约时能正常抽到（40 次里出现 ${seenFree} 次）`);
 }
 
 console.log(fail === 0 ? '\n✓ 全部通过' : `\n✗ ${fail} 项失败`);
