@@ -2347,6 +2347,7 @@
   // ---------- 商店 ----------
   function openShop() {
     shopOpen = true;
+    Engine.openShopAt();      // 摊主开口才报价：这一层的行情到此刻才落定（见 engine.dealOf）
     renderShop();
     el.shopOverlay.classList.add('show');
   }
@@ -2361,6 +2362,20 @@
     // 8 件货 × 8 个购买按钮同屏会把「明码取舍」变成「读价目表」；玩家点开一次后本局不再折。
     const SHOP_CORE = ['key', 'potion', 'atk', 'def'];
     const stock = Engine.shopStock();
+    // 行情：这一层摊主让价的那一件（engine.dealOf 按「本局种子 + 楼层」定，重进商店/重来本层都不重摇）。
+    // 让价的那件可能正好被折进「更多货」里，所以额头上先写一行，别让人错过它。
+    const dealId = Engine.dealOf();
+    const dealItem = dealId ? stock.find((i) => i.id === dealId) : null;
+    const dealEl = $('shopDeal');
+    if (dealEl) {
+      if (dealItem) {
+        const list = Engine.priceOf(dealItem, { noDeal: true });
+        const now = Engine.priceOf(dealItem);
+        dealEl.innerHTML = `秤今天松了口：<b>${dealItem.name}</b> <s>${list}</s> → <b>${now}</b>`;
+      } else {
+        dealEl.textContent = '';
+      }
+    }
     const foldFirst = s.floor === 2 && !s.flags.shopExpanded;
     // 折叠不是藏能力：还没学格挡的人，盾谱必须留在首屏——第 3 层是没捡到盾谱的玩家
     // 唯一补学机会，而格挡是「每层一次」的防御核心，藏进折叠区等于晚一层才学会。
@@ -2406,7 +2421,7 @@
       row.className = 'shop-item' + (owned ? ' owned' : '');
       row.innerHTML = `
         <span class="si-emoji">${item.emoji}</span>
-        <span class="si-name"><b>${item.name}${item.once ? '<small class="si-tag">唯一</small>' : ''}</b><small class="si-tip"></small></span>
+        <span class="si-name"><b>${item.name}${item.once ? '<small class="si-tag">唯一</small>' : ''}${item.id === dealId ? '<small class="si-tag deal">让价</small>' : ''}</b><small class="si-tip"></small></span>
         <span class="si-price">${price}</span>
         <button class="si-buy" data-id="${item.id}" ${owned || forbidden || !afford ? 'disabled' : ''}>${owned ? '已拥有' : forbidden ? '不适用' : '购买'}</button>
       `;

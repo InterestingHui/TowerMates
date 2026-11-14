@@ -1450,5 +1450,61 @@ ok(!E.state().flags.daily && typeof E.state().flags.rngSeed !== 'number', '普�
 const anyRand = E.nextRand();
 ok(anyRand >= 0 && anyRand < 1 && E.state().flags.rngN === null, '普通局抽取仍走 Math.random（行为不变）');
 
+// ---------- 商店行情：每层摊主给一件可重复货让价（种子定、重进不重摇） ----------
+E.newGame('none', { seed: 20261114 });
+{
+  const st = E.state();
+  ok(st.flags['deal_2'] === undefined, '行情是懒生成的：没进过商店的层不占存档字段');
+  ok(E.dealOf(2) === null, '摊主开口才报价：没打开过这一层的商店就没有让价');
+  E.openShopAt(2);
+  const d2 = E.dealOf(2);
+  ok(typeof d2 === 'string' && d2.length > 0, '第 3 层摊上有一件让价的货');
+  ok(E.state().flags['deal_2'] === d2, '行情落进存档（flags.deal_<层>）');
+  ok(E.dealOf(2) === d2, '同一层反复调用得到同一件（重进商店不会重摇）');
+  ok(E.shopStock(2).some((x) => x.id === d2), '让价的货必须在当层货架上');
+  const dealItem = E.shopStock(2).find((x) => x.id === d2);
+  ok(!dealItem.once && !dealItem.block && !dealItem.heartShard, '一次性货不让价（盾谱/镜子/灯芯/碎片是硬门槛）');
+  st.floor = 2;
+  const listPrice = E.priceOf(dealItem, { noDeal: true });
+  const nowPrice = E.priceOf(dealItem);
+  ok(nowPrice === Math.max(1, Math.round(listPrice * 0.7)), `让价按七折结算（${listPrice} → ${nowPrice}）`);
+  ok(nowPrice < listPrice, '让价确实比原价便宜');
+  ok(nowPrice >= 1, '折上折也不破 1 金下限');
+  const other = E.shopStock(2).find((x) => !x.once && x.id !== d2);
+  ok(E.priceOf(other) === E.priceOf(other, { noDeal: true }), '没被让价的货照原价，不受影响');
+  // 让价不串层：没打开过的第 4 层仍是原价
+  ok(E.dealOf(3) === null, '行情按层独立，没进过的层不会跟着打折');
+}
+// 每层都挑得出来（13 层货架都非空）
+E.newGame('none', { seed: 20261114 });
+{
+  let everyFloor = true;
+  for (let f = 0; f < D.floors.length; f++) {
+    E.openShopAt(f);
+    const id = E.dealOf(f);
+    if (!id || !E.shopStock(f).some((x) => x.id === id)) everyFloor = false;
+  }
+  ok(everyFloor, `${D.floors.length} 层每层都能挑出一件可重复货让价`);
+}
+// 换一局换一批行情（这是「第二局不再逐格照抄」的另一半）
+{
+  const picks = new Set();
+  for (let k = 1; k <= 20; k++) { E.newGame('none', { seed: k * 7919 }); E.openShopAt(2); picks.add(E.dealOf(2)); }
+  ok(picks.size >= 3, `换一局换一批行情（20 颗种子里出现 ${picks.size} 种让价货）`);
+}
+// 今日一塔：同一天摊上让价的也是同一件
+E.newGame('none', { seed: dSeed, daily: dayA });
+E.openShopAt(2);
+const dealDaily1 = E.dealOf(2);
+E.newGame('none', { seed: dSeed, daily: dayA });
+E.openShopAt(2);
+ok(E.dealOf(2) === dealDaily1, '今日一塔：同一天让价的也是同一件货');
+// 行情不消耗抽取序列（路遇/锁环/祭坛的序列不被打乱）
+E.newGame('none', { seed: dSeed, daily: dayA });
+E.openShopAt(2);
+E.dealOf(2);
+const seqAfterDeal = drawSeq();
+ok(seqAfterDeal.join(',') === seq1.join(','), '行情不挤占 nextRand 序列（抽取顺序一字不动）');
+
 console.log(fail === 0 ? '\n✓ 全部通过' : `\n✗ ${fail} 项失败`);
 process.exit(fail ? 1 : 0);

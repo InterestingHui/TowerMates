@@ -977,11 +977,43 @@
     };
   }
 
+  // 商店行情：每层摊主挑一件「可重复货」让价（七折）。
+  // 选哪件由「本局种子 + 楼层」派生（mulberry32），不消耗 nextRand——不挤占路遇/锁环/祭坛的抽取序列。
+  // 结果落进 flags['deal_<层>']：反复进出商店、重来本层都不会重摇（否则能刷到攻防打折）。
+  // 一次性货（盾谱/镜子/灯芯/碎片）永不让价：那是「能不能补学格挡」「拿不拿得到碎片」的硬门槛。
+  const DEAL_FACTOR = 0.7;
+  // 摊主开口才报价：行情在这一层的商店被打开后才落定（flags.shop_f<层>）。
+  // 好处有二：①「没进过店」的地方（结算/提示/纯引擎调用）拿到的永远是原价，不会凭空冒出折扣；
+  // ② 老单测里的买卖断言不受影响——它们不打开商店，价格口径与从前一字不差。
+  function openShopAt(floor) {
+    if (!s) return false;
+    const f = floor === undefined ? s.floor : floor;
+    s.flags['shop_f' + f] = true;
+    return true;
+  }
+  function dealOf(floor) {
+    if (!s || !s.flags) return null;
+    const f = floor === undefined ? s.floor : floor;
+    if (!s.flags['shop_f' + f]) return null;
+    const key = 'deal_' + f;
+    if (s.flags[key] !== undefined) return s.flags[key] || null;
+    const pool = shopStock(f).filter((x) => !x.once && !x.block && !x.heartShard);
+    if (!pool.length) { s.flags[key] = ''; return null; }
+    const seed = ((s.flags.mapSeed || 1) ^ Math.imul(f + 1, 0x85EBCA6B)) | 0;
+    const id = pool[(mulberry32(seed)() * pool.length) | 0].id;
+    s.flags[key] = id;
+    return id;
+  }
+
   // 价格：可重复商品每次购买后涨价 item.step（越买越贵）；once 商品固定价
-  function priceOf(item) {
+  // opts.noDeal：算「不让价的话多少钱」，只给界面画划掉的原价用，不影响结算
+  function priceOf(item, opts) {
     if (!s) return item.price;
+    const skipDeal = !!(opts && opts.noDeal);
     const step = (hasRing('chain') && (item.id === 'atk' || item.id === 'def')) ? 0 : (item.step || 0);
     let price = item.price + (s.flags['buy_' + item.id] || 0) * step;
+    // 行情：整层最便宜的那件，与遗物/锁环/誓约的折扣叠乘
+    if (!skipDeal && !item.once && dealOf() === item.id) price = Math.max(1, Math.round(price * DEAL_FACTOR));
     if (hasRelic('thrift')) price = Math.max(1, Math.round(price * 0.75));
     if (hasRing('thrift2')) price = Math.max(1, Math.round(price * 0.75));
     // 秤砣之环（bargain）：钥匙价目再 −25%（只影响钥匙，药水与训练照旧）
@@ -1350,7 +1382,7 @@
       const ch = tile(s.x + dx, s.y + dy);
       return D.monsters[ch] ? predict(ch) : null;
     },
-    tryMove, fight, canBlock, grantBlock, vowForbidsBlock, buy, priceOf, shopStock, floorMonsterCount, floorPickupCount, battleMargin, potionHeal, finish, altarChoices, pickRelic, pathTo, pathThrough, pathToNear, pathsTo,
+    tryMove, fight, canBlock, grantBlock, vowForbidsBlock, buy, priceOf, shopStock, dealOf, openShopAt, floorMonsterCount, floorPickupCount, battleMargin, potionHeal, finish, altarChoices, pickRelic, pathTo, pathThrough, pathToNear, pathsTo,
     nextLevelExp, margin, keyName, summary, hasRelic, ownedRelics, beginFloor, restoreFloor, revealCore, heartState, heartTake, heartLeave, vow, pickEvent, eventPool, eventCost, resolveEvent, applyEffect, jumpTo, visitedMax, gateForth, sealPlan,
     rings, hasRing, ringBlockScale, zealScale, fightDamage, bossPhases, settleChapter, ringChoices, pendingRing, pickRing,
   };

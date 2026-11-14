@@ -775,6 +775,20 @@ html, body {
   padding: 0 3px;
   margin-left: 4px;
 }
+/* 行情：摊主每层给一件可重复货让价（不能叠到一次性货上，见 engine.dealOf） */
+.si-tag.deal {
+  color: var(--gold);
+  border-color: rgba(232, 196, 106, 0.34);
+}
+.shop-deal {
+  font-size: var(--fs-tag);
+  color: var(--muted);
+  padding: 0 2px 6px;
+  line-height: 1.4;
+}
+.shop-deal b { color: var(--gold); font-weight: 600; }
+.shop-deal s { color: var(--dim); }
+.shop-deal:empty { display: none; }
 
 /* ================= 塔友榜 ================= */
 .board-panel { max-width: 384px; }
