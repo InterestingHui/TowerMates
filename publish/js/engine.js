@@ -119,13 +119,122 @@
     return s;
   }
 
+  // ---------- 存档校验：坏档一律挡在「进游戏」之前 ----------
+  // 玩家本地的 v5 存档会被三件事弄坏：跨版本字段增删、写入中途被关掉（JSON 半截）、
+  // 以及手改 localStorage（改血/改余烬是常见玩法）。旧实现只核 ver 与层数，坏字段直接进游戏——
+  // 实测 floor=99 会让 tile() 抛错（渲染白屏）、hp 变 null 会让角色一进层就死、snap 残缺会让
+  // 「从这一层重来」一点就崩。所以校验分两级：
+  //   **档本身不可信**（结构/关键数值坏了）→ 拒绝读取并隔离，让玩家开新局；
+  //   **只是缺字段或越界**（老版本没这些字段、手改出负数）→ 就地归一，不轻易让人丢进度。
+  const isFiniteNum = (v) => typeof v === 'number' && isFinite(v);
+  // 这四项缺失/非数 = 这档不可信（血量与攻防决定一切，楼层绑死地图）；
+  // 其余数值（金币/经验/等级/步数/生命上限）缺失按默认补齐即可，不因此丢档。
+  const NEED_NUM = ['hp', 'atk', 'def', 'floor'];
+
+  // maps 是三层结构：[楼层][y][x]，每格一个字符
+  function okMaps(maps) {
+    if (!Array.isArray(maps) || maps.length !== D.floors.length) return false;
+    for (let i = 0; i < maps.length; i++) {
+      const grid = maps[i];
+      if (!Array.isArray(grid) || grid.length !== SIZE) return false;
+      for (let y = 0; y < grid.length; y++) {
+        const row = grid[y];
+        if (!Array.isArray(row) || row.length !== SIZE) return false;
+        for (let x = 0; x < row.length; x++) {
+          if (typeof row[x] !== 'string' || row[x].length !== 1) return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  function sanitizeSave(p) {
+    if (!p || typeof p !== 'object') return null;
+    if (p.ver !== 5) return null;
+    if (!okMaps(p.maps)) return null;
+    for (let i = 0; i < NEED_NUM.length; i++) if (!isFiniteNum(p[NEED_NUM[i]])) return null;
+    if (p.atk < 0 || p.def < 0 || p.hp < 0) return null;
+    // ---- 以下都是「可归一」，不是「不可信」 ----
+    if (!isFiniteNum(p.gold) || p.gold < 0) p.gold = 0;
+    if (!isFiniteNum(p.exp) || p.exp < 0) p.exp = 0;
+    if (!isFiniteNum(p.level)) p.level = 1;
+    if (!isFiniteNum(p.steps)) p.steps = 0;
+    if (!isFiniteNum(p.maxHp) || p.maxHp <= 0) p.maxHp = Math.max(p.hp, 1000);
+    p.floor = Math.min(D.floors.length - 1, Math.max(0, Math.floor(p.floor)));
+    p.steps = Math.max(0, Math.floor(p.steps));
+    p.level = Math.max(1, Math.floor(p.level));
+    p.hp = Math.round(p.hp);
+    p.maxHp = Math.max(p.hp, Math.round(p.maxHp));
+    if (!p.flags || typeof p.flags !== 'object') p.flags = {};
+    const f = p.flags;
+    if (!Array.isArray(f.rings)) f.rings = [];
+    else f.rings = f.rings.filter((x) => typeof x === 'string');
+    if (!Array.isArray(f.fr)) f.fr = [];
+    if (typeof f.hasBlock !== 'boolean') f.hasBlock = false;   // 格挡要学：老档缺字段＝未学会
+    if (!isFiniteNum(f.eventEmber)) f.eventEmber = 0;
+    if (!isFiniteNum(f.phaseSeed)) f.phaseSeed = (Math.random() * 1e9) | 0;
+    if (!isFiniteNum(f.mapSeed)) f.mapSeed = (Math.random() * 1e9) | 0;
+    if (!isFiniteNum(f.clean_kills)) f.clean_kills = 0;
+    if (!isFiniteNum(f.rngSeed)) f.rngSeed = null;
+    if (!isFiniteNum(f.rngN)) f.rngN = 0;
+    // 钥匙：老档的 b（蓝）并进 r；负数/非数夹回 0（手改出负钥匙＝免费开门）
+    if (p.keys && typeof p.keys === 'object' && p.keys.b !== undefined) {
+      p.keys.r = (p.keys.r || 0) + (p.keys.b || 0);
+      delete p.keys.b;
+    }
+    if (!p.keys || typeof p.keys !== 'object') p.keys = { y: 0, r: 0 };
+    p.keys.y = Math.max(0, Math.floor(isFiniteNum(p.keys.y) ? p.keys.y : 0));
+    p.keys.r = Math.max(0, Math.floor(isFiniteNum(p.keys.r) ? p.keys.r : 0));
+    // 站位：越界或落在墙里就挪到本层第一块空地（否则渲染与寻路都从坏坐标出发）
+    const map = p.maps[p.floor];
+    const stand = (x, y) => Number.isInteger(x) && Number.isInteger(y)
+      && x >= 0 && y >= 0 && x < SIZE && y < SIZE && map[y][x] === '.';
+    if (!stand(p.x, p.y)) {
+      let found = false;
+      for (let y = 0; y < SIZE && !found; y++) {
+        for (let x = 0; x < SIZE && !found; x++) {
+          if (map[y][x] === '.') { p.x = x; p.y = y; found = true; }
+        }
+      }
+      if (!found) return null;   // 整层没有一块空地：这档已经废了
+    }
+    if (p.ending !== 'true' && p.ending !== 'plain') p.ending = null;
+    p.over = !!p.over;
+    p.won = !!p.won;
+    if (!p.floorEnter || typeof p.floorEnter !== 'object') p.floorEnter = null;
+    if (!isFiniteNum(p.startedAt)) p.startedAt = Date.now();
+    // 本层快照：「从这一层重来」直接读它，字段缺一个就会抛错 → 残缺就整份丢掉
+    if (!p.snap || typeof p.snap !== 'object') p.snap = null;
+    else {
+      const k = p.snap;
+      const okSnap = isFiniteNum(k.floor) && k.floor >= 0 && k.floor < D.floors.length
+        && isFiniteNum(k.hp) && isFiniteNum(k.maxHp) && isFiniteNum(k.atk) && isFiniteNum(k.def)
+        && isFiniteNum(k.gold) && isFiniteNum(k.exp) && isFiniteNum(k.level) && isFiniteNum(k.steps)
+        && k.keys && isFiniteNum(k.keys.y) && isFiniteNum(k.keys.r)
+        && k.flags && typeof k.flags === 'object' && okMaps(k.maps);
+      if (!okSnap) p.snap = null;
+    }
+    return p;
+  }
+
   function hasSave() {
     try {
       const raw = localStorage.getItem(SAVE_KEY);
       if (!raw) return false;
-      const parsed = JSON.parse(raw);
-      return !!parsed && parsed.ver === 5 && parsed.maps && parsed.maps.length === D.floors.length;
+      return !!sanitizeSave(JSON.parse(raw));
     } catch (e) { return false; }
+  }
+
+  // 上次 load 是不是「有档但读不出来」——UI 用它区分「没有存档」与「存档坏了」
+  let lastBroken = false;
+  const brokenSave = () => lastBroken;
+  // 磁盘上有个档，但校验不过：首页要说一句，别让玩家以为进度凭空消失
+  function brokenSaveOnDisk() {
+    try {
+      const raw = localStorage.getItem(SAVE_KEY);
+      if (!raw) return false;
+      return !sanitizeSave(JSON.parse(raw));
+    } catch (e) { return true; }
   }
 
   // ---------- 存档：save() 立即落盘；移动用 saveSoon() 节流 ----------
@@ -143,29 +252,25 @@
   }
 
   function load(key) {
-    try {
-      const raw = localStorage.getItem(key || SAVE_KEY);
-      if (!raw) return null;
-      const parsed = JSON.parse(raw);
-      // 旧版本的存档（地图里没有遗物格）一律作废，避免读到半新半旧的世界
-      if (!parsed || parsed.ver !== 5 || !parsed.maps || parsed.maps.length !== D.floors.length) return null;
-      s = parsed;
-      if (!s.flags) s.flags = {};
-      // v2.1 新增字段：老存档补齐默认值即可继续玩，不需要作废
-      if (!Array.isArray(s.flags.rings)) s.flags.rings = [];
-      if (typeof s.flags.phaseSeed !== 'number') s.flags.phaseSeed = (Math.random() * 1e9) | 0;
-      // 格挡改为「要学」的能力：老档也按新规，缺字段即未学会（回第 2 层捡盾谱 / 第 3 层买）
-      if (typeof s.flags.hasBlock !== 'boolean') s.flags.hasBlock = false;
-      if (typeof s.flags.eventEmber !== 'number') s.flags.eventEmber = 0;
-      if (!s.ending) s.ending = null;
-      if (s.keys && s.keys.b !== undefined) { s.keys.r = (s.keys.r || 0) + (s.keys.b || 0); delete s.keys.b; }
-      if (!s.keys) s.keys = { y: 0, r: 0 };
-      if (!s.maxHp) s.maxHp = Math.max(s.hp, 1000);
-      if (!s.snap) s.snap = null;
-      if (!s.steps) s.steps = 0;
-      if (!s.startedAt) s.startedAt = Date.now();
-      return s;
-    } catch (e) { return null; }
+    lastBroken = false;
+    const k = key || SAVE_KEY;
+    let raw = null;
+    try { raw = localStorage.getItem(k); } catch (e) { return null; }
+    if (!raw) return null;
+    let parsed = null;
+    try { parsed = JSON.parse(raw); } catch (e) { parsed = null; }
+    const clean = sanitizeSave(parsed);
+    if (!clean) {
+      lastBroken = true;
+      // 隔离而不是删除：主键清掉（首页不再给「继续游戏」），原档留一份备查
+      try {
+        localStorage.setItem(k + '_broken', raw);
+        localStorage.removeItem(k);
+      } catch (e) {}
+      return null;
+    }
+    s = clean;
+    return s;
   }
 
   function reset() {
@@ -1611,7 +1716,7 @@
   }
 
   window.Engine = {
-    setHooks, newGame, load, reset, hasSave, save, state, tile, predict, predictOpt, shuffleFloor1, shufflePickups, nextRand,
+    setHooks, newGame, load, reset, hasSave, brokenSave, brokenSaveOnDisk, save, state, tile, predict, predictOpt, shuffleFloor1, shufflePickups, nextRand,
     predictAt(dx, dy) {
       if (!s) return null;
       const ch = tile(s.x + dx, s.y + dy);
