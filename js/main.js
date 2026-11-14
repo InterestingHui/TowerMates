@@ -2434,7 +2434,10 @@
       more.type = 'button';
       more.className = 'shop-more';
       more.id = 'shopMore';
-      more.innerHTML = `更多货 · ${stock.length - rows.length} 件 <small>含半部盾谱 / 窥探之镜 / 余烬灯芯</small> ▾`;
+      // 摘要按「这一层实际折进去的货」生成：买过的盾谱/镜子不该再被念一遍（文案与货架对不上是本项目高频 bug）
+      const folded = stock.filter((i) => rows.indexOf(i) < 0);
+      const foldedNames = folded.slice(0, 3).map((i) => i.name).join(' / ');
+      more.innerHTML = `更多货 · ${folded.length} 件 <small>含${foldedNames}</small> ▾`;
       more.addEventListener('click', () => {
         s.flags.shopExpanded = true;
         Sound.play('door');
