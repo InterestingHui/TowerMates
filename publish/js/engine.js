@@ -236,9 +236,13 @@
   }
 
   // 章末回响：击败 Boss 必得，直接开锁环三选一（塔规已移除，不再设门槛）
+  // 靠格挡吃饭的环：铁壁/苦行/无名三条誓约不能格挡，抽到就是白抽一张
+  const BLOCK_RINGS = ['parry', 'twice'];
   function ringChoices(ch) {
     const owned = rings();
-    const pool = (D.ringPools[ch] || []).filter((id) => owned.indexOf(id) < 0);
+    const noBlock = vowForbidsBlock();
+    const pool = (D.ringPools[ch] || []).filter((id) => owned.indexOf(id) < 0
+      && !(noBlock && BLOCK_RINGS.indexOf(id) >= 0));
     for (let i = pool.length - 1; i > 0; i--) {
       const j = (nextRand() * (i + 1)) | 0;
       const t = pool[i]; pool[i] = pool[j]; pool[j] = t;
@@ -856,11 +860,23 @@
 
   // 每层一次「格挡」：这一战的承伤降到 55%（铁壁之誓放弃它）
   // 格挡不再是开局白送：要先学到「半部盾谱」（地图拾取 / 商店购买 / 老兵讨教）才会
+  // 双挡之环把每层次数抬到 2；次数用「计数」而不是布尔记，老档只有布尔就按 1 次算
+  const blockLimit = () => (hasRing('twice') ? 2 : 1);
+  function blockUsed() {
+    if (!s) return 0;
+    const n = s.flags['block_n' + s.floor];
+    if (typeof n === 'number') return n;
+    return s.flags['block_f' + s.floor] ? 1 : 0;
+  }
+  // 还剩几次：没学盾谱 / 这条誓约不能格挡时恒为 0，界面与战斗入口都靠它
+  function blockLeft() {
+    if (!s || s.over || s.won) return 0;
+    if (!s.flags.hasBlock) return 0;
+    if (vow() === 'guard' || vow() === 'ascetic' || vow() === 'nameless') return 0;
+    return Math.max(0, blockLimit() - blockUsed());
+  }
   function canBlock() {
-    if (!s || s.over || s.won) return false;
-    if (!s.flags.hasBlock) return false;
-    if (vow() === 'guard' || vow() === 'ascetic' || vow() === 'nameless') return false;
-    return !s.flags['block_f' + s.floor];
+    return blockLeft() > 0;
   }
 
   // 授予格挡（三路获取的统一出口）：已学过时安静返回，不重复发
@@ -903,7 +919,10 @@
     }
 
     const blocked = !!(opt && opt.block) && canBlock();
-    if (blocked) s.flags['block_f' + s.floor] = true;
+    if (blocked) {
+      s.flags['block_n' + s.floor] = blockUsed() + 1;
+      s.flags['block_f' + s.floor] = true;   // 老字段留着：旧工具与旧档都还认它
+    }
     const fd = fightDamage(ch, blocked);
     const dmg = fd.damage;
     s.hp -= dmg;
@@ -1382,7 +1401,7 @@
       const ch = tile(s.x + dx, s.y + dy);
       return D.monsters[ch] ? predict(ch) : null;
     },
-    tryMove, fight, canBlock, grantBlock, vowForbidsBlock, buy, priceOf, shopStock, dealOf, openShopAt, floorMonsterCount, floorPickupCount, battleMargin, potionHeal, finish, altarChoices, pickRelic, pathTo, pathThrough, pathToNear, pathsTo,
+    tryMove, fight, canBlock, blockLimit, blockLeft, grantBlock, vowForbidsBlock, buy, priceOf, shopStock, dealOf, openShopAt, floorMonsterCount, floorPickupCount, battleMargin, potionHeal, finish, altarChoices, pickRelic, pathTo, pathThrough, pathToNear, pathsTo,
     nextLevelExp, margin, keyName, summary, hasRelic, ownedRelics, beginFloor, restoreFloor, revealCore, heartState, heartTake, heartLeave, vow, pickEvent, eventPool, eventCost, resolveEvent, applyEffect, jumpTo, visitedMax, gateForth, sealPlan,
     rings, hasRing, ringBlockScale, zealScale, fightDamage, bossPhases, settleChapter, ringChoices, pendingRing, pickRing,
   };

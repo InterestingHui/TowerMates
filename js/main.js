@@ -581,7 +581,7 @@
     hintBookOverlay: $('hintBookOverlay'),
     ringRow: $('ringRow'),
     echoOverlay: $('echoOverlay'), echoKicker: $('echoKicker'), echoLine: $('echoLine'),
-    echoReward: $('echoReward'), echoRings: $('echoRings'),
+    echoReward: $('echoReward'), echoOwned: $('echoOwned'), echoRings: $('echoRings'),
     echoHint: $('echoHint'), echoClose: $('echoClose'),
     resetConfirmOverlay: $('resetConfirmOverlay'),
     collectionOverlay: $('collectionOverlay'), colBody: $('colBody'), colCount: $('colCount'),
@@ -1252,10 +1252,17 @@
       const owned = !!(s.flags.hasBlock);
       el.blockPip.style.display = owned ? '' : 'none';
       if (owned) {
-        const used = !Engine.canBlock();
+        const left = Engine.blockLeft();
+        const used = left <= 0;
+        const limit = Engine.blockLimit();
         el.blockPip.classList.toggle('used', used);
+        // 双挡之环把每层两次写在盾牌上：不然玩家会以为「一次已经用掉了」
+        el.blockPip.classList.toggle('twice', limit > 1);
+        el.blockPip.textContent = limit > 1 ? `🛡${left}` : '🛡';
         const pct = Math.round(Engine.ringBlockScale() * 100);
-        el.blockPip.title = used ? '本层格挡已用完（进下一层恢复）' : `本层还有一次格挡：战斗中可把承伤降到 ${pct}%${s.flags.hasBlock2 ? ' · 卸伤三成化为经验' : ''}`;
+        el.blockPip.title = used
+          ? '本层格挡已用完（进下一层恢复）'
+          : `本层还剩 ${left} 次格挡：战斗中可把承伤降到 ${pct}%${s.flags.hasBlock2 ? ' · 卸伤三成化为经验' : ''}`;
       }
     }
 
@@ -1772,6 +1779,8 @@
     let blockScale = 1;
     let blockOn = false;
     const canB = Engine.canBlock();
+    const blockLeftN = Engine.blockLeft();
+    const blockLimitN = Engine.blockLimit();
     // 格挡比例由引擎给出（断刃之环会把它从 0.6 改成 0.5），演出与结算不会各算各的
     const scaleWhenBlocked = info.dmgBlock && info.dmgBase.damage > 0
       ? Math.max(0.05, info.dmgBlock.damage / info.dmgBase.damage)
@@ -1782,7 +1791,7 @@
     el.bsBlock.style.display = worth ? '' : 'none';
     el.bsBlock.classList.remove('done');
     el.bsBlock.disabled = !canB;
-    el.bsBlock.innerHTML = `<b>🛡 格挡</b><span>本层一次 · 承伤 −${Math.round((1 - scaleWhenBlocked) * 100)}%</span>`;
+    el.bsBlock.innerHTML = `<b>🛡 格挡</b><span>${blockLimitN > 1 ? `本层剩 ${blockLeftN} 次` : '本层一次'} · 承伤 −${Math.round((1 - scaleWhenBlocked) * 100)}%</span>`;
     if (worth && Tips.mark('block')) Tips.banner('block');
     el.bsBlock.onclick = (e) => {
       e.stopPropagation();
@@ -2193,6 +2202,19 @@
       : '这一章的锁环你已经拿过了';
     el.echoReward.classList.toggle('muted', !echo.pending);
     const choices = echo.pending ? (s.flags['ringChoices_' + echo.chapter] || []) : [];
+    // 手里已经有的环要摆出来：第 2 章起是「3 选 1 + 已有 1~3 枚」的加法题，
+    // 遮住已有的等于让玩家凭记忆选（章 1 第一次挑时 0 枚，整块不出现）
+    const owned = Engine.rings();
+    if (el.echoOwned) {
+      if (owned.length) {
+        el.echoOwned.innerHTML = `<span class="eo-kicker">已装 ${owned.length} 枚</span>`
+          + owned.map((id) => `<span class="eo-row"><b>${D.rings[id].emoji} ${D.rings[id].name}</b> <i>· ${D.rings[id].desc}</i></span>`).join('');
+        el.echoOwned.hidden = false;
+      } else {
+        el.echoOwned.innerHTML = '';
+        el.echoOwned.hidden = true;
+      }
+    }
     el.echoRings.innerHTML = choices.map((id) => {
       const r = D.rings[id];
       return `<button class="echo-ring" data-id="${id}">

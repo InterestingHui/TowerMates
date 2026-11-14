@@ -247,12 +247,16 @@ window.GAME_DATA = (function () {
     chain:    { name: '短链之环', emoji: '⛓', short: '链', chapter: 2, desc: '商店训练不再越买越贵（涨价阶梯取消）' },
     bulwark:  { name: '基石之环', emoji: '🧱', short: '基', chapter: 3, desc: '每层进入时生命低于三成，自动回复 15%' },
     finale:   { name: '终章之环', emoji: '📖', short: '终', chapter: 4, desc: '四位锁匠全倒时，通关额外 +3 余烬' },
+
+    // ---- 第四轮扩容（第 2 章 9→10）：第一个「改规则」而不改资源的环 ——
+    // 双挡把「这一层留给哪一场」从一次判断变成两次判断，逼玩家回头审视还没打的怪。
+    twice:    { name: '双挡之环', emoji: '🛡️', short: '双', chapter: 2, desc: '每层可以格挡两次（上楼才恢复）' },
   };
 
   // 每章抽 3 个给玩家选（池 9 个 → 每局的构筑起点不同）
   const ringPools = {
     1: ['ledger', 'lamp', 'coin', 'keyring', 'pace', 'ward2', 'ration', 'tally', 'notch'],
-    2: ['parry', 'cinder', 'thrift2', 'vitality', 'ash', 'scout2', 'bargain', 'toll', 'chain'],
+    2: ['parry', 'cinder', 'thrift2', 'vitality', 'ash', 'scout2', 'bargain', 'toll', 'chain', 'twice'],
     3: ['bell', 'stair', 'scope', 'hour', 'ledger2', 'vitality2', 'compass', 'tome', 'bulwark'],
     4: ['seventh', 'chisel', 'heart', 'oath', 'coin2', 'lamp2', 'signature', 'quill', 'finale'],
   };

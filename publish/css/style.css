@@ -1819,6 +1819,8 @@ body.at-start #bottom { visibility: hidden; }
   border-style: dashed;
   box-shadow: none;
 }
+/* 双挡之环：盾牌后面跟一个剩余次数，20px 装不下就自己放宽 */
+.blockpip.twice { width: auto; min-width: 20px; padding: 0 3px; }
 
 /* ---------- 立誓（开局三选一） ---------- */
 #vowOverlay {
@@ -2240,6 +2242,31 @@ body.at-start #bottom { visibility: hidden; }
   color: var(--chapter);
 }
 .echo-reward.muted { color: var(--muted); }
+/* 已装锁环：只在章 2 起才有东西可列，章 1 第一次挑时整块不出现 */
+.echo-owned {
+  margin: -4px 0 12px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(var(--gold-rgb), 0.12);
+  background: rgba(255, 255, 255, 0.02);
+  text-align: left;
+}
+.echo-owned[hidden] { display: none; }
+.echo-owned .eo-kicker {
+  display: block;
+  font-size: var(--fs-tag);
+  letter-spacing: 2px;
+  color: var(--dim);
+  margin-bottom: 4px;
+}
+.echo-owned .eo-row {
+  display: block;
+  font-size: var(--fs-tag);
+  line-height: 1.7;
+  color: var(--muted);
+}
+.echo-owned .eo-row b { color: var(--chapter); font-weight: 700; }
+.echo-owned .eo-row i { font-style: normal; color: var(--dim); }
 .echo-rings { display: flex; gap: 9px; align-items: stretch; }
 .echo-rings:empty { display: none; }
 .echo-ring {

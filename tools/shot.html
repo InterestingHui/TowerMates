@@ -25,6 +25,7 @@
   const src = {
     floor5: base + '?dev=1#demo=4,2,8',
     battle: base + '?dev=1#demo=0,2,3',
+    battletwice: base + '?dev=1#demo=0,2,3',
     battleblock: base + '?dev=1#demo=0,2,3',
     shop: base + '?dev=1#demo=2,4,3,424242',
     tower: base + '?dev=1#demo=5,5,7',
@@ -77,7 +78,7 @@
       await wait(120);
       const T = w.__tm;
       const E = w.Engine;
-      if (scene === 'start' || scene === 'floor5' || scene === 'battle' || scene === 'battleblock' || scene === 'shop' || scene === 'tower' || scene === 'core') {
+      if (scene === 'start' || scene === 'floor5' || scene === 'battle' || scene === 'battletwice' || scene === 'battleblock' || scene === 'shop' || scene === 'tower' || scene === 'core') {
         if (scene === 'battleblock') {
           await wait(200);
           // demo 开局不带格挡：先授予，截图才有盾按钮可点
@@ -91,6 +92,17 @@
         }
         if (scene === 'battle') {
           await wait(200);
+          w.__battleSpeed = 30;
+          w.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'ArrowUp' }));
+          await wait(300);
+        }
+        if (scene === 'battletwice') {
+          // 双挡之环：盾牌上的剩余次数与战斗面板的「本层剩 2 次」都得对得上
+          await wait(200);
+          const sB = E.state();
+          sB.flags.hasBlock = true;
+          sB.flags.rings = ['twice'];
+          T.refreshHud();
           w.__battleSpeed = 30;
           w.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'ArrowUp' }));
           await wait(300);
@@ -526,6 +538,23 @@
         sE.floorEnter = { floor: 2, kills: 0, shop: 0, hp: sE.hp, maxHp: sE.maxHp };
         sE.flags.goal_0 = true; sE.flags.goal_1 = true; sE.flags.goal_2 = true;
         const ec = E.settleChapter(1);
+        T.openEcho(ec);
+        await wait(600);
+      } else if (scene === 'echo2') {
+        // 第 2 章回响：手里已有两枚锁环——验证「已装」块只在有环时出现
+        d.getElementById('btnNew').click();
+        await wait(200);
+        const _vc = d.querySelector('#vowCards .vow-card[data-vow="none"]');
+        if (_vc) _vc.click();
+        await wait(260);
+        const dlE = d.getElementById('dialogOverlay');
+        for (let i = 0; i < 8; i++) { dlE.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
+        const sE = E.state();
+        sE.flags.rings = ['lamp', 'coin'];
+        sE.floor = 5;
+        sE.floorEnter = { floor: 5, kills: 0, shop: 0, hp: sE.hp, maxHp: sE.maxHp };
+        sE.flags.goal_0 = true; sE.flags.goal_1 = true; sE.flags.goal_2 = true;
+        const ec = E.settleChapter(2);
         T.openEcho(ec);
         await wait(600);
       } else if (scene === 'goal') {

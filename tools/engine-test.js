@@ -634,7 +634,9 @@ ok(ev.at.heal === Math.round(s.maxHp * 0.13), '三枚回血环叠加：首访回
 {
   [1, 2, 3, 4].forEach((c) => {
     const pool = D.ringPools[c];
-    ok(pool.length === 9, `第 ${c} 章锁环池 9 枚（组合数 84）`);
+    // 第 2 章 10 枚（双挡之环），其余 9 枚；组合数 = C(n,3)
+    const n = c === 2 ? 10 : 9;
+    ok(pool.length === n, `第 ${c} 章锁环池 ${n} 枚（组合数 ${(n * (n - 1) * (n - 2)) / 6}）`);
     ok(pool.every((id) => D.rings[id] && D.rings[id].chapter === c), `第 ${c} 章池内 id 与章号一致`);
   });
 
@@ -839,6 +841,39 @@ s.hp = 5000; s.x = 2; s.y = 3;
 const rawDmg2 = E.predict('A').damage;
 const rPlain = E.fight(0, -1);
 ok(rPlain.blocked === false && rPlain.damage === rawDmg2, '不格挡时承伤不变');
+
+// ---------- 9g-2. 双挡之环：每层两次（老档只有布尔时按一次算） ----------
+E.newGame();
+s = E.state();
+s.flags.hasBlock = true;
+s.flags.rings = ['twice'];
+s.hp = 9000; s.x = 2; s.y = 3;
+ok(E.blockLimit() === 2 && E.blockLeft() === 2, '双挡之环：本层两次格挡');
+const rT1 = E.fight(0, -1, { block: true });
+ok(rT1.blocked === true && E.blockLeft() === 1, '第一次挡完还剩一次');
+ok(E.canBlock(), '还剩一次时仍可格挡');
+s.x = 5; s.y = 5;
+const rT2 = E.fight(1, 0, { block: true });
+ok(rT2.blocked === true && E.blockLeft() === 0 && !E.canBlock(), '第二场挡完本层就用尽了');
+s.floor = 1;
+ok(E.blockLeft() === 2, '上楼后恢复到两次');
+delete s.flags['block_n1'];
+s.flags['block_f1'] = true;
+s.floor = 1;
+ok(E.blockLeft() === 1, '老档只有 block_f 布尔 → 按已用一次算');
+
+// 没有这枚环时仍然只有一次（回归：别把默认值改成 2）
+E.newGame();
+s = E.state();
+s.flags.hasBlock = true;
+ok(E.blockLimit() === 1 && E.blockLeft() === 1, '没有双挡之环时每层仍只有一次');
+
+// 不能格挡的誓约不会抽到靠格挡吃饭的环（抽到就是白拿一张）
+E.newGame('guard');
+s = E.state();
+const guardPool2 = E.ringChoices(2);
+ok(guardPool2.length === 3 && guardPool2.indexOf('parry') < 0 && guardPool2.indexOf('twice') < 0,
+  `铁壁之誓不抽格挡环（实测 ${guardPool2.join('/')}）`);
 
 // ---------- 9h. 残血格挡换命（predictOpt） ----------
 // 血量撑不到打完，但挡完能活：不能再用"会要你的命"拦住玩家
