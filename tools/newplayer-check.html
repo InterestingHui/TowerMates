@@ -485,7 +485,25 @@ function load(url) { return new Promise((res) => { f.onload = () => res(); f.src
         const i = r.querySelector('.fv-track i');
         return i && parseFloat(i.style.width) > 100;
       });
-      rec('H4 漏斗页有逐层到达表', frows.length >= 1 && /逐层到达/.test(txt2) && !!barW && /%$/.test(barW.width || '') && !overBar, `行 ${frows.length} · 首条 ${barW ? barW.width : '缺'}${overBar ? ' · 有条超过 100%' : ''}`);
+      // 但只测「条长 ≤100%」是句空话：`width` 本身被 Math.min(100, …) 夹住，分母算错了也照样 ≤100%
+      // （2026-11-15 变异测试实证——把 base 退回 `starts.length` 这一条仍然全绿）。
+      // 所以再加两条能真咬住的：①分母文字里的数 = 实际分母（开局数 / 到过第 1 层的局数取大）；
+      // ②每层的「N 局」都不许超过分母（分母算小了的唯一可见症状），且第 1 层必须是满条。
+      const baseM = /到过第\s*1\s*层的\s*(\d+)\s*局/.exec(txt2);
+      const baseN = baseM ? Number(baseM[1]) : -1;
+      const rowNs = Array.from(frows).map((r) => {
+        const m = /(\d+)\s*局/.exec(r.textContent || '');
+        return m ? Number(m[1]) : -1;
+      });
+      const f1 = new Set(w.__tm.funnel().filter((x) => x.ev === 'floor_reach' && x.f === 1).map((x) => x.n)).size;
+      const starts = w.__tm.funnel().filter((x) => x.ev === 'run_start').length;
+      const baseWant = Math.max(starts, f1, 1);
+      const overBase = rowNs.some((n) => n > baseN);
+      const firstFull = frows.length ? barW && barW.width === '100%' : false;
+      rec('H4 漏斗页有逐层到达表', frows.length >= 1 && /逐层到达/.test(txt2) && !!barW && /%$/.test(barW.width || '') && !overBar
+        && baseN === baseWant && !overBase && firstFull,
+        `行 ${frows.length} · 首条 ${barW ? barW.width : '缺'} · 分母 ${baseN >= 0 ? baseN : '缺'}（应 ${baseWant}）`
+          + ` · 首层 ${firstFull ? '满条' : '不满'}${overBase ? ' · 有层超过分母' : ''}${overBar ? ' · 有条超过 100%' : ''}`);
       rec('H5 漏斗页有打法使用行', /打法使用/.test(txt2) && /格挡 \d+/.test(txt2), (txt2.match(/格挡 [\d\s·架盾缠斗直接打]+/) || ['缺'])[0].replace(/\s+/g, ' ').slice(0, 40));
     }
 
