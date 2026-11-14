@@ -4614,10 +4614,11 @@
 
     // 开发用：index.html#demo=楼层,x,y[,种子] 直接进游戏（不播序章）
     // 带第 4 段种子＝可复现布局（截图套件要看「第 2–3 层换位后的样子」，不能每次随机）
-    // 只认本地预览（js/devgate.js）：上线域名上这个 hash 不再能把人一步送到任意楼层
-    const demo = window.DevGate && !DevGate.local()
-      ? null
-      : /demo=(\d+),(\d+),(\d+)(?:,(\d+))?/.exec(location.hash || '');
+    // 只认本地预览（js/devgate.js）：上线域名上这个 hash 不再能把人一步送到任意楼层。
+    // 写成「门必须在且判为本地」——门没加载到时宁可当线上（fail-closed），不能默认放行。
+    const demo = window.DevGate && DevGate.local()
+      ? /demo=(\d+),(\d+),(\d+)(?:,(\d+))?/.exec(location.hash || '')
+      : null;
     if (demo) {
       Engine.newGame(null, demo[4] ? { seed: +demo[4] } : undefined);
       document.body.classList.remove('at-start');
