@@ -2834,6 +2834,13 @@
       const allBosses = ['N', 'Z', 'Y', 'U'].every((c) => s.flags['bossKilled_' + c]);
       if (allBosses) parts.push({ label: '锁环·终章（四锁匠全倒）', n: 3 });
     }
+    // 净芯之环：锁芯层清掉的怪（折算在 Engine.cleanEmber，四只封顶）——
+    // 最后一层「打不打角落那四只」的答案
+    if (has('clean')) {
+      const ce = Engine.cleanEmber();
+      const nk = Math.min(4, s.flags.clean_kills || 0);
+      if (ce > 0) parts.push({ label: `锁环·净芯（锁芯层清了 ${nk} 只）`, n: ce });
+    }
     const list = parts.filter((p) => p.n > 0);
     return { total: Math.max(1, list.reduce((a, p) => a + p.n, 0)), parts: list };
   }

@@ -98,6 +98,7 @@ const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-ui-'));
   ok(out.firstWinBonus > 0 && out.firstWinBonus === Math.round(out.asceticEmber / 2), '解锁誓约首通额外 = 解锁成本一半（第二次不再给）');
   ok(out.avgEmber === 20 && out.avgFallback === 18, '余烬估算走近 3 局平均，无记录回退 18');
   ok(out.emberDetail === true, '结局页逐项展示本局余烬来源');
+  ok(out.cleanEmber === true, '净芯之环：锁芯清 3 只 → 结算明细 +6 余烬（折算与引擎同源）');
   ok(out.lampBtn === true && out.lampLit === true, '全解锁后余烬可点亮层灯（扣 20、灯 +1）');
   ok(out.richBold === true && out.richNoHtml === true, '提示加粗生效且文案不会被当 HTML 执行');
   ok(out.hintScripts === true, '九条角色提示台词就位（含加粗重点）');

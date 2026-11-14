@@ -342,6 +342,14 @@ async function run() {
         w.__tm.showEnd();
         var ed7 = d.getElementById('endEmberDetail');
         out.emberDetail = !!ed7 && ed7.textContent.indexOf('走到结局') >= 0 && ed7.textContent.indexOf('合计') >= 0;
+        // 净芯之环：锁芯层清掉的怪要进结算明细（引擎只记数，折算读 Engine.cleanEmber）
+        s7.flags.rings = ['clean'];
+        s7.flags.clean_kills = 3;
+        var emC = w.__tm.emberOf(s7, false, w.GAME_DATA.vows.none);
+        var cpC = (emC.parts || []).filter(function (p) { return p.label.indexOf('净芯') >= 0; })[0];
+        out.cleanEmber = !!cpC && cpC.n === 6 && cpC.label.indexOf('3 只') >= 0;
+        s7.flags.clean_kills = 0;
+        s7.flags.rings = [];
         out.lampBtn = !!d.querySelector('#endMemory .lamp-btn');
         var emberBefore = M.ember, lampsBefore = M.lamps;
         var lb7 = d.querySelector('#endMemory .lamp-btn');

@@ -214,6 +214,16 @@
     return { kills: k, need: n.mid, cut: 0 };
   }
 
+  // 净芯之环：锁芯层清掉的怪折成余烬（每只 2，四只封顶）。
+  // 计数在战斗结算里累加（flags.clean_kills），折算只在这一个函数，
+  // 结算明细与收藏页都读它——同一个数字写在两处必有一处说谎。
+  const CLEAN_PER = 2;
+  const CLEAN_CAP = 4;
+  function cleanEmber() {
+    if (!s || !hasRing('clean')) return 0;
+    return Math.min(CLEAN_CAP, s.flags.clean_kills || 0) * CLEAN_PER;
+  }
+
   // 战斗的「真实承伤」：格挡、誓约、锁环都在这里算一次，演出与结算共用同一份
   function fightDamage(ch, blocked) {
     const p = predict(ch);
@@ -985,6 +995,8 @@
     s.exp += m.exp;
     s.flags.killCount = (s.flags.killCount || 0) + 1;
     s.flags['kill_' + ch] = true;
+    // 净芯之环：锁芯层（第 13 层，s.floor 12）每倒一只都记着，结算按 2 余烬/只 换（上限 4）
+    if (hasRing('clean') && s.floor === 12) s.flags.clean_kills = (s.flags.clean_kills || 0) + 1;
     // 刻痕之环：每 8 只怪额外一把黄钥匙（按累计击杀数走 8 的倍数）
     let tallyKey = false;
     if (hasRing('tally') && s.flags.killCount % 8 === 0) { s.keys.y++; tallyKey = true; }
@@ -1439,6 +1451,6 @@
     },
     tryMove, fight, canBlock, blockLimit, blockLeft, blockUsedAt, grantBlock, vowForbidsBlock, buy, priceOf, shopStock, dealOf, openShopAt, floorMonsterCount, floorPickupCount, battleMargin, potionHeal, finish, altarChoices, pickRelic, pathTo, pathThrough, pathToNear, pathsTo,
     nextLevelExp, margin, keyName, summary, hasRelic, ownedRelics, beginFloor, restoreFloor, revealCore, heartState, heartTake, heartLeave, vow, pickEvent, eventPool, eventCost, resolveEvent, applyEffect, jumpTo, visitedMax, gateForth, sealPlan,
-    rings, hasRing, ringBlockScale, zealScale, zealNext, zealNeed, fightDamage, bossPhases, settleChapter, ringChoices, pendingRing, pickRing,
+    rings, hasRing, ringBlockScale, zealScale, zealNext, zealNeed, cleanEmber, fightDamage, bossPhases, settleChapter, ringChoices, pendingRing, pickRing,
   };
 })();

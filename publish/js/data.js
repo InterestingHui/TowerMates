@@ -265,14 +265,22 @@ window.GAME_DATA = (function () {
     // 这枚环把门槛整体前移一档：够 20 只就已是 −16%，33 只吃满 −36%，
     // 于是「剩下 7 只难缠的能不能绕」当场有了答案。不改承伤公式，只改门槛。
     merit:    { name: '过手之环', emoji: '🥊', short: '手', chapter: 3, desc: '战意门槛前移：击败 20 只即 −16%，33 只吃满 −36%（原 25 / 40）' },
+
+    // ---- 第七轮扩容（第 4 章 9→10，四章池齐平）：锁芯层「还打不打剩下几只」总算有价 ——
+    // 第 4 章只作用于锁芯一层与结算，能改的决定只剩三个：
+    //   ① 塔心石拿还是放（已有 heart）；② 余烬怎么折（chisel/quill/signature/finale 已覆盖）；
+    //   ③ 最后一层绕开角落那四只怪——此前正确答案永远是「绕」，因为余烬只按通关算。
+    // 净芯把 ③ 揭成明账：锁芯层每倒一只 +2 余烬（四只上限 +8）。
+    // 不改战力、不改承伤，只把「上楼前把最后那点血花不花」变成能算的一笔。
+    clean:    { name: '净芯之环', emoji: '🧹', short: '净', chapter: 4, desc: '锁芯层每击败一只怪，额外 +2 余烬（最多 4 只）' },
   };
 
-  // 每章抽 3 个给玩家选（池 9 个 → 每局的构筑起点不同）
+  // 每章抽 3 个给玩家选（每章池 10 个，C(10,3)=120 → 每局的构筑起点不同）
   const ringPools = {
     1: ['ledger', 'lamp', 'coin', 'keyring', 'pace', 'ward2', 'ration', 'tally', 'notch', 'spare'],
     2: ['parry', 'cinder', 'thrift2', 'vitality', 'ash', 'scout2', 'bargain', 'toll', 'chain', 'twice'],
     3: ['bell', 'stair', 'scope', 'hour', 'ledger2', 'vitality2', 'compass', 'tome', 'bulwark', 'merit'],
-    4: ['seventh', 'chisel', 'heart', 'oath', 'coin2', 'lamp2', 'signature', 'quill', 'finale'],
+    4: ['seventh', 'chisel', 'heart', 'oath', 'coin2', 'lamp2', 'signature', 'quill', 'finale', 'clean'],
   };
 
   // 升到下一级所需经验（索引 = 当前等级-1）

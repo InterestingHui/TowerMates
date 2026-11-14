@@ -634,8 +634,8 @@ ok(ev.at.heal === Math.round(s.maxHp * 0.13), '三枚回血环叠加：首访回
 {
   [1, 2, 3, 4].forEach((c) => {
     const pool = D.ringPools[c];
-    // 第 1/2/3 章各 10 枚（惜挡 / 双挡 / 过手），第 4 章 9 枚；组合数 = C(n,3)
-    const n = c === 4 ? 9 : 10;
+    // 第 1/2/3/4 章各 10 枚（惜挡 / 双挡 / 过手 / 净芯）；组合数 = C(10,3) = 120
+    const n = 10;
     ok(pool.length === n, `第 ${c} 章锁环池 ${n} 枚（组合数 ${(n * (n - 1) * (n - 2)) / 6}）`);
     ok(pool.every((id) => D.rings[id] && D.rings[id].chapter === c), `第 ${c} 章池内 id 与章号一致`);
   });
@@ -1386,6 +1386,43 @@ ok(E.zealNeed().mid === 20 && E.zealNeed().full === 33, 'zealNeed：过手之环
 let sawMerit = false;
 for (let i = 0; i < 40; i++) { E.newGame('none'); if (E.ringChoices(3).indexOf('merit') >= 0) sawMerit = true; }
 ok(sawMerit, '第 3 章 40 次抽取里出现过过手之环');
+
+// ---------- 净芯之环（第 4 章 9→10）：锁芯层清怪折余烬，四只封顶 ----------
+// 它服务的是第 13 层唯一还没被锁环改过的决定：上楼前要不要为角落那四只花掉最后的血。
+E.newGame();
+s = E.state();
+s.flags.rings = ['clean'];
+s.floor = 12;                     // 第 13 层「锁芯」
+s.x = 1; s.y = 8;                 // (1,8) 是地面，右边 (2,8) 是空甲
+s.atk = 9999; s.def = 9999; s.hp = 9999; s.maxHp = 9999;
+let cf = E.fight(1, 0);
+ok(cf.type === 'fight' && s.flags.clean_kills === 1, '净芯之环：锁芯层倒一只记 1');
+ok(E.cleanEmber() === 2, '净芯之环：1 只折 2 余烬');
+// 别的层杀怪不记——这枚环只认锁芯那一层
+E.newGame();
+s = E.state();
+s.flags.rings = ['clean'];
+s.x = 5; s.y = 5;                 // 第 1 层 (5,5)，右边 (6,5) 是蝙蝠
+s.atk = 9999; s.def = 9999; s.hp = 9999; s.maxHp = 9999;
+cf = E.fight(1, 0);
+ok(cf.type === 'fight' && !s.flags.clean_kills && E.cleanEmber() === 0, '净芯之环：别层杀怪不记、也不折余烬');
+// 没这枚环时不记账（老局/老档零影响）
+E.newGame();
+s = E.state();
+s.floor = 12;
+s.x = 1; s.y = 8;
+s.atk = 9999; s.def = 9999; s.hp = 9999; s.maxHp = 9999;
+cf = E.fight(1, 0);
+ok(cf.type === 'fight' && !s.flags.clean_kills && E.cleanEmber() === 0, '没装净芯之环：锁芯清怪不加余烬');
+// 四只封顶：多清也不会超过 8（锁芯层本来只有四只，封顶是防空档回归）
+s.flags.rings = ['clean'];
+s.flags.clean_kills = 7;
+ok(E.cleanEmber() === 8, '净芯之环：封顶 4 只 = 8 余烬');
+// 第 4 章池 9→10：40 次抽取里必须出现过它
+let sawClean = false;
+for (let i = 0; i < 40; i++) { E.newGame('none'); if (E.ringChoices(4).indexOf('clean') >= 0) sawClean = true; }
+ok(sawClean, '第 4 章 40 次抽取里出现过净芯之环');
+ok(D.rings.clean.chapter === 4 && /最多 4 只/.test(D.rings.clean.desc), '净芯之环：章号 4、文案写明四只上限');
 // 两条路线的勋章
 const A = window.Achievements;
 E.newGame();
