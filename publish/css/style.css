@@ -1793,6 +1793,9 @@ body.at-start #bottom { visibility: hidden; }
   cursor: pointer;
   transition: transform 0.12s ease, border-color 0.2s, box-shadow 0.2s, opacity 0.2s;
 }
+/* hidden 属性必须真的把它藏起来：.bs-block 的 display:flex 会盖掉浏览器默认的 [hidden]{display:none}，
+   之前「架盾」在首章（还没学格挡）也能看见，就是一格点了没反应的死按钮 */
+.bs-block[hidden] { display: none; }
 .bs-block b { font-size: var(--fs-aux); letter-spacing: 1px; }
 .bs-block span { font-size: var(--fs-tag); color: var(--muted); }
 .bs-block:hover { border-color: rgba(232, 196, 106, 0.75); box-shadow: 0 0 18px rgba(232, 196, 106, 0.2); }
@@ -1820,20 +1823,20 @@ body.at-start #bottom { visibility: hidden; }
 }
 /* 架盾的完成态文案由 JS 直接写（「盾已架开」/「已架开」），不再追加后缀 */
 .bs-block.bs-guard.done b::after { content: ''; }
-/* 抢攻：第二把打法。与格挡并排时压薄一级，颜色偏铁锈红，跟「盾」区分开 */
-.bs-block.bs-rush {
+/* 缠斗：拿血换成长的第三把打法。与格挡并排时压薄一级，颜色偏铁锈红，跟「盾」区分开 */
+.bs-block.bs-tangle {
   margin-top: 6px;
   border-color: rgba(214, 138, 92, 0.32);
   background: linear-gradient(180deg, rgba(44, 28, 20, 0.9), rgba(18, 13, 10, 0.94));
   color: #e3a877;
 }
-.bs-block.bs-rush:hover { border-color: rgba(226, 152, 100, 0.7); box-shadow: 0 0 18px rgba(226, 152, 100, 0.16); }
-.bs-block.bs-rush.done {
+.bs-block.bs-tangle:hover { border-color: rgba(226, 152, 100, 0.7); box-shadow: 0 0 18px rgba(226, 152, 100, 0.16); }
+.bs-block.bs-tangle.done {
   border-color: rgba(226, 152, 100, 0.5);
   background: linear-gradient(180deg, rgba(44, 28, 20, 0.92), rgba(18, 13, 10, 0.94));
   color: #e3a877;
 }
-.bs-block.bs-rush.done b::after { content: ' 已抢攻'; font-size: var(--fs-tag); letter-spacing: 0; opacity: 0.8; }
+.bs-block.bs-tangle.done b::after { content: ' 已缠斗'; font-size: var(--fs-tag); letter-spacing: 0; opacity: 0.8; }
 .battle-scene.phasing .bs-block { opacity: 0; pointer-events: none; }
 
 /* ---------- HUD：格挡可用指示 ---------- */

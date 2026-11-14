@@ -575,7 +575,7 @@
     bsHeroHp: $('bsHeroHp'), bsFoeHp: $('bsFoeHp'),
     bsName: $('bsName'), bsRounds: $('bsRounds'), bsNumbers: $('bsNumbers'),
     bsPhase: $('bsPhase'), bsPhaseTitle: $('bsPhaseTitle'), bsPhaseText: $('bsPhaseText'),
-    bsBlock: $('bsBlock'), bsGuard: $('bsGuard'), bsRush: $('bsRush'), bsThreat: $('bsThreat'), blockPip: $('blockPip'), compassPip: $('compassPip'), scopePip: $('scopePip'), zealPip: $('zealPip'), finalPip: $('finalPip'),
+    bsBlock: $('bsBlock'), bsGuard: $('bsGuard'), bsTangle: $('bsTangle'), bsThreat: $('bsThreat'), blockPip: $('blockPip'), compassPip: $('compassPip'), scopePip: $('scopePip'), zealPip: $('zealPip'), finalPip: $('finalPip'),
     bsPanel: document.querySelector('.bs-panel'),
     guide: $('guide'),
     stuckBar: $('stuckBar'), stuckText: $('stuckText'),
@@ -1362,19 +1362,18 @@
           warn(`💀 **塔顶的账**：以现在 ${Engine.state().atk} 点攻击，破不了碑魔的防——先把攻加上去，谈掉多少血都是空话。`);
           return;
         }
-        // 「最省的一招」：只报白打会把本来能过关的人劝退（格挡 / 抢攻都能压下来）。
-        // 但「省得多」不等于「救得下」——引擎的生死判定只认白打与格挡，
-        // 抢攻保不了命，所以撑不过时不能把抢攻摆在最前面当救命稻草。
+        // 「最省的一招」：只报白打会把本来能过关的人劝退——格挡能压下来，得报。
+        // 缠斗不在这份账里：它多挨一轮，只会让这一场更贵（老版本「抢攻」是省血的，
+        // 语义反过来之后就不该再出现在这张账单上）。
         const saves = [];
         if (L.block !== null) saves.push({ dmg: L.block, txt: '格挡' });
-        if (L.rush !== null) saves.push({ dmg: L.rush, txt: '抢攻（这战没经验）' });
         saves.sort((a, b) => a.dmg - b.dmg);
         let saveTxt = '';
         if (saves.length && saves[0].dmg < L.white) {
           if (L.survive) {
             saveTxt = ` · 最省的一招：${saves[0].txt}可压到 −${saves[0].dmg}`;
           } else if (L.blockSave) {
-            saveTxt = ` · **格挡能撑住**（−${L.block}），抢攻救不了这一场`;
+            saveTxt = ` · **格挡能撑住**（−${L.block}）`;
           } else if (L.block !== null) {
             saveTxt = ` · 格挡也只能压到 −${L.block}，还是撑不过——先回去加攻防/补血`;
           } else {
@@ -1878,7 +1877,7 @@
           : `这一层还剩 ${th.count} 只 · 最贵 ${th.worst.name} ${label} <b>−${th.worst.damage}</b>`;
         el.bsThreat.title = th.spread
           ? '盾已经架开：这一层此后每场都按 85% 结算，数字是架盾后的实际承伤'
-          : '白打这一只要掉多少血（不格挡、不抢攻）——破不了防的另算';
+          : '白打这一只要掉多少血（不格挡、不缠斗）——破不了防的另算';
       }
     }
 
@@ -1900,7 +1899,7 @@
     const blockAfter = info.dmgBlock && typeof info.dmgBlock.damage === 'number'
       ? Math.max(0, Math.round(heroHp - info.dmgBlock.damage))
       : null;
-    el.bsBlock.style.display = worth ? '' : 'none';
+    el.bsBlock.hidden = !worth;
     el.bsBlock.classList.remove('done');
     el.bsBlock.disabled = !canB;
     el.bsBlock.innerHTML = `<b>🛡 格挡</b><span>${blockLimitN > 1 ? `本层剩 ${blockLeftN} 次` : '本层一次'} · 承伤 −${Math.round((1 - scaleWhenBlocked) * 100)}%${blockAfter !== null && blockAfter > 0 ? ` · 挡后剩 ${blockAfter}` : ''}</span>`;
@@ -1912,7 +1911,7 @@
       blockScale = scaleWhenBlocked;
       el.bsBlock.classList.add('done');
       el.bsBlock.disabled = true;
-      if (el.bsRush) el.bsRush.disabled = true;   // 与抢攻二选一
+      if (el.bsTangle) el.bsTangle.disabled = true;   // 与缠斗二选一
       if (el.bsGuard) el.bsGuard.disabled = true; // 与架盾二选一（同一份额度）
       Sound.play('level');
       vibrate([12, 20, 8]);
@@ -1952,7 +1951,7 @@
           el.bsGuard.classList.add('done');
           el.bsGuard.disabled = true;
           el.bsBlock.disabled = true;   // 同一份额度，二选一
-          if (el.bsRush) el.bsRush.disabled = true;
+          if (el.bsTangle) el.bsTangle.disabled = true;
           Sound.play('level');
           vibrate([12, 20, 8]);
           warn(`**架盾**：这一层余下每场承伤降到 **${100 - spreadPct}%**`);
@@ -1962,40 +1961,45 @@
       }
     }
 
-    // 抢攻（第 2 章起）：不讲究打法，一头撞进去多抢一刀——少挨一轮，这一战没有经验。
-    // 它是本作战斗里的第二个主动决策：格挡是「用额度省血」，抢攻是「用成长换血」。
-    // 数字全部取引擎同源（Engine.rushInfo），文案与实际结算不会各算各的。
-    // 盾架着的时候不给抢攻：那一场本来就在减伤，再抢一刀只换来「这战没经验」——
-    // 不是取舍，是陷阱，面板不摆。
-    let rushOn = false;
-    const rush = info.dmgRush || null;
-    const rushWorth = !!rush && !spreadActive && !pred.blockSave && (m.boss || pred.damage >= heroMax * 0.04);
-    if (el.bsRush) {
-      el.bsRush.style.display = rushWorth ? '' : 'none';
-      el.bsRush.classList.remove('done');
-      el.bsRush.disabled = false;
-      if (rushWorth) {
-        const rushAfter = Math.max(0, Math.round(heroHp - rush.damage));
-        el.bsRush.innerHTML = `<b>🗡️ 抢攻</b><span>承伤 −${rush.save} · 抢后剩 ${rushAfter} · 这战没经验</span>`;
+    // 缠斗（第 2 章起）：不急着收招，一个回合来回多磨一轮——多挨一轮，这一战经验翻倍。
+    // 它是本作战斗里的第三把打法：格挡是「用额度省血」，架盾是「摊平盖整层」，
+    // 缠斗是「用血换成长」——血是本作最硬的资源，所以它是个真取舍而不是快捷键。
+    // 数字全部取引擎同源（Engine.tangleInfo），面板与实际结算不会各算各的。
+    // 引擎已经把三种「不给」的情况滤掉了（缠完会死 / 这怪打不疼你 / 没经验可翻），
+    // 面板只负责摆。
+    let tangleOn = false;
+    const tangle = info.dmgTangle || null;
+    const tangleWorth = !!tangle;
+    if (el.bsTangle) {
+      el.bsTangle.hidden = !tangleWorth;
+      el.bsTangle.classList.remove('done');
+      el.bsTangle.disabled = false;
+      if (tangleWorth) {
+        const tangleAfter = Math.max(0, Math.round(heroHp - tangle.damage));
+        // 符号不能跟格挡/架盾共用「−」：那两处 −N% 是「省下来的」，这里 +N 是「多挨的」，
+        // 同一个减号表达相反意思，玩家会读成「缠斗少掉 40 血」
+        el.bsTangle.innerHTML = `<b>🗡️ 缠斗</b><span>多挨一轮 +${tangle.extra} 血 · 经验 ×${tangle.mult}</span>`;
+        el.bsTangle.title = `缠完还剩 ${tangleAfter} 血：多挨这一轮是为了把它的招数看全，这一战经验 ${tangle.exp} → ${tangle.expGain}`;
       }
-      el.bsRush.onclick = (e) => {
+      el.bsTangle.onclick = (e) => {
         e.stopPropagation();
-        if (!rushWorth || rushOn) return;
-        rushOn = true;
-        el.bsRush.classList.add('done');
-        el.bsRush.disabled = true;
-        el.bsBlock.disabled = true;   // 与格挡二选一
+        if (!tangleWorth || tangleOn) return;
+        tangleOn = true;
+        el.bsTangle.classList.add('done');
+        el.bsTangle.disabled = true;
+        el.bsBlock.disabled = true;   // 与格挡二选一（挡下整场就无从「多磨一轮」）
         if (el.bsGuard) el.bsGuard.disabled = true;
         Sound.play('level');
         vibrate([12, 20, 8]);
-        warn(`**抢攻**：这一战少挨一轮（承伤 −${rush.save}），但什么也没学到；这一场不再格挡`);
+        warn(`**缠斗**：这一战多挨 ${tangle.extra} 血（拖长一回合），换来经验 ${tangle.exp} → ${tangle.expGain}；这一场不再格挡`);
       };
     }
-    // 这一战最终掉多少血：抢攻优先，其次格挡／架盾，最后是白打——三处取值一律走这里
+    // 这一战最终掉多少血：格挡／架盾优先（引擎里挡下整场就不存在缠斗），
+    // 其次缠斗，最后是白打——取值一律走这里，与 Engine.fight 的优先级同序
     const finalDamage = () => {
-      if (rushOn && rush) return rush.damage;
       if (guardOn && guardDmg) return guardDmg.damage;
       if (blockOn && info.dmgBlock) return info.dmgBlock.damage;
+      if (tangleOn && tangle) return tangle.damage;
       return info.dmgBase ? info.dmgBase.damage : (pred.damage || 0);
     };
 
@@ -2030,7 +2034,7 @@
         { at: 0.33, n: 3, title: '第三道锁 · 塔心', text: '再近一点，你就看得见她的名字了。' },
       ];
       let phaseIdx = 0;
-      // 演出里玩家会挨的总承伤：取引擎「真实承伤」（誓约/锁环/格挡/抢攻都算在内）
+      // 演出里玩家会挨的总承伤：取引擎「真实承伤」（誓约/锁环/格挡/缠斗都算在内）
       let heroDamageLeft = Math.max(0, Math.round(finalDamage()));
       const showPhase = async (ph) => {
         el.bsPhaseTitle.textContent = ph.title;
@@ -2093,7 +2097,7 @@
       }
       foeHp = 0;
       heroDamageLeft = 0;
-      // 血条落点直接取引擎的「真实承伤」，誓约减伤/锁环减伤/格挡/抢攻都算在内
+      // 血条落点直接取引擎的「真实承伤」，誓约减伤/锁环减伤/格挡/缠斗都算在内
       heroHp = Math.max(1, s.hp - finalDamage());
       bars();
       el.bsFoe.classList.add('ko');
@@ -2106,10 +2110,10 @@
       el.bsHero.classList.remove('hit', 'lunge-r', 'lunge-l');
       el.battleScene.onclick = null;
       el.bsBlock.onclick = null;
-      if (el.bsRush) el.bsRush.onclick = null;
+      if (el.bsTangle) el.bsTangle.onclick = null;
       if (el.bsGuard) el.bsGuard.onclick = null;
       skipWaiter = null; // 战斗结束必须清掉唤醒器，别让下一次点击去唤醒上一场的等待
-      done({ block: guardOn ? 'all' : blockOn, rush: rushOn });
+      done({ block: guardOn ? 'all' : blockOn, tangle: tangleOn });
     })();
   }
 
@@ -2552,16 +2556,16 @@
     const dmgBlock = Engine.canBlock() ? Engine.fightDamage(ch, true) : null;
     // 架盾：本层余下每场都吃 0.85（不叠盾谱/断刃，那是单场手艺）。与格挡二选一，同样花掉一次格挡
     const dmgGuard = Engine.canGuard() ? Engine.fightDamage(ch, 'all') : null;
-    // 抢攻：第 2 章起才出现（首章的战斗面板只有一个按钮，别在 63 秒那一战就摆两个）
-    const dmgRush = s.floor >= 3 ? Engine.rushInfo(ch) : null;
+    // 缠斗：第 2 章起才出现（首章的战斗面板只有一个按钮，别在 63 秒那一战就摆两个）
+    const dmgTangle = s.floor >= 3 ? Engine.tangleInfo(ch) : null;
     playBattleScene({
-      monster: m, pred, dmgBase, dmgBlock, dmgGuard, dmgRush,
+      monster: m, pred, dmgBase, dmgBlock, dmgGuard, dmgTangle,
       phases: m.boss ? Engine.bossPhases(ch) : null,
       skip: { x: tx, y: ty },     // 本层威胁读数要排除的格子（正在打的这只）
     }, (opt) => {
       // 这一战只有格挡才能活：玩家撞上去就是求战，结算时自动带上格挡
       // opt.block 可能是 true（挡这一场）或 'all'（架盾）——原样透传给引擎
-      const res = Engine.fight(dx, dy, { block: opt.block || (pred.blockSave ? true : false), rush: opt.rush });
+      const res = Engine.fight(dx, dy, { block: opt.block || (pred.blockSave ? true : false), tangle: opt.tangle });
       battleBusy = false;
       if (res.type === 'fight') applyFightResult(res, tx, ty);
       else { warn(res.msg || '战斗中断'); refreshHud(); }

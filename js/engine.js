@@ -252,7 +252,7 @@
       toFull: Math.max(0, n.full - kills),
       hp: s.hp, maxHp: s.maxHp,
       wall: base.damage === null,
-      white: base.damage, block: null, rush: null, zeal: 1,
+      white: base.damage, block: null, zeal: 1,
       survive: false, blockSave: false,
     };
     if (out.wall) return out;
@@ -260,14 +260,10 @@
     out.white = w.damage;
     out.zeal = w.zeal;
     out.survive = s.hp > w.damage;
-    // 「还有别的打法能救」也是账的一部分：只报白打、不说格挡与抢攻，
+    // 「还有别的打法能救」也是账的一部分：只报白打、不说格挡，
     // 一句「撑不过」会把本来能过关的玩家劝退。
-    // 但「能省血」与「能救命」是两件事——引擎的生死判定只放行白打与格挡
-    // （抢攻不参与 allowed：它省得下一轮，救不回一场本来打不过的架），
-    // 所以撑不过时必须单独告诉玩家「格挡到底救不救得下这一场」，
-    // 否则账面上最便宜的「抢攻」会把人送去送死。
-    const r = fightDamage(FINAL_KEY, false, true);
-    if (r && r.damage !== null) out.rush = r.damage;
+    // 缠斗不在这份账里：它多挨一轮，只会让这一场更贵——把它排进「最省的一招」
+    // 是老版本「抢攻」留下的错误口径（那个按钮当时是省血的），别再加回来。
     // 格挡只在「这一场真能用」时给数：没学、用光、禁挡誓约都不给，否则就是画饼
     if (canBlock()) {
       const b = fightDamage(FINAL_KEY, true);
@@ -290,12 +286,12 @@
   }
 
   // 战斗的「真实承伤」：格挡、誓约、锁环都在这里算一次，演出与结算共用同一份
-  // rush：抢攻视角（少挨一轮）。与格挡互斥——挡是省血，抢是拿成长换血，同一场只能选一种打法
+  // tangle：缠斗视角（多挨一轮，这一战经验翻倍）。与格挡互斥——挡是省血，缠是拿血换成长，同一场只能选一种打法
   // blocked：false（白打）｜true（单场格挡）｜'all'（架盾的那一场）。
   // 架盾一旦在某层生效，本层此后每一场都自动吃 0.85；若这层还剩格挡次数，
   // 同一场可以再补一记单场格挡（0.85 × 0.55）——双挡之环的第二种用法。
-  function fightDamage(ch, blocked, rush) {
-    const p = predictBase(ch, rush);
+  function fightDamage(ch, blocked, tangle) {
+    const p = predictBase(ch, tangle);
     if (!p || p.damage === null) return null;
     const m = D.monsters[ch];
     let dmg = p.damage;
@@ -309,22 +305,31 @@
     if (bs !== 1) dmg = Math.round(dmg * bs);
     const zeal = zealScale(m);
     if (zeal < 1) dmg = Math.round(dmg * zeal);
-    return { damage: dmg, raw: p.damage, per: p.per, rounds: p.rounds, out: p.out, blockScale: bs, zeal, rushed: !!rush };
+    return { damage: dmg, raw: p.damage, per: p.per, rounds: p.rounds, out: p.out, blockScale: bs, zeal, tangled: !!tangle };
   }
 
-  // 抢攻的账：省多少血 / 丢多少经验。
-  // 只在「有得省」时给数（打不到你的杂兵、经验为 0 的怪都不给——那就成了白拿）。
-  function rushInfo(ch) {
+  // 缠斗的账：多挨多少血 / 换来多少经验。
+  // 只在「这笔交易成立」时给数——四种情况不给：
+  // ①对方打不到你（多挨一轮也不疼，那就成了白拿经验）；②这怪没经验（白挨）；
+  // ③缠完这一场会死（面板摆出来就是劝人去死）；
+  // ④等级已经封顶（经验这条链到此为止，多挨的那一轮换不回任何东西）。
+  const TANGLE_EXP = 2;
+  function tangleInfo(ch) {
     if (!s) return null;
     const m = D.monsters[ch];
     if (!m || m.ghost) return null;
+    if (!m.exp) return null;            // 没有经验可翻倍：白挨一轮
+    if (s.level >= D.levelExp.length + 1) return null;   // 经验已封顶：翻倍也没处放
     const plain = fightDamage(ch, false, false);
-    const quick = fightDamage(ch, false, true);
-    if (!plain || !quick || plain.damage === null || quick.damage === null) return null;
-    const save = plain.damage - quick.damage;
-    if (save <= 0) return null;          // 已经打不动你了：没有可省的一轮
-    if (!m.exp) return null;            // 没有经验可失，抢攻就是白送减伤
-    return { damage: quick.damage, plain: plain.damage, save, rounds: plain.rounds, expLost: m.exp };
+    const deep = fightDamage(ch, false, true);
+    if (!plain || !deep || plain.damage === null || deep.damage === null) return null;
+    const extra = deep.damage - plain.damage;
+    if (extra <= 0) return null;        // 打不动你：缠着也换不到代价，那就是白送
+    if (s.hp <= deep.damage) return null;
+    return {
+      damage: deep.damage, plain: plain.damage, extra, rounds: plain.rounds,
+      exp: m.exp, expGain: m.exp * TANGLE_EXP, mult: TANGLE_EXP,
+    };
   }
 
   // 每局从 Boss 的两个台词池各抽一段；结果写进存档，同一局重进战斗不会变
@@ -517,9 +522,9 @@
   // 基础预测（不含格挡视角）
   // 怪物特性：first 先攻 / magic 魔攻 / double 连击 / solid 坚固
   // 这四种属性决定「该加攻还是该加防」——魔塔数值解谜的核心
-  // rush=true 是「抢攻」视角：不讲究打法，一头撞进去多抢一刀——
-  // 少挨一轮（先攻怪也只是少挨一轮），代价是这一战什么也没学到（经验归零）。
-  function predictBase(ch, rush) {
+  // tangle=true 是「缠斗」视角：不急着收招，一个回合来回多磨一轮——
+  // 多挨一轮（先攻怪也一样），换来这一战看得更清：经验翻倍（TANGLE_EXP）。
+  function predictBase(ch, tangle) {
     const m = D.monsters[ch];
     if (!m || m.ghost) return null;
     const tr = m.trait || '';
@@ -538,8 +543,8 @@
     const per = Math.max(0, m.atk - myDef) * doubleMult;
     // 先攻：连最后一击之前也要先挨一下，残血时不能碰
     const hitsBase = tr === 'first' ? rounds : Math.max(0, rounds - 1);
-    // 抢攻：抢在对方收招前把最后一刀塞进去，少挨一轮（至少留 0 轮）
-    const hits = rush ? Math.max(0, hitsBase - 1) : hitsBase;
+    // 缠斗：故意拖长这一场，让对方多一次出手机会（多挨一轮）
+    const hits = tangle ? hitsBase + 1 : hitsBase;
     let damage = hits * per;
     if (damage > 0 && hasRelic('ward')) damage = Math.max(1, Math.floor(damage * 0.88));
     return {
@@ -1069,14 +1074,21 @@
     }
 
     const blocked = !!mode;
-    // 抢攻与格挡互斥：挡下整场就不存在「抢一刀」这回事，格挡优先
-    const rushed = !blocked && !!(opt && opt.rush);
+    // 缠斗与格挡互斥：挡下整场就不存在「多磨一轮」这回事，格挡优先。
+    // 缠斗按「缠之后」的口径判生死——多挨那一轮可能就是要命的那一轮，
+    // 面板不会把它摆出来（tangleInfo 已经滤过），这里再兜一层：
+    // 缠不起就退成白打，绝不因为按钮按错把人打死。
+    let tangled = false;
+    if (!blocked && opt && opt.tangle) {
+      const td = fightDamage(ch, false, true);
+      tangled = !!(td && td.damage !== null && s.hp > td.damage);
+    }
     if (blocked) {
       s.flags['block_n' + s.floor] = blockUsed() + 1;
       s.flags['block_f' + s.floor] = true;   // 老字段留着：旧工具与旧档都还认它
       if (mode === 'all') s.flags['guard_f' + s.floor] = true;   // 架盾：本层余下每场都算
     }
-    const fd = fightDamage(ch, mode, rushed);
+    const fd = fightDamage(ch, mode, tangled);
     const dmg = fd.damage;
     s.hp -= dmg;
     s.damageTaken = (s.damageTaken || 0) + dmg;   // 跨局漏斗/结算统计用；老档缺省按 0
@@ -1099,9 +1111,9 @@
       riposte = Math.max(1, Math.round((p.damage - dmg) * 0.3));
       s.exp += riposte;
     }
-    // 抢攻的代价：一头撞进去，打完什么也没看清——这场经验归零。
+    // 缠斗的收益：拖长这一场、把对方的招数看全——这一战经验翻倍。
     // 击杀计数与战意照常（人确实倒了），掉金/遗物/锁环也不受影响
-    const expGain = rushed ? 0 : m.exp;
+    const expGain = tangled ? m.exp * TANGLE_EXP : m.exp;
     s.exp += expGain;
     s.flags.killCount = (s.flags.killCount || 0) + 1;    s.flags['kill_' + ch] = true;
     // 净芯之环：锁芯层（第 13 层，s.floor 12）每倒一只都记着，结算按 2 余烬/只 换（上限 4）
@@ -1145,7 +1157,7 @@
     save();
     emit('kill', { name: m.name, boss: !!m.boss });
     return {
-      type: 'fight', damage: dmg, raw: p.damage, blocked, rushed, rounds: p.rounds,
+      type: 'fight', damage: dmg, raw: p.damage, blocked, tangled, rounds: p.rounds,
       guard: mode === 'all', guardOn: blockSpreadActive(),
       gold: goldGain, exp: expGain, heal, levelUps: ups, riposte,
       monster: m, boss: !!m.boss, chapter: m.chapter || 0,
@@ -1599,6 +1611,6 @@
     },
     tryMove, fight, canBlock, canGuard, blockLimit, blockLeft, blockUsedAt, grantBlock, vowForbidsBlock, blockSpreadAt, blockSpreadActive, blockSpreadScale, BLOCK_SPREAD, buy, priceOf, shopStock, dealOf, openShopAt, floorMonsterCount, floorPickupCount, floorThreat, battleMargin, potionHeal, finish, altarChoices, pickRelic, pathTo, pathThrough, pathToNear, pathsTo,
     nextLevelExp, margin, keyName, summary, hasRelic, ownedRelics, beginFloor, restoreFloor, revealCore, heartState, heartTake, heartLeave, vow, pickEvent, eventPool, eventCost, resolveEvent, applyEffect, jumpTo, visitedMax, gateForth, sealPlan,
-    rings, hasRing, ringBlockScale, zealScale, zealNext, zealNeed, finalLedger, cleanEmber, fightDamage, rushInfo, bossPhases, settleChapter, ringChoices, pendingRing, pickRing,
+    rings, hasRing, ringBlockScale, zealScale, zealNext, zealNeed, finalLedger, cleanEmber, fightDamage, tangleInfo, bossPhases, settleChapter, ringChoices, pendingRing, pickRing,
   };
 })();

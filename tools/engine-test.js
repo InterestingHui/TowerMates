@@ -1401,15 +1401,15 @@ ok(FL.block === E.fightDamage('U', true).damage && FL.block < FL.white, '塔顶�
 ok(FL.survive === (s.hp > FL.white), '塔顶的账：撑不撑得过按当前血算');
 ok(FL.hp === s.hp && FL.maxHp === s.maxHp, '塔顶的账：血量取当前状态');
 ok(FL.zeal === 1, '塔顶的账：没到门槛时 zeal=1（白打不打折）');
-ok(FL.rush === E.fightDamage('U', false, true).damage, '塔顶的账：抢攻给的是少挨一轮之后的数');
-// 「省得多」≠「救得下」：引擎的生死判定只认白打与格挡，抢攻保不了命。
-// 账面上必须能分出「格挡能救」与「连格挡也救不下」，否则最便宜的抢攻会把人送去送死。
+// 缠斗不进这份账：它多挨一轮，只会让这一场更贵（老版「抢攻」是省血的，语义已反过来）
+ok(FL.rush === undefined, '塔顶的账：不再摆「缠斗」——它只会让这一场更贵，不是省钱选项');
+// 「省得多」≠「救得下」：账面上必须能分出「格挡能救」与「连格挡也救不下」
 s.hp = 1400;
 let savedL = E.finalLedger();
 ok(savedL.survive === false && savedL.blockSave === true, '塔顶的账：白打撑不过但格挡能救（blockSave 单独给）');
 s.hp = 400;
 let doomedL = E.finalLedger();
-ok(doomedL.survive === false && doomedL.blockSave === false, '塔顶的账：格挡也救不下时 blockSave=false（不许拿抢攻当救命稻草）');
+ok(doomedL.survive === false && doomedL.blockSave === false, '塔顶的账：格挡也救不下时 blockSave=false（不许画饼）');
 s.hp = 1400;
 // 没学格挡 / 这一层已经用光 → 不许给「留着格挡」这种画饼数
 s.flags.hasBlock = false;
@@ -1744,53 +1744,89 @@ ok(climbUp().at.gold === 0 && s.gold === 100, '铁壁之誓：整层没格挡也
   ok(seenFree > 0, `学了盾谱、没立禁挡誓约时能正常抽到（40 次里出现 ${seenFree} 次）`);
 }
 
-// ---------- 抢攻：第 2 章起的第二个战斗内决策（少挨一轮 ↔ 这一战没经验）----------
+// ---------- 缠斗：第 2 章起的第三把打法（多挨一轮 ↔ 这一战经验 ×2）----------
 E.newGame();
 s = E.state();
 s.floor = 3;                 // 第 4 层 = 第 2 章
 s.x = 5; s.y = 5;
 s.maps[3][5][6] = 'A';       // 右边一格摆一只蝙蝠
-const rushInfo = E.rushInfo('A');
+const ti = E.tangleInfo('A');
 const plainD = E.fightDamage('A', false, false).damage;
-ok(!!rushInfo, '蝙蝠能给出一份抢攻账');
-ok(rushInfo.plain === plainD, '抢攻账的「不抢」承伤与 fightDamage 同源');
-ok(rushInfo.save === plainD - rushInfo.damage && rushInfo.save > 0, `抢攻确实少挨（${plainD} → ${rushInfo.damage}，省 ${rushInfo.save}）`);
-ok(rushInfo.damage === E.fightDamage('A', false, true).damage, '抢攻承伤与引擎同源（演出与结算不会各算各的）');
+ok(!!ti, '蝙蝠能给出一份缠斗账');
+ok(ti.plain === plainD, '缠斗账的「不缠」承伤与 fightDamage 同源');
+ok(ti.damage > ti.plain && ti.extra === ti.damage - ti.plain, `缠斗确实多挨（${plainD} → ${ti.damage}，多 ${ti.extra}）`);
+ok(ti.damage === E.fightDamage('A', false, true).damage, '缠斗承伤与引擎同源（演出与结算不会各算各的）');
+ok(ti.mult === 2 && ti.expGain === D.monsters.A.exp * 2, '缠斗账写明的经验倍率就是 ×2');
 
-const rushExpBefore = s.exp;
-const rushKillsBefore = s.flags.killCount || 0;
-const rushGoldBefore = s.gold;
-const rRush = E.fight(1, 0, { rush: true });
-ok(rRush.type === 'fight' && rRush.rushed === true && rRush.blocked === false, '抢攻：确实按抢攻结算');
-ok(rRush.damage === rushInfo.damage, '抢攻：实际承伤等于账上那个数');
-ok(rRush.exp === 0 && s.exp === rushExpBefore, '抢攻：这一战经验归零（一分没涨）');
-ok((s.flags.killCount || 0) === rushKillsBefore + 1, '抢攻：击杀计数照常 +1（战意不受影响）');
-ok(rRush.gold > 0 && s.gold === rushGoldBefore + rRush.gold, '抢攻：金币照常进账');
+const tExpBefore = s.exp;
+const tKillsBefore = s.flags.killCount || 0;
+const tGoldBefore = s.gold;
+const rTan = E.fight(1, 0, { tangle: true });
+ok(rTan.type === 'fight' && rTan.tangled === true && rTan.blocked === false, '缠斗：确实按缠斗结算');
+ok(rTan.damage === ti.damage, '缠斗：实际承伤等于账上那个数');
+ok(rTan.exp === D.monsters.A.exp * 2 && s.exp === tExpBefore + D.monsters.A.exp * 2, '缠斗：这一战经验翻倍（不是归零）');
+ok((s.flags.killCount || 0) === tKillsBefore + 1, '缠斗：击杀计数照常 +1（战意不受影响）');
+ok(rTan.gold > 0 && s.gold === tGoldBefore + rTan.gold, '缠斗：金币照常进账');
 
-// 格挡优先：两个都请求时按格挡结算，经验照常
+// 倍率不许漏到别的场次：不缠的一战只拿一份
+E.newGame();
+s = E.state();
+s.floor = 3; s.x = 5; s.y = 5;
+s.maps[3][5][6] = 'A';
+const rPlainNoT = E.fight(1, 0, {});
+ok(rPlainNoT.tangled === false && rPlainNoT.exp === D.monsters.A.exp, '不缠的一战只拿一份经验（倍率不漏场）');
+
+// 格挡优先：两个都请求时按格挡结算，缠斗的「多挨一轮」不该发生
 E.newGame();
 s = E.state();
 s.flags.hasBlock = true;
 s.floor = 3; s.x = 5; s.y = 5;
 s.maps[3][5][6] = 'A';
-const rBoth = E.fight(1, 0, { block: true, rush: true });
-ok(rBoth.blocked === true && rBoth.rushed === false, '格挡与抢攻二选一：同时请求时格挡优先');
-ok(rBoth.exp === D.monsters.A.exp, '按格挡结算时经验照常（抢攻的代价没有被误扣）');
+const rBoth = E.fight(1, 0, { block: true, tangle: true });
+ok(rBoth.blocked === true && rBoth.tangled === false, '格挡与缠斗二选一：同时请求时格挡优先');
+ok(rBoth.damage === E.fightDamage('A', true).damage, '按格挡结算时承伤取格挡价（没被缠斗的那一轮污染）');
+ok(rBoth.exp === D.monsters.A.exp, '按格挡结算时经验照常（缠斗的倍率不该白送）');
 
-// 没得省的时候不给这个选项：防御堆到打不动 → 少挨的那一轮省不下任何血
+// 打不动你的时候不给：多挨一轮也不疼，那就成了白送经验
 E.newGame();
 s = E.state();
 s.def = 999;
-ok(E.rushInfo('A') === null, '打不到你的怪不给抢攻选项（省不下血，只剩白丢经验）');
+ok(E.tangleInfo('A') === null, '打不到你的怪不给缠斗选项（多挨一轮也不疼＝白送经验）');
 
-// 抢攻不是救命按钮：它只省一轮，不做保命兜底（生死判定仍按白打口径）
+// 没经验可翻的怪也不给（临时造一只，测完删掉）
+D.monsters['Ω'] = { name: '空壳', emoji: '🕳', hp: 30, atk: 8, def: 0, gold: 1, exp: 0, kind: '怪' };
+E.newGame();
+s = E.state();
+s.floor = 3; s.x = 5; s.y = 5;
+s.maps[3][5][6] = 'Ω';
+ok(E.tangleInfo('Ω') === null, '没经验可翻的怪不给缠斗选项（白挨一轮换不到成长）');
+delete D.monsters['Ω'];
+
+// 缠完会死的时候不给：面板不摆送死按钮，引擎也不许真把人缠死
 E.newGame();
 s = E.state();
 s.floor = 3; s.x = 5; s.y = 5;
 s.maps[3][5][6] = 'A';
-s.hp = E.fightDamage('A', false, false).damage;   // 刚好活不下来
-ok(E.fight(1, 0, { rush: true }).type === 'refuse', '血不够白打时抢攻仍被拒（它不是保命按钮）');
-ok(E.rushInfo('A').save < E.fightDamage('A', false, false).damage, '抢攻只省得下一轮，救不回一场打不过的架');
+const plainD2 = E.fightDamage('A', false, false).damage;
+s.hp = E.fightDamage('A', false, true).damage;   // 白打能活，缠斗正好缠死
+ok(E.tangleInfo('A') === null, '缠完会死时不给缠斗选项');
+const rNoT = E.fight(1, 0, { tangle: true });
+ok(rNoT.type === 'fight' && rNoT.tangled === false && rNoT.damage === plainD2, '缠不起时退成白打（点错按钮不会把自己缠死）');
+
+// 经验封顶之后不给：等级到顶了，多挨的那一轮换不回任何东西
+E.newGame();
+s = E.state();
+s.floor = 3; s.x = 5; s.y = 5;
+s.maps[3][5][6] = 'A';
+ok(E.tangleInfo('A') !== null, '（前提）没封顶时给缠斗账');
+s.level = D.levelExp.length + 1;
+ok(E.tangleInfo('A') === null, '等级封顶后不给缠斗选项（经验没处放，只剩多挨一轮）');
+
+// 破不了防：连白打都给不出数，缠斗自然也没有账
+E.newGame();
+s = E.state();
+s.atk = 1;
+ok(E.tangleInfo('A') === null, '破不了防时不给缠斗账（谈多挨一轮是空话）');
 
 // ---------- 本层威胁读数（floorThreat）：还剩几只 / 最贵的那只值多少血 ----------
 E.newGame();

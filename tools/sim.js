@@ -36,26 +36,21 @@ const hasRing = (id) => RINGS.indexOf(id) >= 0;
 // --train=<atk|def|mixed>：商店训练的钱怎么花（焦点 C 待办——攻防比值有没有唯一最优解）
 //   atk=默认全攻 | def=全防 | mixed=攻防 2:1 轮换（模拟「均衡流」玩家）
 const TRAIN = (process.argv.find((a) => a.startsWith('--train=')) || '--train=atk').slice(8);
-// 焦点 C 决策审计（2026-11-14 20:5x）：把战斗面板另外两条打法也做成可跑对照，
-// 回答「鬼剑三选一里有没有明显最优解」——默认两个都不开，基线读数一字不漂。
-//   --rush   ：每一场都抢攻（少挨一轮，这一战经验归零）
-//   --spread ：每层第一场就架盾（摊平 0.85 盖本层余下每一场），额度照样一层一次
-const RUSH = process.argv.includes('--rush') || process.argv.includes('--rush=smart');
-const RUSH_SMART = process.argv.includes('--rush=smart');
-// --rushexp=<0..1>：抢攻那一战保留多少经验（引擎当前是 0 = 全部归零）。
-// 用来扫「经验代价多重才算真权衡」——只在做对照实验时给
-const RUSH_KEEP = (() => {
-  const a = process.argv.find((x) => x.startsWith('--rushexp='));
-  return a ? Number(a.split('=')[1]) : 0;
+// 焦点 C 决策审计（2026-11-14 20:5x / 21:xx 语义反转）：把战斗面板另外两条打法做成可跑对照，
+// 回答「三把打法里有没有明显最优解」——默认两个都不开，基线读数一字不漂。
+//   --tangle      ：每一场都缠斗（多挨一轮，这一战经验 ×2）
+//   --tangle=safe ：只在「缠完还剩四成血」时缠（模拟怕死的正常用法）
+//   --spread      ：每层第一场就架盾（摊平 0.85 盖本层余下每一场），额度照样一层一次
+const TANGLE = process.argv.includes('--tangle') || process.argv.includes('--tangle=safe');
+const TANGLE_SAFE = process.argv.includes('--tangle=safe');
+// --tangleexp=<x>：缠斗那一战的经验倍率（引擎是 2）。扫「翻几倍才算真取舍」时给
+const TANGLE_EXP = (() => {
+  const a = process.argv.find((x) => x.startsWith('--tangleexp='));
+  return a ? Number(a.split('=')[1]) : 2;
 })();
-// --rushgold=<x>：抢攻那一战掉金倍率（引擎当前是 1）。只在做兑换率实验时给
-const RUSH_GOLD = (() => {
-  const a = process.argv.find((x) => x.startsWith('--rushgold='));
-  return a ? Number(a.split('=')[1]) : 1;
-})();
-// --rushcut=<n>：抢攻省几轮（引擎当前是 1）。做「收益多大才算真取舍」的实验时用
-const RUSH_CUT = (() => {
-  const a = process.argv.find((x) => x.startsWith('--rushcut='));
+// --tanglehit=<n>：缠斗多挨几轮（引擎是 1）。扫「代价多大才算真取舍」时给
+const TANGLE_HIT = (() => {
+  const a = process.argv.find((x) => x.startsWith('--tanglehit='));
   return a ? Number(a.split('=')[1]) : 1;
 })();
 const SPREAD = process.argv.includes('--spread');
@@ -92,16 +87,19 @@ function predict(ch) {
   const rounds = Math.ceil(m.hp / (effAtk - eDef));
   const myDef = tr === 'magic' ? 0 : s.def;
   const per = Math.max(0, m.atk - myDef) * (tr === 'double' ? 1.7 : 1);
-  // 先攻：连最后一击之前也要先挨一下；抢攻（--rush）抢在收招前多塞一刀 = 少挨一轮
+  // 先攻：连最后一击之前也要先挨一下；缠斗（--tangle）故意拖长这一场 = 多挨一轮
   let hits = tr === 'first' ? rounds : Math.max(0, rounds - 1);
-  // --rush=smart：只在「这一场本来就要掉 25% 以上的血」时抢——模拟玩家的真实用法
-  // （生死关头才拿成长换血）。没抢的场照常拿经验
-  let rushed = false;
-  if (RUSH && (!RUSH_SMART || hits * per >= s.maxHp * 0.25)) {
-    // 至少留一轮（否则回合数少的杂兵会变成「零承伤白拿」）
-    hits = RUSH_CUT >= 2 ? Math.max(Math.min(1, hits), hits - RUSH_CUT) : Math.max(0, hits - 1);
-    rushed = true;
+  // --tangle=safe：只在「缠完还剩四成血」时缠——血是本作最硬的资源，怕死的用法才有代表性。
+  // 引擎侧同口径：tangleInfo 在「缠完会死」时不给出这个按钮，这里照抄
+  let tangled = false;
+  if (TANGLE && per > 0 && m.exp > 0 && s.level < D.levelExp.length + 1) {
+    const hitsT = hits + TANGLE_HIT;
+    let dmgT = hitsT * per;
+    if (hasRelic('ward')) dmgT = Math.max(1, Math.floor(dmgT * 0.88));
+    if (VOW === 'guard') dmgT = Math.round(dmgT * 1.18);
+    tangled = TANGLE_SAFE ? dmgT <= s.maxHp * 0.6 : s.hp > dmgT;
   }
+  if (tangled) hits += TANGLE_HIT;
   let damage = hits * per;
   if (damage > 0 && hasRelic('ward')) damage = Math.max(1, Math.floor(damage * 0.88));
   if (damage > 0 && hasRing('bell') && m.boss) damage = Math.round(damage * 0.92);
@@ -111,7 +109,7 @@ function predict(ch) {
   // 否则格挡触发阈值（按原始承伤判）会被它压低，反而少挡一次，得不偿失
   const zeal = m.finalBoss ? ((s.flags.killCount || 0) >= 40 ? 0.64 : (s.flags.killCount || 0) >= 25 ? 0.84 : 1) : 1;
   const realZeal = Math.round(real * zeal);
-  return { win: s.hp > realZeal, damage, real: realZeal, rounds, zeal, rushed };
+  return { win: s.hp > realZeal, damage, real: realZeal, rounds, zeal, tangled };
 }
 
 function levelUp() {
@@ -383,9 +381,9 @@ function floorLoop(fi) {
       const p = predict(ch);
       // 打得过，或者「Boss 靠格挡能换命」——后者必须真打一场，
       // 不能只在 bfs 里当通路（否则会出现「没碰 Boss 就判通关」的假通关）
-      const bossSave = !RUSH && !SPREAD && !!D.monsters[ch].boss && !NO_BLOCK_VOW && s.flags.hasBlock && !s.flags['block_f' + s.floor]
+      const bossSave = !TANGLE && !SPREAD && !!D.monsters[ch].boss && !NO_BLOCK_VOW && s.flags.hasBlock && !s.flags['block_f' + s.floor]
         && Math.round(p.damage * (s.flags.hasBlock2 ? 0.42 : 0.55)) < s.hp;
-      if (p.win || bossSave) targets.push({ x, y, ch, damage: p.damage, zeal: p.zeal || 1, rushed: !!p.rushed });
+      if (p.win || bossSave) targets.push({ x, y, ch, damage: p.damage, zeal: p.zeal || 1, tangled: !!p.tangled });
     }
     if (!targets.length) {
       // 卡死自救（与玩家真实行为同口径）：
@@ -404,7 +402,7 @@ function floorLoop(fi) {
     }
     // 非Boss层：格挡留给本层最疼的一场（不是第一场）——与玩家「留刀」习惯同口径
     let t;
-    if (!RUSH && !SPREAD && USE_BLOCK && s.flags.hasBlock && !D.floors[fi].boss && !s.flags['block_f' + s.floor]) {
+    if (!TANGLE && !SPREAD && USE_BLOCK && s.flags.hasBlock && !D.floors[fi].boss && !s.flags['block_f' + s.floor]) {
       const worst = targets.reduce((a, b) => (b.damage > a.damage ? b : a));
       if (worst.damage >= s.maxHp * 0.15) {
         t = worst;
@@ -432,8 +430,8 @@ function floorLoop(fi) {
     } else if (SPREAD && s.flags[spreadKey]) {
       take = Math.round(take * 0.85);
     }
-    // 抢攻与格挡在引擎里互斥（同一场只能选一种打法），--rush 模式因此不再走格挡分支
-    if (!RUSH && !SPREAD && USE_BLOCK && s.flags.hasBlock && !NO_BLOCK_VOW && (isBoss || !D.floors[fi].boss) && !s.flags['block_f' + s.floor] && take >= s.maxHp * 0.15) {
+    // 缠斗与格挡在引擎里互斥（同一场只能选一种打法），--tangle 模式因此不再走格挡分支
+    if (!TANGLE && !SPREAD && USE_BLOCK && s.flags.hasBlock && !NO_BLOCK_VOW && (isBoss || !D.floors[fi].boss) && !s.flags['block_f' + s.floor] && take >= s.maxHp * 0.15) {
       s.flags['block_f' + s.floor] = true;
       const scale = s.flags.hasBlock2 ? 0.42 : 0.55;
       take = Math.round(take * scale);
@@ -451,9 +449,9 @@ function floorLoop(fi) {
     // 真实终局血：最后一场战斗（碑魔）打完时的血量——玩家看到的结算血就是这个，
     // 后面「把余钱换成药水」不影响难度，别用它当难度指标
     if (isBoss && m.kind === '锁' && fi === D.floors.length - 2) s.lastBattle = { hp: s.hp, maxHp: s.maxHp };
-    s.exp += t.rushed ? Math.round(m.exp * RUSH_KEEP) : m.exp;
-    const goldBase = VOW === 'greed' ? Math.round(m.gold * 1.5) : m.gold;
-    s.gold += t.rushed ? Math.round(goldBase * RUSH_GOLD) : goldBase;
+    // 缠斗的收益：这一战经验翻倍（金币/击杀计数照常，与引擎一致）
+    s.exp += t.tangled ? Math.round(m.exp * TANGLE_EXP) : m.exp;
+    s.gold += VOW === 'greed' ? Math.round(m.gold * 1.5) : m.gold;
     s.flags.killCount = (s.flags.killCount || 0) + 1;
     if (hasRelic('ember') && !m.boss) {
       const heal = Math.min(Math.max(4, Math.floor(s.maxHp * 0.02)), Math.max(0, s.maxHp - s.hp));
@@ -531,9 +529,9 @@ function report() {
   console.log(`锁环：${RINGS.length ? RINGS.map((k) => D.rings[k].name).join(' / ') : '无'}`
     + (hasRing('quill') ? `（剩 ${s.gold} 金 → 额外 ${quillEmber} 余烬）` : ''));
   // 打法模式标注：这三行读数只在开了对应开关时出现，默认基线一个字都不多
-  if (RUSH) console.log(RUSH_SMART
-    ? '打法：--rush=smart 只在本场掉血超 25% 上限时才抢攻——模拟「生死关头才拿成长换血」'
-    : '打法：--rush 每场都抢攻（经验全部归零）——用来量「抢攻」的极限代价');
+  if (TANGLE) console.log(TANGLE_SAFE
+    ? '打法：--tangle=safe 只在缠完还剩四成血时才缠斗——模拟「怕死但想吃成长」的正常用法'
+    : '打法：--tangle 每场都缠斗（多挨一轮换经验 ×' + TANGLE_EXP + '）——用来量缠斗的极限收益');
   if (SPREAD) console.log('打法：--spread 每层进门就架盾（摊平 ×0.85，额度一层一次）——用来和单场格挡对照');
 }
 

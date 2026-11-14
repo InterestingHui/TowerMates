@@ -27,8 +27,8 @@
     battle: base + '?dev=1#demo=0,2,3',
     battletwice: base + '?dev=1#demo=0,2,3',
     battleblock: base + '?dev=1#demo=0,2,3',
-    // 抢攻：第 2 章（第 4 层）的战斗面板，站 (5,5) 朝上撞石像鬼
-    rushbattle: base + '?dev=1#demo=3,5,5',
+    // 缠斗：第 2 章（第 4 层）的战斗面板，站 (5,5) 朝上撞石像鬼
+    tanglebattle: base + '?dev=1#demo=3,5,5',
     // 架盾：同一场战斗面板上的第三种打法（摊平整层 vs 集中挡一场）
     guardbattle: base + '?dev=1#demo=3,5,5',
     shop: base + '?dev=1#demo=2,4,3,424242',
@@ -86,7 +86,7 @@
       await wait(120);
       const T = w.__tm;
       const E = w.Engine;
-      if (scene === 'start' || scene === 'floor5' || scene === 'battle' || scene === 'battletwice' || scene === 'battleblock' || scene === 'rushbattle' || scene === 'guardbattle' || scene === 'shop' || scene === 'tower' || scene === 'core' || scene === 'zeal' || scene === 'final') {
+      if (scene === 'start' || scene === 'floor5' || scene === 'battle' || scene === 'battletwice' || scene === 'battleblock' || scene === 'tanglebattle' || scene === 'guardbattle' || scene === 'shop' || scene === 'tower' || scene === 'core' || scene === 'zeal' || scene === 'final') {
         if (scene === 'final') {
           // 塔顶的账：给一身真实攻防，让这一格显示「撑不过」的血色态（纯截图，不推调试文本）
           await wait(200);
@@ -130,6 +130,11 @@
           w.__battleSpeed = 30;
           w.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'ArrowUp' }));
           await wait(300);
+          // 首章这一战玩家还没学盾谱：面板上不许出现「架盾/缠斗」（点了没反应的死按钮）
+          const b1 = d.getElementById('bsBlock'), g1 = d.getElementById('bsGuard'), t1 = d.getElementById('bsTangle');
+          q2push('firstPanel=' + JSON.stringify({
+            block: !!b1 && !b1.hidden, guard: !!g1 && !g1.hidden, tangle: !!t1 && !t1.hidden,
+          }));
         }
         if (scene === 'battletwice') {          // 双挡之环：盾牌上的剩余次数与战斗面板的「本层剩 2 次」都得对得上
           await wait(200);
@@ -141,23 +146,23 @@
           w.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'ArrowUp' }));
           await wait(300);
         }
-        if (scene === 'rushbattle') {
-          // 抢攻：第 2 章的战斗面板上第二把打法。数值必须与引擎同源（面板说谎会直接红）
+        if (scene === 'tanglebattle') {
+          // 缠斗：第 2 章的战斗面板上第三把打法（多挨一轮 ↔ 经验 ×2）。数值必须与引擎同源
           await wait(200);
-          const sR = E.state();
-          sR.atk = 40; sR.def = 20; sR.hp = 800; sR.maxHp = 1000;
+          const sT = E.state();
+          sT.atk = 40; sT.def = 20; sT.hp = 800; sT.maxHp = 1000;
           T.refreshHud();
           // 引擎读数先取（战斗结算会改血量/经验，读数要在开打前定下来）
-          const info = E.rushInfo('E');
+          const info = E.tangleInfo('E');
           const plain = E.fightDamage('E', false, false).damage;
-          const quick = E.fightDamage('E', false, true).damage;
+          const deep = E.fightDamage('E', false, true).damage;
           w.__battleSpeed = 30;
           w.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'ArrowUp' }));
           await wait(320);
-          const rb = d.getElementById('bsRush');
-          q2push('bsRush=' + (rb && rb.style.display !== 'none' ? rb.textContent.replace(/\s+/g, ' ').trim() : 'HIDDEN')
+          const tgb = d.getElementById('bsTangle');
+          q2push('bsTangle=' + (tgb && !tgb.hidden ? tgb.textContent.replace(/\s+/g, ' ').trim() : 'HIDDEN')
             + ' info=' + JSON.stringify(info)
-            + ' plain=' + plain + ' quick=' + quick);
+            + ' plain=' + plain + ' deep=' + deep);
           // 本层威胁读数：还剩几只 / 最贵的那只值多少血（面板数字必须与引擎同源）
           // 面板会 skip 掉正在打的那只（场景固定从 (5,5) 往上打 (5,4)），探针按同一口径读
           const tb = d.getElementById('bsThreat');
