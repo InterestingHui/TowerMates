@@ -929,7 +929,7 @@ html, body {
   letter-spacing: 0;
   vertical-align: 1px;
 }
-.bs-hint { text-align: center; font-size: var(--fs-tag); color: #555d6d; margin-top: 7px; }
+.bs-hint { text-align: center; font-size: var(--fs-tag); color: var(--muted); margin-top: 7px; }
 /* 战意：最终决战才出现，金色的「打怪有回报」提示 */
 .bs-zeal {
   text-align: center;

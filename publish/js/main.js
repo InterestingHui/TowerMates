@@ -575,7 +575,7 @@
     bsHeroHp: $('bsHeroHp'), bsFoeHp: $('bsFoeHp'),
     bsName: $('bsName'), bsRounds: $('bsRounds'), bsNumbers: $('bsNumbers'),
     bsPhase: $('bsPhase'), bsPhaseTitle: $('bsPhaseTitle'), bsPhaseText: $('bsPhaseText'),
-    bsBlock: $('bsBlock'), bsGuard: $('bsGuard'), bsTangle: $('bsTangle'), bsThreat: $('bsThreat'), blockPip: $('blockPip'), compassPip: $('compassPip'), scopePip: $('scopePip'), zealPip: $('zealPip'), finalPip: $('finalPip'),
+    bsBlock: $('bsBlock'), bsGuard: $('bsGuard'), bsTangle: $('bsTangle'), bsThreat: $('bsThreat'), bsHint: $('bsHint'), blockPip: $('blockPip'), compassPip: $('compassPip'), scopePip: $('scopePip'), zealPip: $('zealPip'), finalPip: $('finalPip'),
     bsPanel: document.querySelector('.bs-panel'),
     guide: $('guide'),
     stuckBar: $('stuckBar'), stuckText: $('stuckText'),
@@ -1994,6 +1994,19 @@
         warn(`**缠斗**：这一战多挨 ${tangle.extra} 血（拖长一回合），换来经验 ${tangle.exp} → ${tangle.expGain}；这一场不再格挡`);
       };
     }
+
+    // 提示行随状态改口：面板上有打法可选时，它不该再写「自动战斗中」——
+    // 那句话说出去等于「你可以不用管这一屏」，而这一屏恰恰在等你决定用哪种打法；
+    // 而「点击跳过」和「点按钮选打法」挤在同一块面板里，也容易读成「点哪个都是跳过」。
+    // 架盾已架开时那一格是不可点的状态条（onclick 为 null），不算可选打法。
+    if (el.bsHint) {
+      const pickable =
+        (!el.bsBlock.hidden && !el.bsBlock.disabled) ||
+        (!!el.bsGuard && !el.bsGuard.hidden && typeof el.bsGuard.onclick === 'function') ||
+        (!!el.bsTangle && !el.bsTangle.hidden && !el.bsTangle.disabled);
+      el.bsHint.textContent = pickable ? '可点下面的打法 · 或点这里直接打' : '自动战斗中 · 点击跳过';
+    }
+
     // 这一战最终掉多少血：格挡／架盾优先（引擎里挡下整场就不存在缠斗），
     // 其次缠斗，最后是白打——取值一律走这里，与 Engine.fight 的优先级同序
     const finalDamage = () => {
