@@ -12,6 +12,7 @@
   let warnTimer = null;
   let battleBusy = false;
   let guideTimer = null;
+  let quickStart = false; // ?play=1 直达：跳过开局教学卡，落地即可操作
   let hintPump = null;
   let hintAuto = null;
   let hintSeq = 0;
@@ -4284,9 +4285,10 @@
       if (Engine.vow() !== 'none') log(`你立下了${vs.name}：${vs.desc}`, 'gold');
       log('你踏入了魔塔。塔顶传来极轻的、像铃声一样的声音。', 'gold');
       if (seenIntro) log('序章在读过了——设置里可以重看。', 'dim');
-      // 开局教学：不再走对白——棋盘标注（高亮格子 + 虚线 + 说明卡），点击「知道了」才收。
+      // 开局教学：棋盘标注（高亮格子 + 虚线 + 说明卡），点击「知道了」才收。
       // 用 setTimeout 避开对白关闭的同步栈：等遮罩过渡完、布局稳定后再量尺寸定位。
-      setTimeout(() => Tips.show('opening'), 350);
+      // 直达链接 ?play=1 不弹这张卡，保证扫码/点链接落地即可操作；普通入口保留引导。
+      if (!quickStart) setTimeout(() => Tips.show('opening'), 350);
     };
     if (seenIntro) begin();
     else playStory('intro', begin);
@@ -4483,8 +4485,9 @@
     // 分享直达：?play=1 自动开局并跳过序章，落地即是可操作的地图
     // 不带此参数时仍走正常流程（开始界面 → 四选一誓约 → 序章）
     const qs = new URLSearchParams(location.search);
+    quickStart = qs.get('play') === '1';
     if (qs.get('funnel') === '1') showFunnelView();
-    if (!demo && qs.get('play') === '1') {
+    if (!demo && quickStart) {
       startGame('none');
       skipDialog();
     }
