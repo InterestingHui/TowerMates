@@ -188,13 +188,13 @@ html, body {
   text-overflow: ellipsis;
 }
 
-.chips { display: grid; grid-template-columns: 1.4fr 0.78fr 0.78fr 0.85fr 1.15fr; gap: 4px; }
+.chips { display: grid; grid-template-columns: 1.24fr 0.88fr 0.88fr 0.9fr 1.1fr; gap: 3px; }
 .chip {
-  display: flex; align-items: center; justify-content: center; gap: 3px;
+  display: flex; align-items: center; justify-content: center; gap: 2px;
   background: var(--l0);
   border: 1px solid var(--line-subtle);
   border-radius: 8px;
-  padding: 4px 3px;
+  padding: 4px 2px;
   font-size: var(--fs-aux);
   min-width: 0;
 }
@@ -2490,6 +2490,23 @@ body.at-start #bottom { visibility: hidden; }
 .zealpip.full {
   border-color: rgba(232, 196, 106, 0.72);
   background: rgba(232, 196, 106, 0.18);
+}
+
+/* 塔顶的账：只在决战三章（第 10–12 层）出现的一格。
+   🧭/🗡️/🎯 都是「一个图标 + 一个数」，这格要带两个字才看得懂，所以放宽；
+   撑不过时整格转血色——顶栏里唯一一处「现在这样上去会死」的红色提醒。 */
+.finalpip {
+  border-color: rgba(201, 74, 82, 0.45);
+  color: #e8a1a6;
+  background: rgba(201, 74, 82, 0.1);
+  box-shadow: 0 0 10px rgba(201, 74, 82, 0.14);
+  white-space: nowrap;
+}
+.finalpip.danger {
+  border-color: rgba(255, 96, 104, 0.85);
+  color: #ff9ba1;
+  background: rgba(201, 74, 82, 0.24);
+  box-shadow: 0 0 12px rgba(255, 96, 104, 0.34);
 }
 
 /* 收藏图鉴 · 锁环卡片上的使用统计（选过几次 / 带它通关几次） */

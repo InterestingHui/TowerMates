@@ -227,6 +227,51 @@
     return { kills: k, need: n.mid, cut: 0 };
   }
 
+  // 塔顶的账（纯读，一个数值都不改）：决战前把「这一场要挨多少」先算出来。
+  // 全明码是这一作的身份——手边每只怪在开打前都能读出承伤，楼上的碑魔凭什么不行？
+  // 它补的是「战斗外的取舍」缺的那半边：名墙（第 10 层）那一层清到什么程度，
+  // 原来只能凭感觉（战意看不见、碑魔多重也不知道），现在两头都是数。
+  // white 已经是「含誓约 / 锁环 / 战意乘区」的真实白打（fightDamage 同源），
+  // block 是「这一场的格挡还留着」时能压到的数（没盾谱 / 已用光 / 禁挡誓约 → null）。
+  const FINAL_KEY = (function () {
+    const k = Object.keys(D.monsters).find((kk) => D.monsters[kk].finalBoss);
+    return k || 'U';
+  })();
+  function finalLedger() {
+    if (!s) return null;
+    const m = D.monsters[FINAL_KEY];
+    if (!m) return null;
+    const n = zealNeed();
+    const kills = s.flags.killCount || 0;
+    // 破不了防也是要说的账：这时谈「掉多少血」是空话，得先告诉玩家差在哪
+    const base = predictBase(FINAL_KEY, false);
+    if (!base) return null;
+    const out = {
+      key: FINAL_KEY, name: m.name, emoji: m.emoji,
+      kills, mid: n.mid, full: n.full,
+      toFull: Math.max(0, n.full - kills),
+      hp: s.hp, maxHp: s.maxHp,
+      wall: base.damage === null,
+      white: base.damage, block: null, rush: null, zeal: 1,
+      survive: false,
+    };
+    if (out.wall) return out;
+    const w = fightDamage(FINAL_KEY, false);
+    out.white = w.damage;
+    out.zeal = w.zeal;
+    out.survive = s.hp > w.damage;
+    // 「还有别的打法能救」也是账的一部分：只报白打、不说格挡与抢攻，
+    // 一句「撑不过」会把本来能过关的玩家劝退。
+    const r = fightDamage(FINAL_KEY, false, true);
+    if (r && r.damage !== null) out.rush = r.damage;
+    // 格挡只在「这一场真能用」时给数：没学、用光、禁挡誓约都不给，否则就是画饼
+    if (canBlock()) {
+      const b = fightDamage(FINAL_KEY, true);
+      if (b && b.damage !== null) out.block = b.damage;
+    }
+    return out;
+  }
+
   // 净芯之环：锁芯层清掉的怪折成余烬（每只 2，四只封顶）。
   // 计数在战斗结算里累加（flags.clean_kills），折算只在这一个函数，
   // 结算明细与收藏页都读它——同一个数字写在两处必有一处说谎。
@@ -1547,6 +1592,6 @@
     },
     tryMove, fight, canBlock, canGuard, blockLimit, blockLeft, blockUsedAt, grantBlock, vowForbidsBlock, blockSpreadAt, blockSpreadActive, blockSpreadScale, BLOCK_SPREAD, buy, priceOf, shopStock, dealOf, openShopAt, floorMonsterCount, floorPickupCount, floorThreat, battleMargin, potionHeal, finish, altarChoices, pickRelic, pathTo, pathThrough, pathToNear, pathsTo,
     nextLevelExp, margin, keyName, summary, hasRelic, ownedRelics, beginFloor, restoreFloor, revealCore, heartState, heartTake, heartLeave, vow, pickEvent, eventPool, eventCost, resolveEvent, applyEffect, jumpTo, visitedMax, gateForth, sealPlan,
-    rings, hasRing, ringBlockScale, zealScale, zealNext, zealNeed, cleanEmber, fightDamage, rushInfo, bossPhases, settleChapter, ringChoices, pendingRing, pickRing,
+    rings, hasRing, ringBlockScale, zealScale, zealNext, zealNeed, finalLedger, cleanEmber, fightDamage, rushInfo, bossPhases, settleChapter, ringChoices, pendingRing, pickRing,
   };
 })();

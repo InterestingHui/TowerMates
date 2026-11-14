@@ -44,6 +44,8 @@
     floor3: base + '?dev=1#demo=2,3,1,424242',
     // 过手之环：第 10 层（名墙）顶栏「🎯 击杀/门槛」那一格
     zeal: base + '?dev=1#demo=9,2,1,424242',
+    // 塔顶的账：同层顶栏「💀 决战」那一格（只截图、不推调试文本，否则 #err 会盖住顶栏）
+    final: base + '?dev=1#demo=9,2,1,424242',
   }[scene] || base + '?dev=1';
   // 截图场景不触发新手提示对白，保持被测画面干净
   try {
@@ -84,18 +86,33 @@
       await wait(120);
       const T = w.__tm;
       const E = w.Engine;
-      if (scene === 'start' || scene === 'floor5' || scene === 'battle' || scene === 'battletwice' || scene === 'battleblock' || scene === 'rushbattle' || scene === 'guardbattle' || scene === 'shop' || scene === 'tower' || scene === 'core' || scene === 'zeal') {
+      if (scene === 'start' || scene === 'floor5' || scene === 'battle' || scene === 'battletwice' || scene === 'battleblock' || scene === 'rushbattle' || scene === 'guardbattle' || scene === 'shop' || scene === 'tower' || scene === 'core' || scene === 'zeal' || scene === 'final') {
+        if (scene === 'final') {
+          // 塔顶的账：给一身真实攻防，让这一格显示「撑不过」的血色态（纯截图，不推调试文本）
+          await wait(200);
+          const sf = E.state();
+          sf.atk = 120; sf.def = 60; sf.hp = 1400; sf.maxHp = 1400;
+          T.refreshHud();
+          await wait(150);
+        }
         if (scene === 'zeal') {
           // 过手之环：顶栏这一格要同时说清「已杀几只 / 下一档门槛」，数值与引擎同源
           await wait(200);
           const sz = E.state();
           sz.flags.rings = ['merit'];
           sz.flags.killCount = 12;
+          // 塔顶的账要用真实攻防才有意义（默认 demo 属性破不了碑魔的防，只会拍出 wall 态）
+          sz.atk = 120; sz.def = 60; sz.hp = 1400; sz.maxHp = 1400;
           T.refreshHud();
           await wait(150);
           const zp = d.getElementById('zealPip');
           q2push('zealPip=' + (zp && !zp.hidden ? zp.textContent.trim() + '｜' + zp.title : 'HIDDEN')
             + ' next=' + JSON.stringify(E.zealNext()));
+          // 塔顶的账（同一帧第 10 层）：这一格读的数必须与引擎同一个
+          const fp = d.getElementById('finalPip');
+          q2push('finalPip=' + (fp && !fp.hidden ? fp.textContent.trim() + '｜' + fp.title : 'HIDDEN')
+            + ' ledger=' + JSON.stringify(E.finalLedger())
+            + ' wref=' + JSON.stringify(E.fightDamage('U', false)));
         }
         if (scene === 'battleblock') {
           await wait(200);

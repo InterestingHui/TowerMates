@@ -1387,6 +1387,54 @@ let sawMerit = false;
 for (let i = 0; i < 40; i++) { E.newGame('none'); if (E.ringChoices(3).indexOf('merit') >= 0) sawMerit = true; }
 ok(sawMerit, '第 3 章 40 次抽取里出现过过手之环');
 
+// ---------- 塔顶的账（决战三章 · 顶栏 💀 决战）：念的数必须就是真打的数 ----------
+// 这一格存在的唯一意义是「开打前就能算」，所以它不能自己算一遍——白打/格挡/战意
+// 全部取 fightDamage 的同源结果；否则玩家按面板规划，真打时挨的是另一笔。
+E.newGame();
+s = E.state();
+s.flags.hasBlock = true;
+s.atk = 120; s.def = 60; s.hp = 1400; s.maxHp = 1400;
+let FL = E.finalLedger();
+ok(FL && FL.key === 'U' && FL.name === '碑魔', '塔顶的账：认得碑魔（由 finalBoss 反查，不写死键名）');
+ok(FL.white === E.fightDamage('U', false).damage, '塔顶的账：白打与 fightDamage 同源');
+ok(FL.block === E.fightDamage('U', true).damage && FL.block < FL.white, '塔顶的账：格挡给的是压过之后的数');
+ok(FL.survive === (s.hp > FL.white), '塔顶的账：撑不撑得过按当前血算');
+ok(FL.hp === s.hp && FL.maxHp === s.maxHp, '塔顶的账：血量取当前状态');
+ok(FL.zeal === 1, '塔顶的账：没到门槛时 zeal=1（白打不打折）');
+ok(FL.rush === E.fightDamage('U', false, true).damage, '塔顶的账：抢攻给的是少挨一轮之后的数');
+// 没学格挡 / 这一层已经用光 → 不许给「留着格挡」这种画饼数
+s.flags.hasBlock = false;
+ok(E.finalLedger().block === null, '塔顶的账：没学格挡时不给格挡价');
+s.flags.hasBlock = true;
+s.flags['block_n' + s.floor] = 1;
+ok(E.finalLedger().block === null, '塔顶的账：本层格挡用光时不给格挡价');
+delete s.flags['block_n' + s.floor];
+// 战意已经算在白打里（碑魔以外的怪不吃这个，所以只在决战这里能看见）
+s.flags.killCount = 0;
+const w0 = E.finalLedger().white;
+s.flags.killCount = 40;
+const w40 = E.finalLedger().white;
+ok(w40 < w0 && Math.abs(w40 / w0 - 0.64) < 0.02, '塔顶的账：40 杀的白打是 0 杀的 64%（战意已算进去）');
+ok(E.finalLedger().toFull === 0, '塔顶的账：满档后 toFull 归零');
+s.flags.killCount = 34;
+FL = E.finalLedger();
+ok(FL.toFull === 6 && FL.full === 40, '塔顶的账：34 杀还差 6 只（没装过手之环，门槛 40）');
+s.flags.rings = ['merit'];
+FL = E.finalLedger();
+ok(FL.full === 33 && FL.toFull === 0, '塔顶的账：过手之环下门槛记成 33');
+s.flags.rings = [];
+// 破不了防：这时谈「掉多少血」是空话，账要说「先加攻」
+s.atk = 40;
+const wallL = E.finalLedger();
+ok(wallL.wall === true && wallL.white === null, '塔顶的账：破不了防时标 wall，不编数字');
+// 数值全在引擎里：这一格纯粹是读，不能反过来改状态
+E.newGame();
+s = E.state();
+const before = JSON.stringify(s);
+E.finalLedger();
+E.finalLedger();
+ok(JSON.stringify(s) === before, '塔顶的账：连读两次不改任何状态');
+
 // ---------- 净芯之环（第 4 章 9→10）：锁芯层清怪折余烬，四只封顶 ----------
 // 它服务的是第 13 层唯一还没被锁环改过的决定：上楼前要不要为角落那四只花掉最后的血。
 E.newGame();

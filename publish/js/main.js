@@ -575,7 +575,7 @@
     bsHeroHp: $('bsHeroHp'), bsFoeHp: $('bsFoeHp'),
     bsName: $('bsName'), bsRounds: $('bsRounds'), bsNumbers: $('bsNumbers'),
     bsPhase: $('bsPhase'), bsPhaseTitle: $('bsPhaseTitle'), bsPhaseText: $('bsPhaseText'),
-    bsBlock: $('bsBlock'), bsGuard: $('bsGuard'), bsRush: $('bsRush'), bsThreat: $('bsThreat'), blockPip: $('blockPip'), compassPip: $('compassPip'), scopePip: $('scopePip'), zealPip: $('zealPip'),
+    bsBlock: $('bsBlock'), bsGuard: $('bsGuard'), bsRush: $('bsRush'), bsThreat: $('bsThreat'), blockPip: $('blockPip'), compassPip: $('compassPip'), scopePip: $('scopePip'), zealPip: $('zealPip'), finalPip: $('finalPip'),
     bsPanel: document.querySelector('.bs-panel'),
     guide: $('guide'),
     stuckBar: $('stuckBar'), stuckText: $('stuckText'),
@@ -1328,6 +1328,52 @@
         warn(z.need === 0
           ? `🎯 **战意**：已击败 ${z.kills} 只，吃满 −36%（过手之环把门槛从 40 降到 33）`
           : `🎯 **战意**：已击败 ${z.kills} 只，再打 ${z.need - z.kills} 只到下一档（过手之环门槛 20 / 33）`);
+      });
+    }
+
+    // 塔顶的账（决战三章 · 第 10–12 层）：碑魔这一场要挨多少，开打前就能算。
+    // 名墙那一层「清到什么程度」原来是凭感觉——战意看不见、碑魔多重也不知道，
+    // 于是那份账只有走到第 12 层才结出来，来不及回头。现在两头都是数：
+    // 战意（清塔的收益）与碑魔的白打（省血的代价）摆在一起，战斗外的取舍才立得住。
+    // 纯读：不参与任何计算，也不给非战斗三章添信息（开局预算不受影响）。
+    if (el.finalPip) {
+      // 碑魔倒下的那一局不再出现；第 13 层（锁芯）是另一个战场，也不摆
+      const on = s.floor >= 9 && s.floor <= 11 && !s.flags.finalBossKilled && !s.over && !s.won;
+      const L = on ? Engine.finalLedger() : null;
+      el.finalPip.hidden = !L;
+      if (L) {
+        const deadly = !L.wall && !L.survive;
+        el.finalPip.classList.toggle('danger', deadly);
+        el.finalPip.textContent = '💀 决战';
+        el.finalPip.title = L.wall
+          ? '攻击破不了碑魔的防——先加攻'
+          : `碑魔白打 −${L.white} · 你 ${L.hp} 血${deadly ? '（撑不过）' : `（打完剩 ${L.hp - L.white}）`}`;
+        // 第一次见到这一格：等楼层卡收掉后，用提示条点一句（不走对白——
+        // 第 10 层入口弹全屏对白会打断玩家正在点的寻路/商店，ui-test 会直接红）
+        if (Tips.mark('finalLedger')) setTimeout(() => warn(S.tips.finalLedger, 5600), hintMs(2400));
+      }
+    }
+    if (el.finalPip && !el.finalPip._tipBound) {
+      el.finalPip._tipBound = true;
+      el.finalPip.addEventListener('click', () => {
+        const L = Engine.finalLedger();
+        if (!L) return;
+        if (L.wall) {
+          warn(`💀 **塔顶的账**：以现在 ${Engine.state().atk} 点攻击，破不了碑魔的防——先把攻加上去，谈掉多少血都是空话。`);
+          return;
+        }
+        // 「最省的一招」：只报白打会把本来能过关的人劝退（格挡 / 抢攻都能压下来）
+        const saves = [];
+        if (L.block !== null) saves.push({ dmg: L.block, txt: '格挡' });
+        if (L.rush !== null) saves.push({ dmg: L.rush, txt: '抢攻（这战没经验）' });
+        saves.sort((a, b) => a.dmg - b.dmg);
+        const saveTxt = saves.length && saves[0].dmg < L.white
+          ? ` · 最省的一招：${saves[0].txt}可压到 −${saves[0].dmg}`
+          : '';
+        const fullTxt = L.toFull > 0
+          ? ` · 再打 ${L.toFull} 只满战意（${L.full} 只 −36%）`
+          : ' · 战意已满 −36%';
+        warn(`💀 **塔顶的账**：碑魔白打 −${L.white} · 你 ${L.hp} 血${L.survive ? `，打完剩 ${L.hp - L.white}` : '，白打撑不过'}${saveTxt}${fullTxt}`);
       });
     }
 
