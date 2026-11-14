@@ -154,3 +154,21 @@
 - 闸门：check ✓ / engine 497 / code 45 / sim 18,745·68.4% 未漂移 / regress 51→**52 图**（+hudmax）+ 全套自检 / ui-test +7 断言。
 - **坑（下轮直接用）**：`node tools/serve.js PORT . &` 之后 `kill $!` 在 git-bash 里杀不掉（本轮 8963/8964/8965 三个都残留，用户铁律禁此项）→ 收尾必须 `Get-CimInstance Win32_Process` 过滤 `serve.js` 复查，用 `Stop-Process` 补杀。
 - 剩余：真人数据漏斗是唯一缺口；结构性/玩法/收集都已收口，下一步优先「真人数据观测」或用户点名的方向。
+
+## 2026-11-15 01:4x — 全力模式（漏斗补口径：floor_reach + 打法汇总，1 项 + 2 处假绿）
+- 判定：PROGRESS mtime 67 分钟；工作树 3 个未提交文件经核对＝上轮部署遗留的 build 号与 publish 镜像（自己人），非他人改动 → 全力；占用表空、无排队行。
+- 产出：①`floor_reach`（每局每层一条，`s.flags.fr` 去重；必须在 `Engine.beginFloor()` **之前**落，否则「重来本层」的快照不含它 → 会重复计数）；②`dec`（run_end 带 b/g/t/n/f；自动挡单记 f；只在 `res.type==='fight'` 计）；③`?funnel=1` 加「逐层到达」条形表 + 「打法使用」累计行。commit 6e86aaa 已推，线上 build 8fdf5401a9 已验证（curl main.js 含 floor_reach×5、css 含 fv-track）。
+- 闸门：check ✓ / engine 497 / code 45 / sim 18,745·68.4% 未漂移 / regress 52 图 / newplayer **46/46**（+5）/ ui-test ✓。
+- **坑（下轮直接用）**：①条形表分母只取 `starts.length` 会算出 200%（demo/继续游戏无 run_start）→ 分母 max(开局数, 到过第 1 层局数) 并封顶 100%；②`F11` 徽标与列表口径不一致（徽标 starts+ends、列表含 first_fight）→ 一有首战就 8/7，改共用 `KEY_EV`；③`B1` 打的是空格子（第 1 层 x=4 时 B 在 x=6，`resolveBattle(1,0)` 面板根本没开）→ 假绿，改 `(2,0)` 并断言面板真开。**以后写战斗探针先用 `Engine.tile` 确认目标格是怪，别信注释里的坐标。**
+- 加练：美术 焦点B（新增界面可读性）——第 1 层行「2 局 · 到过 2 局」重复，改为只留「N 局」；390px 实测 `fv-frow` 343px 宽、无溢出。
+- 环境：临时 serve 8971 同轮 Stop-Process 并复查 0。
+- 剩余：真人数据漏斗的**口径已齐**，缺的只是人/SDK（待办已写「接 SDK 后先看三张表」）；战斗厚度余项受身份约束不再做。
+
+## 2026-11-15 03:2x — 全力模式（生产域名调试后门收口 + 加练美术焦点 C，2 项）
+- 判定：PROGRESS mtime 83 分钟、工作树仅本会话记忆目录 + `_backup/` → 全力；占用表空、无排队行；最近 5 条日志含「变体：收敛」→ 不触发自动变体。
+- 选活：待办 4 条全挂外部凭据/真机（微信版路线/SDK/M-13 真机反馈/战斗外取舍身份约束），改按「把线上地址当外部系统重新查一遍」，查出一个送分级口子。
+- 产出：①`js/devgate.js`（`local()` 只认 localhost/127.0.0.1/::1/file://，`allow(name)`、`allowMatch(re)`）；`ads.js`（含 `debug()`）、`main.js`（`FORCE_FULL_VOW`、`#demo`）全改走它——此前 `?ads=1` 在上线域名上真能让死亡页出「看视频复活」并 200ms 直接发奖（无限复活 + 余烬翻倍，打穿跨局经济）。②加练美术焦点 C：`.bs-panel` 补 border/box-shadow .24s 过渡（Boss 阶段换色不再跳）、`.bs-numbers` transition 搬回基类（退场/回场都 .14s）；面板关闭仍是瞬关（fx-probe 10ms 契约不动）。commit 1654ba9 已推，线上 build 6b35639e78 已验证。
+- 闸门：check ✓ / engine 497 / code 45 / sim 18,745·68.4% 未漂移 / regress 52 图 + 全套自检 / ads-check **21/21**（17→21，含「线上关门」与「入口必须走总门」契约）/ ui-test ✓（+4 断言）。
+- **关键手法（下轮直接用）**：线上域名级验证用 chrome `--host-resolver-rules="MAP 假域名 127.0.0.1"`——浏览器里 `location.hostname` 就是假域名，能真测「生产域名行为」而不用改 hosts。探针页必须与目标**同源**（父页也走假域名），否则跨域读不到 `Engine`。
+- **坑**：线上资源 curl 要先 `-c jar` 拿 sharecode cookie，再 `-b jar` 拉 js/css；裸带 `?sharecode=` 对静态资源会 SSL/000。
+- 剩余：真人数据（待办已写「接 SDK 后先看三张表」）；玩家侧参数只剩 `?play=1` 与只读 `?funnel=1`。
