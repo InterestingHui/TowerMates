@@ -2115,6 +2115,17 @@ body.at-start #bottom { visibility: hidden; }
   opacity: 0.9;
 }
 .start-ember:empty { display: none; }
+/* 坏档提示：与上面那行「第 N 次进塔」同色同号时会读成同一句话，降一档层级并加一条细线隔开 */
+.start-broken {
+  margin: 6px auto 8px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(216, 191, 133, 0.16);
+  max-width: 88%;
+  font-size: 11px;
+  line-height: 1.55;
+  letter-spacing: 0.4px;
+  color: var(--muted);
+}
 .vow-card.locked { opacity: 0.72; border-style: dashed; }
 .vow-card.locked .vc-emoji { filter: grayscale(0.6) brightness(0.8); }
 .vow-card .vc-lock {

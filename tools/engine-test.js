@@ -2029,5 +2029,99 @@ ok(spreadThreat.spread === true, '架盾后威胁读数改标「架盾后」');
 ok(!!spreadThreat.worst && spreadThreat.worst.damage === Math.round(whiteThreat * 0.85),
    '架盾后的威胁读数就是打过折的数（标签与数字同一套说法）');
 
+// ---------- 存档校验与迁移：坏档不许带进游戏 ----------
+// 线上玩家的档会被三件事弄坏：跨版本字段增删、写入中途被关掉（JSON 半截）、手改 localStorage。
+// 这里守两件事：**该拒绝的拒绝**（并在磁盘上隔离），**能救的救回来**（不白丢进度）。
+const SAVE_KEY = 'towermates_save_v3';
+const rawSave = () => { E.reset(); E.newGame('none', { seed: 4242 }); return JSON.parse(store[SAVE_KEY]); };
+const putSave = (obj) => { store[SAVE_KEY] = JSON.stringify(obj); };
+
+let good = rawSave();
+const goodHp = good.hp, goodX = good.x, goodY = good.y, goodAtk = good.atk;
+putSave(good);
+let back = E.load();
+ok(!!back && back.hp === goodHp && back.x === goodX && back.y === goodY && back.atk === goodAtk,
+  '正常档 round-trip：血量/站位/攻防原样回来');
+ok(E.brokenSave() === false, '正常档不标记为坏档');
+
+// 老档：缺这几轮新增的字段（ver 仍是 5，字段没跟上）
+let old = rawSave();
+delete old.flags.fr;
+delete old.flags.clean_kills;
+delete old.flags.mapSeed;
+delete old.flags.rngSeed;
+delete old.flags.rngN;
+delete old.flags.hasBlock2;
+Object.keys(old.flags).forEach((k) => { if (/^(block_n|guard_f|deal_|spare_f)/.test(k)) delete old.flags[k]; });
+old.flags.block_f0 = true;   // 旧版的布尔格挡
+putSave(old);
+let os = E.load();
+ok(!!os, '老档（缺新字段）仍可读取，不作废');
+ok(Array.isArray(os.flags.fr) && os.flags.clean_kills === 0 && typeof os.flags.mapSeed === 'number',
+  '老档缺的新字段补上默认值');
+ok(E.blockUsedAt(0) === 1, '老档的 block_f 布尔仍按「已挡 1 次」计');
+os.floor = 2;   // 第 3 层有货摊
+let dealt = null;
+try { dealt = E.dealOf(); } catch (e) { dealt = { err: e.message }; }
+ok(!dealt || (!dealt.err && (dealt.price === undefined || isFinite(dealt.price))),
+  '老档补上 mapSeed 后行情报价不是 NaN');
+
+// 关键数值坏 → 拒绝 + 隔离
+let bad = rawSave();
+bad.hp = null;   // JS 里 NaN 存成 JSON 就是这个形状
+putSave(bad);
+ok(E.load() === null, '血量非数：拒绝读取');
+ok(E.brokenSave() === true, '拒绝时给界面留一个「档坏了」的信号');
+ok(store[SAVE_KEY + '_broken'] !== undefined, '坏档被隔离（原档留一份备查）');
+ok(E.hasSave() === false, 'hasSave 与 load 同口径：坏档不再显示「继续游戏」');
+
+// 地图行残缺 → 拒绝（半截的世界没法玩）
+let bad2 = rawSave();
+bad2.maps[0][1] = bad2.maps[0][1].slice(0, 5);
+putSave(bad2);
+ok(E.load() === null, '地图行长度不对：拒绝读取');
+
+// 楼层越界 → 夹回来（原来 floor=99 读格子直接抛错、渲染白屏）
+let far = rawSave();
+far.floor = 99;
+putSave(far);
+let fs = E.load();
+ok(!!fs && fs.floor === 12, '楼层越界夹到最后一层');
+let tileOk = true;
+try { tileOk = E.tile(1, 1) !== undefined; } catch (e) { tileOk = false; }
+ok(tileOk, '夹回来后读格子不抛错');
+
+// 坐标落在墙里或越界 → 挪到本层空地
+let off = rawSave();
+off.x = 99; off.y = -3;
+putSave(off);
+let ps = E.load();
+ok(!!ps && E.tile(ps.x, ps.y) === '.', '坐标越界：落到本层一块空地上');
+
+// 负钥匙 → 0（手改出 -1 把钥匙等于免费开门）
+let neg = rawSave();
+neg.keys = { y: -2, r: -1 };
+putSave(neg);
+let ns = E.load();
+ok(ns.keys.y === 0 && ns.keys.r === 0, '负钥匙夹回 0');
+
+// 残缺快照 → 整份丢掉，重来本层返回 false 而不是抛错
+let sn = rawSave();
+sn.snap = { floor: 0, map: [['#']], x: 1, y: 1, hp: 10 };
+putSave(sn);
+let ss = E.load();
+ok(ss.snap === null && E.restoreFloor() === false, '残缺快照丢掉：重来本层返回 false 不崩');
+
+// flags / rings 被改坏 → 归一成可用结构
+let fl = rawSave();
+fl.flags = null;
+putSave(fl);
+let ls = E.load();
+ok(!!ls && Array.isArray(ls.flags.rings) && Array.isArray(ls.flags.fr), 'flags 坏成 null：补成可用结构');
+let rg = rawSave();
+rg.flags.rings = 'abc';
+putSave(rg);
+ok(Array.isArray(E.load().flags.rings), 'rings 不是数组：归一成空列表');
+
 console.log(fail === 0 ? '\n✓ 全部通过' : `\n✗ ${fail} 项失败`);
 process.exit(fail ? 1 : 0);

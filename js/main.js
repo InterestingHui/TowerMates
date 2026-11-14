@@ -3327,6 +3327,22 @@
       bc.classList.toggle('primary', has);
     }
     if (nr) nr.style.display = has ? 'flex' : 'none';
+    // 档坏了（结构/关键数值校验不过）：首页明说一句，别让玩家以为进度凭空消失。
+    // 做成一行不可点的灰字，不进开局可交互元素预算。
+    const broken = !has && Engine.brokenSaveOnDisk();
+    let hint = $('brokenSaveHint');
+    if (broken && !hint) {
+      const anchor = $('startEmber');
+      if (anchor && anchor.parentNode) {
+        hint = document.createElement('p');
+        hint.id = 'brokenSaveHint';
+        hint.className = 'start-broken';
+        hint.textContent = '上次的进度读不出来（存档损坏）；成就、余烬与榜单不受影响，只能从新的一局开始。';
+        anchor.parentNode.insertBefore(hint, anchor.nextSibling);
+      }
+    } else if (!broken && hint) {
+      hint.remove();
+    }
   }
 
   // 通用二次确认（不放参数＝原来的「重置这一局」文案）：今日一塔要覆盖进度时也走这里
@@ -4427,7 +4443,14 @@
 
   function continueGame() {
     const s = Engine.load();
-    if (!s) { openVow(); return; }
+    if (!s) {
+      // 走到这里只可能是「有档但校验不过」：Engine.load 已把它隔离（主键清掉、原档另存）
+      if (Engine.brokenSave()) {
+        warn('上一局的存档读不出来（可能没写完或被改过），已在本机另存一份。成就、余烬与榜单都还在，只能从新的一局开始。', 7000);
+      }
+      openVow();
+      return;
+    }
     // 昨天的今日一塔接着玩＝普通局：清掉日签，免得结算与榜单还挂着「今日一塔」的标签
     if (s.flags && s.flags.daily && !Daily.isToday(s.flags.daily)) {
       s.flags.daily = null;
