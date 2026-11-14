@@ -312,6 +312,30 @@
   }
   window.addEventListener('pagehide', logPageHide);
 
+  // 逐层到达：每局每层只记一次（层阶之钥来回跳、重来本层都不刷数）。
+  // 单看 run_end 只知道「死在第几层」，看不出中间在哪一层开始掉队——漏斗的形状要靠这个才画得出。
+  // 写在 Engine.beginFloor() 之前：那一步会把 flags 快照给「重来本层」，先落盘才能让重来不重复计数。
+  function logFloorReach(s) {
+    if (!s) return;
+    const reached = (s.flags.fr = s.flags.fr || []);
+    const f = s.floor + 1;
+    if (reached.indexOf(f) >= 0) return;
+    reached.push(f);
+    Funnel.push('floor_reach', { n: (Meta.memory.runs || 0) + 1, f, vow: Engine.vow() });
+  }
+
+  // 打法使用：b 格挡 / g 架盾 / t 缠斗 / n 直接打 / f 只有格挡才能活时的自动挡。
+  // 战斗厚度的三个按钮到底有没有人按——这是接分析 SDK 前唯一能先攒下来的证据。
+  function logBattlePick(s, pick) {
+    if (!s) return;
+    const d = (s.flags.dec = s.flags.dec || {});
+    d[pick] = (d[pick] || 0) + 1;
+  }
+  function decSummary(s) {
+    const d = (s && s.flags && s.flags.dec) || {};
+    return 'b' + (d.b || 0) + ' g' + (d.g || 0) + ' t' + (d.t || 0) + ' n' + (d.n || 0) + ' f' + (d.f || 0);
+  }
+
   const Sound = (() => {
     let actx = null;
     let music = null;
@@ -2253,7 +2277,7 @@
         ? `<span>图鉴新收录：${s.flags.collectNew.slice(0, 4).join('、')}${s.flags.collectNew.length > 4 ? ` 等 ${s.flags.collectNew.length} 件` : ''}（带走的东西不会因为倒下而丢失）</span>`
         : '');
     Meta.recordRun({ ending: null, won: false, vow: s.flags.vow || 'none', fullChapters: 0, heart: null, floor: s.floor, time: sum.time, seal, ember: emberGain });
-    Funnel.push('run_end', { n: Meta.memory.runs, won: 0, floor: s.floor + 1, seal, time: sum.time, dmg: s.damageTaken || 0, sinceLoad: Math.max(0, Math.round((Date.now() - LOAD_AT) / 1000)) });
+    Funnel.push('run_end', { n: Meta.memory.runs, won: 0, floor: s.floor + 1, seal, time: sum.time, dmg: s.damageTaken || 0, dec: decSummary(s), sinceLoad: Math.max(0, Math.round((Date.now() - LOAD_AT) / 1000)) });
     Meta.add(emberGain);
     // 折戟里程碑：recordRun 之后喂事件，falls 已含本次（3 次「塔的常客」/ 10 次「不死不休」）
     const deathState = Object.assign({}, s, { flags: Object.assign({}, s.flags, { falls: Meta.memory.falls }) });
@@ -2580,8 +2604,12 @@
       // opt.block 可能是 true（挡这一场）或 'all'（架盾）——原样透传给引擎
       const res = Engine.fight(dx, dy, { block: opt.block || (pred.blockSave ? true : false), tangle: opt.tangle });
       battleBusy = false;
-      if (res.type === 'fight') applyFightResult(res, tx, ty);
-      else { warn(res.msg || '战斗中断'); refreshHud(); }
+      if (res.type === 'fight') {
+        // 打法计数只记打成了的（战斗中断不算一次选择）；blockSave 的自动挡单记 f，别混进玩家的格挡率
+        const pick = opt.block === 'all' ? 'g' : (opt.block ? 'b' : (opt.tangle ? 't' : (pred.blockSave ? 'f' : 'n')));
+        logBattlePick(s, pick);
+        applyFightResult(res, tx, ty);
+      } else { warn(res.msg || '战斗中断'); refreshHud(); }
     });
   }
 
@@ -3125,7 +3153,7 @@
       // 这里比结算摘要里算余裕更早，直接问引擎，别依赖变量声明顺序
       margin: (Engine.battleMargin() || {}).grade || '',
     });
-    Funnel.push('run_end', { n: Meta.memory.runs, won: 1, floor: sum.floor, ending: s.ending || 'plain', seal, time: sum.time, dmg: s.damageTaken || 0, sinceLoad: Math.max(0, Math.round((Date.now() - LOAD_AT) / 1000)) });
+    Funnel.push('run_end', { n: Meta.memory.runs, won: 1, floor: sum.floor, ending: s.ending || 'plain', seal, time: sum.time, dmg: s.damageTaken || 0, dec: decSummary(s), sinceLoad: Math.max(0, Math.round((Date.now() - LOAD_AT) / 1000)) });
     Meta.ringWin(Engine.rings());   // 图鉴里记「带它通关过几次」
     $('endScore').innerHTML = `<span class="es-grade ${seal}" data-seal="${seal}">${sealDef.name}</span>
       <span class="es-meta">${s.ending === 'true' ? '真结局' : '普通结局'}${s.flags.heart === 'taken' ? ' · 塔心带走' : s.flags.heart === 'left' ? ' · 塔心留下' : ''} · 回响 ${echoDone}/4 · 遗物 ${relicIds.length} · 锁环 ${ringList.length}</span>
@@ -3622,6 +3650,7 @@
     log(f.tip);
     showFloorCard(s.floor);
 
+    logFloorReach(s);
     Engine.beginFloor();
 
     // 章节入口 + 关键剧情。F4 是第二章开头，接烛的第二段。
@@ -4444,12 +4473,50 @@
       const tag = last.won ? '🏆' : '💀';
       return `<div class="fv-run"><b>${tag} 第 ${r.n} 局</b><span>${last.won ? '通关' : '倒在第 ' + last.floor + ' 层'} · ${r.vow === 'none' ? '不立誓' : (r.vow || '')} · 用时 ${last.time}s · 承伤 ${last.dmg} · 塔印 ${last.seal}${r.sinceLoad >= 0 ? ' · 开局@' + r.sinceLoad + 's' : ''}${r.ff != null ? ' · 首战@' + r.ff + 's' : ''}</span></div>`;
     }).join('');
+    // 逐层到达：把 floor_reach 叠成漏斗表——第 N 层有多少局到过（分母＝开局数，进行中的局也算）。
+    // run_end 只回答「最后倒在哪一层」，看不出中间在哪一层开始掉队；这张表补的是形状。
+    const reaches = rows.filter((x) => x.ev === 'floor_reach');
+    const perFloor = {};
+    reaches.forEach((x) => { perFloor[x.f] = (perFloor[x.f] || 0) + 1; });
+    // 只列「真有人到过」的楼层：没到过的层留一行 0 局只是噪音，最深到过哪一层看最后一行就是
+    const topFloor = Math.max(1, ...Object.keys(perFloor).map(Number));
+    // 分母取「到过第 1 层的局数」与开局数的较大者：demo/继续游戏进来的局没有 run_start 记录，
+    // 只用 starts.length 会算出 >100% 的条长（实测 200%），漏斗就不成漏斗了。
+    const base = Math.max(starts.length, perFloor[1] || 0, 1);
+    const depthRows = [];
+    for (let f = 1; f <= topFloor; f++) {
+      const n = perFloor[f] || 0;
+      const prev = perFloor[f - 1] || 0;
+      const keep = f === 1 ? '' : (prev ? `相较上一层 ${Math.round((n / prev) * 100)}%` : '上一层的局没留下记录');
+      const w = Math.min(100, Math.round((n / base) * 100));
+      depthRows.push(`<div class="fv-frow" data-f="${f}"><b>第 ${f} 层</b>`
+        + `<span class="fv-track"><i style="width:${w}%"></i></span>`
+        + `<em>${n} 局${keep ? ' · ' + keep : ''}</em></div>`);
+    }
+    // 打法使用：只从结算局里累计（run_end 带的 dec 是整局汇总，逐场事件不进缓冲，免得撑爆 200 条上限）
+    const decCnt = { b: 0, g: 0, t: 0, n: 0, f: 0 };
+    rows.forEach((x) => {
+      if (x.ev !== 'run_end' || !x.dec) return;
+      String(x.dec).replace(/([bgtnf])(\d+)/g, (all, k, v) => { decCnt[k] += Number(v); return all; });
+    });
+    const picked = decCnt.b + decCnt.g + decCnt.t + decCnt.n;
+    const decLine = (picked || decCnt.f)
+      ? `格挡 <b>${decCnt.b}</b> · 架盾 <b>${decCnt.g}</b> · 缠斗 <b>${decCnt.t}</b> · 直接打 <b>${decCnt.n}</b>${decCnt.f ? ` · 只有格挡才能活时的自动挡 <b>${decCnt.f}</b>` : ''}`
+      : '还没有打完的局，攒一局就能看。';
+    // 「关键」＝漏斗主干（开局 / 首战 / 结算）。计数与实际筛出来的行必须同一份口径：
+    // 之前徽标按 starts+ends 数、列表却把 first_fight 也算进去，一有首战就对不上（实测 8/7）。
+    const KEY_EV = ['run_start', 'first_fight', 'run_end'];
+    const keyRows = rows.filter((x) => KEY_EV.indexOf(x.ev) >= 0);
     box.innerHTML = `<h2>本机漏斗 · ${rows.length} 条</h2>`
       + `<p class="fv-sum">加载→开局：<b>${loadToStart}</b> · 首局→二局：<b>${gap}</b> · 开局 ${starts.length} / 结算 ${ends.length} / 退出 ${hides.length}</p>`
+      + `<h3>逐层到达 <small>分母＝到过第 1 层的 ${base} 局（含 demo/继续游戏）</small></h3>`
+      + `<div class="fv-depth">${depthRows.length ? depthRows.join('') : '<p class="fv-empty">还没有进过塔。</p>'}</div>`
+      + `<h3>打法使用 <small>按结算局累计</small></h3>`
+      + `<p class="fv-sum">${decLine}</p>`
       + `<div class="fv-runs">${runCards || '<p class="fv-empty">还没有完整的一局。</p>'}</div>`
       + `<div class="fv-tools">`
       + `<button class="fv-chip on" data-f="all">全部 ${rows.length}</button>`
-      + `<button class="fv-chip" data-f="key">关键 ${starts.length + ends.length}</button>`
+      + `<button class="fv-chip" data-f="key">关键 ${keyRows.length}</button>`
       + `<button class="fv-chip" data-f="hide">退出 ${hides.length}</button>`
       + `<button class="fv-chip fv-order" id="fvOrder">倒序 ↓</button>`
       + `</div>`
@@ -4458,7 +4525,7 @@
     let filter = 'all', desc = true;
     const paint = () => {
       const list = box.querySelector('#fvList');
-      const pick = filter === 'key' ? rows.filter((x) => x.ev === 'run_start' || x.ev === 'first_fight' || x.ev === 'run_end')
+      const pick = filter === 'key' ? keyRows
         : filter === 'hide' ? hides : rows;
       const view = desc ? pick.slice().reverse() : pick;
       list.innerHTML = view.length ? view.map((x) => {

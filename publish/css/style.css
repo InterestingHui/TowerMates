@@ -204,8 +204,12 @@ html, body {
 .chip.hp { flex-direction: column; gap: 2px; padding: 3px 4px; }
 .chip.hp b { display: none; }
 
-.keys { display: flex; gap: var(--sp-1); font-size: var(--fs-tag); align-items: center; }
-.keytag { padding: 2px 8px; border-radius: var(--r-pill); border: 1px solid transparent; font-variant-numeric: tabular-nums; }
+/* 钥匙 / 遗物 / 锁环 / 徽记四组混排：允许整行换行（满了以后把「徽记组」整体推到第二行），
+   但钥匙是硬信息——不许被挤扁改行，宁可整组往下走。见 PROGRESS 规格卡「顶栏徽记预算」。 */
+.keys { display: flex; flex-wrap: wrap; gap: var(--sp-1); row-gap: 4px; font-size: var(--fs-tag); align-items: center; }
+/* 徽记组：组内不拆，整组一起换行 */
+.pips { display: flex; gap: 4px; align-items: center; flex-shrink: 0; }
+.keytag { padding: 2px 8px; border-radius: var(--r-pill); border: 1px solid transparent; font-variant-numeric: tabular-nums; flex-shrink: 0; white-space: nowrap; }
 .keytag b { font-weight: 700; }
 .ky { color: var(--gold2); background: rgba(185, 143, 53, 0.10); border-color: rgba(185, 143, 53, 0.30); }
 .kr { color: #e07070; background: rgba(201, 74, 82, 0.10); border-color: rgba(201, 74, 82, 0.30); }
@@ -1288,8 +1292,23 @@ html, body {
   font: 12px/1.6 ui-monospace, Consolas, monospace;
 }
 .funnel-view h2 { margin: 0 0 6px; font-size: var(--fs-sub); color: var(--gold); }
+/* 小节标题（逐层到达 / 打法使用）：调试页内部的小节，比 h2 低一级但比正文亮，避免整页一片同色 */
+.funnel-view h3 {
+  margin: 16px 0 6px;
+  font-size: var(--fs-aux);
+  font-weight: 600;
+  color: #8fd0ff;
+}
+.funnel-view h3 small { margin-left: 6px; font-weight: 400; font-size: var(--fs-tag); color: #6f7f96; }
 .funnel-view .fv-sum { margin: 0 0 14px; color: #9fb0c8; }
 .funnel-view .fv-sum b { color: var(--gold); }
+/* 逐层到达：一条条形表。分母是开局数，条长＝到过该层的局数占比 */
+.funnel-view .fv-depth { display: flex; flex-direction: column; gap: 3px; margin: 0 0 14px; }
+.funnel-view .fv-frow { display: grid; grid-template-columns: 60px minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+.funnel-view .fv-frow b { color: #cfd8e6; font-weight: 500; }
+.funnel-view .fv-frow em { font-style: normal; color: #9aa8bb; font-size: var(--fs-tag); }
+.funnel-view .fv-track { display: block; height: 8px; border-radius: 4px; background: rgba(255,255,255,0.05); overflow: hidden; }
+.funnel-view .fv-track i { display: block; height: 100%; border-radius: 4px; background: linear-gradient(90deg, rgba(232,196,106,0.35), rgba(232,196,106,0.75)); }
 .funnel-view .fv-runs { display: flex; flex-direction: column; gap: 5px; margin: 0 0 14px; }
 .funnel-view .fv-run {
   display: flex;
@@ -2453,6 +2472,10 @@ body.at-start #bottom { visibility: hidden; }
   cursor: pointer;
 }
 .compasspip[hidden] { display: none; }
+
+/* 顶栏那一排可点的小块（遗物 / 锁环 / 徽记）原来只有 cursor:pointer，按下去毫无反馈——
+   触屏上「点了像没点」，只能等事后那条提示条冒出来。按压手感与全站按钮对齐（scale 0.9）。 */
+.relic[data-relic]:active, .ring-chip:active, .blockpip:active, .compasspip:active { transform: scale(0.9); }
 
 /* 收藏图鉴 · 「下一件」：还没收录的三件，带去处线索 */
 .col-next { margin: 2px 0 12px; }

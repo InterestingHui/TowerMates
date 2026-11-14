@@ -1292,8 +1292,23 @@ html, body {
   font: 12px/1.6 ui-monospace, Consolas, monospace;
 }
 .funnel-view h2 { margin: 0 0 6px; font-size: var(--fs-sub); color: var(--gold); }
+/* 小节标题（逐层到达 / 打法使用）：调试页内部的小节，比 h2 低一级但比正文亮，避免整页一片同色 */
+.funnel-view h3 {
+  margin: 16px 0 6px;
+  font-size: var(--fs-aux);
+  font-weight: 600;
+  color: #8fd0ff;
+}
+.funnel-view h3 small { margin-left: 6px; font-weight: 400; font-size: var(--fs-tag); color: #6f7f96; }
 .funnel-view .fv-sum { margin: 0 0 14px; color: #9fb0c8; }
 .funnel-view .fv-sum b { color: var(--gold); }
+/* 逐层到达：一条条形表。分母是开局数，条长＝到过该层的局数占比 */
+.funnel-view .fv-depth { display: flex; flex-direction: column; gap: 3px; margin: 0 0 14px; }
+.funnel-view .fv-frow { display: grid; grid-template-columns: 60px minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+.funnel-view .fv-frow b { color: #cfd8e6; font-weight: 500; }
+.funnel-view .fv-frow em { font-style: normal; color: #9aa8bb; font-size: var(--fs-tag); }
+.funnel-view .fv-track { display: block; height: 8px; border-radius: 4px; background: rgba(255,255,255,0.05); overflow: hidden; }
+.funnel-view .fv-track i { display: block; height: 100%; border-radius: 4px; background: linear-gradient(90deg, rgba(232,196,106,0.35), rgba(232,196,106,0.75)); }
 .funnel-view .fv-runs { display: flex; flex-direction: column; gap: 5px; margin: 0 0 14px; }
 .funnel-view .fv-run {
   display: flex;

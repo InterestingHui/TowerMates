@@ -7,9 +7,9 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="build" content="a7316de5e7">
+<meta name="build" content="8fdf5401a9">
 <title>TowerMates · 魔塔</title>
-<link rel="stylesheet" href="css/style.css?v=a7316de5e7">
+<link rel="stylesheet" href="css/style.css?v=8fdf5401a9">
 </head>
 <body>
 <div id="app">
@@ -43,11 +43,15 @@
           <span class="keytag kr">红 <b id="keyR">0</b></span>
           <div class="relics" id="relicRow"></div>
           <span class="rings" id="ringRow"></span>
-          <span class="blockpip" id="blockPip" title="本层还有一次格挡">🛡</span>
-          <span class="compasspip" id="compassPip" hidden title="本层还剩几件东西没捡">🧭</span>
-          <span class="compasspip scopepip" id="scopePip" hidden title="本层还剩几只怪">🗡️</span>
-          <span class="compasspip zealpip" id="zealPip" hidden title="战意：击败到门槛，决战承伤打折">🎯</span>
-          <span class="compasspip finalpip" id="finalPip" hidden title="塔顶的账：碑魔这一场要挨多少">💀 决战</span>
+          <!-- 徽记组：整组换行，组内不拆。顶栏徽记预算 = 3 格（规格卡「顶栏徽记预算」行），
+               再多就得先合并/替换旧的，不许直接往这一组里追加。 -->
+          <span class="pips" id="pipRow">
+            <span class="blockpip" id="blockPip" title="本层还有一次格挡">🛡</span>
+            <span class="compasspip" id="compassPip" hidden title="本层还剩几件东西没捡">🧭</span>
+            <span class="compasspip scopepip" id="scopePip" hidden title="本层还剩几只怪">🗡️</span>
+            <span class="compasspip zealpip" id="zealPip" hidden title="战意：击败到门槛，决战承伤打折">🎯</span>
+            <span class="compasspip finalpip" id="finalPip" hidden title="塔顶的账：碑魔这一场要挨多少">💀 决战</span>
+          </span>
         </div>
       </div>
     </div>
@@ -506,19 +510,19 @@
   </div>
 </div>
 
-<script src="js/data.js?v=a7316de5e7"></script>
-<script src="js/story.js?v=a7316de5e7"></script>
-<script src="js/portraits.js?v=a7316de5e7"></script>
-<script src="js/achievements.js?v=a7316de5e7"></script>
-<script src="js/daily.js?v=a7316de5e7"></script>
-<script src="js/engine.js?v=a7316de5e7"></script>
-<script src="js/render.js?v=a7316de5e7"></script>
-<script src="js/ads.js?v=a7316de5e7"></script>
-<script src="js/main.js?v=a7316de5e7"></script>
-<script src="js/challenge.js?v=a7316de5e7"></script>
-<script src="js/wxbridge.js?v=a7316de5e7"></script>
-<script src="js/touch.js?v=a7316de5e7"></script>
-<script src="js/gate-forth.js?v=a7316de5e7"></script>
-<script src="js/wxwire.js?v=a7316de5e7"></script>
+<script src="js/data.js?v=8fdf5401a9"></script>
+<script src="js/story.js?v=8fdf5401a9"></script>
+<script src="js/portraits.js?v=8fdf5401a9"></script>
+<script src="js/achievements.js?v=8fdf5401a9"></script>
+<script src="js/daily.js?v=8fdf5401a9"></script>
+<script src="js/engine.js?v=8fdf5401a9"></script>
+<script src="js/render.js?v=8fdf5401a9"></script>
+<script src="js/ads.js?v=8fdf5401a9"></script>
+<script src="js/main.js?v=8fdf5401a9"></script>
+<script src="js/challenge.js?v=8fdf5401a9"></script>
+<script src="js/wxbridge.js?v=8fdf5401a9"></script>
+<script src="js/touch.js?v=8fdf5401a9"></script>
+<script src="js/gate-forth.js?v=8fdf5401a9"></script>
+<script src="js/wxwire.js?v=8fdf5401a9"></script>
 </body>
 </html>

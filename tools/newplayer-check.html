@@ -76,12 +76,15 @@ function load(url) { return new Promise((res) => { f.onload = () => res(); f.src
       st.atk = 400; st.def = 400; st.maxHp = 9999; st.hp = 9999; st.flags.killCount = 45;
       st.flags['traitSeen_double'] = 1;
       w.__tm.refreshHud();
-      // 砚在第 3 层 (5,5)——但这里在第 1 层，先打右侧普通怪 B(6,5) 看普通怪不吃战意
-      w.__tm.resolveBattle(1, 0);
+      // 砚在第 3 层 (5,5)——但这里在第 1 层，先打同行右侧普通怪 B(6,5) 看普通怪不吃战意。
+      // resolveBattle 收的是「相对玩家的格子偏移」，x=4 时 B 在 +2；写 +1 会指向空格子、面板根本不开（假绿）
+      w.__tm.resolveBattle(2, 0);
       await wait(400);
+      const bsLine = d.getElementById('battleScene');
+      const panelShown = !!bsLine && bsLine.classList.contains('show');
       const zealRow = d.querySelector('.bs-zeal');
       const zealVisible = zealRow && zealRow.offsetHeight > 0 && (zealRow.textContent || '').trim();
-      rec('B1 普通怪战不亮战意行', !zealVisible, zealVisible ? `出现了「${zealRow.textContent.trim()}」` : '干净（未显示或隐藏）');
+      rec('B1 普通怪战不亮战意行', panelShown && !zealVisible, `面板 ${panelShown ? '开' : '没开'}${zealVisible ? ` · 出现了「${zealRow.textContent.trim()}」` : ' · 战意行未显示'}`);
       const bs = d.getElementById('battleScene');
       if (bs.classList.contains('show')) { bs.click(); await waitFor(() => !bs.classList.contains('show'), 6000); }
       await wait(300);
@@ -366,7 +369,7 @@ function load(url) { return new Promise((res) => { f.onload = () => res(); f.src
       rec('F10 ?funnel=1 渲染本机漏斗', !!fv && /本机漏斗/.test(fv.textContent) && /run_start/.test(fv.textContent), fv ? fv.textContent.slice(0, 30).replace(/\s+/g, ' ') : '缺失');
       // F11 筛选：关键（开局+结算）/ 退出，行数要和存档里的条数对上
       const fl11 = JSON.parse(w.localStorage.getItem('towermates_funnel') || '[]');
-      const keyN = fl11.filter((x) => x.ev === 'run_start' || x.ev === 'run_end').length;
+      const keyN = fl11.filter((x) => x.ev === 'run_start' || x.ev === 'first_fight' || x.ev === 'run_end').length;
       const hideN = fl11.filter((x) => x.ev === 'page_hide').length;
       const chipKey = d.querySelector('#funnelView [data-f="key"]');
       const chipHide = d.querySelector('#funnelView [data-f="hide"]');
@@ -422,6 +425,68 @@ function load(url) { return new Promise((res) => { f.onload = () => res(); f.src
       rec('G3 已学格挡时盾谱退回折叠', !hasBook1 && items1.length > 0, `首屏 ${items1.length} 行 · 含盾谱 ${hasBook1 ? 'Y' : 'N'}`);
       const more = d.querySelector('.si-more, #shopMore, .shop-more');
       rec('G4 有「更多货」展开入口', !!more, more ? (more.textContent || '').trim().slice(0, 28) : '缺失');
+    }
+
+    // ===== H. 漏斗补口径：逐层到达 + 打法使用（真人数据漏斗的前置，2026-11-15）=====
+    // run_end 只说「死在第几层」，看不出中间在哪掉队；打法计数回答「三个按钮有没有人按」。
+    await load('/index.html?dev=1&p=h1#demo=0,4,5');
+    w = f.contentWindow; d = f.contentDocument;
+    await waitFor(() => { try { return w.__tm && w.Engine && w.Engine.state(); } catch (e) { return null; } }, 10000);
+    await wait(500);
+    {
+      const st = w.Engine.state();
+      st.atk = 400; st.def = 400; st.maxHp = 9999; st.hp = 9999;
+      st.flags.hasBlock = true;      // 首章不摆第二个按钮，但格挡本身要有
+      w.__tm.refreshHud();
+      // 重进本层：层阶之钥 / 重来本层都会再走一次 enterFloor，计数不许翻倍
+      // 注意不能用「总数 == 1」断言——漏斗是跨 test 累积的，前面几段也会进层。只比这一段的增量。
+      const reachBefore = w.__tm.funnel().filter((x) => x.ev === 'floor_reach').length;
+      w.__tm.enterFloor(false);
+      await wait(350);
+      w.__tm.enterFloor(false);
+      await wait(350);
+      const reachAfter = w.__tm.funnel().filter((x) => x.ev === 'floor_reach').length;
+      rec('H1 进层记 floor_reach（连进两次只记一条）', reachAfter - reachBefore === 1, `增 ${reachAfter - reachBefore} 条（应为 1）`);
+
+      // 打法：第一层 x=4 时 B 在 x=6（同一行隔一格），resolveBattle 直接算目标格、不要求贴脸
+      w.__tm.resolveBattle(2, 0);
+      await wait(450);
+      const bs2 = d.getElementById('battleScene');
+      const panelOn = !!bs2 && bs2.classList.contains('show');
+      const blockBtn = d.getElementById('bsBlock');
+      if (blockBtn && !blockBtn.disabled) blockBtn.click();
+      await wait(250);
+      if (panelOn) { bs2.click(); await waitFor(() => !bs2.classList.contains('show'), 6000); }
+      await wait(600);
+      const st2 = w.Engine.state();
+      const decNow = (st2 && st2.flags && st2.flags.dec) || {};
+      rec('H2 格挡记进打法计数', panelOn && (decNow.b || 0) >= 1, `面板 ${panelOn ? '开' : '没开'} · 计数 ${JSON.stringify(decNow)}`);
+
+      // 结算：run_end 要带上整局打法汇总
+      st2.over = true; st2.hp = 0;
+      w.Engine.save();
+      w.__tm.showDeath({ name: '史莱姆' }, 90);
+      await wait(400);
+      const endRow = w.__tm.funnel().filter((x) => x.ev === 'run_end').pop();
+      rec('H3 结算带上打法汇总', !!endRow && /b[1-9]/.test(String(endRow.dec || '')), endRow ? 'dec=' + endRow.dec : '缺 run_end');
+    }
+    {
+      // 漏斗页要多出「逐层到达」与「打法使用」两块，条长/数字都得跟缓冲对上
+      await load('/index.html?funnel=1&p=h2');
+      w = f.contentWindow; d = f.contentDocument;
+      await waitFor(() => w.__tm && w.__tm.openVow, 10000);
+      await wait(400);
+      const fv2 = d.getElementById('funnelView');
+      const frows = d.querySelectorAll('#funnelView .fv-frow');
+      const txt2 = fv2 ? fv2.textContent : '';
+      const barW = frows.length ? (frows[0].querySelector('.fv-track i') || {}).style : null;
+      // 条长必须 ≤100%：分母取「到过第 1 层的局数」，demo/继续游戏的局没有 run_start 也不会冲出 100%
+      const overBar = Array.from(frows).some((r) => {
+        const i = r.querySelector('.fv-track i');
+        return i && parseFloat(i.style.width) > 100;
+      });
+      rec('H4 漏斗页有逐层到达表', frows.length >= 1 && /逐层到达/.test(txt2) && !!barW && /%$/.test(barW.width || '') && !overBar, `行 ${frows.length} · 首条 ${barW ? barW.width : '缺'}${overBar ? ' · 有条超过 100%' : ''}`);
+      rec('H5 漏斗页有打法使用行', /打法使用/.test(txt2) && /格挡 \d+/.test(txt2), (txt2.match(/格挡 [\d\s·架盾缠斗直接打]+/) || ['缺'])[0].replace(/\s+/g, ' ').slice(0, 40));
     }
 
     out.textContent = R.map((r) => `${r.ok ? '✓' : '✗'} ${r.name}${r.note ? ' — ' + r.note : ''}`).join('\n')
