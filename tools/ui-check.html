@@ -512,6 +512,19 @@ async function run() {
         var badSlot = null;
         w.Ads.show('nope', function (ok) { badSlot = ok; });
         out.adBadSlot = badSlot === false;
+        // 调试入口总门（js/devgate.js）：`?ads=1` / `#demo=` / `?dev=1` 只认本地预览。
+        // 这里喂假域名验门本身——浏览器里改不了 location.hostname，纯函数是唯一可测点。
+        var G = w.DevGate;
+        out.devGateLoaded = !!(G && typeof G.local === 'function' && typeof G.allow === 'function');
+        if (out.devGateLoaded) {
+          out.devGateLocal = G.local('localhost', 'http:') === true
+            && G.local('127.0.0.1', 'http:') === true
+            && G.local('', 'file:') === true;
+          out.devGateProd = G.local('towermates.app.workbuddy.host', 'https:') === false
+            && G.local('localhost.evil.com', 'https:') === false
+            && G.local('127.0.0.1.nip.io', 'http:') === false;
+          out.devGateHere = G.local() === true; // 本机探针确实跑在本地
+        }
         d.querySelectorAll('.overlay.show').forEach(function (o) { o.classList.remove('show'); });
         E.newGame();
         var s9 = E.state();

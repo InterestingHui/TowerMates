@@ -136,6 +136,11 @@ const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-ui-'));
   ok(out.adNoBtn === true, '默认状态下死亡页不出现广告按钮');
   ok(out.adBtnShown === true && out.adBtnPending === true, '桩模式下按钮显形且点击后进入等待态');
   ok(out.adRevived === true && out.adRevivedHp > 0 && out.adReviveFlag === true, '看完视频原地复活：血回四成、over 复位、次数入档');
+  // 调试入口总门（js/devgate.js）：上线域名下一律失效，否则一个 ?ads=1 就能白拿复活
+  ok(out.devGateLoaded === true, '调试总门已加载（js/devgate.js）');
+  ok(out.devGateLocal === true, '本地预览（localhost / 127.0.0.1 / file://）判为可调试');
+  ok(out.devGateProd === true, '上线域名 / 相似域名 / 反代域名一律判为不可调试');
+  ok(out.devGateHere === true, '本机探针自身跑在本地（门没把自家闸门关掉）');
   ok(out.renderErrors === 0, '整轮 UI 自检零渲染异常（rAF 兜底探针）');
   // 顶栏徽记预算（规格卡「顶栏徽记预算」行）：一组读数格最多 3 格同场，且不许把钥匙挤变形
   const hb = out.hudBudget || {};

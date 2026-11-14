@@ -129,6 +129,22 @@ function clickEl(el) { el.dispatchEvent(new MouseEvent('click', { bubbles: true,
       }
     }
 
+    // ---------- E. 调试入口总门：?ads=1 只在本地预览生效 ----------
+    // 背景：此前 ads.js 裸判查询串，上线域名上带 ?ads=1 就能把门面切到桩模式，
+    // 死亡页出现「看视频复活」、桩 200ms 后直接发奖 → 免费无限复活 + 余烬翻倍。
+    {
+      const g = w.DevGate;
+      rec('E1 调试总门已加载', !!(g && typeof g.local === 'function'));
+      rec('E2 本地三形态放行', !!(g && g.local('localhost', 'http:') === true
+        && g.local('127.0.0.1', 'http:') === true && g.local('', 'file:') === true));
+      rec('E3 线上与相似域名关门', !!(g && g.local('towermates.app.workbuddy.host', 'https:') === false
+        && g.local('localhost.evil.com', 'https:') === false && g.local('127.0.0.1.nip.io', 'http:') === false));
+      // 契约：ads 入口必须走总门（有人改回裸判查询串会在这里红）
+      let adsSrc = '';
+      try { adsSrc = await fetch('/js/ads.js').then((r) => r.text()); } catch (e) {}
+      rec('E4 ads 入口走总门', /DevGate\.allow\('ads'\)/.test(adsSrc), adsSrc ? '' : '取源码失败');
+    }
+
     out.textContent = R.map((r) => `${r.ok ? '✓' : '✗'} ${r.name}${r.note ? ' — ' + r.note : ''}`).join('\n')
       + '\n\n' + (R.every((r) => r.ok) ? 'ALL PASS' : 'HAS FAIL');
     document.title = (R.every((r) => r.ok) ? 'ALLPASS|' : 'HASFAIL|') + R.map((r) => (r.ok ? '1' : '0')).join('');

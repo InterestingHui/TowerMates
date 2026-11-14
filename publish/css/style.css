@@ -896,6 +896,9 @@ html, body {
   padding: 13px 17px 11px;
   box-shadow: 0 26px 64px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.05);
   margin: 0 18px;
+  /* Boss 阶段换色（.p2/.p3）要与阶段横幅的 0.24s 淡入同步：以前边框和辉光是「跳」过去的，
+     横幅还在淡入、框已经红了，读起来像两次变化。只缓动颜色与阴影，不动布局与尺寸。 */
+  transition: border-color 0.24s ease, box-shadow 0.24s ease;
 }
 .bs-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 9px; }
 .bs-title { font-size: var(--fs-tag); letter-spacing: 3px; color: var(--gold); }
@@ -954,7 +957,7 @@ html, body {
 }
 .bs-threat b { color: var(--text); font-weight: 700; }
 .bs-threat[hidden] { display: none; }
-.bs-numbers { position: fixed; inset: 0; pointer-events: none; }
+.bs-numbers { position: fixed; inset: 0; pointer-events: none; transition: opacity 0.14s ease; }
 .bs-dmg {
   position: absolute;
   font-size: var(--fs-title);
@@ -1696,7 +1699,8 @@ body.at-start #bottom { visibility: hidden; }
 .bs-panel.p3 { border-color: rgba(255, 70, 60, 0.62); box-shadow: 0 0 0 1px rgba(255, 70, 60, 0.25), 0 26px 64px rgba(0, 0, 0, 0.7); }
 .bs-panel.p3 .bs-avatar { filter: drop-shadow(0 0 16px rgba(255, 60, 40, 0.85)); }
 
-.battle-scene.phasing .bs-numbers { opacity: 0; transition: opacity 0.14s ease; }
+/* 阶段横幅盖住时把飘字压掉；transition 写在基础规则上，退场与回场才都是 0.14s（此前回场是瞬现） */
+.battle-scene.phasing .bs-numbers { opacity: 0; }
 
 /* ---------- 结局后日谈 ---------- */
 .end-epi {

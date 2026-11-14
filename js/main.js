@@ -4248,8 +4248,11 @@
   // 想解锁的人会去点下面那排小 chip，不想的人不该开屏就被一串数字埋掉。
   // 节奏纠偏（2026-11-13）：首局只留 1 张确认卡——4 条誓约要在懂「承伤/金币/生命」之后才有意义，
   // 开局 11 秒铺 6 个可点项会把「1 个核心动词」的预算直接打穿（PROGRESS《四、体验验收基线》）。
-  // 工具场景（?dev=1 / ?vow=full / openVow(true)）仍出全量，截图与自检不受影响。
-  const FORCE_FULL_VOW = /(?:^|[?&])(?:dev=1|vow=full)(?:&|$)/.test(location.search);
+  // 工具场景（?dev=1 / ?vow=full / openVow(true)）仍出全量，截图与自检不受影响；
+  // 但只认本地预览（js/devgate.js）——上线域名上这两个参数不再绕过首局裁剪。
+  const FORCE_FULL_VOW = window.DevGate
+    ? DevGate.allowMatch(/(?:^|[?&])(?:dev=1|vow=full)(?:&|$)/)
+    : false;
   const isFirstRun = () => !((Meta.memory && Meta.memory.runs) || 0);
 
   function openVow(force) {
@@ -4611,7 +4614,10 @@
 
     // 开发用：index.html#demo=楼层,x,y[,种子] 直接进游戏（不播序章）
     // 带第 4 段种子＝可复现布局（截图套件要看「第 2–3 层换位后的样子」，不能每次随机）
-    const demo = /demo=(\d+),(\d+),(\d+)(?:,(\d+))?/.exec(location.hash || '');
+    // 只认本地预览（js/devgate.js）：上线域名上这个 hash 不再能把人一步送到任意楼层
+    const demo = window.DevGate && !DevGate.local()
+      ? null
+      : /demo=(\d+),(\d+),(\d+)(?:,(\d+))?/.exec(location.hash || '');
     if (demo) {
       Engine.newGame(null, demo[4] ? { seed: +demo[4] } : undefined);
       document.body.classList.remove('at-start');

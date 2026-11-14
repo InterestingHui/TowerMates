@@ -23,12 +23,18 @@
       if (mock) { setTimeout(() => cb(true), 200); return; } // 桩：真实实现走广告回调
       cb(false);
     },
-    // 仅供开发/回归：显式调用才让按钮显形
-    debug() { mock = true; return true; },
+    // 仅供开发/回归：显式调用才让按钮显形（同样只限本地预览，线上调不出东西）
+    debug() {
+      if (window.DevGate && !DevGate.local()) return false;
+      mock = true;
+      return true;
+    },
     slots() { return Object.keys(SLOTS); },
   };
   window.Ads = api;
+  // ?ads=1 只在本地预览（js/devgate.js）生效：上线域名上这个参数不再能打开桩模式，
+  // 否则任何人都能免费复活 / 余烬翻倍。截图与广告自检都从本地 serve 跑，能力不受影响。
   try {
-    if (/[?&]ads=1(&|$)/.test(location.search)) mock = true;
+    if (window.DevGate ? DevGate.allow('ads') : false) mock = true;
   } catch (e) {}
 })();
