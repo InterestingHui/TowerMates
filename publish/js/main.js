@@ -574,7 +574,7 @@
     bsHeroHp: $('bsHeroHp'), bsFoeHp: $('bsFoeHp'),
     bsName: $('bsName'), bsRounds: $('bsRounds'), bsNumbers: $('bsNumbers'),
     bsPhase: $('bsPhase'), bsPhaseTitle: $('bsPhaseTitle'), bsPhaseText: $('bsPhaseText'),
-    bsBlock: $('bsBlock'), bsRush: $('bsRush'), bsThreat: $('bsThreat'), blockPip: $('blockPip'), compassPip: $('compassPip'), scopePip: $('scopePip'), zealPip: $('zealPip'),
+    bsBlock: $('bsBlock'), bsGuard: $('bsGuard'), bsRush: $('bsRush'), bsThreat: $('bsThreat'), blockPip: $('blockPip'), compassPip: $('compassPip'), scopePip: $('scopePip'), zealPip: $('zealPip'),
     bsPanel: document.querySelector('.bs-panel'),
     guide: $('guide'),
     stuckBar: $('stuckBar'), stuckText: $('stuckText'),
@@ -1812,10 +1812,15 @@
       const showThreat = !!th && th.count >= 1 && !!(th.wall || th.worst);
       el.bsThreat.hidden = !showThreat;
       if (showThreat) {
+        // 盾架开之后这一层的每一场都在减，读数就得叫「架盾后」——
+        // 否则标签写「白打」、数字却是打过折的，同一行两套说法
+        const label = th.spread ? '架盾后' : '白打';
         el.bsThreat.innerHTML = th.wall
           ? `这一层还剩 ${th.count} 只 · <b>打不穿</b> ${th.wall.name}`
-          : `这一层还剩 ${th.count} 只 · 最贵 ${th.worst.name} 白打 <b>−${th.worst.damage}</b>`;
-        el.bsThreat.title = '白打这一只要掉多少血（不格挡、不抢攻）——破不了防的另算';
+          : `这一层还剩 ${th.count} 只 · 最贵 ${th.worst.name} ${label} <b>−${th.worst.damage}</b>`;
+        el.bsThreat.title = th.spread
+          ? '盾已经架开：这一层此后每场都按 85% 结算，数字是架盾后的实际承伤'
+          : '白打这一只要掉多少血（不格挡、不抢攻）——破不了防的另算';
       }
     }
 
@@ -1850,17 +1855,63 @@
       el.bsBlock.classList.add('done');
       el.bsBlock.disabled = true;
       if (el.bsRush) el.bsRush.disabled = true;   // 与抢攻二选一
+      if (el.bsGuard) el.bsGuard.disabled = true; // 与架盾二选一（同一份额度）
       Sound.play('level');
       vibrate([12, 20, 8]);
       warn(`**格挡**：这一战的承伤降到 **${Math.round(blockScale * 100)}%**`);
     };
 
+    // 架盾（格挡的第二种用法，第 2 章起）：把这一层的盾一次性架开——
+    // 本层此后每一场承伤 ×0.85，只有一次机会。与「挡这一场」构成集中／摊平的取舍：
+    // 单只特别贵就集中挡，本层还有一堆中等怪要清就摊平。谁更值取决于「我到底会不会打完这层」，
+    // 这个只有玩家自己知道——面板只给账（余几场、每场省多少），不给结论。
+    let guardOn = false;
+    const spreadActive = Engine.blockSpreadActive();
+    const guardDmg = info.dmgGuard || null;
+    const spreadPct = Math.round((1 - Engine.blockSpreadScale()) * 100);
+    // 第 2 章起才出现：首章那几场战斗面板只摆一个按钮，别在 63 秒那一战就教三种打法
+    const guardWorth = s.floor >= 3 && worth && !spreadActive && !!guardDmg && Engine.canGuard();
+    if (el.bsGuard) {
+      el.bsGuard.classList.remove('done');
+      el.bsGuard.disabled = false;
+      el.bsGuard.onclick = null;
+      if (spreadActive) {
+        // 盾已经架开：这块变成一条状态，说明「这一层每场都在减」，不再可点
+        el.bsGuard.hidden = false;
+        el.bsGuard.disabled = true;
+        el.bsGuard.classList.add('done');
+        el.bsGuard.innerHTML = `<b>🧱 盾已架开</b><span>本层每场承伤 −${spreadPct}%</span>`;
+      } else if (guardWorth) {
+        const n = Engine.floorMonsterCount();
+        const guardAfter = Math.max(0, Math.round(heroHp - guardDmg.damage));
+        el.bsGuard.hidden = false;
+        el.bsGuard.innerHTML = `<b>🧱 架盾</b><span>本层余 ${n} 场 · 每场 −${spreadPct}% · 这战剩 ${guardAfter}</span>`;
+        el.bsGuard.title = `花掉一次格挡：这一层余下 ${n} 场战斗都少挨 ${spreadPct}%（单场格挡则是这一场少挨 ${Math.round((1 - scaleWhenBlocked) * 100)}%）`;
+        el.bsGuard.onclick = (e) => {
+          e.stopPropagation();
+          if (guardOn) return;
+          guardOn = true;
+          el.bsGuard.classList.add('done');
+          el.bsGuard.disabled = true;
+          el.bsBlock.disabled = true;   // 同一份额度，二选一
+          if (el.bsRush) el.bsRush.disabled = true;
+          Sound.play('level');
+          vibrate([12, 20, 8]);
+          warn(`**架盾**：这一层余下每场承伤降到 **${100 - spreadPct}%**`);
+        };
+      } else {
+        el.bsGuard.hidden = true;
+      }
+    }
+
     // 抢攻（第 2 章起）：不讲究打法，一头撞进去多抢一刀——少挨一轮，这一战没有经验。
     // 它是本作战斗里的第二个主动决策：格挡是「用额度省血」，抢攻是「用成长换血」。
     // 数字全部取引擎同源（Engine.rushInfo），文案与实际结算不会各算各的。
+    // 盾架着的时候不给抢攻：那一场本来就在减伤，再抢一刀只换来「这战没经验」——
+    // 不是取舍，是陷阱，面板不摆。
     let rushOn = false;
     const rush = info.dmgRush || null;
-    const rushWorth = !!rush && !pred.blockSave && (m.boss || pred.damage >= heroMax * 0.04);
+    const rushWorth = !!rush && !spreadActive && !pred.blockSave && (m.boss || pred.damage >= heroMax * 0.04);
     if (el.bsRush) {
       el.bsRush.style.display = rushWorth ? '' : 'none';
       el.bsRush.classList.remove('done');
@@ -1876,14 +1927,16 @@
         el.bsRush.classList.add('done');
         el.bsRush.disabled = true;
         el.bsBlock.disabled = true;   // 与格挡二选一
+        if (el.bsGuard) el.bsGuard.disabled = true;
         Sound.play('level');
         vibrate([12, 20, 8]);
         warn(`**抢攻**：这一战少挨一轮（承伤 −${rush.save}），但什么也没学到；这一场不再格挡`);
       };
     }
-    // 这一战最终掉多少血：抢攻优先，其次格挡，最后是白打——三处取值一律走这里
+    // 这一战最终掉多少血：抢攻优先，其次格挡／架盾，最后是白打——三处取值一律走这里
     const finalDamage = () => {
       if (rushOn && rush) return rush.damage;
+      if (guardOn && guardDmg) return guardDmg.damage;
       if (blockOn && info.dmgBlock) return info.dmgBlock.damage;
       return info.dmgBase ? info.dmgBase.damage : (pred.damage || 0);
     };
@@ -1973,7 +2026,7 @@
           heroDamageLeft -= take;
           heroHp = Math.max(1, heroHp - take);
           bars();
-          if (take > 0) dmgNum(el.bsHero, '-' + take, blockOn ? '#9fd8ff' : '#ff8f8f');
+          if (take > 0) dmgNum(el.bsHero, '-' + take, (blockOn || guardOn || spreadActive) ? '#9fd8ff' : '#ff8f8f');
           el.bsHero.classList.add('hit');
           vibrate(12);
           await wait(95);
@@ -1996,8 +2049,9 @@
       el.battleScene.onclick = null;
       el.bsBlock.onclick = null;
       if (el.bsRush) el.bsRush.onclick = null;
+      if (el.bsGuard) el.bsGuard.onclick = null;
       skipWaiter = null; // 战斗结束必须清掉唤醒器，别让下一次点击去唤醒上一场的等待
-      done({ block: blockOn, rush: rushOn });
+      done({ block: guardOn ? 'all' : blockOn, rush: rushOn });
     })();
   }
 
@@ -2438,15 +2492,18 @@
     battleBusy = true;
     const dmgBase = Engine.fightDamage(ch, false);
     const dmgBlock = Engine.canBlock() ? Engine.fightDamage(ch, true) : null;
+    // 架盾：本层余下每场都吃 0.85（不叠盾谱/断刃，那是单场手艺）。与格挡二选一，同样花掉一次格挡
+    const dmgGuard = Engine.canGuard() ? Engine.fightDamage(ch, 'all') : null;
     // 抢攻：第 2 章起才出现（首章的战斗面板只有一个按钮，别在 63 秒那一战就摆两个）
     const dmgRush = s.floor >= 3 ? Engine.rushInfo(ch) : null;
     playBattleScene({
-      monster: m, pred, dmgBase, dmgBlock, dmgRush,
+      monster: m, pred, dmgBase, dmgBlock, dmgGuard, dmgRush,
       phases: m.boss ? Engine.bossPhases(ch) : null,
       skip: { x: tx, y: ty },     // 本层威胁读数要排除的格子（正在打的这只）
     }, (opt) => {
       // 这一战只有格挡才能活：玩家撞上去就是求战，结算时自动带上格挡
-      const res = Engine.fight(dx, dy, { block: opt.block || !!pred.blockSave, rush: opt.rush });
+      // opt.block 可能是 true（挡这一场）或 'all'（架盾）——原样透传给引擎
+      const res = Engine.fight(dx, dy, { block: opt.block || (pred.blockSave ? true : false), rush: opt.rush });
       battleBusy = false;
       if (res.type === 'fight') applyFightResult(res, tx, ty);
       else { warn(res.msg || '战斗中断'); refreshHud(); }

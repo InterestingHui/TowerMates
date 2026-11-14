@@ -190,6 +190,19 @@
     const base = s && s.flags.hasBlock2 ? 0.42 : 0.55;
     return hasRing('parry') ? base - 0.1 : base;
   };
+  // 架盾（格挡的第二种用法）：把这一层的盾一次性架开，本层余下每一场都吃 −15%。
+  // 与「挡这一场 −45%」构成集中／摊平的取舍：单只特别贵（Boss、连击怪）就集中挡，
+  // 本层还有一堆中等怪要清就摊平——两个选项谁更好取决于「我到底会不会打完这层」，
+  // 只有玩家自己知道，这正是它要补的决策厚度。
+  // 固定 0.85、不随盾谱/断刃加成：那两件是「单场手艺」，架开只护个大概，
+  // 否则格挡一升级架盾就变成无脑更优，取舍又没了。
+  const BLOCK_SPREAD = 0.85;
+  const blockSpreadScale = () => BLOCK_SPREAD;
+  // 按层读「这一层盾是不是已经架开了」——架盾是每层独立的，换层自动失效
+  function blockSpreadAt(f) {
+    return !!(s && s.flags && s.flags['guard_f' + f]);
+  }
+  const blockSpreadActive = () => (s ? blockSpreadAt(s.floor) : false);
   // 后半部学到手：格挡反击——挡下的那场，被卸掉的伤的三成化为经验
   const blockRiposte = () => !!(s && s.flags.hasBlock2);
 
@@ -226,6 +239,9 @@
 
   // 战斗的「真实承伤」：格挡、誓约、锁环都在这里算一次，演出与结算共用同一份
   // rush：抢攻视角（少挨一轮）。与格挡互斥——挡是省血，抢是拿成长换血，同一场只能选一种打法
+  // blocked：false（白打）｜true（单场格挡）｜'all'（架盾的那一场）。
+  // 架盾一旦在某层生效，本层此后每一场都自动吃 0.85；若这层还剩格挡次数，
+  // 同一场可以再补一记单场格挡（0.85 × 0.55）——双挡之环的第二种用法。
   function fightDamage(ch, blocked, rush) {
     const p = predictBase(ch, rush);
     if (!p || p.damage === null) return null;
@@ -234,10 +250,14 @@
     if (vow() === 'guard') dmg = Math.round(dmg * 1.18);
     if (hasRing('ward2')) dmg = Math.round(dmg * 0.94);
     if (hasRing('bell') && m && m.boss) dmg = Math.round(dmg * 0.85);
-    if (blocked) dmg = Math.round(dmg * ringBlockScale());
+    const spread = blockSpreadActive();
+    let bs = spread ? blockSpreadScale() : 1;
+    if (blocked === 'all') bs = blockSpreadScale();
+    else if (blocked) bs = (spread ? blockSpreadScale() : 1) * ringBlockScale();
+    if (bs !== 1) dmg = Math.round(dmg * bs);
     const zeal = zealScale(m);
     if (zeal < 1) dmg = Math.round(dmg * zeal);
-    return { damage: dmg, raw: p.damage, per: p.per, rounds: p.rounds, out: p.out, blockScale: blocked ? ringBlockScale() : 1, zeal, rushed: !!rush };
+    return { damage: dmg, raw: p.damage, per: p.per, rounds: p.rounds, out: p.out, blockScale: bs, zeal, rushed: !!rush };
   }
 
   // 抢攻的账：省多少血 / 丢多少经验。
@@ -945,6 +965,14 @@
     return blockLeft() > 0;
   }
 
+  // 架盾的入口条件：这一层还有格挡次数、还没架开过、本层余下至少 2 只怪。
+  // 「只剩最后一只」时架盾必然不如单场格挡（0.85 > 0.55 且只剩一场），
+  // 与其在面板上摆一个永远更差的按钮，不如不出现——这是取舍，不是摆设。
+  function canGuard() {
+    if (!canBlock() || blockSpreadActive()) return false;
+    return floorMonsterCount() >= 2;
+  }
+
   // 授予格挡（三路获取的统一出口）：已学过时安静返回，不重复发
   function grantBlock() {
     if (!s) return false;
@@ -970,10 +998,14 @@
     const p = predict(ch);
     // 生死判定用「真实承伤」：誓约/锁环乘区都在内（铁壁 ×1.18 会比基础预判更疼），
     // 残血换命：请求格挡、且挡完能活时放行（与 predictOpt 的口径一致）
+    // opt.block: true = 挡这一场｜'all' = 架盾（花掉一次格挡，本层此后每场都吃 0.85）
+    const canB = canBlock();
+    let mode = false;
+    if (opt && opt.block && canB) mode = (opt.block === 'all' && !blockSpreadActive()) ? 'all' : true;
     const fdPlain = fightDamage(ch, false);
     let allowed = !!(fdPlain && s.hp > fdPlain.damage);
-    if (!allowed && opt && opt.block && canBlock()) {
-      const b = fightDamage(ch, true);
+    if (!allowed && mode) {
+      const b = fightDamage(ch, mode);
       allowed = !!(b && s.hp > b.damage);
     }
     if (!allowed) return { type: 'refuse', msg: p.reason || '无法战胜' };
@@ -984,14 +1016,15 @@
       return { type: 'story', story: m.story || 'boss', dx, dy, prediction: p };
     }
 
-    const blocked = !!(opt && opt.block) && canBlock();
+    const blocked = !!mode;
     // 抢攻与格挡互斥：挡下整场就不存在「抢一刀」这回事，格挡优先
     const rushed = !blocked && !!(opt && opt.rush);
     if (blocked) {
       s.flags['block_n' + s.floor] = blockUsed() + 1;
       s.flags['block_f' + s.floor] = true;   // 老字段留着：旧工具与旧档都还认它
+      if (mode === 'all') s.flags['guard_f' + s.floor] = true;   // 架盾：本层余下每场都算
     }
-    const fd = fightDamage(ch, blocked, rushed);
+    const fd = fightDamage(ch, mode, rushed);
     const dmg = fd.damage;
     s.hp -= dmg;
     s.damageTaken = (s.damageTaken || 0) + dmg;   // 跨局漏斗/结算统计用；老档缺省按 0
@@ -1061,6 +1094,7 @@
     emit('kill', { name: m.name, boss: !!m.boss });
     return {
       type: 'fight', damage: dmg, raw: p.damage, blocked, rushed, rounds: p.rounds,
+      guard: mode === 'all', guardOn: blockSpreadActive(),
       gold: goldGain, exp: expGain, heal, levelUps: ups, riposte,
       monster: m, boss: !!m.boss, chapter: m.chapter || 0,
       after: m.after || null, finalBoss: !!m.finalBoss, echo,
@@ -1188,7 +1222,9 @@
         if (!worst || dmg > worst.damage) worst = { ch, name: m.name, damage: dmg };
       }
     }
-    return { count, worst, wall };
+    // spread：本层盾已经架开时，这里的数是「架盾后」而不是「白打」——
+    // 面板文案必须跟着变，否则读数是打过折的、标签还写白打（同一个数字两套说法）
+    return { count, worst, wall, spread: blockSpreadAt(f) };
   }
 
   // 本层还剩几件「能捡的东西」（罗盘之环用）：道具与金币都算，
@@ -1509,7 +1545,7 @@
       const ch = tile(s.x + dx, s.y + dy);
       return D.monsters[ch] ? predict(ch) : null;
     },
-    tryMove, fight, canBlock, blockLimit, blockLeft, blockUsedAt, grantBlock, vowForbidsBlock, buy, priceOf, shopStock, dealOf, openShopAt, floorMonsterCount, floorPickupCount, floorThreat, battleMargin, potionHeal, finish, altarChoices, pickRelic, pathTo, pathThrough, pathToNear, pathsTo,
+    tryMove, fight, canBlock, canGuard, blockLimit, blockLeft, blockUsedAt, grantBlock, vowForbidsBlock, blockSpreadAt, blockSpreadActive, blockSpreadScale, BLOCK_SPREAD, buy, priceOf, shopStock, dealOf, openShopAt, floorMonsterCount, floorPickupCount, floorThreat, battleMargin, potionHeal, finish, altarChoices, pickRelic, pathTo, pathThrough, pathToNear, pathsTo,
     nextLevelExp, margin, keyName, summary, hasRelic, ownedRelics, beginFloor, restoreFloor, revealCore, heartState, heartTake, heartLeave, vow, pickEvent, eventPool, eventCost, resolveEvent, applyEffect, jumpTo, visitedMax, gateForth, sealPlan,
     rings, hasRing, ringBlockScale, zealScale, zealNext, zealNeed, cleanEmber, fightDamage, rushInfo, bossPhases, settleChapter, ringChoices, pendingRing, pickRing,
   };

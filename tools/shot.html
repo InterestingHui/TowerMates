@@ -29,6 +29,8 @@
     battleblock: base + '?dev=1#demo=0,2,3',
     // 抢攻：第 2 章（第 4 层）的战斗面板，站 (5,5) 朝上撞石像鬼
     rushbattle: base + '?dev=1#demo=3,5,5',
+    // 架盾：同一场战斗面板上的第三种打法（摊平整层 vs 集中挡一场）
+    guardbattle: base + '?dev=1#demo=3,5,5',
     shop: base + '?dev=1#demo=2,4,3,424242',
     tower: base + '?dev=1#demo=5,5,7',
     core: base + '?dev=1#demo=12,5,8',
@@ -82,7 +84,7 @@
       await wait(120);
       const T = w.__tm;
       const E = w.Engine;
-      if (scene === 'start' || scene === 'floor5' || scene === 'battle' || scene === 'battletwice' || scene === 'battleblock' || scene === 'rushbattle' || scene === 'shop' || scene === 'tower' || scene === 'core' || scene === 'zeal') {
+      if (scene === 'start' || scene === 'floor5' || scene === 'battle' || scene === 'battletwice' || scene === 'battleblock' || scene === 'rushbattle' || scene === 'guardbattle' || scene === 'shop' || scene === 'tower' || scene === 'core' || scene === 'zeal') {
         if (scene === 'zeal') {
           // 过手之环：顶栏这一格要同时说清「已杀几只 / 下一档门槛」，数值与引擎同源
           await wait(200);
@@ -144,6 +146,25 @@
           const tb = d.getElementById('bsThreat');
           q2push('bsThreat=' + (tb && !tb.hidden ? tb.textContent.replace(/\s+/g, ' ').trim() : 'HIDDEN')
             + ' threat=' + JSON.stringify(E.floorThreat(undefined, { x: 5, y: 4 })));
+        }
+        if (scene === 'guardbattle') {
+          // 架盾：本层余下每场都 −15%，与「挡这一场」二选一。数值必须与引擎同源
+          await wait(200);
+          const sG = E.state();
+          sG.atk = 40; sG.def = 20; sG.hp = 800; sG.maxHp = 1000;
+          sG.flags.hasBlock = true;
+          T.refreshHud();
+          // 引擎读数要在开打前取（结算会改血量/经验）
+          const guardDmg = E.fightDamage('E', 'all').damage;
+          const plainG = E.fightDamage('E', false).damage;
+          const cnt = E.floorMonsterCount();
+          const canG = E.canGuard();
+          w.__battleSpeed = 30;
+          w.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'ArrowUp' }));
+          await wait(320);
+          const gb = d.getElementById('bsGuard');
+          q2push('bsGuard=' + (gb && !gb.hidden ? gb.textContent.replace(/\s+/g, ' ').trim() : 'HIDDEN')
+            + ' guard=' + guardDmg + ' plain=' + plainG + ' count=' + cnt + ' can=' + canG);
         }
         if (scene === 'shop') {
           await wait(200);

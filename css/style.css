@@ -1805,6 +1805,21 @@ body.at-start #bottom { visibility: hidden; }
   color: #9fd8ff;
 }
 .bs-block.done b::after { content: ' 已挡下'; font-size: var(--fs-tag); letter-spacing: 0; opacity: 0.8; }
+/* 架盾：格挡的第二种用法（摊平整层）。青钢色，跟金色的「挡这一场」区分开 */
+.bs-block.bs-guard {
+  margin-top: 6px;
+  border-color: rgba(126, 178, 196, 0.34);
+  background: linear-gradient(180deg, rgba(20, 34, 40, 0.9), rgba(10, 16, 20, 0.94));
+  color: #a8d2de;
+}
+.bs-block.bs-guard:hover { border-color: rgba(150, 205, 222, 0.72); box-shadow: 0 0 18px rgba(126, 178, 196, 0.18); }
+.bs-block.bs-guard.done {
+  border-color: rgba(126, 178, 196, 0.5);
+  background: linear-gradient(180deg, rgba(20, 34, 40, 0.92), rgba(10, 16, 20, 0.94));
+  color: #a8d2de;
+}
+/* 架盾的完成态文案由 JS 直接写（「盾已架开」/「已架开」），不再追加后缀 */
+.bs-block.bs-guard.done b::after { content: ''; }
 /* 抢攻：第二把打法。与格挡并排时压薄一级，颜色偏铁锈红，跟「盾」区分开 */
 .bs-block.bs-rush {
   margin-top: 6px;

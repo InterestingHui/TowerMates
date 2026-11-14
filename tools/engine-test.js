@@ -1788,5 +1788,101 @@ ok(thEmpty.count === 0 && thEmpty.worst === null && thEmpty.wall === null, '空�
 ok(E.floorThreat(99) === null, '没有这一层时返回 null');
 ok(!!E.floorThreat(0), '第 1 层本身不设限（「第 2 章起才显示」是面板的时机规则，不是引擎的）');
 
+// ---------- 架盾（格挡的第二种用法）：集中挡一场 / 摊平盖整层 ----------
+// 花掉一次格挡，本层此后每一场都吃 0.85。与单场格挡构成取舍：
+// 单只特别贵就集中，本层还有一堆中等怪要清就摊平——这正是它要补的决策厚度
+E.newGame();
+s = E.state();
+s.floor = 3; s.x = 5; s.y = 5;
+s.maps[3] = Array.from({ length: 11 }, () => new Array(11).fill('.'));
+s.maps[3][5][6] = 'A';    // 正右边那只（马上要打的）
+s.maps[3][3][3] = 'A';    // 本层另一只
+s.flags.hasBlock = true;
+
+ok(E.canGuard() === true, '有格挡次数、本层还剩 2 只时能架盾');
+ok(Math.abs(E.BLOCK_SPREAD - 0.85) < 1e-9, '架盾比例写死 0.85（一个出口，别处不许再写数字）');
+const plainG = E.fightDamage('A', false).damage;
+ok(E.fightDamage('A', 'all').damage === Math.round(plainG * 0.85), '架盾那一场 = 白打 ×0.85');
+
+const gd1 = E.fight(1, 0, { block: 'all' });
+ok(gd1.type === 'fight' && gd1.guard === true, 'fight 收 opt.block="all" 并按架盾结算');
+ok(gd1.damage === Math.round(plainG * 0.85), '实际扣血与 panel 上的读数同源');
+ok(E.blockSpreadActive() === true, '架盾之后本层进入「盾已架开」状态');
+ok(E.blockLeft() === 0, '架盾花掉一次格挡（HUD 🛡 剩 0）');
+
+// 架盾之后，本层下一场不用再花次数、自动吃 0.85
+s.maps[3][8][5] = 'A';   // maps[y][x]：(5,8) 在下面一格
+s.hp = 900;
+const gd2 = E.fight(0, 0, {});   // 空格：先确认不误触
+ok(gd2.type === 'idle', '架盾状态不影响普通移动');
+s.x = 5; s.y = 7;
+const gd3 = E.fight(0, 1, {});
+ok(gd3.damage === Math.round(gd3.raw * 0.85), '架盾后本层每一场都自动 −15%（不再花次数）');
+ok(E.blockLeft() === 0, '第二场没有再多花一次格挡');
+
+// 换层自动失效：架盾是「这一层」的东西，上楼就没了
+s.floor = 4;
+s.maps[4] = Array.from({ length: 11 }, () => new Array(11).fill('.'));
+ok(E.blockSpreadActive() === false, '换层后架盾状态自动清掉');
+ok(E.fightDamage('A', false).damage === plainG, '新层恢复白打价（不掉档到别的层）');
+
+// 只剩最后一只时不给架盾：0.85 摊在一场上必然不如 0.55 集中挡，那是摆设不是取舍
+E.newGame();
+s = E.state();
+s.floor = 3; s.x = 5; s.y = 5;
+s.maps[3] = Array.from({ length: 11 }, () => new Array(11).fill('.'));
+s.maps[3][5][6] = 'A';
+s.flags.hasBlock = true;
+ok(E.floorMonsterCount() === 1, '（前提）本层只剩这一只');
+ok(E.canGuard() === false, '只剩最后一只时不出现架盾');
+
+// 没学盾谱 / 三条禁挡誓约：架盾跟单场格挡一起消失
+E.newGame();
+s = E.state();
+s.floor = 3;
+s.maps[3] = Array.from({ length: 11 }, () => new Array(11).fill('.'));
+s.maps[3][5][6] = 'A';
+s.maps[3][3][3] = 'A';
+ok(E.canGuard() === false, '没学盾谱时不能架盾');
+s.flags.hasBlock = true;
+E.state().flags.vow = 'guard';
+ok(E.canGuard() === false, '铁壁之誓（不能格挡）也架不了盾');
+E.state().flags.vow = 'none';
+
+// 双挡之环：架盾吃掉 1 次，剩下的那一记还能补在同一场（0.85 × 0.55）——
+// 这是「摊平盖整层，再对最贵的一只补一刀」的第二种用法
+E.newGame();
+s = E.state();
+s.flags.hasBlock = true;
+s.flags.rings = ['twice'];
+s.flags.vow = 'none';
+s.floor = 3; s.x = 5; s.y = 5;
+s.maps[3] = Array.from({ length: 11 }, () => new Array(11).fill('.'));
+s.maps[3][5][6] = 'A';
+s.maps[3][3][3] = 'A';
+ok(E.blockLimit() === 2, '（前提）双挡之环给 2 次');
+E.fight(1, 0, { block: 'all' });
+ok(E.blockLeft() === 1, '架盾只吃掉 1 次，另一次还在');
+const stacked = E.fightDamage('A', true).damage;
+ok(stacked === Math.round(plainG * 0.85 * 0.55), '架盾 + 单场格挡可叠（0.85 × 0.55）');
+ok(Math.abs(E.fightDamage('A', true).blockScale - 0.85 * 0.55) < 1e-9, '叠起来的比例由引擎给出，界面不自己乘');
+
+// 威胁读数的口径要跟着架盾变：标签与数字必须是同一套说法（否则「白打 −126」其实是打过折的 107）
+E.newGame();
+s = E.state();
+s.floor = 3; s.x = 5; s.y = 5;
+s.maps[3] = Array.from({ length: 11 }, () => new Array(11).fill('.'));
+s.maps[3][2][2] = 'A';
+s.maps[3][3][3] = 'A';
+s.flags.hasBlock = true;
+ok(E.floorThreat().spread === false, '没架盾时威胁读数标「白打」');
+const whiteThreat = E.floorThreat().worst.damage;
+s.maps[3][5][6] = 'A';
+E.fight(1, 0, { block: 'all' });
+const spreadThreat = E.floorThreat();
+ok(spreadThreat.spread === true, '架盾后威胁读数改标「架盾后」');
+ok(!!spreadThreat.worst && spreadThreat.worst.damage === Math.round(whiteThreat * 0.85),
+   '架盾后的威胁读数就是打过折的数（标签与数字同一套说法）');
+
 console.log(fail === 0 ? '\n✓ 全部通过' : `\n✗ ${fail} 项失败`);
 process.exit(fail ? 1 : 0);

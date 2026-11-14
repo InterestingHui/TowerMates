@@ -15,7 +15,7 @@ const CHROME_CANDIDATES = [
   'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
   'C:/Program Files/Microsoft/Edge/Application/msedge.exe',
 ];
-const SCENES = ['start', 'play', 'bossintro', 'codexzoom', 'critters', 'dialog', 'hint', 'stuck', 'battle', 'battleblock', 'bossphase', 'bossyan', 'bossdef', 'probecard', 'altar', 'choice', 'end', 'board', 'codex', 'cfg', 'hud', 'tower', 'core', 'heart', 'stoneidle', 'vow', 'event', 'eventdeep', 'gate', 'echo', 'goal', 'flow', 'showcase', 'death', 'death1', 'collection', 'adsdeath', 'adsend', 'sword', 'daily', 'dailyboard', 'dailyend', 'floor2', 'floor3', 'shop', 'echo2', 'battletwice', 'zeal', 'rushbattle'];
+const SCENES = ['start', 'play', 'bossintro', 'codexzoom', 'critters', 'dialog', 'hint', 'stuck', 'battle', 'battleblock', 'bossphase', 'bossyan', 'bossdef', 'probecard', 'altar', 'choice', 'end', 'board', 'codex', 'cfg', 'hud', 'tower', 'core', 'heart', 'stoneidle', 'vow', 'event', 'eventdeep', 'gate', 'echo', 'goal', 'flow', 'showcase', 'death', 'death1', 'collection', 'adsdeath', 'adsend', 'sword', 'daily', 'dailyboard', 'dailyend', 'floor2', 'floor3', 'shop', 'echo2', 'battletwice', 'zeal', 'rushbattle', 'guardbattle'];
 
 function run(cmd, args) {
   const r = spawnSync(cmd, args, { cwd: ROOT, encoding: 'utf8' });
@@ -381,14 +381,48 @@ if (!process.argv.includes('--no-shot')) {
         rushLine = `面板 ${shown ? '在' : '缺'} / 承伤与引擎同源 ${saveOk ? saved[1] : '不符'} / 代价写明 ${costOk ? '是' : '否'} / 威胁行 ${thOk ? '对得上' : '缺或对不上'}（${thTxt || '无'}）`;
         console.log((okRush ? '✓' : '✗') + ' 抢攻面板 ' + rushLine);
       }
+      // 架盾（格挡的第二种用法：摊平整层 vs 集中挡一场）：面板数字必须与引擎同源
+      console.log('== 附加 · 架盾面板自检 ==');
+      let okGuard = true, guardLine = '';
+      {
+        const os = require('os');
+        const readG = () => {
+          const args = [
+            '--headless=new', '--disable-gpu', '--no-sandbox', '--no-first-run', '--disable-extensions',
+            '--user-data-dir=' + path.join(os.tmpdir(), 'tm-guard-' + process.pid),
+            '--virtual-time-budget=30000',
+            '--dump-dom', `http://127.0.0.1:${PORT}/tools/shot.html?scene=guardbattle`,
+          ];
+          const q = spawnSync(chrome, args, { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+          const m = /<pre id="err">([\s\S]*?)<\/pre>/.exec(q.stdout || '');
+          return m ? m[1] : '';
+        };
+        const outG = readG();
+        const shown = outG.indexOf('bsGuard=') >= 0 && outG.indexOf('HIDDEN') < 0 && outG.indexOf('架盾') >= 0;
+        const txtM = /bsGuard=([\s\S]*?) guard=/.exec(outG);
+        const txt = txtM ? txtM[1].trim() : '';
+        const gDmg = /guard=(\d+)/.exec(outG);
+        const gPlain = /plain=(\d+)/.exec(outG);
+        const gCnt = /count=(\d+)/.exec(outG);
+        const gCan = /can=(true|false)/.exec(outG);
+        const n = /本层余 (\d+) 场/.exec(txt);
+        const countOk = !!n && !!gCnt && n[1] === gCnt[1];
+        const pctOk = txt.indexOf('每场 −15%') >= 0;
+        // 架盾那一场必须正好是白打的 85%——差一点就是面板在说谎
+        const mathOk = !!gDmg && !!gPlain && Number(gDmg[1]) === Math.round(Number(gPlain[1]) * 0.85);
+        const canOk = !!gCan && gCan[1] === 'true';
+        okGuard = shown && countOk && pctOk && mathOk && canOk;
+        guardLine = `面板 ${shown ? '在' : '缺'} / 余场数与引擎同源 ${countOk ? n[1] : '不符'} / 比例写明 ${pctOk ? '−15%' : '否'} / 承伤=白打×0.85 ${mathOk ? gDmg[1] : '不符'} / 入口条件 ${canOk ? '可架' : '不符'}（${txt || '无'}）`;
+        console.log((okGuard ? '✓' : '✗') + ' 架盾面板 ' + guardLine);
+      }
       server.kill();      console.log(bad === 0 ? `\n✓ 截图全部生成（${SCENES.length} 张，见 tools/out/）` : `\n✗ ${bad} 张截图异常`);
 
       console.log('== 浏览器 UI 自检 ==');
       const ui = run(process.execPath, ['tools/ui-test.js']);
       const okUi = ui.code === 0;
       console.log((okUi ? '✓' : '✗') + ' ui-test.js' + (okUi ? '' : '\n' + ui.out));
-      const all = okCheck && okSim && okSkip && okTest && okCode && okBsim && okOd && okUi && okProbe && okAds && okIntro && okWxb && okNew && okWx && okSwordGate && okPace && okDaily && okZeal && okRush && bad === 0;
-      if (!all) console.log('  闸门明细:', JSON.stringify({ okCheck, okSim, okSkip, okTest, okCode, okBsim, okOd, okUi, okProbe, probeA3, okAds, adsLine, okIntro, introLine, okWxb, wxbLine, okNew, newLine, okWx, okSwordGate, okPace, paceLine, okDaily, dailyLine, okZeal, zealLine, okRush, rushLine, bad }));
+      const all = okCheck && okSim && okSkip && okTest && okCode && okBsim && okOd && okUi && okProbe && okAds && okIntro && okWxb && okNew && okWx && okSwordGate && okPace && okDaily && okZeal && okRush && okGuard && bad === 0;
+      if (!all) console.log('  闸门明细:', JSON.stringify({ okCheck, okSim, okSkip, okTest, okCode, okBsim, okOd, okUi, okProbe, probeA3, okAds, adsLine, okIntro, introLine, okWxb, wxbLine, okNew, newLine, okWx, okSwordGate, okPace, paceLine, okDaily, dailyLine, okZeal, zealLine, okRush, rushLine, okGuard, guardLine, bad }));
       console.log(all ? '✓ 质量闸门通过' : '✗ 质量闸门有失败项');
       process.exit(all ? 0 : 1);
     })();
