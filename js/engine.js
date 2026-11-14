@@ -1156,8 +1156,16 @@
     const ups = levelUp();
     save();
     emit('kill', { name: m.name, boss: !!m.boss });
+    // 打法归属（漏斗 dec 的唯一口径）：这一场算哪一种「打法」。
+    // 以引擎真发生的事为准（mode / tangled），不以面板意图为准——意图可能被拒（血不够、盾用完），
+    // 记账要记真的那次。opt.auto＝这一记挡是系统替他举的（玩家没选任何打法），单记 'f'，别混进格挡率。
+    // 次序＝结算优先级：架盾 > 单场格挡 > 自动挡 > 缠斗 > 直接打。
+    const pick = !blocked ? (tangled ? 't' : 'n')
+      : (mode === 'all' ? 'g' : (opt && opt.auto ? 'f' : 'b'));
+
     return {
       type: 'fight', damage: dmg, raw: p.damage, blocked, tangled, rounds: p.rounds,
+      pick,
       guard: mode === 'all', guardOn: blockSpreadActive(),
       gold: goldGain, exp: expGain, heal, levelUps: ups, riposte,
       monster: m, boss: !!m.boss, chapter: m.chapter || 0,

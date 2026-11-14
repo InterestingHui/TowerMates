@@ -891,6 +891,58 @@ ok(E.fight(0, -1, { block: true }).damage === Math.round(batRaw * 0.55), '按格
 s.hp = Math.round(batRaw * 0.6) - 1;
 ok(!E.predictOpt('A', true).win, '格挡用尽后残血：无活路');
 
+// ---------- 9h-2. 打法归属（漏斗 dec 的唯一口径：Engine.fight 的 pick） ----------
+// 五个桶各归谁：b/g/t 是玩家按的打法，f 是「白打必死、系统替他挡」的自动挡，n 是什么都没按。
+// 这段原先写在 UI 的三元表达式里（只有代码自觉、没有断言），收口到引擎后以「真发生的事」为准：
+// 面板意图可能被引擎拒（血不够 / 盾用完 / 缠了会死），账要记真的那次。
+E.newGame();
+s = E.state();
+s.hp = 5000; s.x = 2; s.y = 3;
+ok(E.fight(0, -1).pick === 'n', '打法归属：直接打记 n');
+E.newGame();
+s = E.state();
+s.flags.hasBlock = true;
+s.hp = 5000; s.x = 2; s.y = 3;
+const rPickB = E.fight(0, -1, { block: true });
+ok(rPickB.pick === 'b' && rPickB.guard === false, '打法归属：自己按的格挡记 b');
+E.newGame();
+s = E.state();
+s.flags.hasBlock = true;
+s.x = 2; s.y = 3;
+const pickWhite = E.fightDamage('A', false).damage;
+s.hp = pickWhite - 1;                       // 白打必死
+const rPickF = E.fight(0, -1, { block: true, auto: true });
+ok(rPickF.type === 'fight' && rPickF.blocked === true && rPickF.pick === 'f' && s.hp > 0,
+  '打法归属：系统替他挡的自动挡记 f（保命成功）');
+ok(rPickF.damage === Math.round(pickWhite * 0.55), '自动挡按格挡结算，不是白打');
+E.newGame();
+s = E.state();
+s.flags.hasBlock = true;
+s.hp = 5000; s.x = 2; s.y = 3;
+const rPickT = E.fight(0, -1, { tangle: true });
+ok(rPickT.tangled === true && rPickT.pick === 't', '打法归属：缠斗记 t');
+// 缠了会死 → 引擎退成白打；玩家确实按过按钮，但账要记「真打成的」那种
+E.newGame();
+s = E.state();
+s.x = 2; s.y = 3;
+const tangleWhite = E.fightDamage('A', false, true).damage;
+s.hp = tangleWhite - 1;                     // 白打能活、缠完会死
+const rPickT2 = E.fight(0, -1, { tangle: true });
+ok(rPickT2.type === 'fight' && rPickT2.tangled === false && rPickT2.pick === 'n',
+  '缠不起时退成白打，账也记 n（不记按过的按钮）');
+E.newGame();
+s = E.state();
+s.flags.hasBlock = true;
+s.flags.rings = ['twice'];
+s.hp = 9000; s.x = 2; s.y = 3;
+const rPickG = E.fight(0, -1, { block: 'all' });
+ok(rPickG.pick === 'g' && rPickG.guard === true, '打法归属：架盾记 g');
+// 盾已架开时再请求架盾：引擎只按单场格挡结算 → 账记 b，不记面板上写的那个字
+s.x = 5; s.y = 5;
+const rPickG2 = E.fight(1, 0, { block: 'all' });
+ok(rPickG2.type === 'fight' && rPickG2.guard === false && rPickG2.pick === 'b',
+  `盾已架开后再请求架盾按单场格挡记（实测 ${rPickG2.type}/${rPickG2.pick}）`);
+
 // ---------- 9f. 塔心石：带走 / 放下 ----------
 E.newGame();
 s = E.state();

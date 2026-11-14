@@ -82,6 +82,13 @@ const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-ui-'));
   ok(out.clickTarget !== null && out.clickDist >= 2, '找到一只不相邻的怪物作点击目标');
   ok(out.clickKills === 1, '只点一次怪物就自动走到跟前并完成战斗');
   ok(out.clickCleared === true && out.clickOnTile === true, '战斗后怪物消失、人物站上它的格子');
+  // 打法归属（漏斗 dec）：归属由引擎给（Engine.fight 的 pick），UI 只负责计数
+  ok(out.clickDecN === 1, '打法归属接线：点怪打完那一场记 n');
+  const da = out.decAuto || {};
+  ok(da.predBlockSave === true && da.panelUp === true, '造出「白打必死」的一场：战斗面板确实开了出来');
+  ok(da.f === 1 && da.b === 0 && da.n === 0, `自动挡单记 f、不混进玩家格挡率（实测 f=${da.f} b=${da.b} n=${da.n}）`);
+  ok(typeof da.hpLeft === 'number' && da.hpLeft > 0 && da.hpLeft < da.white,
+    `自动挡真的救下这一场（剩 ${da.hpLeft} 血 < 白打 ${da.white}）`);
   ok(out.f3Walkable === true && out.f3ReachLedge === true, '第 3 层打墨妖的立足格可直达');
   ok(Array.isArray(out.shopChain) && out.shopChain.length === 3, '三层商人（8/11/13）都跑过单击流程');
   ok(out.shopChain.every((r) => r.hasM && r.hasStart), '每层商人与可走到的起点都找得到');

@@ -143,7 +143,71 @@ async function run() {
       out.clickKills = (s4.flags.killCount || 0) - kills0;
       out.clickCleared = E.tile(target.x, target.y) !== target.ch;
       out.clickOnTile = s4.x === target.x && s4.y === target.y;
+      // 打法归属的接线：这一场什么都没按 → dec 该记 n（引擎给归属，UI 只负责计数）
+      out.clickDecN = (s4.flags.dec || {}).n || 0;
     }
+
+    // 打法归属 dec 的「自动挡」桶（f）：只有格挡才能活的那一场，玩家没按任何打法，
+    // 结算时由系统替他把盾举起来保命。这条规则原来只写在 UI 的三元表达式里、靠代码自觉，
+    // 这里造出「白打必死、挡完能活」的真实一场，走完点击 → 面板 → 结算整条路，再读账本。
+    // 判据：dec.f 记 1、dec.b 记 0（自动挡不许混进玩家的格挡率）。
+    out.decAuto = {};
+    (function () { w.__battleSpeed = 14; })();     // 演出提速：只压动画，不改数值
+    d.querySelectorAll('.overlay.show').forEach(function (o) { o.classList.remove('show'); });
+    E.newGame();
+    var sf = E.state();
+    sf.flags.hasBlock = true;
+    sf.floor = 0;
+    var pick = null;
+    for (var py = 1; py < 10 && !pick; py++) {
+      for (var px = 1; px < 10 && !pick; px++) {
+        var chP = sf.maps[0][py][px];
+        var moP = w.GAME_DATA.monsters[chP];
+        if (!moP || moP.ghost || moP.boss) continue;
+        // 找一格紧邻它的可站立格（人物站上去就是「贴脸」，点一下即开打）
+        [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (o) {
+          if (pick) return;
+          var ax = px + o[0], ay = py + o[1];
+          if (ax < 1 || ax > 9 || ay < 1 || ay > 9) return;
+          if (sf.maps[0][ay][ax] !== '.') return;
+          var wDmg = E.fightDamage(chP, false);
+          var bDmg = E.fightDamage(chP, true);
+          if (!wDmg || wDmg.damage === null || !bDmg || bDmg.damage === null) return;
+          pick = { x: px, y: py, hx: ax, hy: ay, white: wDmg.damage, block: bDmg.damage, vx: -o[0], vy: -o[1] };
+        });
+      }
+    }
+    if (pick && pick.block < pick.white) {
+      sf.x = pick.hx; sf.y = pick.hy;
+      sf.hp = pick.white - 1;               // 白打必死
+      sf.maxHp = Math.max(sf.maxHp, pick.white);
+      w.__tm.refreshHud();
+      await new Promise(function (r) { setTimeout(r, 60); });
+      out.decAuto.predBlockSave = !!(E.predictOpt(E.tile(pick.x, pick.y), true) || {}).blockSave;
+      w.__tm.clickMove(pick.x, pick.y);
+      var t0 = Date.now(), panelUp = false;
+      while (Date.now() - t0 < 2500) {
+        if (d.getElementById('battleScene').classList.contains('show')) { panelUp = true; break; }
+        await new Promise(function (r) { setTimeout(r, 40); });
+      }
+      out.decAuto.panelUp = panelUp;
+      // 什么都不按，直接点面板跳过 → 结算（系统自带的那一记挡）
+      d.getElementById('battleScene').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      t0 = Date.now();
+      while (Date.now() - t0 < 2500) {
+        var decNow = (E.state().flags || {}).dec || {};
+        if (decNow.f || decNow.b || decNow.n) break;
+        await new Promise(function (r) { setTimeout(r, 40); });
+      }
+      var decA = (E.state().flags || {}).dec || {};
+      out.decAuto.f = decA.f || 0;
+      out.decAuto.b = decA.b || 0;
+      out.decAuto.n = decA.n || 0;
+      out.decAuto.hpLeft = Math.round(E.state().hp);
+      out.decAuto.white = pick.white;
+    }
+    w.__battleSpeed = 1;
+    d.querySelectorAll('.overlay.show').forEach(function (o) { o.classList.remove('show'); });
 
     // 商店链：8 / 11 / 13 层的商人，单击一次就要「走到跟前 → 首会对白 → 商店面板」。
     // 第 3 层曾因「walk 教学对白打断寻路 + playStory 覆盖丢回调」卡死，这里把整条链钉进闸门。
