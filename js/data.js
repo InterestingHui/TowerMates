@@ -258,13 +258,20 @@ window.GAME_DATA = (function () {
     // 「盾留给哪一场」这道判断从「保命」扩成「保命还是换钱」。
     // 没学盾谱 / 不能格挡的三条誓约拿不到这笔钱，所以候选池里直接滤掉。
     spare:    { name: '惜挡之环', emoji: '✋', short: '惜', chapter: 1, desc: '一整层没动用格挡，上楼时 +90 金币' },
+
+    // ---- 第六轮扩容（第 3 章 9→10）：最后一程唯一的「打多少算够」是一道明账 ——
+    // 战意（决战减伤）原本要 25 / 40 只才吃档，第 10–12 层怪密度最高，
+    // 玩家在名墙与刻名室之间反复算的正是「再清几只才值」。
+    // 这枚环把门槛整体前移一档：够 20 只就已是 −16%，33 只吃满 −36%，
+    // 于是「剩下 7 只难缠的能不能绕」当场有了答案。不改承伤公式，只改门槛。
+    merit:    { name: '过手之环', emoji: '🥊', short: '手', chapter: 3, desc: '战意门槛前移：击败 20 只即 −16%，33 只吃满 −36%（原 25 / 40）' },
   };
 
   // 每章抽 3 个给玩家选（池 9 个 → 每局的构筑起点不同）
   const ringPools = {
     1: ['ledger', 'lamp', 'coin', 'keyring', 'pace', 'ward2', 'ration', 'tally', 'notch', 'spare'],
     2: ['parry', 'cinder', 'thrift2', 'vitality', 'ash', 'scout2', 'bargain', 'toll', 'chain', 'twice'],
-    3: ['bell', 'stair', 'scope', 'hour', 'ledger2', 'vitality2', 'compass', 'tome', 'bulwark'],
+    3: ['bell', 'stair', 'scope', 'hour', 'ledger2', 'vitality2', 'compass', 'tome', 'bulwark', 'merit'],
     4: ['seventh', 'chisel', 'heart', 'oath', 'coin2', 'lamp2', 'signature', 'quill', 'finale'],
   };
 

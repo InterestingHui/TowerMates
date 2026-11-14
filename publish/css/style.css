@@ -2441,6 +2441,18 @@ body.at-start #bottom { visibility: hidden; }
   box-shadow: 0 0 10px rgba(143, 123, 255, 0.16);
 }
 
+/* 过手之环：战意还差几只（到档后变金，提示「吃满了」） */
+.zealpip {
+  border-color: rgba(232, 196, 106, 0.42);
+  color: var(--gold);
+  background: rgba(232, 196, 106, 0.1);
+  box-shadow: 0 0 10px rgba(232, 196, 106, 0.16);
+}
+.zealpip.full {
+  border-color: rgba(232, 196, 106, 0.72);
+  background: rgba(232, 196, 106, 0.18);
+}
+
 /* 收藏图鉴 · 锁环卡片上的使用统计（选过几次 / 带它通关几次） */
 .col-card .cc-use {
   font-style: normal;

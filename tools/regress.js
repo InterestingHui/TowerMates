@@ -15,7 +15,7 @@ const CHROME_CANDIDATES = [
   'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
   'C:/Program Files/Microsoft/Edge/Application/msedge.exe',
 ];
-const SCENES = ['start', 'play', 'bossintro', 'codexzoom', 'critters', 'dialog', 'hint', 'stuck', 'battle', 'battleblock', 'bossphase', 'bossyan', 'bossdef', 'probecard', 'altar', 'choice', 'end', 'board', 'codex', 'cfg', 'hud', 'tower', 'core', 'heart', 'stoneidle', 'vow', 'event', 'eventdeep', 'gate', 'echo', 'goal', 'flow', 'showcase', 'death', 'death1', 'collection', 'adsdeath', 'adsend', 'sword', 'daily', 'dailyboard', 'dailyend', 'floor2', 'floor3', 'shop', 'echo2', 'battletwice'];
+const SCENES = ['start', 'play', 'bossintro', 'codexzoom', 'critters', 'dialog', 'hint', 'stuck', 'battle', 'battleblock', 'bossphase', 'bossyan', 'bossdef', 'probecard', 'altar', 'choice', 'end', 'board', 'codex', 'cfg', 'hud', 'tower', 'core', 'heart', 'stoneidle', 'vow', 'event', 'eventdeep', 'gate', 'echo', 'goal', 'flow', 'showcase', 'death', 'death1', 'collection', 'adsdeath', 'adsend', 'sword', 'daily', 'dailyboard', 'dailyend', 'floor2', 'floor3', 'shop', 'echo2', 'battletwice', 'zeal'];
 
 function run(cmd, args) {
   const r = spawnSync(cmd, args, { cwd: ROOT, encoding: 'utf8' });
@@ -325,14 +325,38 @@ if (!process.argv.includes('--no-shot')) {
         dailyLine = `入口 ${btnOk ? '在' : '缺'} / 今日档 ${bm ? bm[1] + ' 条' : '读数失败'} / 结算日签 ${endOk ? '在' : '缺'}`;
         console.log((okDaily ? '✓' : '✗') + ' 今日一塔 ' + dailyLine);
       }
+      // 过手之环（第 3 章）：顶栏那一格说的进度必须与引擎门槛同源（不然 HUD 会说谎）
+      console.log('== 附加 · 过手之环顶栏自检 ==');
+      let okZeal = true, zealLine = '';
+      {
+        const os = require('os');
+        const readZ = () => {
+          const args = [
+            '--headless=new', '--disable-gpu', '--no-sandbox', '--no-first-run', '--disable-extensions',
+            '--user-data-dir=' + path.join(os.tmpdir(), 'tm-zeal-' + process.pid),
+            '--virtual-time-budget=30000',
+            '--dump-dom', `http://127.0.0.1:${PORT}/tools/shot.html?scene=zeal`,
+          ];
+          const p = spawnSync(chrome, args, { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+          const m = /<pre id="err">([\s\S]*?)<\/pre>/.exec(p.stdout || '');
+          return m ? m[1] : '';
+        };
+        let outZ = readZ();
+        if (outZ.indexOf('zealPip=') < 0) outZ = readZ();
+        const pipOk = /zealPip=🎯 12\/20/.test(outZ);
+        const nextOk = /"kills":12[^}]*"need":20/.test(outZ) || /"need":20[^}]*"kills":12/.test(outZ);
+        okZeal = pipOk && nextOk;
+        zealLine = `徽记 ${pipOk ? '🎯 12/20' : '不符'} / 下一档 ${nextOk ? '20' : '不符'}`;
+        console.log((okZeal ? '✓' : '✗') + ' 过手之环顶栏 ' + zealLine);
+      }
       server.kill();      console.log(bad === 0 ? `\n✓ 截图全部生成（${SCENES.length} 张，见 tools/out/）` : `\n✗ ${bad} 张截图异常`);
 
       console.log('== 浏览器 UI 自检 ==');
       const ui = run(process.execPath, ['tools/ui-test.js']);
       const okUi = ui.code === 0;
       console.log((okUi ? '✓' : '✗') + ' ui-test.js' + (okUi ? '' : '\n' + ui.out));
-      const all = okCheck && okSim && okSkip && okTest && okCode && okBsim && okOd && okUi && okProbe && okAds && okIntro && okWxb && okNew && okWx && okSwordGate && okPace && okDaily && bad === 0;
-      if (!all) console.log('  闸门明细:', JSON.stringify({ okCheck, okSim, okSkip, okTest, okCode, okBsim, okOd, okUi, okProbe, probeA3, okAds, adsLine, okIntro, introLine, okWxb, wxbLine, okNew, newLine, okWx, okSwordGate, okPace, paceLine, okDaily, dailyLine, bad }));
+      const all = okCheck && okSim && okSkip && okTest && okCode && okBsim && okOd && okUi && okProbe && okAds && okIntro && okWxb && okNew && okWx && okSwordGate && okPace && okDaily && okZeal && bad === 0;
+      if (!all) console.log('  闸门明细:', JSON.stringify({ okCheck, okSim, okSkip, okTest, okCode, okBsim, okOd, okUi, okProbe, probeA3, okAds, adsLine, okIntro, introLine, okWxb, wxbLine, okNew, newLine, okWx, okSwordGate, okPace, paceLine, okDaily, dailyLine, okZeal, zealLine, bad }));
       console.log(all ? '✓ 质量闸门通过' : '✗ 质量闸门有失败项');
       process.exit(all ? 0 : 1);
     })();

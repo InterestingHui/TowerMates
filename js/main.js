@@ -574,7 +574,7 @@
     bsHeroHp: $('bsHeroHp'), bsFoeHp: $('bsFoeHp'),
     bsName: $('bsName'), bsRounds: $('bsRounds'), bsNumbers: $('bsNumbers'),
     bsPhase: $('bsPhase'), bsPhaseTitle: $('bsPhaseTitle'), bsPhaseText: $('bsPhaseText'),
-    bsBlock: $('bsBlock'), blockPip: $('blockPip'), compassPip: $('compassPip'), scopePip: $('scopePip'),
+    bsBlock: $('bsBlock'), blockPip: $('blockPip'), compassPip: $('compassPip'), scopePip: $('scopePip'), zealPip: $('zealPip'),
     bsPanel: document.querySelector('.bs-panel'),
     guide: $('guide'),
     stuckBar: $('stuckBar'), stuckText: $('stuckText'),
@@ -952,7 +952,7 @@
       + '<div class="col-stat-row"><span class="cs-label">最好</span>'
       + `<em class="mg-${mem.marginBest || 'C'}">${mem.marginBest || '—'}</em>${tally}</div>`
       + '<div class="col-stat-row"><span class="cs-label">两条路</span><em class="cs-dim">清塔攒战意（决战减伤）· 绕道省血——塔不规定你怎么走</em></div>'
-      + (mc.S ? '' : '<div class="col-stat-row"><span class="cs-label">拿 S</span><em class="cs-dim">击杀 ≥40 吃满战意，或把能绕的怪全绕开</em></div>')
+      + (mc.S ? '' : '<div class="col-stat-row"><span class="cs-label">拿 S</span><em class="cs-dim">击杀攒满战意（决战减伤 36%），或把能绕的怪全绕开</em></div>')
       + '</div>';
   }
 
@@ -1301,6 +1301,32 @@
       el.scopePip.addEventListener('click', () => {
         const left = Engine.floorMonsterCount();
         warn(`⚔ **明镜**：本层还有 ${left} 只怪没打（明镜之环给的信息）`);
+      });
+    }
+
+    // 过手之环：战意还差几只（门槛前移到 20 / 33，最后一程的取舍靠这一格）
+    if (el.zealPip) {
+      const z = Engine.zealNext();
+      el.zealPip.hidden = !z;
+      if (z) {
+        const full = z.need === 0;
+        el.zealPip.classList.toggle('full', full);
+        el.zealPip.textContent = full ? '🎯 满' : `🎯 ${z.kills}/${z.need}`;
+        el.zealPip.title = full
+          ? `战意已满：决战承伤 −${z.cut}%（${z.kills} 杀）`
+          : (z.cut
+            ? `再击败 ${z.need - z.kills} 只：决战承伤从 −${z.cut}% 变成 −36%`
+            : `再击败 ${z.need - z.kills} 只：决战承伤开始打折（−16%）`);
+      }
+    }
+    if (el.zealPip && !el.zealPip._tipBound) {
+      el.zealPip._tipBound = true;
+      el.zealPip.addEventListener('click', () => {
+        const z = Engine.zealNext();
+        if (!z) return;
+        warn(z.need === 0
+          ? `🎯 **战意**：已击败 ${z.kills} 只，吃满 −36%（过手之环把门槛从 40 降到 33）`
+          : `🎯 **战意**：已击败 ${z.kills} 只，再打 ${z.need - z.kills} 只到下一档（过手之环门槛 20 / 33）`);
       });
     }
 
@@ -2946,7 +2972,8 @@
     const margin = Engine.battleMargin();
     if (margin) {
       // 不到 S 就把话说明白，但别把整句塞进胶囊（摘要区已经很密）——短标签 + ⓘ 悬停
-      const hint = margin.grade === 'S' ? '' : ' · <i class="brief-tip" title="两条路都能上 S：少打怪把血留到碑魔，或打到 40 只以上攒满战意（决战减伤 36%）">上 S 有两条路 ⓘ</i>';
+      const hint = margin.grade === 'S' ? ''
+        : ` · <i class="brief-tip" title="两条路都能上 S：少打怪把血留到碑魔，或打到 ${Engine.zealNeed().full} 只以上攒满战意（决战减伤 36%）">上 S 有两条路 ⓘ</i>`;
       brief.push(`决战余裕 <b>${margin.grade}</b> · ${margin.label}（剩 ${margin.pct}%）${hint}`);
     }
     // 榜单排序用：同层同结局时，余裕高的排前面

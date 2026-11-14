@@ -634,8 +634,8 @@ ok(ev.at.heal === Math.round(s.maxHp * 0.13), '三枚回血环叠加：首访回
 {
   [1, 2, 3, 4].forEach((c) => {
     const pool = D.ringPools[c];
-    // 第 1/2 章各 10 枚（惜挡 / 双挡），第 3/4 章 9 枚；组合数 = C(n,3)
-    const n = (c === 1 || c === 2) ? 10 : 9;
+    // 第 1/2/3 章各 10 枚（惜挡 / 双挡 / 过手），第 4 章 9 枚；组合数 = C(n,3)
+    const n = c === 4 ? 9 : 10;
     ok(pool.length === n, `第 ${c} 章锁环池 ${n} 枚（组合数 ${(n * (n - 1) * (n - 2)) / 6}）`);
     ok(pool.every((id) => D.rings[id] && D.rings[id].chapter === c), `第 ${c} 章池内 id 与章号一致`);
   });
@@ -1351,6 +1351,41 @@ ok(Math.abs(E.zealScale(U) - 0.64) < 1e-9, '击杀 52 → 战意 0.64');
 s.atk = 999; s.def = 999; s.hp = 99999; s.maxHp = 99999;
 const zf = E.fightDamage('U', false);
 ok(zf && Math.abs(zf.zeal - 0.64) < 1e-9, 'fightDamage 带上战意比例供演出显示');
+// 过手之环：把战意两道门槛前移一档（25/40 → 20/33），不改公式、不改满档数值
+E.newGame();
+s = E.state();
+s.flags.rings = ['merit'];
+const kz = (k) => { s.flags.killCount = k; return E.zealScale(U); };
+ok(kz(19) === 1 && Math.abs(kz(20) - 0.84) < 1e-9, '过手之环：19 只不打折，20 只即 −16%');
+ok(Math.abs(kz(32) - 0.84) < 1e-9 && Math.abs(kz(33) - 0.64) < 1e-9, '过手之环：33 只吃满 −36%');
+ok(Math.abs(kz(52) - 0.64) < 1e-9, '过手之环：满档仍是 0.64（不改上限）');
+// 没这枚环时口径不变（老局/老档零影响）
+E.newGame();
+s = E.state();
+s.flags.killCount = 30;
+ok(Math.abs(E.zealScale(U) - 0.84) < 1e-9, '没有过手之环：30 只仍是 0.84');
+s.flags.killCount = 33;
+ok(Math.abs(E.zealScale(U) - 0.84) < 1e-9, '没有过手之环：33 只拿不到满档');
+// zealNext：顶栏那格读的数必须与门槛同源（否则 HUD 会说谎）
+s.flags.rings = ['merit'];
+s.flags.killCount = 12;
+const zn1 = E.zealNext();
+ok(zn1 && zn1.need === 20 && zn1.kills === 12 && zn1.cut === 0, 'zealNext：12 杀 → 还差 8 只到第一档');
+s.flags.killCount = 25;
+const zn2 = E.zealNext();
+ok(zn2 && zn2.need === 33 && zn2.cut === 16, 'zealNext：25 杀 → 下一档 33（当前 −16%）');
+s.flags.killCount = 33;
+const zn3 = E.zealNext();
+ok(zn3 && zn3.need === 0 && zn3.cut === 36, 'zealNext：33 杀 → 已满档');
+s.flags.rings = [];
+ok(E.zealNext() === null, '没装过手之环：顶栏那一格不显示');
+ok(E.zealNeed().mid === 25 && E.zealNeed().full === 40, 'zealNeed：没装环时门槛 25 / 40');
+s.flags.rings = ['merit'];
+ok(E.zealNeed().mid === 20 && E.zealNeed().full === 33, 'zealNeed：过手之环门槛 20 / 33（HUD 与结算提示同源）');
+// 第 3 章池 9→10：40 次抽取里必须出现过它
+let sawMerit = false;
+for (let i = 0; i < 40; i++) { E.newGame('none'); if (E.ringChoices(3).indexOf('merit') >= 0) sawMerit = true; }
+ok(sawMerit, '第 3 章 40 次抽取里出现过过手之环');
 // 两条路线的勋章
 const A = window.Achievements;
 E.newGame();

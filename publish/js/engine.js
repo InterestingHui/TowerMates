@@ -195,10 +195,23 @@
 
   // 战意：打得越多越懂碑魔。只在最终决战生效，是「清塔路线」的独占收益——
   // 绕路省血、清塔减伤，两条路都能走到 S，但走法不同。普通怪/章节 Boss 不吃这个。
+  // 过手之环把两道门槛整体前移一档（25/40 → 20/33）：最后一程「再清几只才值」变成明账
+  // 两道门槛只在这一个函数里定义，战意/HUD/结算提示都读它（避免三处各写一份数字对不上）
+  const zealNeed = () => (hasRing('merit') ? { mid: 20, full: 33 } : { mid: 25, full: 40 });
   function zealScale(m) {
     if (!m || !m.finalBoss || !s) return 1;
     const k = s.flags.killCount || 0;
-    return k >= 40 ? 0.64 : k >= 25 ? 0.84 : 1;
+    const n = zealNeed();
+    return k >= n.full ? 0.64 : k >= n.mid ? 0.84 : 1;
+  }
+  // 下一档还差几只（HUD 用；没装过手之环时给 null，顶栏不显示这一格）
+  function zealNext() {
+    if (!s || !hasRing('merit')) return null;
+    const k = s.flags.killCount || 0;
+    const n = zealNeed();
+    if (k >= n.full) return { kills: k, need: 0, cut: 36 };
+    if (k >= n.mid) return { kills: k, need: n.full, cut: 16 };
+    return { kills: k, need: n.mid, cut: 0 };
   }
 
   // 战斗的「真实承伤」：格挡、誓约、锁环都在这里算一次，演出与结算共用同一份
@@ -1426,6 +1439,6 @@
     },
     tryMove, fight, canBlock, blockLimit, blockLeft, blockUsedAt, grantBlock, vowForbidsBlock, buy, priceOf, shopStock, dealOf, openShopAt, floorMonsterCount, floorPickupCount, battleMargin, potionHeal, finish, altarChoices, pickRelic, pathTo, pathThrough, pathToNear, pathsTo,
     nextLevelExp, margin, keyName, summary, hasRelic, ownedRelics, beginFloor, restoreFloor, revealCore, heartState, heartTake, heartLeave, vow, pickEvent, eventPool, eventCost, resolveEvent, applyEffect, jumpTo, visitedMax, gateForth, sealPlan,
-    rings, hasRing, ringBlockScale, zealScale, fightDamage, bossPhases, settleChapter, ringChoices, pendingRing, pickRing,
+    rings, hasRing, ringBlockScale, zealScale, zealNext, zealNeed, fightDamage, bossPhases, settleChapter, ringChoices, pendingRing, pickRing,
   };
 })();
