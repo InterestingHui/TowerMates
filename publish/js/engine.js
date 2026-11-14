@@ -225,8 +225,9 @@
   }
 
   // 战斗的「真实承伤」：格挡、誓约、锁环都在这里算一次，演出与结算共用同一份
-  function fightDamage(ch, blocked) {
-    const p = predict(ch);
+  // rush：抢攻视角（少挨一轮）。与格挡互斥——挡是省血，抢是拿成长换血，同一场只能选一种打法
+  function fightDamage(ch, blocked, rush) {
+    const p = predictBase(ch, rush);
     if (!p || p.damage === null) return null;
     const m = D.monsters[ch];
     let dmg = p.damage;
@@ -236,7 +237,22 @@
     if (blocked) dmg = Math.round(dmg * ringBlockScale());
     const zeal = zealScale(m);
     if (zeal < 1) dmg = Math.round(dmg * zeal);
-    return { damage: dmg, raw: p.damage, per: p.per, rounds: p.rounds, out: p.out, blockScale: blocked ? ringBlockScale() : 1, zeal };
+    return { damage: dmg, raw: p.damage, per: p.per, rounds: p.rounds, out: p.out, blockScale: blocked ? ringBlockScale() : 1, zeal, rushed: !!rush };
+  }
+
+  // 抢攻的账：省多少血 / 丢多少经验。
+  // 只在「有得省」时给数（打不到你的杂兵、经验为 0 的怪都不给——那就成了白拿）。
+  function rushInfo(ch) {
+    if (!s) return null;
+    const m = D.monsters[ch];
+    if (!m || m.ghost) return null;
+    const plain = fightDamage(ch, false, false);
+    const quick = fightDamage(ch, false, true);
+    if (!plain || !quick || plain.damage === null || quick.damage === null) return null;
+    const save = plain.damage - quick.damage;
+    if (save <= 0) return null;          // 已经打不动你了：没有可省的一轮
+    if (!m.exp) return null;            // 没有经验可失，抢攻就是白送减伤
+    return { damage: quick.damage, plain: plain.damage, save, rounds: plain.rounds, expLost: m.exp };
   }
 
   // 每局从 Boss 的两个台词池各抽一段；结果写进存档，同一局重进战斗不会变
@@ -429,7 +445,9 @@
   // 基础预测（不含格挡视角）
   // 怪物特性：first 先攻 / magic 魔攻 / double 连击 / solid 坚固
   // 这四种属性决定「该加攻还是该加防」——魔塔数值解谜的核心
-  function predictBase(ch) {
+  // rush=true 是「抢攻」视角：不讲究打法，一头撞进去多抢一刀——
+  // 少挨一轮（先攻怪也只是少挨一轮），代价是这一战什么也没学到（经验归零）。
+  function predictBase(ch, rush) {
     const m = D.monsters[ch];
     if (!m || m.ghost) return null;
     const tr = m.trait || '';
@@ -447,7 +465,9 @@
     const doubleMult = tr === 'double' ? 1.7 : 1;
     const per = Math.max(0, m.atk - myDef) * doubleMult;
     // 先攻：连最后一击之前也要先挨一下，残血时不能碰
-    const hits = tr === 'first' ? rounds : Math.max(0, rounds - 1);
+    const hitsBase = tr === 'first' ? rounds : Math.max(0, rounds - 1);
+    // 抢攻：抢在对方收招前把最后一刀塞进去，少挨一轮（至少留 0 轮）
+    const hits = rush ? Math.max(0, hitsBase - 1) : hitsBase;
     let damage = hits * per;
     if (damage > 0 && hasRelic('ward')) damage = Math.max(1, Math.floor(damage * 0.88));
     return {
@@ -551,7 +571,7 @@
       if (s.hp > s.maxHp) s.maxHp = s.hp;
       return { type: 'pickup', msg: `拾取${it.name}，生命 +${heal}`, short: `+${heal}❤`, good: true };
     }
-    if (it.type === 'atk') { s.atk += it.value; return { type: 'pickup', msg: `拾取${it.name}，攻击 +${it.value}`, short: `+${it.value}⚔`, good: true }; }
+    if (it.type === 'atk') { s.atk += it.value; return { type: 'pickup', msg: `拾取${it.name}，攻击 +${it.value}`, short: `+${it.value}🗡️`, good: true }; }
     if (it.type === 'def') { s.def += it.value; return { type: 'pickup', msg: `拾取${it.name}，防御 +${it.value}`, short: `+${it.value}🛡`, good: true }; }
     if (it.type === 'both') { s.atk += it.value; s.def += it.value; return { type: 'pickup', msg: `拾取${it.name}，攻击/防御 +${it.value}`, short: `+${it.value}/+${it.value}`, good: true }; }
     if (it.type === 'key') { s.keys[it.key]++; return { type: 'pickup', msg: `拾取${it.name}`, short: '+钥匙', good: true }; }
@@ -965,11 +985,13 @@
     }
 
     const blocked = !!(opt && opt.block) && canBlock();
+    // 抢攻与格挡互斥：挡下整场就不存在「抢一刀」这回事，格挡优先
+    const rushed = !blocked && !!(opt && opt.rush);
     if (blocked) {
       s.flags['block_n' + s.floor] = blockUsed() + 1;
       s.flags['block_f' + s.floor] = true;   // 老字段留着：旧工具与旧档都还认它
     }
-    const fd = fightDamage(ch, blocked);
+    const fd = fightDamage(ch, blocked, rushed);
     const dmg = fd.damage;
     s.hp -= dmg;
     s.damageTaken = (s.damageTaken || 0) + dmg;   // 跨局漏斗/结算统计用；老档缺省按 0
@@ -992,9 +1014,11 @@
       riposte = Math.max(1, Math.round((p.damage - dmg) * 0.3));
       s.exp += riposte;
     }
-    s.exp += m.exp;
-    s.flags.killCount = (s.flags.killCount || 0) + 1;
-    s.flags['kill_' + ch] = true;
+    // 抢攻的代价：一头撞进去，打完什么也没看清——这场经验归零。
+    // 击杀计数与战意照常（人确实倒了），掉金/遗物/锁环也不受影响
+    const expGain = rushed ? 0 : m.exp;
+    s.exp += expGain;
+    s.flags.killCount = (s.flags.killCount || 0) + 1;    s.flags['kill_' + ch] = true;
     // 净芯之环：锁芯层（第 13 层，s.floor 12）每倒一只都记着，结算按 2 余烬/只 换（上限 4）
     if (hasRing('clean') && s.floor === 12) s.flags.clean_kills = (s.flags.clean_kills || 0) + 1;
     // 刻痕之环：每 8 只怪额外一把黄钥匙（按累计击杀数走 8 的倍数）
@@ -1036,8 +1060,8 @@
     save();
     emit('kill', { name: m.name, boss: !!m.boss });
     return {
-      type: 'fight', damage: dmg, raw: p.damage, blocked, rounds: p.rounds,
-      gold: goldGain, exp: m.exp, heal, levelUps: ups, riposte,
+      type: 'fight', damage: dmg, raw: p.damage, blocked, rushed, rounds: p.rounds,
+      gold: goldGain, exp: expGain, heal, levelUps: ups, riposte,
       monster: m, boss: !!m.boss, chapter: m.chapter || 0,
       after: m.after || null, finalBoss: !!m.finalBoss, echo,
       tallyKey, tomeKey,
@@ -1451,6 +1475,6 @@
     },
     tryMove, fight, canBlock, blockLimit, blockLeft, blockUsedAt, grantBlock, vowForbidsBlock, buy, priceOf, shopStock, dealOf, openShopAt, floorMonsterCount, floorPickupCount, battleMargin, potionHeal, finish, altarChoices, pickRelic, pathTo, pathThrough, pathToNear, pathsTo,
     nextLevelExp, margin, keyName, summary, hasRelic, ownedRelics, beginFloor, restoreFloor, revealCore, heartState, heartTake, heartLeave, vow, pickEvent, eventPool, eventCost, resolveEvent, applyEffect, jumpTo, visitedMax, gateForth, sealPlan,
-    rings, hasRing, ringBlockScale, zealScale, zealNext, zealNeed, cleanEmber, fightDamage, bossPhases, settleChapter, ringChoices, pendingRing, pickRing,
+    rings, hasRing, ringBlockScale, zealScale, zealNext, zealNeed, cleanEmber, fightDamage, rushInfo, bossPhases, settleChapter, ringChoices, pendingRing, pickRing,
   };
 })();

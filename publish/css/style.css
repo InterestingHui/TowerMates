@@ -1795,6 +1795,20 @@ body.at-start #bottom { visibility: hidden; }
   color: #9fd8ff;
 }
 .bs-block.done b::after { content: ' 已挡下'; font-size: var(--fs-tag); letter-spacing: 0; opacity: 0.8; }
+/* 抢攻：第二把打法。与格挡并排时压薄一级，颜色偏铁锈红，跟「盾」区分开 */
+.bs-block.bs-rush {
+  margin-top: 6px;
+  border-color: rgba(214, 138, 92, 0.32);
+  background: linear-gradient(180deg, rgba(44, 28, 20, 0.9), rgba(18, 13, 10, 0.94));
+  color: #e3a877;
+}
+.bs-block.bs-rush:hover { border-color: rgba(226, 152, 100, 0.7); box-shadow: 0 0 18px rgba(226, 152, 100, 0.16); }
+.bs-block.bs-rush.done {
+  border-color: rgba(226, 152, 100, 0.5);
+  background: linear-gradient(180deg, rgba(44, 28, 20, 0.92), rgba(18, 13, 10, 0.94));
+  color: #e3a877;
+}
+.bs-block.bs-rush.done b::after { content: ' 已抢攻'; font-size: var(--fs-tag); letter-spacing: 0; opacity: 0.8; }
 .battle-scene.phasing .bs-block { opacity: 0; pointer-events: none; }
 
 /* ---------- HUD：格挡可用指示 ---------- */

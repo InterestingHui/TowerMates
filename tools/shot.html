@@ -27,6 +27,8 @@
     battle: base + '?dev=1#demo=0,2,3',
     battletwice: base + '?dev=1#demo=0,2,3',
     battleblock: base + '?dev=1#demo=0,2,3',
+    // 抢攻：第 2 章（第 4 层）的战斗面板，站 (5,5) 朝上撞石像鬼
+    rushbattle: base + '?dev=1#demo=3,5,5',
     shop: base + '?dev=1#demo=2,4,3,424242',
     tower: base + '?dev=1#demo=5,5,7',
     core: base + '?dev=1#demo=12,5,8',
@@ -80,7 +82,7 @@
       await wait(120);
       const T = w.__tm;
       const E = w.Engine;
-      if (scene === 'start' || scene === 'floor5' || scene === 'battle' || scene === 'battletwice' || scene === 'battleblock' || scene === 'shop' || scene === 'tower' || scene === 'core' || scene === 'zeal') {
+      if (scene === 'start' || scene === 'floor5' || scene === 'battle' || scene === 'battletwice' || scene === 'battleblock' || scene === 'rushbattle' || scene === 'shop' || scene === 'tower' || scene === 'core' || scene === 'zeal') {
         if (scene === 'zeal') {
           // 过手之环：顶栏这一格要同时说清「已杀几只 / 下一档门槛」，数值与引擎同源
           await wait(200);
@@ -110,8 +112,7 @@
           w.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'ArrowUp' }));
           await wait(300);
         }
-        if (scene === 'battletwice') {
-          // 双挡之环：盾牌上的剩余次数与战斗面板的「本层剩 2 次」都得对得上
+        if (scene === 'battletwice') {          // 双挡之环：盾牌上的剩余次数与战斗面板的「本层剩 2 次」都得对得上
           await wait(200);
           const sB = E.state();
           sB.flags.hasBlock = true;
@@ -120,6 +121,24 @@
           w.__battleSpeed = 30;
           w.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'ArrowUp' }));
           await wait(300);
+        }
+        if (scene === 'rushbattle') {
+          // 抢攻：第 2 章的战斗面板上第二把打法。数值必须与引擎同源（面板说谎会直接红）
+          await wait(200);
+          const sR = E.state();
+          sR.atk = 40; sR.def = 20; sR.hp = 800; sR.maxHp = 1000;
+          T.refreshHud();
+          // 引擎读数先取（战斗结算会改血量/经验，读数要在开打前定下来）
+          const info = E.rushInfo('E');
+          const plain = E.fightDamage('E', false, false).damage;
+          const quick = E.fightDamage('E', false, true).damage;
+          w.__battleSpeed = 30;
+          w.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'ArrowUp' }));
+          await wait(320);
+          const rb = d.getElementById('bsRush');
+          q2push('bsRush=' + (rb && rb.style.display !== 'none' ? rb.textContent.replace(/\s+/g, ' ').trim() : 'HIDDEN')
+            + ' info=' + JSON.stringify(info)
+            + ' plain=' + plain + ' quick=' + quick);
         }
         if (scene === 'shop') {
           await wait(200);

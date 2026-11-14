@@ -143,7 +143,7 @@ window.GAME_DATA = (function () {
   const TRAITS = {
     first: { icon: '⚡', name: '先攻', tip: '开打前它先打你一下，残血时不能碰' },
     magic: { icon: '🔮', name: '魔攻', tip: '无视你的防御——加防没用，只能加攻速杀' },
-    double: { icon: '⚔️', name: '连击', tip: '每回合打两下，第二下只有七成力——每一点防御的收益依然很高' },
+    double: { icon: '🗡️', name: '连击', tip: '每回合打两下，第二下只有七成力——每一点防御的收益依然很高' },
     solid: { icon: '🛡️', name: '坚固', tip: '它的防御视为你的攻击 −1，只能靠加防硬扛' },
   };
 
@@ -153,7 +153,7 @@ window.GAME_DATA = (function () {
     h: { name: '圣水', emoji: '🍶', type: 'hp', value: 900 },
     s: { name: '铁剑', emoji: '🗡️', type: 'atk', value: 2 },
     d: { name: '铁盾', emoji: '🛡️', type: 'def', value: 2 },
-    a: { name: '精钢剑', emoji: '⚔️', type: 'atk', value: 4 },
+    a: { name: '精钢剑', emoji: '🗡️', type: 'atk', value: 4 },
     b: { name: '秘银甲', emoji: '🛡️', type: 'def', value: 4 },
     m: { name: '力量宝石', emoji: '💎', type: 'both', value: 2 },
     c: { name: '魂晶', emoji: '💠', type: 'both', value: 3 },
@@ -162,7 +162,7 @@ window.GAME_DATA = (function () {
     J: { name: '工匠手记', emoji: '📜', type: 'story', flag: 'journal', story: 'journal' },
     // 遗物：一次性、永久生效，构成每局的取舍
     O: { name: '守誓之盾', emoji: '🛡️', type: 'relic', relic: 'ward' },
-    S: { name: '断裂佩剑', emoji: '⚔️', type: 'relic', relic: 'edge', story: 'eighthSword' },
+    S: { name: '断裂佩剑', emoji: '🗡️', type: 'relic', relic: 'edge', story: 'eighthSword' },
     K: { name: '塔心石', emoji: '💗', type: 'heart' },
     Q: { name: '层阶之钥', emoji: '🗝️', type: 'relic', relic: 'gate', story: 'gateLore' },
     j: { name: '半部盾谱', emoji: '📖', type: 'block', story: 'blockLore' },
@@ -174,7 +174,7 @@ window.GAME_DATA = (function () {
   const relics = {
     // from = 图鉴里的获取途径（追收集用；不参与任何数值）
     ward: { name: '守誓之盾', emoji: '🛡️', short: '盾', desc: '每场战斗承伤 −12%', from: '第 4 层密道 · 红门之后' },
-    edge: { name: '断刃之锋', emoji: '⚔️', short: '刃', desc: '攻击 +6（拾取时结算）', from: '第 5 层狼厅 · 角落的断剑' },
+    edge: { name: '断刃之锋', emoji: '🗡️', short: '刃', desc: '攻击 +6（拾取时结算）', from: '第 5 层狼厅 · 角落的断剑' },
     ember: { name: '余烬灯芯', emoji: '🔥', short: '烬', desc: '每次击杀回复 2% 生命（至少 4）', from: '秤的货摊 · 120 金' },
     // 前八位勇者留下的行李：在第 3 / 5 / 8 层的祭坛里随机三选一
     steel: { name: '鸦的铁腕', emoji: '🦾', short: '腕', desc: '攻击 +3、防御 +3', from: '行李堆三选一（第 3 / 5 / 8 层随机）' },
@@ -781,7 +781,7 @@ window.GAME_DATA = (function () {
     { id: 'key', name: '黄钥匙', emoji: '🔑', price: 20, step: 4, key: 'y' },
     { id: 'rkey', name: '红钥匙', emoji: '🗝️', price: 45, step: 8, key: 'r' },
     { id: 'potion', name: '红药水', emoji: '🧪', price: 30, step: 6, hp: 160 },
-    { id: 'atk', name: '力量训练', emoji: '⚔️', price: 60, step: 20, atk: 2 },
+    { id: 'atk', name: '力量训练', emoji: '🗡️', price: 60, step: 20, atk: 2 },
     { id: 'def', name: '护甲强化', emoji: '🛡️', price: 60, step: 20, def: 2 },
     { id: 'blockbook', name: '半部盾谱', emoji: '📖', price: 150, block: true, once: true },
     { id: 'ember', name: '余烬灯芯', emoji: '🔥', price: 120, relic: 'ember', once: true },

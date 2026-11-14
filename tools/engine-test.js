@@ -1687,5 +1687,53 @@ ok(climbUp().at.gold === 0 && s.gold === 100, '铁壁之誓：整层没格挡也
   ok(seenFree > 0, `学了盾谱、没立禁挡誓约时能正常抽到（40 次里出现 ${seenFree} 次）`);
 }
 
+// ---------- 抢攻：第 2 章起的第二个战斗内决策（少挨一轮 ↔ 这一战没经验）----------
+E.newGame();
+s = E.state();
+s.floor = 3;                 // 第 4 层 = 第 2 章
+s.x = 5; s.y = 5;
+s.maps[3][5][6] = 'A';       // 右边一格摆一只蝙蝠
+const rushInfo = E.rushInfo('A');
+const plainD = E.fightDamage('A', false, false).damage;
+ok(!!rushInfo, '蝙蝠能给出一份抢攻账');
+ok(rushInfo.plain === plainD, '抢攻账的「不抢」承伤与 fightDamage 同源');
+ok(rushInfo.save === plainD - rushInfo.damage && rushInfo.save > 0, `抢攻确实少挨（${plainD} → ${rushInfo.damage}，省 ${rushInfo.save}）`);
+ok(rushInfo.damage === E.fightDamage('A', false, true).damage, '抢攻承伤与引擎同源（演出与结算不会各算各的）');
+
+const rushExpBefore = s.exp;
+const rushKillsBefore = s.flags.killCount || 0;
+const rushGoldBefore = s.gold;
+const rRush = E.fight(1, 0, { rush: true });
+ok(rRush.type === 'fight' && rRush.rushed === true && rRush.blocked === false, '抢攻：确实按抢攻结算');
+ok(rRush.damage === rushInfo.damage, '抢攻：实际承伤等于账上那个数');
+ok(rRush.exp === 0 && s.exp === rushExpBefore, '抢攻：这一战经验归零（一分没涨）');
+ok((s.flags.killCount || 0) === rushKillsBefore + 1, '抢攻：击杀计数照常 +1（战意不受影响）');
+ok(rRush.gold > 0 && s.gold === rushGoldBefore + rRush.gold, '抢攻：金币照常进账');
+
+// 格挡优先：两个都请求时按格挡结算，经验照常
+E.newGame();
+s = E.state();
+s.flags.hasBlock = true;
+s.floor = 3; s.x = 5; s.y = 5;
+s.maps[3][5][6] = 'A';
+const rBoth = E.fight(1, 0, { block: true, rush: true });
+ok(rBoth.blocked === true && rBoth.rushed === false, '格挡与抢攻二选一：同时请求时格挡优先');
+ok(rBoth.exp === D.monsters.A.exp, '按格挡结算时经验照常（抢攻的代价没有被误扣）');
+
+// 没得省的时候不给这个选项：防御堆到打不动 → 少挨的那一轮省不下任何血
+E.newGame();
+s = E.state();
+s.def = 999;
+ok(E.rushInfo('A') === null, '打不到你的怪不给抢攻选项（省不下血，只剩白丢经验）');
+
+// 抢攻不是救命按钮：它只省一轮，不做保命兜底（生死判定仍按白打口径）
+E.newGame();
+s = E.state();
+s.floor = 3; s.x = 5; s.y = 5;
+s.maps[3][5][6] = 'A';
+s.hp = E.fightDamage('A', false, false).damage;   // 刚好活不下来
+ok(E.fight(1, 0, { rush: true }).type === 'refuse', '血不够白打时抢攻仍被拒（它不是保命按钮）');
+ok(E.rushInfo('A').save < E.fightDamage('A', false, false).damage, '抢攻只省得下一轮，救不回一场打不过的架');
+
 console.log(fail === 0 ? '\n✓ 全部通过' : `\n✗ ${fail} 项失败`);
 process.exit(fail ? 1 : 0);

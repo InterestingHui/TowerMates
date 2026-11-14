@@ -15,7 +15,7 @@ const CHROME_CANDIDATES = [
   'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
   'C:/Program Files/Microsoft/Edge/Application/msedge.exe',
 ];
-const SCENES = ['start', 'play', 'bossintro', 'codexzoom', 'critters', 'dialog', 'hint', 'stuck', 'battle', 'battleblock', 'bossphase', 'bossyan', 'bossdef', 'probecard', 'altar', 'choice', 'end', 'board', 'codex', 'cfg', 'hud', 'tower', 'core', 'heart', 'stoneidle', 'vow', 'event', 'eventdeep', 'gate', 'echo', 'goal', 'flow', 'showcase', 'death', 'death1', 'collection', 'adsdeath', 'adsend', 'sword', 'daily', 'dailyboard', 'dailyend', 'floor2', 'floor3', 'shop', 'echo2', 'battletwice', 'zeal'];
+const SCENES = ['start', 'play', 'bossintro', 'codexzoom', 'critters', 'dialog', 'hint', 'stuck', 'battle', 'battleblock', 'bossphase', 'bossyan', 'bossdef', 'probecard', 'altar', 'choice', 'end', 'board', 'codex', 'cfg', 'hud', 'tower', 'core', 'heart', 'stoneidle', 'vow', 'event', 'eventdeep', 'gate', 'echo', 'goal', 'flow', 'showcase', 'death', 'death1', 'collection', 'adsdeath', 'adsend', 'sword', 'daily', 'dailyboard', 'dailyend', 'floor2', 'floor3', 'shop', 'echo2', 'battletwice', 'zeal', 'rushbattle'];
 
 function run(cmd, args) {
   const r = spawnSync(cmd, args, { cwd: ROOT, encoding: 'utf8' });
@@ -349,14 +349,40 @@ if (!process.argv.includes('--no-shot')) {
         zealLine = `徽记 ${pipOk ? '🎯 12/20' : '不符'} / 下一档 ${nextOk ? '20' : '不符'}`;
         console.log((okZeal ? '✓' : '✗') + ' 过手之环顶栏 ' + zealLine);
       }
+      // 抢攻（第 2 章起的第二个战斗内决策）：面板上的数字必须与引擎同源
+      console.log('== 附加 · 抢攻面板自检 ==');
+      let okRush = true, rushLine = '';
+      {
+        const os = require('os');
+        const readR = () => {
+          const args = [
+            '--headless=new', '--disable-gpu', '--no-sandbox', '--no-first-run', '--disable-extensions',
+            '--user-data-dir=' + path.join(os.tmpdir(), 'tm-rush-' + process.pid),
+            '--virtual-time-budget=30000',
+            '--dump-dom', `http://127.0.0.1:${PORT}/tools/shot.html?scene=rushbattle`,
+          ];
+          const q = spawnSync(chrome, args, { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+          const m = /<pre id="err">([\s\S]*?)<\/pre>/.exec(q.stdout || '');
+          return m ? m[1] : '';
+        };
+        let outR = readR();
+        if (outR.indexOf('bsRush=') < 0) outR = readR();
+        const shown = outR.indexOf('bsRush=') >= 0 && outR.indexOf('HIDDEN') < 0 && outR.indexOf('抢攻') >= 0;
+        const saved = /"save":(\d+)/.exec(outR);
+        const saveOk = !!saved && outR.indexOf('承伤 −' + saved[1]) >= 0;
+        const costOk = outR.indexOf('这战没经验') >= 0;
+        okRush = shown && saveOk && costOk;
+        rushLine = `面板 ${shown ? '在' : '缺'} / 承伤与引擎同源 ${saveOk ? saved[1] : '不符'} / 代价写明 ${costOk ? '是' : '否'}`;
+        console.log((okRush ? '✓' : '✗') + ' 抢攻面板 ' + rushLine);
+      }
       server.kill();      console.log(bad === 0 ? `\n✓ 截图全部生成（${SCENES.length} 张，见 tools/out/）` : `\n✗ ${bad} 张截图异常`);
 
       console.log('== 浏览器 UI 自检 ==');
       const ui = run(process.execPath, ['tools/ui-test.js']);
       const okUi = ui.code === 0;
       console.log((okUi ? '✓' : '✗') + ' ui-test.js' + (okUi ? '' : '\n' + ui.out));
-      const all = okCheck && okSim && okSkip && okTest && okCode && okBsim && okOd && okUi && okProbe && okAds && okIntro && okWxb && okNew && okWx && okSwordGate && okPace && okDaily && okZeal && bad === 0;
-      if (!all) console.log('  闸门明细:', JSON.stringify({ okCheck, okSim, okSkip, okTest, okCode, okBsim, okOd, okUi, okProbe, probeA3, okAds, adsLine, okIntro, introLine, okWxb, wxbLine, okNew, newLine, okWx, okSwordGate, okPace, paceLine, okDaily, dailyLine, okZeal, zealLine, bad }));
+      const all = okCheck && okSim && okSkip && okTest && okCode && okBsim && okOd && okUi && okProbe && okAds && okIntro && okWxb && okNew && okWx && okSwordGate && okPace && okDaily && okZeal && okRush && bad === 0;
+      if (!all) console.log('  闸门明细:', JSON.stringify({ okCheck, okSim, okSkip, okTest, okCode, okBsim, okOd, okUi, okProbe, probeA3, okAds, adsLine, okIntro, introLine, okWxb, wxbLine, okNew, newLine, okWx, okSwordGate, okPace, paceLine, okDaily, dailyLine, okZeal, zealLine, okRush, rushLine, bad }));
       console.log(all ? '✓ 质量闸门通过' : '✗ 质量闸门有失败项');
       process.exit(all ? 0 : 1);
     })();

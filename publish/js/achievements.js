@@ -4,7 +4,7 @@
   const KEY = 'towermates_ach_v1';
 
   const DEFS = [
-    { id: 'first_blood', name: '初鸣', emoji: '⚔️', desc: '击败第一只怪物' },
+    { id: 'first_blood', name: '初鸣', emoji: '🗡️', desc: '击败第一只怪物' },
     { id: 'slayer10', name: '屠塔人', emoji: '🗡️', desc: '单局击败 10 只怪物' },
     { id: 'slayer25', name: '塔中传说', emoji: '☠️', desc: '单局击败 25 只怪物' },
     { id: 'lv5', name: '小有名气', emoji: '⭐', desc: '等级达到 Lv.5' },
@@ -24,7 +24,7 @@
     { id: 'all_boss', name: '四把锁', emoji: '🔐', desc: '一局内击败四位章节 Boss' },
     { id: 'floor12', name: '塔顶之上', emoji: '🗼', desc: '抵达第 12 层「塔顶·无名」' },
     { id: 'end_true', name: '同伴之塔', emoji: '🕯️', desc: '达成真结局「第六个名字」' },
-    { id: 'end_plain', name: '铁与霜', emoji: '⚔️', desc: '达成普通结局「铁与霜」' },
+    { id: 'end_plain', name: '铁与霜', emoji: '🗡️', desc: '达成普通结局「铁与霜」' },
     { id: 'heart_take', name: '心跳在身', emoji: '💗', desc: '带走锁芯的塔心石' },
     { id: 'heart_leave', name: '把手放下', emoji: '🪨', desc: '把塔心石留在锁芯' },
     { id: 'core', name: '塔心', emoji: '🫀', desc: '清空隐藏层「锁芯」' },
@@ -36,7 +36,7 @@
     { id: 'ring_four', name: '四环齐备', emoji: '🔗', desc: '一局内四章各装上一枚锁环' },
     { id: 'bare', name: '一口空气', emoji: '🌬️', desc: '一件遗物都不拿，走到结局' },
     { id: 'dodger', name: '绕道者', emoji: '💨', desc: '击败不超过 10 只怪，走到结局' },
-    { id: 'sweeper', name: '清塔者', emoji: '⚔️', desc: '击败至少 50 只怪，走到结局' },
+    { id: 'sweeper', name: '清塔者', emoji: '🗡️', desc: '击败至少 50 只怪，走到结局' },
     { id: 'fall3', name: '塔的常客', emoji: '💀', desc: '累计折戟 3 次——塔记住了你倒下的地方' },
     { id: 'fall10', name: '不死不休', emoji: '⚰️', desc: '累计折戟 10 次——每一层都留过你的名字' },
   ];

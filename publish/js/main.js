@@ -574,7 +574,7 @@
     bsHeroHp: $('bsHeroHp'), bsFoeHp: $('bsFoeHp'),
     bsName: $('bsName'), bsRounds: $('bsRounds'), bsNumbers: $('bsNumbers'),
     bsPhase: $('bsPhase'), bsPhaseTitle: $('bsPhaseTitle'), bsPhaseText: $('bsPhaseText'),
-    bsBlock: $('bsBlock'), blockPip: $('blockPip'), compassPip: $('compassPip'), scopePip: $('scopePip'), zealPip: $('zealPip'),
+    bsBlock: $('bsBlock'), bsRush: $('bsRush'), blockPip: $('blockPip'), compassPip: $('compassPip'), scopePip: $('scopePip'), zealPip: $('zealPip'),
     bsPanel: document.querySelector('.bs-panel'),
     guide: $('guide'),
     stuckBar: $('stuckBar'), stuckText: $('stuckText'),
@@ -1284,11 +1284,11 @@
       el.scopePip.hidden = !hasScope;
       if (hasScope) {
         const left = Engine.floorMonsterCount();
-        el.scopePip.textContent = `⚔ ${left}`;
+        el.scopePip.textContent = `🗡️ ${left}`;
         el.scopePip.title = left > 0 ? `本层还有 ${left} 只怪` : '这一层清干净了';
       }
     }
-    // 触屏没有 hover：🧭/⚔ 两个小徽记点一下念出含义（新玩家看到「🧭 3」不会知道是什么）
+    // 触屏没有 hover：🧭/🗡️ 两个小徽记点一下念出含义（新玩家看到「🧭 3」不会知道是什么）
     if (el.compassPip && !el.compassPip._tipBound) {
       el.compassPip._tipBound = true;
       el.compassPip.addEventListener('click', () => {
@@ -1300,7 +1300,7 @@
       el.scopePip._tipBound = true;
       el.scopePip.addEventListener('click', () => {
         const left = Engine.floorMonsterCount();
-        warn(`⚔ **明镜**：本层还有 ${left} 只怪没打（明镜之环给的信息）`);
+        warn(`🗡️ **明镜**：本层还有 ${left} 只怪没打（明镜之环给的信息）`);
       });
     }
 
@@ -1798,7 +1798,7 @@
     if (zealEl) {
       const z = info.dmgBase && info.dmgBase.zeal ? info.dmgBase.zeal : 1;
       zealEl.hidden = z >= 1;
-      if (z < 1) zealEl.textContent = `⚔ 战意 −${Math.round((1 - z) * 100)}% · 已击败 ${Engine.state().flags.killCount || 0} 只`;
+      if (z < 1) zealEl.textContent = `🗡️ 战意 −${Math.round((1 - z) * 100)}% · 已击败 ${Engine.state().flags.killCount || 0} 只`;
     }
 
     // 格挡：每层一次，按下后整场承伤 ×0.6（引擎按同样比例结算，数字对得上）
@@ -1831,9 +1831,43 @@
       blockScale = scaleWhenBlocked;
       el.bsBlock.classList.add('done');
       el.bsBlock.disabled = true;
+      if (el.bsRush) el.bsRush.disabled = true;   // 与抢攻二选一
       Sound.play('level');
       vibrate([12, 20, 8]);
       warn(`**格挡**：这一战的承伤降到 **${Math.round(blockScale * 100)}%**`);
+    };
+
+    // 抢攻（第 2 章起）：不讲究打法，一头撞进去多抢一刀——少挨一轮，这一战没有经验。
+    // 它是本作战斗里的第二个主动决策：格挡是「用额度省血」，抢攻是「用成长换血」。
+    // 数字全部取引擎同源（Engine.rushInfo），文案与实际结算不会各算各的。
+    let rushOn = false;
+    const rush = info.dmgRush || null;
+    const rushWorth = !!rush && !pred.blockSave && (m.boss || pred.damage >= heroMax * 0.04);
+    if (el.bsRush) {
+      el.bsRush.style.display = rushWorth ? '' : 'none';
+      el.bsRush.classList.remove('done');
+      el.bsRush.disabled = false;
+      if (rushWorth) {
+        const rushAfter = Math.max(0, Math.round(heroHp - rush.damage));
+        el.bsRush.innerHTML = `<b>🗡️ 抢攻</b><span>承伤 −${rush.save} · 抢后剩 ${rushAfter} · 这战没经验</span>`;
+      }
+      el.bsRush.onclick = (e) => {
+        e.stopPropagation();
+        if (!rushWorth || rushOn) return;
+        rushOn = true;
+        el.bsRush.classList.add('done');
+        el.bsRush.disabled = true;
+        el.bsBlock.disabled = true;   // 与格挡二选一
+        Sound.play('level');
+        vibrate([12, 20, 8]);
+        warn(`**抢攻**：这一战少挨一轮（承伤 −${rush.save}），但什么也没学到；这一场不再格挡`);
+      };
+    }
+    // 这一战最终掉多少血：抢攻优先，其次格挡，最后是白打——三处取值一律走这里
+    const finalDamage = () => {
+      if (rushOn && rush) return rush.damage;
+      if (blockOn && info.dmgBlock) return info.dmgBlock.damage;
+      return info.dmgBase ? info.dmgBase.damage : (pred.damage || 0);
     };
 
     function bars() {
@@ -1867,8 +1901,8 @@
         { at: 0.33, n: 3, title: '第三道锁 · 塔心', text: '再近一点，你就看得见她的名字了。' },
       ];
       let phaseIdx = 0;
-      // 演出里玩家会挨的总承伤：取引擎「真实承伤」（誓约/锁环/格挡都算在内）
-      let heroDamageLeft = Math.max(0, Math.round((blockOn && info.dmgBlock ? info.dmgBlock.damage : (info.dmgBase ? info.dmgBase.damage : pred.damage || 0))));
+      // 演出里玩家会挨的总承伤：取引擎「真实承伤」（誓约/锁环/格挡/抢攻都算在内）
+      let heroDamageLeft = Math.max(0, Math.round(finalDamage()));
       const showPhase = async (ph) => {
         el.bsPhaseTitle.textContent = ph.title;
         el.bsPhaseText.textContent = ph.text;
@@ -1930,8 +1964,8 @@
       }
       foeHp = 0;
       heroDamageLeft = 0;
-      // 血条落点直接取引擎的「真实承伤」，誓约减伤/锁环减伤/格挡都算在内
-      heroHp = Math.max(1, s.hp - (blockOn && info.dmgBlock ? info.dmgBlock.damage : info.dmgBase.damage));
+      // 血条落点直接取引擎的「真实承伤」，誓约减伤/锁环减伤/格挡/抢攻都算在内
+      heroHp = Math.max(1, s.hp - finalDamage());
       bars();
       el.bsFoe.classList.add('ko');
       el.battleScene.classList.add('hero-win');
@@ -1943,8 +1977,9 @@
       el.bsHero.classList.remove('hit', 'lunge-r', 'lunge-l');
       el.battleScene.onclick = null;
       el.bsBlock.onclick = null;
+      if (el.bsRush) el.bsRush.onclick = null;
       skipWaiter = null; // 战斗结束必须清掉唤醒器，别让下一次点击去唤醒上一场的等待
-      done(blockOn);
+      done({ block: blockOn, rush: rushOn });
     })();
   }
 
@@ -2378,19 +2413,21 @@
 
     // Boss 开战名号横幅：每次都报一遍「谁在拦你」——地图形象是剪影，名字必须由战斗开口说
     if (m.boss && m.title) {
-      Tips.banner('bossIntro', { name: m.name, title: m.title }, { text: `⚔ **{name}** · {title} 拦在路上` });
+      Tips.banner('bossIntro', { name: m.name, title: m.title }, { text: `🗡️ **{name}** · {title} 拦在路上` });
     }
 
     clearStuck();
     battleBusy = true;
     const dmgBase = Engine.fightDamage(ch, false);
     const dmgBlock = Engine.canBlock() ? Engine.fightDamage(ch, true) : null;
+    // 抢攻：第 2 章起才出现（首章的战斗面板只有一个按钮，别在 63 秒那一战就摆两个）
+    const dmgRush = s.floor >= 3 ? Engine.rushInfo(ch) : null;
     playBattleScene({
-      monster: m, pred, dmgBase, dmgBlock,
+      monster: m, pred, dmgBase, dmgBlock, dmgRush,
       phases: m.boss ? Engine.bossPhases(ch) : null,
-    }, (blocked) => {
+    }, (opt) => {
       // 这一战只有格挡才能活：玩家撞上去就是求战，结算时自动带上格挡
-      const res = Engine.fight(dx, dy, { block: blocked || !!pred.blockSave });
+      const res = Engine.fight(dx, dy, { block: opt.block || !!pred.blockSave, rush: opt.rush });
       battleBusy = false;
       if (res.type === 'fight') applyFightResult(res, tx, ty);
       else { warn(res.msg || '战斗中断'); refreshHud(); }
