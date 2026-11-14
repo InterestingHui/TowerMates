@@ -167,7 +167,7 @@
 ## 2026-11-15 03:2x — 全力模式（生产域名调试后门收口 + 加练美术焦点 C，2 项）
 - 判定：PROGRESS mtime 83 分钟、工作树仅本会话记忆目录 + `_backup/` → 全力；占用表空、无排队行；最近 5 条日志含「变体：收敛」→ 不触发自动变体。
 - 选活：待办 4 条全挂外部凭据/真机（微信版路线/SDK/M-13 真机反馈/战斗外取舍身份约束），改按「把线上地址当外部系统重新查一遍」，查出一个送分级口子。
-- 产出：①`js/devgate.js`（`local()` 只认 localhost/127.0.0.1/::1/file://，`allow(name)`、`allowMatch(re)`）；`ads.js`（含 `debug()`）、`main.js`（`FORCE_FULL_VOW`、`#demo`）全改走它——此前 `?ads=1` 在上线域名上真能让死亡页出「看视频复活」并 200ms 直接发奖（无限复活 + 余烬翻倍，打穿跨局经济）。②加练美术焦点 C：`.bs-panel` 补 border/box-shadow .24s 过渡（Boss 阶段换色不再跳）、`.bs-numbers` transition 搬回基类（退场/回场都 .14s）；面板关闭仍是瞬关（fx-probe 10ms 契约不动）。commit 1654ba9 已推，线上 build 6b35639e78 已验证。
+- 产出：①`js/devgate.js`（`local()` 只认 localhost/127.0.0.1/::1/file://，`allow(name)`、`allowMatch(re)`）；`ads.js`（含 `debug()`）、`main.js`（`FORCE_FULL_VOW`、`#demo`）全改走它——此前 `?ads=1` 在上线域名上真能让死亡页出「看视频复活」并 200ms 直接发奖（无限复活 + 余烬翻倍，打穿跨局经济）。②加练美术焦点 C：`.bs-panel` 补 border/box-shadow .24s 过渡（Boss 阶段换色不再跳）、`.bs-numbers` transition 搬回基类（退场/回场都 .14s）；面板关闭仍是瞬关（fx-probe 10ms 契约不动）。commit 1654ba9 已推，线上 build **1e556a98b0** 已验证（`?ads=1` 门收口 + `#demo` fail-closed 两笔合并后重新部署）。
 - 闸门：check ✓ / engine 497 / code 45 / sim 18,745·68.4% 未漂移 / regress 52 图 + 全套自检 / ads-check **21/21**（17→21，含「线上关门」与「入口必须走总门」契约）/ ui-test ✓（+4 断言）。
 - **关键手法（下轮直接用）**：线上域名级验证用 chrome `--host-resolver-rules="MAP 假域名 127.0.0.1"`——浏览器里 `location.hostname` 就是假域名，能真测「生产域名行为」而不用改 hosts。探针页必须与目标**同源**（父页也走假域名），否则跨域读不到 `Engine`。
 - **坑**：线上资源 curl 要先 `-c jar` 拿 sharecode cookie，再 `-b jar` 拉 js/css；裸带 `?sharecode=` 对静态资源会 SSL/000。
