@@ -637,7 +637,8 @@ if (!process.argv.includes('--no-shot')) {
         const esrc = fs.readFileSync(path.join(ROOT, 'js', 'engine.js'), 'utf8');
         const okHook = /Engine\.setStorageFailHook\(\(name, first\)/.test(msrc);
         const okNoStore = /noStoreHint/.test(msrc) && /towermates_probe/.test(msrc);
-        const okPersist = /function persist\(\)[\s\S]{0,600}?return false;/.test(esrc);
+        // persist 现在带一个 force 参数（并发面加的），这里只认「函数体里有 return false 的失败分支」
+        const okPersist = /function persist\([^)]*\)[\s\S]{0,900}?return false;/.test(esrc);
         if (!okHook) r.fails.push('ST 引擎回调没接（写失败没人知道）');
         if (!okNoStore) r.fails.push('ST 首页没有「存不了」那行（整块不可用时零提示）');
         if (!okPersist) r.fails.push('ST persist() 没有失败分支（又退回静默吞错）');
@@ -690,14 +691,51 @@ if (!process.argv.includes('--no-shot')) {
         console.log((okTime ? '✓' : '✗') + ` 时间面 ${timeLine}` + (okTime ? '' : '\n   ' + r.fails.slice(0, 6).join('\n   ')));
       }
 
+      // 并发面：同一浏览器开两页时，一份档只认一个写者。
+      // 实测（2026-11-15）：A 页停在半小时前、B 页在另一页玩到第 5 层，A 走一步就把 B 的半小时静默抹掉。
+      let okTab = true, tabLine = '';
+      {
+        const os = require('os');
+        const args = [
+          '--headless=new', '--disable-gpu', '--no-sandbox', '--no-first-run', '--disable-extensions',
+          '--user-data-dir=' + path.join(os.tmpdir(), 'tm-tab-' + process.pid),
+          '--virtual-time-budget=20000',
+          '--dump-dom', `http://127.0.0.1:${PORT}/tools/tab-check.html`,
+        ];
+        const read = () => {
+          const p = spawnSync(chrome, args, { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+          const t = p.stdout || '';
+          const tt = (/<title>([^<]*)<\/title>/.exec(t) || [])[1] || '';
+          const bits = /(?:ALLPASS|HASFAIL)\|([01]+)/.exec(tt);
+          const fails = (t.match(/^FAIL\|[^\n<]*/gm) || []).map((x) => x.replace(/^FAIL\|\s*/, ''));
+          return { pass: /ALLPASS\|1+$/.test(tt.trim()), bits: bits ? bits[1] : '', fails: fails };
+        };
+        let r = read();
+        if (!r.bits) r = read();
+        // 源码契约：谁把写前校验删了、谁把 storage 事件断开，都在这里红（探针只测行为，测不到接线）
+        const msrc = fs.readFileSync(path.join(ROOT, 'js', 'main.js'), 'utf8');
+        const esrc = fs.readFileSync(path.join(ROOT, 'js', 'engine.js'), 'utf8');
+        const okGuard = /if \(w && w !== s\.w\) \{ markConflict\(w\); return false; \}/.test(esrc);
+        const okEvt = /addEventListener\('storage'/.test(msrc) && /Engine\.noteStorageWrite\(/.test(msrc);
+        const okClaim = /Engine\.claim\(\)/.test(msrc) && /foreignOwnerFresh\(60000\)/.test(msrc);
+        if (!okGuard) r.fails.push('TB 存档写前没有写者校验（又退回「谁后写谁说话」）');
+        if (!okEvt) r.fails.push('TB 没接 storage 事件（另一页写了也不立刻停手）');
+        if (!okClaim) r.fails.push('TB 继续游戏不认写者（会一进来就把那边顶掉）');
+        if (!okGuard || !okEvt || !okClaim) r.pass = false;
+        r.bits = (r.bits || '') + (okGuard ? 1 : 0) + (okEvt ? 1 : 0) + (okClaim ? 1 : 0);
+        okTab = r.pass;
+        tabLine = r.bits ? `${(r.bits.match(/1/g) || []).length}/${r.bits.length} 项` : '读数失败';
+        console.log((okTab ? '✓' : '✗') + ` 并发面 ${tabLine}` + (okTab ? '' : '\n   ' + r.fails.slice(0, 6).join('\n   ')));
+      }
+
       server.kill();      console.log(bad === 0 ? `\n✓ 截图全部生成（${SCENES.length} 张，见 tools/out/）` : `\n✗ ${bad} 张截图异常`);
 
       console.log('== 浏览器 UI 自检 ==');
       const ui = run(process.execPath, ['tools/ui-test.js']);
       const okUi = ui.code === 0;
       console.log((okUi ? '✓' : '✗') + ' ui-test.js' + (okUi ? '' : '\n' + ui.out));
-      const all = okCheck && okSim && okSkip && okTest && okCode && okBsim && okOd && okUi && okProbe && okAds && okIntro && okWxb && okNew && okWx && okSwordGate && okPace && okDaily && okZeal && okFinal && okTangle && okGuard && okVp && okVm && okSfx && okRm && okErr && okSto && okTime && bad === 0;
-      if (!all) console.log('  闸门明细:', JSON.stringify({ okCheck, okSim, okSkip, okTest, okCode, okBsim, okOd, okUi, okProbe, probeA3, okAds, adsLine, okIntro, introLine, okWxb, wxbLine, okNew, newLine, okWx, okSwordGate, okPace, paceLine, okDaily, dailyLine, okZeal, zealLine, okFinal, finalLine, okTangle, tangleLine, okGuard, guardLine, okVp, vpLine, okVm, vmLine, okSfx, sfxLine, okRm, rmLine, okErr, errLine, okSto, stoLine, okTime, timeLine, bad }));
+      const all = okCheck && okSim && okSkip && okTest && okCode && okBsim && okOd && okUi && okProbe && okAds && okIntro && okWxb && okNew && okWx && okSwordGate && okPace && okDaily && okZeal && okFinal && okTangle && okGuard && okVp && okVm && okSfx && okRm && okErr && okSto && okTime && okTab && bad === 0;
+      if (!all) console.log('  闸门明细:', JSON.stringify({ okCheck, okSim, okSkip, okTest, okCode, okBsim, okOd, okUi, okProbe, probeA3, okAds, adsLine, okIntro, introLine, okWxb, wxbLine, okNew, newLine, okWx, okSwordGate, okPace, paceLine, okDaily, dailyLine, okZeal, zealLine, okFinal, finalLine, okTangle, tangleLine, okGuard, guardLine, okVp, vpLine, okVm, vmLine, okSfx, sfxLine, okRm, rmLine, okErr, errLine, okSto, stoLine, okTime, timeLine, okTab, tabLine, bad }));
       console.log(all ? '✓ 质量闸门通过' : '✗ 质量闸门有失败项');
       process.exit(all ? 0 : 1);
     })();

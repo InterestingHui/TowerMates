@@ -10,6 +10,19 @@
   let hooks = {};
   let saveTimer = null;
 
+  // ---------- 同一浏览器开两页：谁在写这一档 ----------
+  // 2026-11-15 实测（tools/tab-check.html）：两页各自把整份状态揣在内存里、各自每 350ms 自动存档，
+  // 于是「谁后写谁说话」——A 页停在半小时前，B 页在另一页玩到第 5 层，A 走一步就把 B 的半小时
+  // 静默抹掉，两边都没有一句提示（连漏斗里都查不出）。存档里记一个写者页 id（s.w），
+  // 只有自己还是写者时才允许落盘；被别人顶掉就停写 + 交给 UI 说清（引擎不依赖 DOM）。
+  const TAB_ID = 't' + Math.random().toString(36).slice(2, 8);
+  const tabId = () => TAB_ID;
+  let saveConflict = false;   // 本页是否已被别的页面顶掉（停写中）
+  let conflictCb = null;      // main 注册：负责弹面板 / 记漏斗
+  let forceNextWrite = false; // 「开局 / 继续 / 夺回」是玩家的明确选择，那一次写必须放行
+  let foreignSaveAt = 0;      // 最近一次「收到另一页写档」的时刻（storage 事件）
+  let foreignSaveWriter = '';
+
   function setHooks(h) { hooks = h || {}; }
   function emit(type, payload) { if (hooks.onEvent) hooks.onEvent(type, payload); }
 
@@ -101,7 +114,12 @@
       activeMs: 0,
       snap: null,
       floorEnter: null,
+      w: TAB_ID,        // 这一档由本页写（另一页拿到它会停写并提示）
+      savedAt: 0,
     };
+    // 开新局是玩家的明确选择：这一页从此拥有这一档，哪怕另一页刚写过（那次写会把它顶掉）
+    saveConflict = false;
+    forceNextWrite = true;
     if (v === 'mercy') s.atk = Math.max(1, s.atk - 3);
     // 前 3 层「先走哪边、先捡什么」每局都不同（今日一塔=同一天同一座塔）：
     // 第 1 层用主种子（工具场景传 seed 0 即原版布局），第 2/3 层各派生一颗子种子。
@@ -202,6 +220,10 @@
     if (p.ending !== 'true' && p.ending !== 'plain') p.ending = null;
     p.over = !!p.over;
     p.won = !!p.won;
+    // 写者标记：哪一页写的这一档（同一浏览器开两页时用它判「这份档还是我手上这份吗」）。
+    // 老档没有这个字段 → 空串＝无主，谁先写谁领（行为与从前一致，不做数据迁移）。
+    p.w = typeof p.w === 'string' && p.w.length <= 16 ? p.w : '';
+    if (!isFiniteNum(p.savedAt) || p.savedAt < 0) p.savedAt = 0;
     if (!p.floorEnter || typeof p.floorEnter !== 'object') p.floorEnter = null;
     if (!isFiniteNum(p.startedAt)) p.startedAt = Date.now();
     // 活跃用时（真在玩的毫秒数）：老档没有这个字段，或被人手改成负数/非数 → 0（读档后 summary 退回墙钟差）
@@ -258,9 +280,23 @@
       try { storageFailCb(storageErr, first); } catch (err) {}
     }
   }
-  function persist() {
+  function persist(force) {
     if (!s) return true;
+    // 老档（无写者标记）：谁先写谁领，不打断
+    if (!s.w) s.w = TAB_ID;
+    s.savedAt = Date.now();
     const raw = JSON.stringify(s);
+    // 写前先看磁盘上这份档还是不是我手上这份。不是 → 停写：
+    // 我内存里的进度比磁盘旧，写下去就是拿旧进度盖掉另一页刚走的路。
+    // 例外只有两种：玩家明确接手（claim 传 force），或「开局那一次」还没落地（forceNextWrite）——
+    // 后者一旦中途被别人顶掉（saveConflict），也要作废，否则会把开局那一下的授权一直留着。
+    if (!force && !(forceNextWrite && !saveConflict)) {
+      let cur = null;
+      try { cur = localStorage.getItem(SAVE_KEY); } catch (e) { cur = null; }
+      const w = writerOf(cur);
+      if (w && w !== s.w) { markConflict(w); return false; }
+    }
+    forceNextWrite = false;
     try {
       localStorage.setItem(SAVE_KEY, raw);
       storageErr = null;
@@ -277,6 +313,50 @@
         return false;
       }
     }
+  }
+  // 磁盘上那份档的写者（读不出来／没有标记 → 空串＝无主）
+  function writerOf(raw) {
+    if (!raw) return '';
+    try {
+      const p = JSON.parse(raw);
+      return p && typeof p.w === 'string' ? p.w : '';
+    } catch (e) { return ''; }
+  }
+  // 被别人顶掉：只通知一次（持续通知会把提示刷成噪音），等 UI 让玩家选
+  function markConflict(writer) {
+    if (saveConflict) return;
+    saveConflict = true;
+    forceNextWrite = false;
+    if (typeof conflictCb === 'function') {
+      try { conflictCb(writer || ''); } catch (e) {}
+    }
+  }
+  // 另一页写了档（main 从 storage 事件转进来）：本页若已不是写者，立刻停写，
+  // 不必等下一次自动存档——否则中间这段时间里本页还在往旧档上加东西。
+  function noteStorageWrite(raw) {
+    const w = writerOf(raw);
+    if (w && w !== TAB_ID) { foreignSaveAt = Date.now(); foreignSaveWriter = w; }
+    if (!s || !s.w) return;
+    if (w && w !== s.w) markConflict(w);
+  }
+  // 夺回：玩家的明确选择（在这页接着玩）——改回自己写，并强制写一次把手上的进度顶上去
+  function claim() {
+    if (!s) return false;
+    s.w = TAB_ID;
+    saveConflict = false;
+    forceNextWrite = true;
+    const ok = persist(true);
+    forceNextWrite = false;
+    return ok;
+  }
+  // 「另一页现在还在玩吗」——判据是**收到过它的存档事件**，而不是磁盘上那份档有多新。
+  // 用磁盘时间会误报：玩家按 F5 刷新（同一页、留下刚写的档）就会被问「另一页在玩」。
+  // storage 事件是活的：只有在对面真的写了东西、且这一页当场收到了，才说明对面在跑。
+  function foreignOwnerFresh(ms) {
+    if (!foreignSaveAt) return null;
+    const age = Date.now() - foreignSaveAt;
+    if (age > (ms || 60000)) return null;
+    return { writer: foreignSaveWriter, age: Math.max(0, Math.round(age / 1000)) };
   }
   function save() {
     if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
@@ -306,6 +386,9 @@
       return null;
     }
     s = clean;
+    // 读进来的是「磁盘上那一档」，写者是别的页或已无标记：本页在明确接手前不认这个身份，
+    // 否则两页都自称同一个写者，保护等于没有
+    s.w = '';
     return s;
   }
 
@@ -316,6 +399,8 @@
     } catch (e) {}
     s = null;
     storageErr = null;
+    saveConflict = false;
+    forceNextWrite = false;
   }
 
   const state = () => s;
@@ -1773,6 +1858,7 @@
 
   window.Engine = {
     setHooks, newGame, load, reset, hasSave, brokenSave, brokenSaveOnDisk, save, storageError: () => storageErr, setStorageFailHook: (fn) => { storageFailCb = fn || null; }, state, tile, predict, predictOpt, shuffleFloor1, shufflePickups, nextRand,
+    tabId, claim, noteStorageWrite, foreignOwnerFresh, saveConflict: () => saveConflict, setConflictHook: (fn) => { conflictCb = fn || null; }, saveKey: SAVE_KEY,
     predictAt(dx, dy) {
       if (!s) return null;
       const ch = tile(s.x + dx, s.y + dy);

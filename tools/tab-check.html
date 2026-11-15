@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>tab-check</title>
+<style>body{margin:0;background:#05070c;color:#8ef;font:12px monospace}iframe{width:430px;height:900px;border:0;position:absolute;left:-9999px}</style>
+</head><body>
+<iframe id="fa" src="/index.html"></iframe>
+<iframe id="fb" src="/index.html"></iframe>
+<iframe id="fc" src="/index.html"></iframe>
+<pre id="out">…</pre>
+<script>
+// 并发面闸门（2026-11-15）：同一浏览器开两页时，两页各揣一份整状态、各自每 350ms 自动存档，
+// 谁后写谁说话。实测（本轮开工前）：A 页停在半小时前、B 页在另一页玩到第 5 层、金 500，
+// A 走一步就把 B 的半小时静默抹掉——两边都没有一句提示，漏斗里也查不出。
+// 现在要求：①一份档只认一个写者；②被顶掉的那页停写且必须说出来；③接手要先问一句；
+// ④夺回是对称的（没有特权页）；⑤单页正常玩不许误报。
+const KEY = 'towermates_save_v3';
+const out = document.getElementById('out');
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const rows = [];
+const bits = [];
+const push = (ok, name, detail) => {
+  rows.push((ok ? 'PASS|' : 'FAIL|') + name + '|' + (detail == null ? '' : String(detail).slice(0, 120)));
+  bits.push(ok ? 1 : 0);
+};
+const ov = (w) => {
+  const o = w.document.getElementById('tabOverlay');
+  return { shown: o.classList.contains('show'), display: w.getComputedStyle(o).display };
+};
+const disk = (w) => { try { return JSON.parse(w.localStorage.getItem(KEY) || 'null'); } catch (e) { return null; } };
+const bodyText = (w) => w.document.getElementById('tabBody').textContent;
+
+(async () => {
+  try {
+    await wait(2200);
+    const W = ['fa', 'fb', 'fc'].map((id) => document.getElementById(id).contentWindow);
+    const [A, B, C] = W;
+    if (!A.Engine || !B.Engine || !C.Engine) throw new Error('三个页面没都跑起来');
+    if (!A.Engine.claim) throw new Error('引擎没有写者接口（这一版没接）');
+
+    // 干净起点：清档 + 关掉所有面板
+    W.forEach((w) => { try { w.localStorage.clear(); w.document.getElementById('tabOverlay').classList.remove('show'); } catch (e) {} });
+    await wait(200);
+
+    // ---------- T1 A 页开局并落档 ----------
+    A.Engine.newGame('none', { seed: 4242 });
+    A.document.body.classList.remove('at-start');
+    A.Engine.state().gold = 100;
+    A.Engine.save();
+    await wait(120);
+    const d1 = disk(A);
+    push(!!d1 && typeof d1.w === 'string' && d1.w.length > 0 && d1.w === A.Engine.tabId(),
+      'T1 开局落档带写者标记（就是这一页）', d1 && d1.w);
+
+    // ---------- T2 B 页点「继续游戏」：另一页刚存过 → 先问一句，且此刻还没抢 ----------
+    const bc = B.document.getElementById('btnContinue');
+    bc.style.display = 'block';
+    bc.click();
+    await wait(120);
+    const ovB = ov(B);
+    push(ovB.shown && ovB.display === 'flex', 'T2 另一页刚写过 → 先弹接手确认', ovB.display);
+    push(disk(A).w === A.Engine.tabId(), 'T2b 只问不抢：磁盘写者仍是 A 页', disk(A).w);
+    push(/秒前刚存过档/.test(bodyText(B)) && /那边会立刻停下/.test(bodyText(B)),
+      'T3 面板说清代价（那边会停下）', bodyText(B).slice(0, 40));
+
+    // ---------- T4 点「算了」：不动磁盘 ----------
+    const altLabel = B.document.getElementById('tabAlt').textContent;
+    B.document.getElementById('tabAlt').click();
+    await wait(120);
+    push(!ov(B).shown, 'T4 点「算了」→ 面板收起');
+    push(disk(A).w === A.Engine.tabId(), 'T4b 取消后磁盘一点没动', altLabel + ' / ' + disk(A).w);
+
+    // ---------- T5 再点一次，选「在这页接着玩」：接手成功 ----------
+    bc.click();
+    await wait(120);
+    const mainLabel = B.document.getElementById('tabMain').textContent;
+    B.document.getElementById('tabMain').click();
+    await wait(200);
+    push(disk(B).w === B.Engine.tabId(), 'T5 接手成功：磁盘写者变成 B 页', mainLabel + ' / ' + disk(B).w);
+    push(!ov(B).shown && !B.document.body.classList.contains('at-start'), 'T5b 面板收起且真的进了游戏');
+
+    // ---------- T6 A 页此刻仍是半小时前那份：它再存一次必须被拒 ----------
+    const goldBefore = disk(A).gold;
+    A.Engine.state().gold = 999;
+    const okA = A.Engine.save();
+    await wait(200);
+    push(okA === false, 'T6 本页落盘被拒（不再覆盖另一页）', okA);
+    push(disk(A).w === B.Engine.tabId() && disk(A).gold === goldBefore, 'T6b 磁盘仍是 B 页那份（一个字节没动）', disk(A).gold);
+    push(ov(A).shown, 'T7 被顶掉的那页把话说出来了（不再静默）');
+    push(/已停止保存/.test(bodyText(A)) && /盖掉那边/.test(bodyText(A)), 'T7b 说清了为什么停', bodyText(A).slice(0, 36));
+    push(/用那边的进度/.test(A.document.getElementById('tabMain').textContent), 'T8 默认动作是「用那边的进度」',
+      A.document.getElementById('tabMain').textContent);
+    // 断行由文案自己定（pre-line）：中文硬折会把「本页已停止保 / 存」劈成两行，所以要求正好两行
+    const tbody = A.document.getElementById('tabBody');
+    const lh = parseFloat(A.getComputedStyle(tbody).lineHeight) || 0;
+    const lines = lh ? Math.round(tbody.offsetHeight / lh) : 0;
+    push(lines === 2, 'T7c 正文正好两行（不把词劈开）', `${tbody.offsetHeight}px / ${lh}px = ${lines} 行`);
+
+    // ---------- T9 冻结期间游戏照常能走（不崩、不卡） ----------
+    const st = A.Engine.state();
+    let dir = null;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const t = A.Engine.tile(st.x + dx, st.y + dy);
+      if (t === '.' || t === 'p' || t === '$') { dir = [dx, dy]; break; }
+    }
+    const steps0 = st.steps;
+    let moveErr = null;
+    try { A.Engine.tryMove(dir[0], dir[1]); } catch (e) { moveErr = e.message; }
+    await wait(420);   // 等一次 350ms 节流存档真的走过
+    push(!moveErr && A.Engine.state().steps === steps0 + 1, 'T9 冻结期间照样能走一格（停的是存档，不是游戏）', moveErr || '');
+    push(disk(A).w === B.Engine.tabId(), 'T9b 走过一格也没偷偷写回去', disk(A).w);
+
+    // ---------- T10 A 夺回：对称，没有特权页 ----------
+    A.document.getElementById('tabAlt').click();   // 「还是在这页玩」
+    await wait(200);
+    push(disk(A).w === A.Engine.tabId() && !ov(A).shown, 'T10 夺回：写者变回 A 页、面板收起', disk(A).w);
+
+    // ---------- T11 反向：B 从 storage 事件得知被顶掉 ----------
+    await wait(200);
+    push(ov(B).shown && /已停止保存/.test(bodyText(B)), 'T11 被顶掉的 B 页也立刻知道（不等下一次存档）',
+      bodyText(B).slice(0, 30));
+
+    // ---------- T12 刷新这一页不算「另一页在玩」（假警报会逼玩家做无意义的选择） ----------
+    // 判据是「收到过对面的存档事件」，而不是磁盘那份档有多新：F5 之后新页面一次事件都没收到。
+    const faEl = document.getElementById('fa');
+    faEl.contentWindow.location.reload();
+    await wait(2600);
+    const A2 = faEl.contentWindow;
+    if (!A2.Engine) throw new Error('刷新后页面没跑起来');
+    const bc2 = A2.document.getElementById('btnContinue');
+    bc2.style.display = 'block';
+    bc2.click();
+    await wait(400);
+    const ovA2 = ov(A2);
+    push(!ovA2.shown, 'T12 刷新后「继续游戏」不误报「另一页在玩」', ovA2.display);
+    push(!A2.document.body.classList.contains('at-start') && disk(A2).w === A2.Engine.tabId(),
+      'T12b 刷新后照常接手这一档', disk(A2).w);
+
+    // ---------- T13 单页正常玩不许误报 ----------
+    C.localStorage.clear();
+    await wait(120);
+    C.Engine.newGame('none', { seed: 7 });
+    C.document.body.classList.remove('at-start');
+    C.Engine.state().gold = 250;
+    const okC = C.Engine.save();
+    C.Engine.state().gold = 260;
+    C.Engine.save();
+    await wait(150);
+    push(okC === true && C.Engine.saveConflict() === false && !ov(C).shown, 'T13 单页新开一局不误报（照常存档）', okC);
+    push(disk(C).gold === 260 && disk(C).w === C.Engine.tabId(), 'T13b 连存两次都写进去了', disk(C).gold);
+
+    // ---------- T14 面板压在所有演出之上（Boss 入场 46 / 立绘放大 45） ----------
+    // 冲突可能发生在任何时刻：如果面板被演出层盖住，等于没说——玩家会继续玩一局不保存的塔。
+    const zTab = +C.getComputedStyle(C.document.getElementById('tabOverlay')).zIndex;
+    const zBoss = +C.getComputedStyle(C.document.getElementById('bossIntroOverlay')).zIndex;
+    const zZoom = +C.getComputedStyle(C.document.getElementById('portraitOverlay')).zIndex;
+    push(zTab > zBoss && zTab > zZoom && zTab > 20, 'T14 拦截面板压过 Boss 入场与立绘放大', `tab ${zTab} / boss ${zBoss} / zoom ${zZoom}`);
+    // 面板沿用 .panel 的进场动效（与层阶之钥/祭坛同一套），不是临时现画的
+    const anim = C.getComputedStyle(C.document.querySelector('#tabOverlay .panel')).animationName;
+    push(anim === 'popIn', 'T14b 进场动效与其他弹层同一套', anim);
+    // 按钮竖排 + 单行：横排时「用那边的进度（刷新）」在 ~150px 里折成两行、金按钮撑高与旁边不等高（430 宽实测）
+    C.document.getElementById('tabOverlay').classList.add('show');
+    const acts = C.document.querySelector('#tabOverlay .actions');
+    const b1 = C.document.getElementById('tabMain');
+    const b2 = C.document.getElementById('tabAlt');
+    b1.textContent = '用那边的进度（刷新）';
+    b2.textContent = '还是在这页玩';
+    const dirCol = C.getComputedStyle(acts).flexDirection === 'column';
+    const oneLine = b1.offsetHeight <= 46 && b1.scrollWidth <= b1.clientWidth + 1
+      && b2.offsetHeight <= 46 && b2.scrollWidth <= b2.clientWidth + 1;
+    push(dirCol && oneLine, 'T14c 两个选项竖排且各自单行（不折行、不等高）',
+      `${C.getComputedStyle(acts).flexDirection} / ${b1.offsetHeight}px · ${b2.offsetHeight}px`);
+    C.document.getElementById('tabOverlay').classList.remove('show');
+
+    const line = bits.join('');
+    rows.push((fail() ? 'FAIL' : 'PASS') + '|TABGATE|' + line);
+    out.textContent = rows.join('\n');
+    document.title = (fail() ? 'HASFAIL|' : 'ALLPASS|') + line;
+  } catch (e) {
+    rows.push('FAIL|探针自身出错|' + e.message);
+    out.textContent = rows.join('\n');
+    document.title = 'HASFAIL|PROBE-ERR';
+  }
+  function fail() { return bits.some((b) => !b); }
+})();
+</script>
+</body></html>

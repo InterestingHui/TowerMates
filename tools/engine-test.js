@@ -2237,5 +2237,106 @@ ok(Array.isArray(E.load().flags.rings), 'rings 不是数组：归一成空列表
   ok(E.restoreFloor() === true && s.activeMs === msAtSnap, '重来本层不清零用时（快照不吞活跃时间）');
 }
 
+// ---------- 同一浏览器开两页：一份档只能有一个写者（2026-11-15 并发面收口） ----------
+// 实证：A 页停在半小时前、B 页在另一页玩到第 5 层，A 走一步就把 B 的进度静默抹掉，两边都没提示。
+// 现在存档里记写者 id，只有自己还是写者才允许落盘；被顶掉就停写并交给 UI 说清。
+(function tabSection() {
+  const OTHER = 'tOTHER1';
+  const writeOther = (patch) => {
+    const p = JSON.parse(store[SAVE_KEY] || '{}');
+    p.w = OTHER;
+    p.savedAt = Date.now();
+    Object.assign(p, patch || {});
+    store[SAVE_KEY] = JSON.stringify(p);
+    return p;
+  };
+
+  E.newGame('none', { seed: 4242 });
+  E.save();
+  const mine = JSON.parse(store[SAVE_KEY]);
+  ok(typeof mine.w === 'string' && mine.w.length > 0 && mine.w.length <= 16, '存档带写者标记（本页 id）');
+  ok(mine.w === E.tabId(), '写者标记就是本页 id');
+  ok(mine.savedAt > 0, '存档带保存时刻');
+
+  // 另一页在两次存档之间写了档 → 本页这一写必须被拒（宁可丢这一页的一步，不许丢那边半小时）
+  let hits = 0;
+  let lastWriter = null;
+  E.setConflictHook((w) => { hits++; lastWriter = w; });
+  E.state().gold = 999;
+  writeOther({ gold: 500, floor: 4 });
+  const before = store[SAVE_KEY];
+  ok(E.save() === false, '另一页写过档 → 本页落盘被拒');
+  ok(store[SAVE_KEY] === before, '被拒时磁盘上的档一个字节没动');
+  ok(JSON.parse(store[SAVE_KEY]).gold === 500, '磁盘仍是另一页的进度（gold 500）');
+  ok(E.saveConflict() === true, '冲突标志置起');
+  ok(hits === 1 && lastWriter === OTHER, '冲突通知带上了对方 id');
+
+  // 冲突期间继续走格子：不许崩，也不许偷偷写回去
+  const g0 = E.state().gold;
+  E.state().gold = 777;
+  E.save(); E.save(); E.save();
+  ok(hits === 1, '连续再写三次仍只通知一次（不刷成噪音）');
+  ok(store[SAVE_KEY] === before, '停写期间磁盘还是那份（三次都没写进去）');
+  E.state().gold = g0;
+
+  // 玩家选「在这页接着玩」→ 夺回：改回自己写，并把手上的进度顶上去
+  const okClaim = E.claim();
+  const claimed = JSON.parse(store[SAVE_KEY]);
+  ok(okClaim === true && E.saveConflict() === false, '夺回成功且冲突标志清掉');
+  ok(claimed.w === E.tabId(), '夺回后磁盘写者变回本页');
+  ok(claimed.gold === g0, '夺回写的是本页内存里的进度（不是对方的）');
+
+  // 反向：这一页被顶掉之后，对方那页再写也照样被拒（对称，没有特权页）
+  writeOther({ gold: 1234 });
+  E.save();
+  ok(JSON.parse(store[SAVE_KEY]).gold === 1234, '对称：本页被顶掉后，磁盘听对方的');
+
+  // 老档（没有写者标记）：谁先写谁领，行为与从前一致、不做数据迁移
+  const old = JSON.parse(store[SAVE_KEY]);
+  delete old.w;
+  store[SAVE_KEY] = JSON.stringify(old);
+  E.claim();
+  const adopted = JSON.parse(store[SAVE_KEY]);
+  ok(adopted.w === E.tabId(), '老档无标记 → 首写领走并盖章');
+
+  // 继续游戏前的问句：判据是「这一页收到过对面的存档事件」，不是磁盘那份档有多新——
+  // 按磁盘时间判，玩家按 F5 刷新（同一页刚写过档）就会被问「另一页在玩」，那是假警报。
+  // 只有「收到过、且还在窗口内」才算对面真的在跑。
+  ok(E.foreignOwnerFresh(60000) === null, '没收到过对方的存档事件 → 不提示（刷新后不误报）');
+  // storage 事件转进来的外来写：不必等下一次自动存档，立刻停写
+  E.setConflictHook(() => { hits++; });
+  E.newGame('none', { seed: 4242 });
+  E.save();
+  hits = 0;
+  E.noteStorageWrite(JSON.stringify({ ver: 5, w: OTHER }));
+  ok(E.saveConflict() === true && hits === 1, 'storage 事件报另一页写了 → 立刻停写');
+  E.newGame('none', { seed: 4242 });
+  E.save();
+  E.noteStorageWrite(JSON.stringify({ ver: 5, w: E.tabId() }));
+  ok(E.saveConflict() === false, '自己的写入事件不误判');
+
+  // 上面那一次外来写已经记下了「对面在跑」；这里核它带出来的读数与窗口
+  const fresh = E.foreignOwnerFresh(60000);
+  ok(fresh && fresh.writer === OTHER && fresh.age <= 1, '收到另一页的存档事件 → 报「那边在玩」');
+  const t0 = Date.now();
+  while (Date.now() - t0 < 3) { /* 忙等 3ms：让「收到」这一刻真的过期 */ }
+  ok(E.foreignOwnerFresh(1) === null, '超出窗口就不算「正在玩」');
+
+  // 读档不继承别人的身份：否则两页都自称同一个写者，保护形同没有
+  E.newGame('none', { seed: 4242 });
+  E.save();            // 先有一份结构完整的档（上面那个假档会被读档隔离掉）
+  writeOther({});
+  E.load();
+  ok(E.state().w === '', '读档后写者标记清空（等玩家明确接手）');
+
+  // 写者标记脏了不该把整档判死（手改 localStorage 的常见副作用）
+  const dirty = JSON.parse(store[SAVE_KEY]);
+  dirty.w = 12345;
+  store[SAVE_KEY] = JSON.stringify(dirty);
+  ok(!!E.load() && E.state().w === '', '写者标记是数字 → 归一成空串，不当坏档');
+  E.reset();
+  E.setConflictHook(null);
+})();
+
 console.log(fail === 0 ? '\n✓ 全部通过' : `\n✗ ${fail} 项失败`);
 process.exit(fail ? 1 : 0);

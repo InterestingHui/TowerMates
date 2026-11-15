@@ -2166,8 +2166,18 @@ body.at-start #bottom { visibility: hidden; }
   text-align: center;
   animation: popIn 0.26s ease-out;
 }
-.gate-kicker { font-size: var(--fs-tag); letter-spacing: 8px; color: var(--gold); }
-.gate-desc { font-size: var(--fs-tag); line-height: 1.8; color: var(--muted); margin: 8px 0 13px; }
+.gate-kicker, .tab-kicker { font-size: var(--fs-tag); letter-spacing: 8px; color: var(--gold); }
+.gate-desc, .tab-body { font-size: var(--fs-tag); line-height: 1.8; color: var(--muted); margin: 8px 0 13px; }
+/* 「另一页在玩」是系统级拦截，必须压在所有演出之上：Boss 入场 46、立绘放大 45 都在 .overlay 的 20 上面，
+   挡住面板等于没提示（玩家会继续玩一局不保存的塔）。 */
+#tabOverlay { z-index: 60; }
+/* 两个选项竖排：横排时「用那边的进度（刷新）」在 ~150px 里折成两行，金按钮撑高、
+   与旁边那颗不等高（430 宽实测）。这是系统级二选一，占满一行的分量本来就该比普通按钮重。 */
+#tabOverlay .actions { flex-direction: column; }
+#tabOverlay .btn { white-space: nowrap; }
+/* 正文换行由文案自己定（pre-line）：中文在 28 字处硬折，实测「本页已停止保 / 存」
+   把一个词劈成两行——排得再好看也不如把断点交给写的人。 */
+#tabOverlay .tab-body { white-space: pre-line; }
 .gate-list { display: flex; flex-direction: column; gap: 6px; }
 .gate-row {
   display: flex;

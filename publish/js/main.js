@@ -696,6 +696,7 @@
     vowOverlay: $('vowOverlay'), vowCards: $('vowCards'), vowTag: $('vowTag'),
     eventOverlay: $('eventOverlay'), evEmoji: $('evEmoji'), evName: $('evName'), evText: $('evText'), evOpts: $('evOpts'),
     gateOverlay: $('gateOverlay'), gateList: $('gateList'),
+    tabOverlay: $('tabOverlay'), tabKicker: $('tabKicker'), tabBody: $('tabBody'), tabMain: $('tabMain'), tabAlt: $('tabAlt'),
     altarOverlay: $('altarOverlay'), altarCards: $('altarCards'),
     hitFlash: $('hitFlash'), relicFlash: $('relicFlash'), topbar: $('topbar'), hpGhost: $('hpGhost'), endScore: $('endScore'),
     toast: $('toast'), warnPill: $('warnPill'),
@@ -717,6 +718,74 @@
     resetConfirmOverlay: $('resetConfirmOverlay'),
     collectionOverlay: $('collectionOverlay'), colBody: $('colBody'), colCount: $('colCount'),
   };
+
+  // ---------- 同一局开在两页：停下来问一句，不许悄悄互相覆盖 ----------
+  // 2026-11-15 实测（tools/tab-check.html）：同一浏览器开两页时，两页各揣一份整状态、各自每 350ms 自动存档，
+  // 谁后写谁说话——A 页停在半小时前，B 页在另一页玩到第 5 层，A 走一步就把 B 的半小时静默抹掉，
+  // 两边都没有一句提示（漏斗里也查不出）。引擎现在会停写并回调，玩家看得见的话在这里：
+  // ①被顶掉：说清「本页已停写」，默认推荐用那边的进度（磁盘上那份必然更近，这是停写的前提）；
+  // ②准备接手：先说「那边可能还在玩」，别一进「继续游戏」就把对方顶掉。
+  const TAB_COPY = {
+    conflict: {
+      kicker: '这 一 局 停 在 这 里',
+      main: '用那边的进度（刷新）',
+      alt: '还是在这页玩',
+    },
+    takeover: {
+      kicker: '另 一 页 在 玩',
+      main: '在这页接着玩',
+      alt: '算了，先不进去',
+    },
+  };
+  let tabMode = null;
+  let tabAfter = null;
+  function tabBodyText(mode, info) {
+    if (mode === 'conflict') {
+      // 断行交给文案自己（.tab-body 是 pre-line）：中文在 28 字处硬折，实测会把「本页已停止保 / 存」
+      // 劈成两行——一句一行才不会把词拆开
+      return '另一个标签页正在玩同一座塔，比这页更近。\n本页已停止保存，免得盖掉那边刚走的路。';
+    }
+    const age = info && info.age != null ? Math.max(1, info.age) : 0;
+    return `另一个标签页${age ? ` ${age} 秒前刚存过档` : '刚存过档'}，那边可能还在玩。\n在这页接着来，那边会立刻停下——两边只留一个在走。`;
+  }
+  function openTabPanel(mode, info, after) {
+    if (!TAB_COPY[mode]) return;
+    tabMode = mode;
+    tabAfter = after || null;
+    el.tabKicker.textContent = TAB_COPY[mode].kicker;
+    el.tabBody.textContent = tabBodyText(mode, info);
+    el.tabMain.textContent = TAB_COPY[mode].main;
+    el.tabAlt.textContent = TAB_COPY[mode].alt;
+    el.tabOverlay.classList.add('show');
+    try { Funnel.push('tab_split', { mode: mode, age: info && info.age != null ? info.age : -1 }); } catch (e) {}
+  }
+  function closeTabPanel() {
+    el.tabOverlay.classList.remove('show');
+    tabMode = null;
+    tabAfter = null;
+  }
+  el.tabMain.addEventListener('click', () => {
+    if (tabMode === 'conflict') { location.reload(); return; }  // 用那边（磁盘上）的进度
+    const after = tabAfter;
+    Engine.claim();
+    closeTabPanel();
+    if (typeof after === 'function') after();
+  });
+  el.tabAlt.addEventListener('click', () => {
+    const mode = tabMode;
+    closeTabPanel();
+    if (mode === 'conflict') Engine.claim();   // 玩家的明确选择：这页继续写，那边会停
+  });
+  // 引擎发现「磁盘上那份不是自己的」→ 停写 + 回调这里
+  Engine.setConflictHook(() => {
+    if (tabMode) return;   // 面板已经开着，别叠第二个
+    try { log('⚠ 另一页接手了这局，本页已停止保存', 'warn'); } catch (e) {}
+    openTabPanel('conflict', null, null);
+  });
+  // 另一页写档的即时通知：不等下一次自动存档（那中间本页还在往旧档上加东西）
+  window.addEventListener('storage', (e) => {
+    if (e && e.key === Engine.saveKey) Engine.noteStorageWrite(e.newValue);
+  });
 
   // ---------- 富文本：把 **重点** 渲染成加粗 ----------
   // 只建文本节点，不走 innerHTML：提示里带尖括号也不会被当成 HTML 执行
@@ -4575,7 +4644,14 @@
     startDaily();
   }
 
-  function continueGame() {
+  function continueGame(force) {
+    // 另一页刚存过档（一分钟内）：先问一句再接手。直接进来会把那边顶掉——
+    // 玩家的本意往往是「在另一个标签页看一下」，不是「把那边正在走的路换掉」。
+    // 注意别写成 `if (!arg)`：这个函数也直接当 click 回调用，事件对象是真值。
+    if (force !== true) {
+      const other = Engine.foreignOwnerFresh(60000);
+      if (other) { openTabPanel('takeover', other, () => continueGame(true)); return; }
+    }
     const s = Engine.load();
     if (!s) {
       // 走到这里只可能是「有档但校验不过」：Engine.load 已把它隔离（主键清掉、原档另存）
@@ -4585,6 +4661,8 @@
       openVow();
       return;
     }
+    // 明确接手：这一档从这一句起由本页写，另一页（如果还开着）会停写并被提示
+    Engine.claim();
     // 昨天的今日一塔接着玩＝普通局：清掉日签，免得结算与榜单还挂着「今日一塔」的标签
     if (s.flags && s.flags.daily && !Daily.isToday(s.flags.daily)) {
       s.flags.daily = null;
@@ -4677,9 +4755,14 @@
       ? `脚本 <b>${errCnt.error}</b> · 未处理拒绝 <b>${errCnt.reject}</b> · 渲染帧 <b>${errCnt.render}</b> · 资源 <b>${errCnt.res}</b>`
       : '本机这一阵没有未捕获异常。';
     const KEY_EV = ['run_start', 'first_fight', 'run_end'];
+    // 同一局开两页：这两种都算「这一档被两边抢过」，接 SDK 后能看出有多少人开着一个标签页挂着
+    const tabRows = rows.filter((x) => x.ev === 'tab_split');
+    const tabLine = tabRows.length
+      ? ` · 双页冲突 <b>${tabRows.length}</b>（被顶掉 ${tabRows.filter((x) => x.mode === 'conflict').length} / 接手前问过 ${tabRows.filter((x) => x.mode === 'takeover').length}）`
+      : '';
     const keyRows = rows.filter((x) => KEY_EV.indexOf(x.ev) >= 0);
     box.innerHTML = `<h2>本机漏斗 · ${rows.length} 条</h2>`
-      + `<p class="fv-sum">加载→开局：<b>${loadToStart}</b> · 首局→二局：<b>${gap}</b> · 开局 ${starts.length} / 结算 ${ends.length} / 退出 ${hides.length}</p>`
+      + `<p class="fv-sum">加载→开局：<b>${loadToStart}</b> · 首局→二局：<b>${gap}</b> · 开局 ${starts.length} / 结算 ${ends.length} / 退出 ${hides.length}${tabLine}</p>`
       + `<h3>逐层到达 <small>分母＝到过第 1 层的 ${base} 局（含 demo/继续游戏）</small></h3>`
       + `<div class="fv-depth">${depthRows.length ? depthRows.join('') : '<p class="fv-empty">还没有进过塔。</p>'}</div>`
       + `<h3>打法使用 <small>按结算局累计</small></h3>`
