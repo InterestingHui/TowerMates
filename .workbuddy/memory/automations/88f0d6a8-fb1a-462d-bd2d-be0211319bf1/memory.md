@@ -218,3 +218,10 @@
 - 闸门：check ✓ / engine 523 / code 45 / sim 18,745·68.4% 未漂移 / regress 52 图 + 全套自检 + 音效 16/16 / ui-test ✓。
 - **坑（下轮直接用）**：①`Settings` 的开关是**只读 getter**，探针里 `Settings.sfx=false` 静默无效（本轮第一版就这么谎报「关了还在响」），只能走 `toggleSfx()`；②regress 读自检页只认 `<title>`——dump 正文里含脚本源码 `'PASS|'`/`'FAIL|'` 字面量，整篇扫会把自己判红；③`Engine.heartLeave()` 在 `flags.heart` 已设时拒，探针要先 `delete`。
 - 剩余：真人数据（唯一缺口）；「线上整仓可读」仍等用户拍板（换 publish/ 会改分享链接）。
+
+## 2026-11-15 12:5x — 全力模式（变体 6 节奏审计，1 项 + 1 个探针 flake）
+- 判定：PROGRESS mtime 66 分钟、工作树仅本会话记忆目录 + `_backup/` → 全力；占用表空；最近 5 条日志「变体：无」→ 自动序列轮到节奏审计（诊断→校准→收敛→自检→**节奏审计**）。
+- 产出：①`tools/pace-audit.html` 的 `load()` 复用同一离屏 iframe 连续导航时，无头 Chrome 第二次导航整段丢脚本（`__tm/Engine` 全 false、body 无 at-start），探针照常出数 → 本轮第一次跑直接 PACE-ERR、再跑又好（flaky）。改为每次 `replaceWith` 新建 iframe；连跑 3 次绿。②三窗口重盘全部在预算内（首屏 1 / 立誓 1 / 教练卡 4 / 可操作 3 / 首战 63.1s / 弹窗 2 / 商店 7 / 祭坛 3 / 楼钥 6 / 回响 3），零处置。③探针新增 10 项 `PACE-GATE` 断言 + `PACEGATE-ALLPASS`，`regress.js` 读断言 → 3–10 分钟窗口首次进闸门（此前只守首局 60 秒）。变异（`foldFirst=false` 商店 8 件）→ `1101111111` 红得对。
+- 闸门：check ✓ / engine 523 / code 45 / sim 18,745·68.4% 未漂移 / regress 52 图 + 三窗口 10/10 / 首局 1·1·1·4·3·2·63s / ui-test ✓。commit fbd5889 + 83a50c3 已推；**本轮无运行时代码改动 → 未重新部署**（build 仍 e7c2160134）。
+- 环境：本轮临时 serve 9412 已 Stop-Process 并复查 0；headless chrome 残留属其他会话（星壤拓荒 p9333 / Temp t026），未动。
+- 剩余：返回玩家首屏 / 结算页 / 图鉴页的元素个数从未量过（已记账进元素登记表）；真人数据仍是唯一结构缺口。
