@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>rm-check</title>
+<style>body{margin:0;background:#05070c;color:#8ef;font:12px monospace}#f{width:430px;height:900px;border:0;position:absolute;left:-9999px}</style>
+</head><body>
+<iframe id="f" src="/index.html?rm=1"></iframe>
+<pre id="out">…</pre>
+<script>
+// 减弱动效闸门（prefers-reduced-motion）：覆盖面 + 不许误伤一次性进场。
+// 做法：现场造节点读 computed animationName——不依赖游戏恰好停在哪个屏。
+// 由 tools/regress.js 跑两遍：默认（动画必须在）/ --force-prefers-reduced-motion（循环动效必须停）。
+// 两遍都要 ALLPASS，且第二遍必须 REDUCE=1——命令行旗标没生效就等于假绿。
+const out = document.getElementById('out');
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const CHECK = [
+  ['灯闪 .g-ico', 'span', 'g-ico'],
+  ['教练高亮圈 .coach-spot', 'svg', 'coach-spot'],
+  ['点击继续 .dlg-cue', 'div', 'dlg-cue'],
+  ['立绘光圈 .pt-aura', 'div', 'pt-aura'],
+  ['位图立绘 .pt-img', 'div', 'pt-img'],
+  ['SVG 立绘 .pt-svg', 'div', 'pt-svg'],
+];
+(async () => {
+  try {
+    await wait(1500);
+    const w = f.contentWindow, d = f.contentDocument;
+    const reduce = w.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const rows = [], bits = [];
+    const an = (el) => {
+      const cs = w.getComputedStyle(el);
+      return (cs.animationName || 'none').split(',')[0].trim();
+    };
+    // 1) 常驻循环动效
+    CHECK.forEach(([name, tag, cls]) => {
+      const el = tag === 'svg'
+        ? d.createElementNS('http://www.w3.org/2000/svg', 'svg')
+        : d.createElement(tag);
+      el.setAttribute('class', cls);
+      d.body.appendChild(el);
+      const a = an(el);
+      const ok = reduce ? a === 'none' : a !== 'none';
+      rows.push((ok ? 'PASS|' : 'FAIL|') + name + '|' + a);
+      bits.push(ok ? 1 : 0);
+      el.remove();
+    });
+    // 2) 低血脉动：动效停掉，但红色信息必须还在
+    {
+      const wrap = d.createElement('div');
+      wrap.className = 'hpwrap low';
+      const bar = d.createElement('div');
+      bar.className = 'hpbar';
+      wrap.appendChild(bar);
+      d.body.appendChild(wrap);
+      const a = an(bar);
+      const bg = w.getComputedStyle(bar).backgroundImage || '';
+      const okA = reduce ? a === 'none' : a !== 'none';
+      const okRed = /a81f28|e2555f|rgb\(168, 31, 40\)|rgb\(226, 85, 95\)/i.test(bg);
+      rows.push((okA ? 'PASS|' : 'FAIL|') + '低血脉动 .hpbar|' + a);
+      rows.push((okRed ? 'PASS|' : 'FAIL|') + '低血仍是红的|' + bg.slice(0, 60));
+      bits.push(okA ? 1 : 0, okRed ? 1 : 0);
+      wrap.remove();
+    }
+    // 3) 一次性进场不许被误伤（结算/商店靠它交代"发生了什么"）
+    {
+      const p = d.createElement('div');
+      p.className = 'panel';
+      d.body.appendChild(p);
+      const a = an(p);
+      const ok = /popIn/.test(a);
+      rows.push((ok ? 'PASS|' : 'FAIL|') + '一次性进场 .panel 保留 popIn|' + a);
+      bits.push(ok ? 1 : 0);
+      p.remove();
+    }
+    // 4) 对白遮罩的 fadeIn 也应保留
+    {
+      const o = d.createElement('div');
+      o.className = 'overlay show';
+      d.body.appendChild(o);
+      const a = an(o);
+      const ok = /fadeIn/.test(a);
+      rows.push((ok ? 'PASS|' : 'FAIL|') + '遮罩进场 .overlay.show 保留 fadeIn|' + a);
+      bits.push(ok ? 1 : 0);
+      o.remove();
+    }
+    out.textContent = 'REDUCE=' + (reduce ? 1 : 0) + '\n' + rows.join('\n')
+      + '\nTRACE|' + bits.join('') + '|';
+    document.title = (bits.every((b) => b) ? 'ALLPASS|' : 'HASFAIL|') + bits.join('') + '|R' + (reduce ? 1 : 0);
+  } catch (e) {
+    out.textContent = 'ERR ' + (e && e.stack || e);
+    document.title = 'PROBE-ERR';
+  }
+})();
+</script>
+</body></html>

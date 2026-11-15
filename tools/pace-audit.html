@@ -248,8 +248,45 @@ function click(w, d, sel) {
     } catch (e) { out.textContent += '\nECHO-ERR ' + e.message; }
     await wait(800);
     snap('R 章末回响', '锁环三选一（首章 Boss 后）');
+    // ===== 补量三屏（此前从没数过元素个数：返回玩家首屏 / 图鉴 / 结算页）=====
+    // 口径同前：有遮罩只算遮罩内；这三屏都是纯 DOM 面板，不存在画布可操作面。
+    await load('/index.html?pace=home');   // 上一段 demo 已落档 → 走「返回玩家」那条分支
+    await ready();
+    await wait(700);
+    // 「返回玩家」≠「有存档」：榜单/玩法/今日一塔要到第 2 局才露脸（Meta.memory.runs>0）。
+    // 这里补上跨局履历，量的才是老玩家真正看到的首屏。
+    const w6 = f.contentWindow, d6 = f.contentDocument;
+    try { w6.__tm.Meta.memory.runs = 1; w6.__tm.refreshStartBadges(); } catch (e) {}
+    await wait(300);
+    snap('S 返回玩家首屏', '第 2 局起：继续游戏 / 开新局 / 今日一塔 / 塔友榜 / 玩法 + 履历行');
+    w6.__tm.openCollection();
+    await wait(600);
+    snap('T 图鉴页', '最长的列表屏：下一件 + 统计 + 跳转签 + 遗物/锁环/成就卡');
+    // 图鉴总量 92 张卡是浏览屏的必然，不适用开局预算；真正要看的是「打开时不滚能看见几张」
+    const colFirst = (() => {
+      try {
+        const p = d6.querySelector('#collectionOverlay .collection-panel').getBoundingClientRect();
+        return Array.from(d6.querySelectorAll('#collectionOverlay .col-card')).filter((el) => {
+          const r = el.getBoundingClientRect();
+          return r.top >= p.top - 4 && r.top <= p.bottom;
+        }).length;
+      } catch (e) { return -1; }
+    })();
+    click(w6, d6, '#colClose');
+    await wait(400);
+    click(w6, d6, '#btnNew');
+    await wait(900);
+    click(w6, d6, '#vowCards .vow-card');
+    await wait(900);
+    const s6 = w6.Engine.state();
+    if (s6) { s6.ending = 'true'; s6.won = true; s6.startedAt = Date.now() - 360000; }
+    w6.__tm.resetEndShown();
+    w6.__tm.showEnd();
+    await wait(1600);
+    snap('U 结算页', '本作最长的一屏：分项 + 挑战码 + 再来一局');
     out.textContent += '\n\nHUDHIDDEN=' + (R[0] && R[0].hudHidden ? 1 : 0);
     out.textContent += '\nMODALLOG=' + modalLog.join(',');
+    out.textContent += '\nCOLFIRST=' + colFirst;
     out.textContent += '\n\nMODALS=' + modalCount + '（前 3 分钟教学弹窗：教练卡 + 盾谱小传）';
     out.textContent += '\nDONE ' + JSON.stringify(R.map((r) => ({ tag: r.tag, at: r.at, n: r.clickable.length + (r.canvasLive ? 1 : 0) + (r.tap || 0), tips: r.tips.length })));
     // ===== 闸门断言（v3.11：把「3–10 分钟窗口」纳入自动化——这块此前只有人肉跑过一次）=====
@@ -273,7 +310,18 @@ function click(w, d, sel) {
       ['同屏提示条 ≤2', R.every((r) => r.tips.length <= 2)],
       ['前 3 分钟教学弹窗 =2', modalCount === 2],
       ['首战 ≤70 秒', nOf('G 第一次战斗') >= 0 && R.find((r) => r.tag === 'G 第一次战斗').at <= 70],
-      ['19 屏全跑到', R.length >= 19],
+      // 三屏补量（2026-11-15 14:2x）：返回玩家首屏是「老玩家每次打开都要过的一道门」，
+      // 结算页是终点屏，图鉴是主动打开的浏览屏——三者的预算口径不同，故分开写。
+      ['返回玩家首屏 ≤5', nOf('S 返回玩家首屏') >= 0 && nOf('S 返回玩家首屏') <= 5],
+      ['返回首屏首项=继续游戏', (() => {
+        const r = R.find((x) => x.tag === 'S 返回玩家首屏');
+        return !!r && r.clickable[0] === '继续游戏';
+      })()],
+      ['结算页 ≤3', nOf('U 结算页') >= 0 && nOf('U 结算页') <= 3],
+      // 图鉴是主动打开的浏览屏，92 张卡是列表必然，不适用开局预算；
+      // 要守的是「打开那一刻（不滚）看见几张」——统计条与跳转签一旦被挤到首屏外，这屏就退化成纯列表。
+      ['图鉴首屏条目 ≤12', colFirst >= 3 && colFirst <= 12],
+      ['22 屏全跑到', R.length >= 22],
     ];
     out.textContent += '\n';
     GATE.forEach((g) => { out.textContent += '\nPACE-GATE|' + g[0] + '|' + (g[1] ? 1 : 0); });

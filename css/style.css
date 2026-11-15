@@ -1765,6 +1765,11 @@ body.at-start #bottom { visibility: hidden; }
 }
 @media (prefers-reduced-motion: reduce) {
   .end-sign.write > span, .end-sign.write > span::after { animation: none; }
+  /* 常驻循环动效一律停：灯闪 / 教练高亮圈脉动 / 「点击继续」闪烁 / 立绘光圈呼吸 / 立绘呼吸 / 低血脉动。
+     信息一条不丢——红血条仍是红的、高亮圈仍亮着、光圈仍有一层底色，只是不再"动"。
+     一次性进场（popIn 0.22s / fadeIn / 战斗伤害飘字）保留：那是在交代"刚才发生了什么"，
+     不是持续干扰；砍掉它反而会让结算、升级这些节点变成无声跳变。 */
+  .g-ico, .coach-spot, .dlg-cue, .pt-aura, .pt-img, .pt-svg, .hpwrap.low .hpbar { animation: none; }
 }
 
 /* ---------- 塔心石（带走 / 放下） ---------- */

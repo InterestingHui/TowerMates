@@ -280,8 +280,8 @@ if (!process.argv.includes('--no-shot')) {
           const fm = /\[G 第一次战斗\]\s*([\d.]+)s/.exec(t);
           return { start: pick('A'), vow: pick('B'), floor1: pick('D'), ready: pick('E'),
             modals: mm ? Number(mm[1]) : -1, hud: hm ? Number(hm[1]) : -1, firstFight: fm ? Number(fm[1]) : -1,
-            // 3–10 分钟窗口的十项预算（探针自己算，这里只读结果）：此前后四层/商店/祭坛/回响/楼钥
-            // 这几个屏从未被任何断言看过，只能靠人肉跑一次眼看
+            // 全屏元素预算（探针自己算，这里只读结果）：3–10 分钟窗口四层/商店/祭坛/回响/楼钥，
+            // 外加 2026-11-15 补的返回玩家首屏 / 结算页 / 图鉴首屏
             bits: (/PACEGATE-ALLPASS\|([01]+)/.exec(t) || [])[1] || '',
             gfail: Array.from(t.matchAll(/PACE-GATE\|([^|<\n]+)\|0/g)).map((m) => m[1]) };
         };
@@ -298,7 +298,7 @@ if (!process.argv.includes('--no-shot')) {
         paceLine = `首屏 ${r.start} / HUD隐藏 ${r.hud} / 立誓 ${r.vow} / 首层 ${r.floor1} / 可操作 ${r.ready} / 教学弹窗 ${r.modals} / 首战 ${r.firstFight < 0 ? '—' : r.firstFight + 's'}`;
         console.log((okPace ? '✓' : '✗') + ' 首局节奏 ' + paceLine + '（预算 1 / 1 / 4 / 3 / ≤2 / ≤70s）');
         const gBits = r.bits || '';
-        console.log((gateOk ? '✓' : '✗') + ` 三窗口元素预算 ${(gBits.match(/1/g) || []).length}/${gBits.length || 0} 项`
+        console.log((gateOk ? '✓' : '✗') + ` 全屏元素预算 ${(gBits.match(/1/g) || []).length}/${gBits.length || 0} 项`
           + (gateOk ? '' : '\n   超预算：' + (r.gfail.length ? r.gfail.join(' / ') : '读数失败（探针没跑到断言行）')));
       }
       // 今日一塔（P-B）：入口带日期 / 「今日」档只收当天 / 结算标出是哪天的塔
@@ -546,14 +546,38 @@ if (!process.argv.includes('--no-shot')) {
         console.log((okSfx ? '✓' : '✗') + ` 音效自检 ${sfxLine}` + (okSfx ? '' : '\n   ' + r.fails.slice(0, 5).join('\n   ')));
       }
 
+      // 减弱动效（prefers-reduced-motion）：跑两遍——默认模式循环动效必须在，减弱模式必须停，
+      // 且两遍都不许误伤一次性进场（popIn/fadeIn）。第二遍必须 REDUCE=1，旗标没生效就是假绿。
+      let okRm = true, rmLine = '';
+      {
+        const os = require('os');
+        const one = (extra, tag) => {
+          const p = spawnSync(chrome, [
+            '--headless=new', '--disable-gpu', '--no-sandbox', '--no-first-run', '--disable-extensions',
+            '--user-data-dir=' + path.join(os.tmpdir(), 'tm-rm-' + tag + '-' + process.pid),
+            '--virtual-time-budget=20000', ...extra,
+            '--dump-dom', `http://127.0.0.1:${PORT}/tools/rm-check.html`,
+          ], { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+          const tt = (/<title>([^<]*)<\/title>/.exec(p.stdout || '') || [])[1] || '';
+          const m = /(ALLPASS|HASFAIL)\|([01]+)\|R([01])/.exec(tt.trim());
+          return { ok: tt.trim().indexOf('ALLPASS') === 0, bits: m ? m[2] : '', reduce: m ? m[3] : '' };
+        };
+        const a = one([], 'default');
+        const b = one(['--force-prefers-reduced-motion'], 'reduce');
+        const cnt = (x) => (x ? (x.match(/1/g) || []).length + '/' + x.length : '—');
+        okRm = a.ok && b.ok && a.reduce === '0' && b.reduce === '1';
+        rmLine = `默认 ${cnt(a.bits)} · 减弱 ${cnt(b.bits)}` + (b.reduce === '1' ? '' : '（旗标未生效）');
+        console.log((okRm ? '✓' : '✗') + ` 减弱动效 ${rmLine}`);
+      }
+
       server.kill();      console.log(bad === 0 ? `\n✓ 截图全部生成（${SCENES.length} 张，见 tools/out/）` : `\n✗ ${bad} 张截图异常`);
 
       console.log('== 浏览器 UI 自检 ==');
       const ui = run(process.execPath, ['tools/ui-test.js']);
       const okUi = ui.code === 0;
       console.log((okUi ? '✓' : '✗') + ' ui-test.js' + (okUi ? '' : '\n' + ui.out));
-      const all = okCheck && okSim && okSkip && okTest && okCode && okBsim && okOd && okUi && okProbe && okAds && okIntro && okWxb && okNew && okWx && okSwordGate && okPace && okDaily && okZeal && okFinal && okTangle && okGuard && okVp && okVm && okSfx && bad === 0;
-      if (!all) console.log('  闸门明细:', JSON.stringify({ okCheck, okSim, okSkip, okTest, okCode, okBsim, okOd, okUi, okProbe, probeA3, okAds, adsLine, okIntro, introLine, okWxb, wxbLine, okNew, newLine, okWx, okSwordGate, okPace, paceLine, okDaily, dailyLine, okZeal, zealLine, okFinal, finalLine, okTangle, tangleLine, okGuard, guardLine, okVp, vpLine, okVm, vmLine, okSfx, sfxLine, bad }));
+      const all = okCheck && okSim && okSkip && okTest && okCode && okBsim && okOd && okUi && okProbe && okAds && okIntro && okWxb && okNew && okWx && okSwordGate && okPace && okDaily && okZeal && okFinal && okTangle && okGuard && okVp && okVm && okSfx && okRm && bad === 0;
+      if (!all) console.log('  闸门明细:', JSON.stringify({ okCheck, okSim, okSkip, okTest, okCode, okBsim, okOd, okUi, okProbe, probeA3, okAds, adsLine, okIntro, introLine, okWxb, wxbLine, okNew, newLine, okWx, okSwordGate, okPace, paceLine, okDaily, dailyLine, okZeal, zealLine, okFinal, finalLine, okTangle, tangleLine, okGuard, guardLine, okVp, vpLine, okVm, vmLine, okSfx, sfxLine, okRm, rmLine, bad }));
       console.log(all ? '✓ 质量闸门通过' : '✗ 质量闸门有失败项');
       process.exit(all ? 0 : 1);
     })();
