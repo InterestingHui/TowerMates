@@ -2821,3 +2821,44 @@ body.at-start #bottom { visibility: hidden; }
   .chips > .chip:nth-child(4)::before { content: "金"; }
   .chips > .chip:nth-child(n+2)::before { font-size: 9px; color: var(--muted); margin-right: 1px; }
 }
+
+/* ================= 弹层：主操作行钉底 · 面板不越出视口 ================= */
+/* 上一轮补的是主界面（棋盘/顶栏/底栏），弹层这一层没量过。2026-11-15 实测（tools/vp-modal-check.html）：
+   844×390 手机横屏下，塔友榜的「关闭」在 top 406（视口 390）——整个面板比自己 92dvh 还高，得先在面板里
+   滚一下才知道有出口；回响/祭坛/层阶之钥/立誓这几个弹层当初只写了 padding、根本没写 max-height，
+   内容比视口高就上下一起被切（overlay 也不滚）⇒ 「继续上楼」永远点不到，而那是章末必经的一步。 */
+
+/* ① 没有高度上限的弹层统一兜住：不超过视口、允许内滚（原来只有 .panel 一族有 92dvh） */
+.vow-stage, .altar-panel, .gate-panel, .echo-panel {
+  max-height: 92dvh;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* ② 主操作行钉在面板底边：面板内容再长，出口也在视野最下方。
+   sticky 只在真的溢出时才顶住（不溢出时与普通流一模一样）。
+   底色用实色 + 细分隔线，不用渐变——实测渐变半透区会把下面滚上来的文字透出来，
+   看起来像按钮坏了（第 1 版就是这么写的）。负边距把这条带子拉到面板底边，
+   否则按钮下方那 18px 内边距里还会有正文滚过去。 */
+.panel > .actions {
+  position: sticky;
+  bottom: -18px;   /* 实测 sticky 的 0 是「内容盒」底边而不是边框内侧：留 18px 那道缝会让正文滚过去 */
+  z-index: 2;
+  margin: 12px -18px -18px;
+  padding: 11px 18px 18px;
+  background: #0a0e15;
+  border-top: 1px solid var(--line-regular);
+}
+/* 回响面板的「继续上楼」不在 .actions 里（它是单颗按钮），同一条待遇 */
+.echo-panel > #echoClose { position: sticky; bottom: -22px; z-index: 2; background: #0a0e15; }
+
+/* ③ 战斗演出层是 overflow:hidden 且面板不滚（按钮必须一进面板就在视野里），
+   只能在极矮横屏压缩视觉分量：10 块加起来 324px，在 320 高的横屏里上下各被切 2px。 */
+@media (orientation: landscape) and (max-height: 400px) {
+  .bs-panel { padding: 9px 15px 7px; max-height: 100dvh; }
+  .bs-avatar { font-size: 36px; }
+  .bs-head { margin-bottom: 5px; }
+  .bs-stage { padding: 0 0 3px; }
+  .bs-block { margin-top: 6px; }
+  .bs-hint { margin-top: 4px; }
+}

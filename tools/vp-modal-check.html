@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>弹层多视口自检</title>
+<style>html,body{margin:0;background:#05070c;color:#7ef0b2;font:13px/1.5 monospace}#out{white-space:pre-wrap;padding:8px}</style>
+</head>
+<body>
+<pre id="out">pending</pre>
+<div id="host" style="position:absolute;left:-30000px;top:0"></div>
+<script>
+// 弹层多视口自检（闸门用）：
+// vp-check 只量了主界面（棋盘/顶栏/底栏），但玩家真正会被卡住的是「弹层里那颗按钮够不够得着」——
+// 战斗演出的 overlay 是 overflow:hidden 且面板没有滚动，横屏矮屏下按钮一旦掉出视口就永远点不到；
+// 商店/榜单/图鉴的 .panel 是 92dvh + 内滚，要确认「主按钮能不能不滚就看见」与「内容有没有横向溢出」。
+const CASES = [
+  { w: 390, h: 844, tag: '竖屏基准' },
+  { w: 844, h: 390, tag: '手机横屏' },
+  { w: 320, h: 568, tag: '小屏' },
+  { w: 844, h: 320, tag: '极矮横屏' },
+];
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const out = document.getElementById('out');
+const detail = [];
+const bits = [];
+const dumps = [];
+
+function check(name, ok, extra) {
+  bits.push(ok ? '1' : '0');
+  detail.push((ok ? '✓ ' : '✗ ') + name + (extra ? ' · ' + extra : ''));
+}
+
+function measurePanel(frame, sel) {
+  const doc = frame.contentDocument;
+  const p = doc.querySelector(sel);
+  if (!p) return null;
+  const r = p.getBoundingClientRect();
+  const cs = frame.contentWindow.getComputedStyle(p);
+  const btns = Array.from(p.querySelectorAll('button')).filter((b) => !b.hidden && b.offsetParent !== null).map((b) => {
+    const br = b.getBoundingClientRect();
+    return { id: b.id || b.className, top: Math.round(br.top), bottom: Math.round(br.bottom), h: Math.round(br.height), w: Math.round(br.width) };
+  });
+  return {
+    r: { top: Math.round(r.top), bottom: Math.round(r.bottom), left: Math.round(r.left), right: Math.round(r.right), h: Math.round(r.height), w: Math.round(r.width) },
+    scrollY: p.scrollHeight > p.clientHeight + 1,
+    overflowX: p.scrollWidth > p.clientWidth + 1,
+    overflow: cs.overflowY,
+    btns: btns,
+  };
+}
+
+(async () => {
+  for (const c of CASES) {
+    const f = document.createElement('iframe');
+    f.style.cssText = 'width:' + c.w + 'px;height:' + c.h + 'px;border:0;display:block';
+    f.src = '/index.html?dev=1#demo=3,5,5';
+    document.getElementById('host').appendChild(f);
+    await wait(1400);
+    const w = f.contentWindow;
+    const d = f.contentDocument;
+    try {
+      try { w.Renderer.layout(d.getElementById('stage')); } catch (e) {}
+      await wait(60);
+
+      // ---- 1) 战斗演出（overlay overflow:hidden、面板无滚动：按钮必须在视口里）----
+      {
+        const s = w.Engine.state();
+        s.atk = 40; s.def = 20; s.hp = 800; s.maxHp = 1000;
+        s.flags.hasBlock = true; s.flags.rings = ['twice'];
+        w.__tm.refreshHud();
+        w.__battleSpeed = 30;
+        w.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'ArrowUp' }));
+        await wait(340);
+        const m = measurePanel(f, '#battleScene .bs-panel');
+        const shown = d.getElementById('battleScene').classList.contains('show');
+        dumps.push(c.tag + ' battle ' + JSON.stringify({ shown, m }));
+        if (!m) {
+          check(c.tag + ' 战斗面板可读', false);
+        } else {
+          const tag = c.tag + ' 战斗面板';
+          check(tag + ' 整块在视口内', m.r.top >= -1 && m.r.bottom <= c.h + 1, m.r.top + '–' + m.r.bottom + ' / ' + c.h);
+          check(tag + ' 每个打法按钮都完整可点', m.btns.length >= 1 && m.btns.every((b) => b.top >= -1 && b.bottom <= c.h + 1 && b.h >= 30),
+            m.btns.map((b) => b.id + ':' + b.top + '–' + b.bottom).join(' ') || '无按钮');
+        }
+        try { d.getElementById('battleScene').classList.remove('show'); w.__battleSpeed = 30; } catch (e) {}
+        await wait(120);
+      }
+
+      // ---- 2) 商店（长列表 + 主按钮）----
+      {
+        w.__tm.openShop();
+        await wait(200);
+        const m = measurePanel(f, '#shopOverlay .panel');
+        dumps.push(c.tag + ' shop ' + JSON.stringify(m));
+        if (!m) check(c.tag + ' 商店面板可读', false);
+        else {
+          const tag = c.tag + ' 商店';
+          const close = m.btns.find((b) => b.id === 'shopClose');
+          check(tag + ' 面板不横向溢出', !m.overflowX, 'scrollW>clientW ' + m.overflowX);
+          check(tag + ' 离开按钮不滚就看得见', !!close && close.top >= -1 && close.bottom <= c.h + 1,
+            close ? close.top + '–' + close.bottom + ' / ' + c.h : '缺按钮');
+        }
+        try { d.getElementById('shopClose').click(); } catch (e) {}
+        await wait(120);
+      }
+
+      // ---- 3) 塔友榜（列表 + 两行输入 + 关闭）----
+      {
+        w.__tm.openBoard();
+        await wait(200);
+        const m = measurePanel(f, '#boardOverlay .panel');
+        dumps.push(c.tag + ' board ' + JSON.stringify(m));
+        if (!m) check(c.tag + ' 榜单面板可读', false);
+        else {
+          const tag = c.tag + ' 榜单';
+          const close = m.btns.find((b) => b.id === 'boardClose');
+          check(tag + ' 面板不横向溢出', !m.overflowX);
+          check(tag + ' 关闭按钮不滚就看得见', !!close && close.top >= -1 && close.bottom <= c.h + 1,
+            close ? close.top + '–' + close.bottom + ' / ' + c.h : '缺按钮');
+        }
+        try { d.getElementById('boardClose').click(); } catch (e) {}
+        await wait(120);
+      }
+
+      // ---- 4) 图鉴（最长的列表 + 分段页签）----
+      {
+        w.__tm.openCollection();
+        await wait(240);
+        const m = measurePanel(f, '#collectionOverlay .collection-panel');
+        dumps.push(c.tag + ' codex ' + JSON.stringify(m));
+        if (!m) check(c.tag + ' 图鉴面板可读', false);
+        else {
+          const tag = c.tag + ' 图鉴';
+          const close = m.btns.find((b) => (b.id || '').indexOf('collection') >= 0 || (b.id || '').indexOf('Close') >= 0 || (b.id || '').indexOf('close') >= 0);
+          check(tag + ' 面板不横向溢出', !m.overflowX);
+          check(tag + ' 面板底边不出视口', m.r.bottom <= c.h + 1, m.r.bottom + ' / ' + c.h);
+          check(tag + ' 关闭按钮不滚就看得见', !close || (close.top >= -1 && close.bottom <= c.h + 1),
+            close ? close.id + ' ' + close.top + '–' + close.bottom : '未找到（不断言）');
+        }
+        try { w.__tm.closeCollection(); } catch (e) {}
+        await wait(120);
+      }
+
+      // ---- 5) 章末回响（章末必经：三选一 + 「继续上楼」，原来没写 max-height）----
+      {
+        const s2 = w.Engine.state();
+        s2.floor = 2;
+        s2.flags.goal_0 = s2.flags.goal_1 = s2.flags.goal_2 = true;
+        const ec = w.Engine.settleChapter(1);
+        w.__tm.openEcho(ec);
+        await wait(400);
+        d.getElementById('echoClose').hidden = false;   // 最坏情况：三选一后那颗按钮得够得着
+        await wait(120);
+        const m = measurePanel(f, '#echoOverlay .echo-panel');
+        dumps.push(c.tag + ' echo ' + JSON.stringify(m));
+        if (!m) check(c.tag + ' 回响面板可读', false);
+        else {
+          const tag = c.tag + ' 回响';
+          const btn = m.btns.find((b) => b.id === 'echoClose');
+          check(tag + ' 面板不出视口', m.r.top >= -1 && m.r.bottom <= c.h + 1, m.r.top + '–' + m.r.bottom + ' / ' + c.h);
+          check(tag + ' 继续上楼不滚就看得见', !!btn && btn.top >= -1 && btn.bottom <= c.h + 1,
+            btn ? btn.top + '–' + btn.bottom + ' / ' + c.h : '缺按钮');
+        }
+        try { d.getElementById('echoClose').click(); } catch (e) {}
+        await wait(150);
+      }
+
+      // ---- 6) 结算页（本作最长的一屏：分项 + 码 + 两个出口）----
+      {
+        d.getElementById('btnNew').click();
+        await wait(260);
+        const vc = d.querySelector('#vowCards .vow-card');
+        if (vc) vc.click();
+        await wait(320);
+        const s3 = w.Engine.state();
+        if (s3) { s3.ending = 'true'; s3.won = true; s3.startedAt = Date.now() - 360000; }
+        w.__tm.showEnd();
+        await wait(1500);
+        const m = measurePanel(f, '#endOverlay .end-panel');
+        dumps.push(c.tag + ' end ' + JSON.stringify({ r: m && m.r, btns: m && m.btns.filter((b) => b.id) }));
+        if (!m) check(c.tag + ' 结算页可读', false);
+        else {
+          const tag = c.tag + ' 结算页';
+          const again = m.btns.find((b) => b.id === 'btnAgain');
+          check(tag + ' 面板不出视口', m.r.top >= -1 && m.r.bottom <= c.h + 1, m.r.top + '–' + m.r.bottom + ' / ' + c.h);
+          check(tag + ' 再来一局不滚就看得见', !!again && again.top >= -1 && again.bottom <= c.h + 1,
+            again ? again.top + '–' + again.bottom + ' / ' + c.h : '缺按钮');
+        }
+      }
+    } catch (e) {
+      check(c.tag + ' 探针跑通', false, String((e && e.message) || e));
+    }
+    f.remove();
+    await wait(150);
+  }
+  const all = bits.every((b) => b === '1');
+  out.textContent = detail.join('\n') + '\n'
+    + 'DUMP|' + dumps.join('\nDUMP|') + '\n'
+    + (all ? 'ALLPASS|' : 'HASFAIL|') + bits.join('') + '\n';
+})();
+</script>
+</body>
+</html>
