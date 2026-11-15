@@ -4679,9 +4679,13 @@
     // 渲染异常兜底：draw() 抛错（如特效参数异常）只丢当前帧，绝不炸掉 rAF 主循环——
     // 否则画面从此冻结、只能刷新。连续报错时压噪（同一异常每秒最多记一次）。
     let lastRenderErrAt = 0;
+    let layoutTick = 0;
     window.__tmRenderErrors = [];
     function loop() {
       const s = Engine.state();
+      // 布局自愈（约每 15 帧一次）：地址栏收放、旋转、字体换行都改 stage 尺寸，
+      // 不能只指望 resize 事件与 ResizeObserver——实测 320×568 首帧算完就再没触发过。
+      if ((layoutTick = (layoutTick + 1) % 15) === 0 && Renderer.ensureLayout) Renderer.ensureLayout(el.stage);
       // 遮罩完全盖住画布时不重绘：省电，也避免后台空转掉帧
       const force = Renderer.needsDraw && Renderer.needsDraw();
       if (s && !document.hidden && (!covered() || force)) {

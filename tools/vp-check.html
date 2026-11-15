@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>多视口适配自检</title>
+<style>html,body{margin:0;background:#05070c;color:#7ef0b2;font:13px/1.5 monospace}#out{white-space:pre-wrap;padding:8px}</style>
+</head>
+<body>
+<pre id="out">pending</pre>
+<div id="host" style="position:absolute;left:-30000px;top:0"></div>
+<script>
+// 多视口适配自检（闸门用）：把游戏塞进「精确尺寸」的 iframe，量真实排版。
+// 起因：手机横屏（844×390）下 stage 只剩 110px 高，render 的 240 下限把画布撑到 231，
+// 画布压住顶栏与日志区，棋盘格只有 21px。修法＝画布尺寸只由容器决定 + 横屏改两栏。
+// 这里守四件事：竖屏基准不变 / 画布永不溢出容器 / 横屏两栏生效且棋盘够大 / 极矮时不裁切。
+const CASES = [
+  { w: 390, h: 844, tag: '竖屏基准' },
+  { w: 844, h: 390, tag: '手机横屏' },
+  { w: 320, h: 568, tag: '小屏' },
+  { w: 844, h: 320, tag: '极矮横屏' },
+];
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const out = document.getElementById('out');
+const detail = [];
+const bits = [];
+
+function check(name, ok, extra) {
+  bits.push(ok ? '1' : '0');
+  detail.push((ok ? '✓ ' : '✗ ') + name + (extra ? ' · ' + extra : ''));
+}
+
+function measure(frame) {
+  const doc = frame.contentDocument;
+  const win = frame.contentWindow;
+  const stage = doc.getElementById('stage');
+  const cv = doc.querySelector('#stage canvas');
+  const top = doc.getElementById('topbar');
+  const bot = doc.getElementById('bottom');
+  const log = doc.getElementById('log');
+  const R = (el) => (el ? el.getBoundingClientRect() : null);
+  const hpText = doc.getElementById('hpText');
+  const chips = Array.from(doc.querySelectorAll('.chips > .chip')).map((c) => {
+    const b = c.querySelector('b');
+    const r = c.getBoundingClientRect();
+    return {
+      w: Math.round(r.width),
+      right: Math.round(r.right),
+      clipped: b ? b.scrollWidth > b.clientWidth + 1 : false,
+    };
+  });
+  return {
+    win: win, stage: stage, cv: cv, top: top, bot: bot, log: log,
+    rs: R(stage), rc: R(cv), rt: R(top), rb: R(bot),
+    tile: Math.floor(R(cv).width / 11),
+    logHidden: log ? win.getComputedStyle(log).display === 'none' : false,
+    hpClipped: hpText ? hpText.scrollWidth > hpText.clientWidth + 1 : true,
+    chips: chips,
+  };
+}
+
+(async () => {
+  for (const c of CASES) {
+    const f = document.createElement('iframe');
+    f.style.cssText = 'width:' + c.w + 'px;height:' + c.h + 'px;border:0;display:block';
+    f.src = '/index.html?dev=1#demo=3,5,5';
+    document.getElementById('host').appendChild(f);
+    await wait(1300);
+    let m;
+    try {
+      // 先按当前容器手动排一次：清掉「首帧容器还没定型时算出的旧尺寸」这种瞬态，
+      // 保证量的是布局本身而不是时序。
+      try { f.contentWindow.Renderer.layout(f.contentDocument.getElementById('stage')); } catch (e) {}
+      await wait(60);
+      m = measure(f);
+    } catch (e) {
+      check(c.tag + ' 探针可读', false, String(e && e.message));
+      f.remove();
+      continue;
+    }
+    const vpTag = c.tag + ' ' + c.w + '×' + c.h;
+    const overflow = m.rc.right > m.rs.right + 1 || m.rc.bottom > m.rs.bottom + 1
+      || m.rc.left < m.rs.left - 1 || m.rc.top < m.rs.top - 1;
+    if (c.tag === '竖屏基准') {
+      check(vpTag + ' 画布不溢出棋盘区', !overflow, 'canvas ' + Math.round(m.rc.width) + ' / stage ' + Math.round(m.rs.width) + '×' + Math.round(m.rs.height));
+      check(vpTag + ' 竖屏棋盘尺寸未变（33px/格）', m.tile === 33, m.tile + 'px/格');
+      check(vpTag + ' 底栏完整在视口内', m.rb.bottom <= c.h + 1 && m.rb.top < c.h, 'bottom ' + Math.round(m.rb.bottom));
+      check(vpTag + ' 血条数字完整（1000/1000 不许两端被裁）', !m.hpClipped);
+      check(vpTag + ' 五个数值格都在且不被裁', m.chips.length === 5 && m.chips.every((x) => x.w >= 27 && !x.clipped && x.right <= c.w),
+        m.chips.map((x) => x.w).join('/'));
+    } else if (c.tag === '手机横屏') {
+      check(vpTag + ' 画布不溢出棋盘区', !overflow, 'canvas ' + Math.round(m.rc.width) + ' @ ' + Math.round(m.rc.top) + '–' + Math.round(m.rc.bottom) + ' / stage ' + Math.round(m.rs.top) + '–' + Math.round(m.rs.bottom));
+      check(vpTag + ' 棋盘格够点（≥30px）', m.tile >= 30, m.tile + 'px/格');
+      check(vpTag + ' 两栏生效（顶栏在棋盘右侧）', m.rt.left >= m.rs.right - 1, 'topbar.left ' + Math.round(m.rt.left) + ' / stage.right ' + Math.round(m.rs.right));
+      check(vpTag + ' 顶栏与底栏不重叠', m.rt.bottom <= m.rb.top + 1, Math.round(m.rt.bottom) + ' ≤ ' + Math.round(m.rb.top));
+      check(vpTag + ' 底栏完整在视口内', m.rb.bottom <= c.h + 1, Math.round(m.rb.bottom) + ' / ' + c.h);
+      check(vpTag + ' 血条数字完整', !m.hpClipped);
+      check(vpTag + ' 五个数值一个都没被裁（右栏只有 ~300 宽）',
+        m.chips.length === 5 && m.chips.every((x) => !x.clipped),
+        m.chips.map((x) => x.w + (x.clipped ? '!' : '')).join('/'));
+    } else if (c.tag === '小屏') {
+      check(vpTag + ' 画布不溢出棋盘区', !overflow, 'canvas ' + Math.round(m.rc.width));
+      check(vpTag + ' 棋盘格 ≥24px（可点）', m.tile >= 24, m.tile + 'px/格');
+      check(vpTag + ' 底栏完整在视口内', m.rb.bottom <= c.h + 1, Math.round(m.rb.bottom));
+      check(vpTag + ' 血条数字完整', !m.hpClipped);
+      check(vpTag + ' 五个数值一个都没被裁（含攻/防/金/等级）',
+        m.chips.length === 5 && m.chips.every((x) => !x.clipped && x.right <= c.w),
+        m.chips.map((x) => x.w + (x.clipped ? '!' : '')).join('/'));
+    } else {
+      check(vpTag + ' 画布不溢出棋盘区', !overflow, 'canvas ' + Math.round(m.rc.width));
+      check(vpTag + ' 日志让位（极矮时隐藏）', m.logHidden, m.logHidden ? 'display:none' : '仍占位');
+      check(vpTag + ' 棋盘格够点（≥24px）', m.tile >= 24, m.tile + 'px/格');
+    }
+    f.remove();
+    await wait(100);
+  }
+  const all = bits.every((b) => b === '1');
+  out.textContent = detail.join('\n') + '\n'
+    + (all ? 'ALLPASS|' : 'HASFAIL|') + bits.join('') + '\n';
+})();
+</script>
+</body>
+</html>

@@ -442,14 +442,56 @@ if (!process.argv.includes('--no-shot')) {
         guardLine = `面板 ${shown ? '在' : '缺'} / 余场数与引擎同源 ${countOk ? n[1] : '不符'} / 比例写明 ${pctOk ? '−15%' : '否'} / 承伤=白打×0.85 ${mathOk ? gDmg[1] : '不符'} / 入口条件 ${canOk ? '可架' : '不符'}（${txt || '无'}）`;
         console.log((okGuard ? '✓' : '✗') + ' 架盾面板 ' + guardLine);
       }
+      // 横屏留一张目视证据（闸门里只有数字断言，排版错乱还得看眼睛）
+      {
+        const os = require('os');
+        const file = path.join(OUT, 'landscape.png');
+        const r = spawnSync(chrome, [
+          '--headless=new', '--disable-gpu', '--hide-scrollbars', '--no-sandbox', '--no-first-run',
+          '--user-data-dir=' + path.join(os.tmpdir(), 'tm-land-' + process.pid),
+          '--window-size=844,390', '--virtual-time-budget=9000',
+          '--screenshot=' + file,
+          `http://127.0.0.1:${PORT}/index.html?dev=1#demo=3,5,5`,
+        ], { encoding: 'utf8' });
+        const size = fs.existsSync(file) ? fs.statSync(file).size : 0;
+        const ok = r.status === 0 && size > 8000;
+        if (!ok) bad++;
+        console.log((ok ? '✓' : '✗') + ` scene landscape(844x390) ${(size / 1024).toFixed(0)}KB`);
+      }
+      // 多视口适配：手机横屏 / 小屏 / 极矮横屏下的画布与顶栏数值
+      // （2026-11-15 实测：横屏画布撑出容器压住顶栏、390 宽血条数字被裁成「00/10」）
+      console.log('== 附加 · 多视口适配自检 ==');
+      let okVp = true, vpLine = '';
+      {
+        const os = require('os');
+        const args = [
+          '--headless=new', '--disable-gpu', '--no-sandbox', '--no-first-run', '--disable-extensions',
+          '--user-data-dir=' + path.join(os.tmpdir(), 'tm-vp-' + process.pid),
+          '--virtual-time-budget=90000',
+          '--dump-dom', `http://127.0.0.1:${PORT}/tools/vp-check.html?gate=1`,
+        ];
+        const read = () => {
+          const p = spawnSync(chrome, args, { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+          const t = p.stdout || '';
+          const bits = /(?:ALLPASS|HASFAIL)\|([01]+)/.exec(t);
+          const fails = (t.match(/^✗ .*$/gm) || []).map((s) => s.replace(/^✗\s*/, ''));
+          return { pass: /ALLPASS\|1+/.test(t), bits: bits ? bits[1] : '', fails: fails };
+        };
+        let r = read();
+        if (!r.bits) r = read();
+        okVp = r.pass;
+        vpLine = r.bits ? `${(r.bits.match(/1/g) || []).length}/${r.bits.length} 项` : '读数失败';
+        console.log((okVp ? '✓' : '✗') + ` 多视口适配 ${vpLine}` + (okVp ? '' : '\n   ' + r.fails.slice(0, 4).join('\n   ')));
+      }
+
       server.kill();      console.log(bad === 0 ? `\n✓ 截图全部生成（${SCENES.length} 张，见 tools/out/）` : `\n✗ ${bad} 张截图异常`);
 
       console.log('== 浏览器 UI 自检 ==');
       const ui = run(process.execPath, ['tools/ui-test.js']);
       const okUi = ui.code === 0;
       console.log((okUi ? '✓' : '✗') + ' ui-test.js' + (okUi ? '' : '\n' + ui.out));
-      const all = okCheck && okSim && okSkip && okTest && okCode && okBsim && okOd && okUi && okProbe && okAds && okIntro && okWxb && okNew && okWx && okSwordGate && okPace && okDaily && okZeal && okFinal && okTangle && okGuard && bad === 0;
-      if (!all) console.log('  闸门明细:', JSON.stringify({ okCheck, okSim, okSkip, okTest, okCode, okBsim, okOd, okUi, okProbe, probeA3, okAds, adsLine, okIntro, introLine, okWxb, wxbLine, okNew, newLine, okWx, okSwordGate, okPace, paceLine, okDaily, dailyLine, okZeal, zealLine, okFinal, finalLine, okTangle, tangleLine, okGuard, guardLine, bad }));
+      const all = okCheck && okSim && okSkip && okTest && okCode && okBsim && okOd && okUi && okProbe && okAds && okIntro && okWxb && okNew && okWx && okSwordGate && okPace && okDaily && okZeal && okFinal && okTangle && okGuard && okVp && bad === 0;
+      if (!all) console.log('  闸门明细:', JSON.stringify({ okCheck, okSim, okSkip, okTest, okCode, okBsim, okOd, okUi, okProbe, probeA3, okAds, adsLine, okIntro, introLine, okWxb, wxbLine, okNew, newLine, okWx, okSwordGate, okPace, paceLine, okDaily, dailyLine, okZeal, zealLine, okFinal, finalLine, okTangle, tangleLine, okGuard, guardLine, okVp, vpLine, bad }));
       console.log(all ? '✓ 质量闸门通过' : '✗ 质量闸门有失败项');
       process.exit(all ? 0 : 1);
     })();

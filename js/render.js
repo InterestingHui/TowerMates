@@ -38,12 +38,18 @@
     ctx = canvas.getContext('2d');
   }
 
+  let lastBox = { w: 0, h: 0 };
   function layout(container) {
     if (!canvas) return;
     const w = container.clientWidth;
     const h = container.clientHeight;
-    const size = Math.max(240, Math.min(w, h));
-    const px = Math.floor(size / SIZE);
+    // 尺寸只由容器决定。原先是 Math.max(240, min(w,h))——那个 240 下限在矮容器里会把画布
+    // 撑出容器（手机横屏实测 stage 只有 110 高，画布仍做 231，直接压住顶栏和日志区）。
+    // 下限本来是为了防「容器还没定型时算出 0 尺寸」，改成提前返回更准：保留上一次的尺寸。
+    if (w < 60 || h < 60) return;
+    lastBox = { w: w, h: h };
+    const size = Math.min(w, h);
+    const px = Math.max(1, Math.floor(size / SIZE));
     TILE = px;
     dpr = Math.min(2.5, window.devicePixelRatio || 1);
     canvas.width = Math.floor(px * SIZE * dpr);
@@ -54,6 +60,18 @@
     bgKey = '';
     beamKey = '';
     dirty = true;
+  }
+
+  // 布局自愈：容器尺寸变了但没收到 resize / ResizeObserver 时（实测 320×568 下首帧按
+  // 未定型的容器算出 242，之后 stage 长到 300 却一直不重排，棋盘白白小一圈），
+  // 由主循环隔几帧喊一次。尺寸没变时只读两个数、不做任何绘制，代价可以忽略。
+  function ensureLayout(container) {
+    if (!canvas || !container) return false;
+    const w = container.clientWidth;
+    const h = container.clientHeight;
+    if (w === lastBox.w && h === lastBox.h) return false;
+    layout(container);
+    return true;
   }
 
   // ---------- 对外特效接口 ----------
@@ -1647,7 +1665,7 @@
 
   window.Renderer = {
     onScare(fn) { scareCb = typeof fn === 'function' ? fn : null; },
-    init, layout, draw, snapshot,
+    init, layout, ensureLayout, draw, snapshot,
     addFloat, shake, fade, freeze, pulse, flashTile, ring, ringPx, burst, relicBeamFx,
     setAmbient, setTarget, setRoutePreview,
     needsDraw: () => dirty,
