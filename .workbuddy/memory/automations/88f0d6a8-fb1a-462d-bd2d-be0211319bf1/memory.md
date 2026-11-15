@@ -225,3 +225,11 @@
 - 闸门：check ✓ / engine 523 / code 45 / sim 18,745·68.4% 未漂移 / regress 52 图 + 三窗口 10/10 / 首局 1·1·1·4·3·2·63s / ui-test ✓。commit fbd5889 + 83a50c3 已推；**本轮无运行时代码改动 → 未重新部署**（build 仍 e7c2160134）。
 - 环境：本轮临时 serve 9412 已 Stop-Process 并复查 0；headless chrome 残留属其他会话（星壤拓荒 p9333 / Temp t026），未动。
 - 剩余：返回玩家首屏 / 结算页 / 图鉴页的元素个数从未量过（已记账进元素登记表）；真人数据仍是唯一结构缺口。
+
+
+## 2026-11-15 14:2x — 全力模式（三屏补量进闸门 + 减弱动效收口，2 项）
+- 判定：PROGRESS mtime 72 分钟、工作树仅 `_backup/` → 全力；占用表空、无排队；最近 5 条含变体（12:5x 节奏审计）→ 不触发变体。挑活＝上一轮变体 6 自己记的账「返回玩家首屏/结算页/图鉴页从没量过个数」。
+- 产出：①`tools/pace-audit.html` 19→22 屏、闸门 10→14 项：返回玩家首屏 **5**（首项必须「继续游戏」）/ 结算页 **3** / 图鉴 92 张卡但口径改「不滚能看见几张」=**11**（闸门 ≤12）。②`tools/rm-check.html` 新增 10 项（现场造节点读 computed `animationName`），regress 跑两遍：默认必须有的动画 + `--force-prefers-reduced-motion` 必须全停，第二遍强制 `REDUCE=1`。③`css` 减弱动效从「只覆盖结算签名」扩到 6 类常驻循环动效（twinkle/coachPulse/cueBlink/auraPulse/ptBreath/hpPulse），一次性进场保留。
+- **关键坑/手法**：①「返回玩家」≠「有存档」——榜单/玩法/今日一塔要 `Meta.memory.runs>0` 才露脸，只清档量出来 2 个入口（假读数），探针里补 runs=1 + `refreshStartBadges()` 才是真读数；②用 `--force-prefers-reduced-motion` 真测媒体查询，跑完必须核 `matchMedia().matches`，否则旗标无效＝假绿；③查残留进程要按进程名过滤 node.exe，只看命令行 `*serve.js*` 会把查询命令自己也数进去（上轮报「残留 1」就是这个自匹配）。
+- 闸门：check ✓ / engine 523 / code 45 / sim 18,745·68.4% 未漂移 / regress 52 图 + 全屏元素预算 14/14 + 减弱动效 10/10·10/10 / 首局 63s。commit 8fc0698 已推，线上 build **a4b54fb4b9** 已验证（curl css 到新规则）。
+- 剩余：真人数据（唯一结构缺口）；「线上整仓可读」仍等拍板；首页不放图鉴入口已拍板登记（别再提）。
