@@ -98,6 +98,7 @@
       ver: 5,
       steps: 0,
       startedAt: Date.now(),
+      activeMs: 0,
       snap: null,
       floorEnter: null,
     };
@@ -203,6 +204,8 @@
     p.won = !!p.won;
     if (!p.floorEnter || typeof p.floorEnter !== 'object') p.floorEnter = null;
     if (!isFiniteNum(p.startedAt)) p.startedAt = Date.now();
+    // 活跃用时（真在玩的毫秒数）：老档没有这个字段，或被人手改成负数/非数 → 0（读档后 summary 退回墙钟差）
+    p.activeMs = isFiniteNum(p.activeMs) && p.activeMs > 0 ? Math.round(p.activeMs) : 0;
     // 本层快照：「从这一层重来」直接读它，字段缺一个就会抛错 → 残缺就整份丢掉
     if (!p.snap || typeof p.snap !== 'object') p.snap = null;
     else {
@@ -1742,10 +1745,29 @@
     return out;
   }
 
+  // 单帧最多记 250ms：切后台回来 / 长卡顿时 rAF 的时间差会是一大段（几分钟甚至几小时），
+  // 那段不是「在玩」。正常一帧 16ms，连打 15 帧才够得着这个上限，落不到正常手感上。
+  const ACTIVE_CAP = 250;
+  function accrueActive(ms) {
+    if (!s) return 0;
+    if (!isFiniteNum(s.activeMs) || s.activeMs < 0) s.activeMs = 0;
+    const d = isFiniteNum(ms) ? Math.min(Math.max(0, ms), ACTIVE_CAP) : 0;
+    s.activeMs += d;
+    return s.activeMs;
+  }
+
   function summary() {
     if (!s) return null;
-    // 系统时间被往回调整时可能为负：钳到 0，否则会出现「-360 秒」并把通关用时写坏
-    const time = Math.max(0, Math.round(((s.finishedAt || Date.now()) - s.startedAt) / 1000));
+    // 用时＝玩家真在的时间（activeMs 累计），不是墙钟差：
+    // 墙钟把「切后台接个电话」那十分钟也记进这一局——而榜单同层按用时升序排，等于挂机就掉名次；
+    // 系统时间被往回调整时墙钟还会算出负数（老实现钳到 0，于是显示「0 秒通关」）。
+    // 老档没有 activeMs（或为 0：开局第一帧就结束）→ 退回墙钟差，读数与从前一字不差。
+    let time;
+    if (isFiniteNum(s.activeMs) && s.activeMs > 0) {
+      time = Math.max(0, Math.round(s.activeMs / 1000));
+    } else {
+      time = Math.max(0, Math.round(((s.finishedAt || Date.now()) - s.startedAt) / 1000));
+    }
     return { ending: s.ending, floor: s.floor + 1, level: s.level, steps: s.steps, time };
   }
 
@@ -1757,7 +1779,7 @@
       return D.monsters[ch] ? predict(ch) : null;
     },
     tryMove, fight, canBlock, canGuard, blockLimit, blockLeft, blockUsedAt, grantBlock, vowForbidsBlock, blockSpreadAt, blockSpreadActive, blockSpreadScale, BLOCK_SPREAD, buy, priceOf, shopStock, dealOf, openShopAt, floorMonsterCount, floorPickupCount, floorThreat, battleMargin, potionHeal, finish, altarChoices, pickRelic, pathTo, pathThrough, pathToNear, pathsTo,
-    nextLevelExp, margin, keyName, summary, hasRelic, ownedRelics, beginFloor, restoreFloor, revealCore, heartState, heartTake, heartLeave, vow, pickEvent, eventPool, eventCost, resolveEvent, applyEffect, jumpTo, visitedMax, gateForth, sealPlan,
+    nextLevelExp, margin, keyName, summary, accrueActive, ACTIVE_CAP, hasRelic, ownedRelics, beginFloor, restoreFloor, revealCore, heartState, heartTake, heartLeave, vow, pickEvent, eventPool, eventCost, resolveEvent, applyEffect, jumpTo, visitedMax, gateForth, sealPlan,
     rings, hasRing, ringBlockScale, zealScale, zealNext, zealNeed, finalLedger, cleanEmber, fightDamage, tangleInfo, bossPhases, settleChapter, ringChoices, pendingRing, pickRing,
   };
 })();

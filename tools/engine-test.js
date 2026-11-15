@@ -2169,5 +2169,73 @@ ok(Array.isArray(E.load().flags.rings), 'rings 不是数组：归一成空列表
   E.setStorageFailHook(null);
 }
 
+// ---------- O. 局内用时＝活跃时间（2026-11-15 时间面收口） ----------
+// 此前用时是「结束时刻 − 开局时刻」的墙钟差：手机切后台接个电话十分钟，这一局就多十分钟——
+// 而榜单同层按用时升序排（cmpBoard 第 4 顺位），等于挂机就掉名次；系统时间被往回拨时
+// 墙钟差还会为负（钳成 0 → 「0 秒通关」）。现在只累计「真出了一帧」的时间（单帧封顶 250ms），
+// 老档没有这个字段则退回墙钟差 —— 读数与从前一字不差。
+{
+  E.newGame('none', { seed: 4242 });
+  ok(E.state().activeMs === 0, '新局活跃用时从 0 起（不把墙钟起点当用时）');
+
+  for (let i = 0; i < 20; i++) E.accrueActive(200);
+  ok(Math.round(E.state().activeMs) === 4000, '逐帧累加：20 帧 × 200ms = 4000ms');
+  ok(E.summary().time === 4, '用时取活跃时间：4 秒（不是墙钟差）');
+
+  // 墙钟被拨了 10 分钟（切后台 / 系统校时）：活跃用时一个字节都不该动
+  E.state().startedAt -= 600000;
+  ok(E.summary().time === 4, '墙钟多出 10 分钟，用时仍是 4 秒（挂机不算进这一局）');
+
+  // 系统时间被往回拨 15 分钟：老实现会算出负数（钳 0 = 0 秒通关）
+  E.state().startedAt = Date.now() + 900000;
+  ok(E.summary().time === 4, '系统时间回拨也不影响（用时不再来自墙钟差）');
+
+  // 单帧封顶：切回标签页那一帧的 delta 可能是几分钟，那段不是「在玩」
+  E.newGame('none', { seed: 4242 });
+  E.accrueActive(60000);
+  // 断言写死 250 而不是读 ACTIVE_CAP：后者会跟着实参走（把上限改成 60000 这条照样绿 = 假绿）
+  ok(Math.round(E.state().activeMs) === 250 && E.ACTIVE_CAP === 250, '单帧最多记 250ms（后台回来那一大段不进账）');
+  const msBefore = E.state().activeMs;
+  E.accrueActive(NaN); E.accrueActive(-500); E.accrueActive('x'); E.accrueActive(undefined);
+  ok(E.state().activeMs === msBefore, '非数/负数/字符串不改账（坏时间源不污染用时）');
+
+  // 老档兼容：没有 activeMs 时退回墙钟差
+  E.newGame('none', { seed: 4242 });
+  delete E.state().activeMs;
+  E.state().startedAt = Date.now() - 120000;
+  ok(E.summary().time === 120, '老档没有 activeMs → 退回墙钟差（120 秒，读数与从前一致）');
+  E.state().startedAt = Date.now() + 100000;
+  ok(E.summary().time === 0, '老档 + 回拨成负数 → 钳到 0（不出现 -100 秒）');
+
+  // 存档往返：activeMs 必须落盘，否则刷新一次用时就从零重算
+  E.newGame('none', { seed: 4242 });
+  for (let i = 0; i < 15; i++) E.accrueActive(200);
+  E.save();
+  ok(Math.round(JSON.parse(store[SAVE_KEY]).activeMs) === 3000, '活跃用时写进存档（3000ms）');
+  E.load();
+  ok(Math.round(E.state().activeMs) === 3000, '读档后活跃用时接得上（刷新不重算）');
+
+  // 坏值：负数 / 字符串 → 读档归一成 0（summary 退回墙钟，不写 NaN 进榜单）
+  const bad = JSON.parse(store[SAVE_KEY]);
+  bad.activeMs = -5000;
+  store[SAVE_KEY] = JSON.stringify(bad);
+  E.load();
+  ok(E.state().activeMs === 0, '存档里 activeMs 是负数 → 归 0');
+  bad.activeMs = 'abc';
+  store[SAVE_KEY] = JSON.stringify(bad);
+  E.load();
+  ok(E.state().activeMs === 0 && isFinite(E.summary().time), '存档里 activeMs 是字符串 → 归 0 且用时仍是有限数');
+
+  // 重来本层不回卷用时：它是「这一局花了多久」，不是「这一层花了多久」
+  E.newGame('none', { seed: 4242 });
+  s = E.state();
+  s.floor = 2; s.x = 4; s.y = 3;
+  E.beginFloor();
+  for (let i = 0; i < 10; i++) E.accrueActive(200);
+  const msAtSnap = s.activeMs;
+  s.hp = 100; s.x = 8; s.y = 8;
+  ok(E.restoreFloor() === true && s.activeMs === msAtSnap, '重来本层不清零用时（快照不吞活跃时间）');
+}
+
 console.log(fail === 0 ? '\n✓ 全部通过' : `\n✗ ${fail} 项失败`);
 process.exit(fail ? 1 : 0);

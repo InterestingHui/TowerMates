@@ -40,14 +40,5 @@
     return key === keyOf(now === undefined ? Date.now() : now);
   }
 
-  // 距离下一座塔（本地零点）还有多久：给面板写「还 N 小时 N 分」用
-  function msLeft(key, now) {
-    const t = typeof now === 'number' ? now : Date.now();
-    if (!isToday(key, t)) return 0;
-    const d = new Date(t);
-    const next = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1).getTime();
-    return Math.max(0, next - t);
-  }
-
-  return { keyOf, seedOf, label, isToday, msLeft, DAY };
+  return { keyOf, seedOf, label, isToday, DAY };
 });

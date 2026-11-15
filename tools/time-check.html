@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>time-check</title>
+<style>body{margin:0;background:#05070c;color:#8ef;font:12px monospace}#f{width:430px;height:900px;border:0;position:absolute;left:-9999px}</style>
+</head><body>
+<iframe id="f" src="/index.html"></iframe>
+<pre id="out">…</pre>
+<script>
+// 时间面闸门（2026-11-15）。
+// 背景：这一面此前从没被量过，一查两处都在说谎——
+// ①局内用时是「结束时刻 − 开局时刻」的墙钟差：手机切后台接个电话十分钟，这一局就多十分钟；
+//   而榜单同层按用时升序排（cmpBoard 第 4 顺位），等于挂机就掉名次；系统时间往回拨还会算出负数
+//   （钳成 0 → 「0 秒通关」）。现在只累计算「真出了一帧」的时间（单帧封顶 250ms）。
+// ②开始页「今日一塔 · M月D日」与榜单「今日」档都按渲染那一刻的日期算：页面挂着过零点会一直写昨天，
+//   点下去进的却是新一天的塔 —— 文案与内容不一致。现在主循环约每秒对一次日期键。
+const out = document.getElementById('out');
+const f = document.getElementById('f');
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const rows = [];
+const bits = [];
+const push = (ok, name, detail) => {
+  rows.push((ok ? 'PASS|' : 'FAIL|') + name + '|' + (detail == null ? '' : String(detail).slice(0, 120)));
+  bits.push(ok ? 1 : 0);
+};
+function finish() {
+  const okAll = bits.every((b) => b === 1);
+  document.title = (okAll ? 'ALLPASS|' : 'HASFAIL|') + bits.join('');
+  out.textContent = rows.join('\n');
+}
+(async () => {
+  try {
+    await wait(1800);
+    const w = f.contentWindow;
+    const d = f.contentDocument;
+    const tm = w.__tm;
+    const E = w.Engine;
+    if (!tm || !E) throw new Error('页面没跑起来（__tm / Engine 缺失）');
+
+    // ---------- A · 活跃用时 ----------
+    // 无头 `--dump-dom` 下 rAF 一帧都不跑（合成器没有 BeginFrame），所以「真循环在记」这条
+    // 只能靠 regress 的 Node 侧源码契约守着（loop 里必须有 Engine.accrueActive(now - frameAt)）；
+    // 这里验的是被调用那一端：累加口径、封顶、结算读数、老档兼容。
+    push(!E.state() || E.state().activeMs === 0, 'T1 开始页不计时', E.state() ? E.state().activeMs : '无局');
+
+    E.newGame('none', { seed: 4242 });
+    const st = E.state();
+    // T2 三帧 16ms：活跃时间按帧累加（引擎侧的口径，主循环每帧喂一次 delta）
+    E.accrueActive(16); E.accrueActive(16); E.accrueActive(16);
+    push(Math.round(st.activeMs) === 48, 'T2 逐帧累加活跃用时', st.activeMs + 'ms');
+
+    // T3 墙钟被拨走 10 分钟（切后台 / 系统校时）：结算用时一个数都不该动
+    st.activeMs = 4000;
+    const tBefore = E.summary().time;
+    st.startedAt -= 600000;
+    push(tBefore === 4 && E.summary().time === 4, 'T3 墙钟多 10 分钟，结算用时不变', tBefore + 's → ' + E.summary().time + 's');
+    st.startedAt += 600000;
+
+    // T4 系统时间往回拨：老实现会算出负数（钳 0 = 0 秒通关）
+    st.startedAt = Date.now() + 900000;
+    push(E.summary().time === 4, 'T4 系统时间回拨也不影响用时', E.summary().time + 's');
+    st.startedAt = Date.now();
+
+    // T5 单帧封顶：切回标签页那一帧的 delta 可能是几分钟，那段不是「在玩」
+    // 断言写死 250（不读 ACTIVE_CAP：后者跟着实参走，上限被放大也照样绿 = 假绿）
+    const beforeCap = st.activeMs;
+    E.accrueActive(60000);
+    push(Math.round(st.activeMs - beforeCap) === 250, 'T5 单帧最多记 250ms', Math.round(st.activeMs - beforeCap) + 'ms');
+
+    // T6 结算页用的就是这份读数（同一出口，不是另算一遍墙钟）
+    st.activeMs = 5000;
+    push(E.summary().time === 5, 'T6 结算用时＝活跃用时', E.summary().time + 's');
+
+    // T6b 老档（没有 activeMs）退回墙钟差：读数与从前一字不差
+    delete st.activeMs;
+    st.startedAt = Date.now() - 120000;
+    push(E.summary().time === 120, 'T6b 老档退回墙钟差（120 秒）', E.summary().time + 's');
+    st.activeMs = 5000;
+
+    // ---------- B · 跨零点 ----------
+    const today = w.Daily.keyOf(Date.now());
+    const tomorrow = w.Daily.keyOf(Date.now() + 86400000);
+    // 造一条「今天这座塔」的成绩，榜单「今日」档现在应该有 1 行
+    w.localStorage.setItem('towermates_board', JSON.stringify([
+      { name: '你', mine: true, floor: 6, steps: 210, time: 300, vow: 'none', daily: today, ending: null },
+      { name: '你', mine: true, floor: 5, steps: 240, time: 320, vow: 'none', daily: '2020-01-01', ending: null },
+    ]));
+    tm.openBoard();
+    const dailyTab = Array.from(d.querySelectorAll('#boardTabs .btab')).find((b) => b.dataset.f === 'daily');
+    dailyTab.click();
+    await wait(120);
+    const rowsNow = d.querySelectorAll('#boardList .bd-row').length;
+    push(rowsNow === 1, 'T7 今日档只收今天的成绩（1 行）', rowsNow + ' 行');
+
+    const btn = d.getElementById('btnDaily');
+    push(btn.textContent.indexOf(w.Daily.label(today)) >= 0, 'T8 开始页按钮写着今天', btn.textContent);
+
+    // 把「今天」推到明天：这正是页面挂着过零点时发生的事（日期键是唯一读日期的地方，替换它＝改日历）
+    const realKeyOf = w.Daily.keyOf;
+    w.Daily.keyOf = () => tomorrow;
+    const rolled = tm.checkDayRollover();
+    await wait(120);
+    push(rolled === true, 'T9 跨零点被识别', rolled);
+    push(btn.textContent.indexOf(w.Daily.label(tomorrow)) >= 0, 'T10 按钮文案换成新的一天（不再是昨天）', btn.textContent);
+    const rowsAfter = d.querySelectorAll('#boardList .bd-row').length;
+    push(rowsAfter === 0, 'T11 榜单「今日」档按新的一天重筛（昨天的成绩不进这档）', rowsAfter + ' 行');
+    const emptyTxt = (d.querySelector('#boardList .bd-empty') || {}).textContent || '';
+    push(emptyTxt.indexOf(w.Daily.label(tomorrow)) >= 0, 'T12 空档说明也写着新的一天', emptyTxt.replace(/\s+/g, ' '));
+
+    // T13 同一天不许反复重渲（每个 tick 都刷会把面板里的滚动位置顶回去）
+    push(tm.checkDayRollover() === false, 'T13 同一天不重复触发', 'false');
+
+    // T14 日签与塔一致：跨零点后「今日一塔」进的是新种子那座（不是昨天那座）
+    w.Daily.keyOf = realKeyOf;
+    const seedToday = w.Daily.seedOf(today);
+    const seedTomorrow = w.Daily.seedOf(tomorrow);
+    push(seedToday !== seedTomorrow, 'T14 跨天换塔（两颗种子不同）', seedToday + ' / ' + seedTomorrow);
+
+    const closeBtn = d.getElementById('boardClose');
+    if (closeBtn) closeBtn.click();
+  } catch (e) {
+    push(false, '探针异常', e && e.message);
+  }
+  finish();
+})();
+</script>
+</body></html>

@@ -648,14 +648,56 @@ if (!process.argv.includes('--no-shot')) {
         console.log((okSto ? '✓' : '✗') + ` 存档写失败 ${stoLine}` + (okSto ? '' : '\n   ' + r.fails.slice(0, 6).join('\n   ')));
       }
 
+      // 时间面：局内用时＝活跃时间（不是墙钟差）+ 跨零点刷新。
+      // 此前「结束时刻 − 开局时刻」把切后台接电话那十分钟也算进这一局，而榜单同层按用时排；
+      // 开始页「今日一塔 · M月D日」也会一直写着昨天（点下去进的是新一天的塔）。
+      let okTime = true, timeLine = '';
+      {
+        const os = require('os');
+        const args = [
+          '--headless=new', '--disable-gpu', '--no-sandbox', '--no-first-run', '--disable-extensions',
+          '--user-data-dir=' + path.join(os.tmpdir(), 'tm-time-' + process.pid),
+          '--virtual-time-budget=20000',
+          '--dump-dom', `http://127.0.0.1:${PORT}/tools/time-check.html`,
+        ];
+        const read = () => {
+          const p = spawnSync(chrome, args, { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+          const t = p.stdout || '';
+          const tt = (/<title>([^<]*)<\/title>/.exec(t) || [])[1] || '';
+          const bits = /(?:ALLPASS|HASFAIL)\|([01]+)/.exec(tt);
+          const fails = (t.match(/^FAIL\|[^\n<]*/gm) || []).map((x) => x.replace(/^FAIL\|\s*/, ''));
+          return { pass: /ALLPASS\|1+$/.test(tt.trim()), bits: bits ? bits[1] : '', fails: fails };
+        };
+        let r = read();
+        if (!r.bits) r = read();
+        // 源码契约（放 Node 侧）：无头 --dump-dom 下 rAF 一帧都不跑，探针里量不到主循环，
+        // 「真循环每帧喂 delta」只能在这里守——删掉接线就红，而不是悄悄退回墙钟差。
+        const msrc = fs.readFileSync(path.join(ROOT, 'js', 'main.js'), 'utf8');
+        const esrc = fs.readFileSync(path.join(ROOT, 'js', 'engine.js'), 'utf8');
+        const loopHead = (msrc.match(/function loop\(\)[\s\S]*?\n    \}/) || [''])[0];
+        const okAccrue = /Engine\.accrueActive\(now - frameAt\)/.test(loopHead);
+        const okDayCheck = /checkDayRollover\(\)/.test(loopHead);
+        const okSum = /activeMs/.test((esrc.match(/function summary\(\)[\s\S]*?\n  \}/) || [''])[0]);
+        const okCap = /ACTIVE_CAP\s*=\s*250/.test(esrc) && /Math\.min\(Math\.max\(0, ms\), ACTIVE_CAP\)/.test(esrc);
+        if (!okAccrue) r.fails.push('TM loop 没在喂活跃时间（用时又退回墙钟差）');
+        if (!okDayCheck) r.fails.push('TM loop 没有跨零点检查（开始页会一直写昨天）');
+        if (!okSum) r.fails.push('TM summary 没读 activeMs');
+        if (!okCap) r.fails.push('TM 活跃时间没有单帧封顶（后台回来那一大段会记账）');
+        if (!okAccrue || !okDayCheck || !okSum || !okCap) r.pass = false;
+        r.bits = (r.bits || '') + (okAccrue ? 1 : 0) + (okDayCheck ? 1 : 0) + (okSum ? 1 : 0) + (okCap ? 1 : 0);
+        okTime = r.pass;
+        timeLine = r.bits ? `${(r.bits.match(/1/g) || []).length}/${r.bits.length} 项` : '读数失败';
+        console.log((okTime ? '✓' : '✗') + ` 时间面 ${timeLine}` + (okTime ? '' : '\n   ' + r.fails.slice(0, 6).join('\n   ')));
+      }
+
       server.kill();      console.log(bad === 0 ? `\n✓ 截图全部生成（${SCENES.length} 张，见 tools/out/）` : `\n✗ ${bad} 张截图异常`);
 
       console.log('== 浏览器 UI 自检 ==');
       const ui = run(process.execPath, ['tools/ui-test.js']);
       const okUi = ui.code === 0;
       console.log((okUi ? '✓' : '✗') + ' ui-test.js' + (okUi ? '' : '\n' + ui.out));
-      const all = okCheck && okSim && okSkip && okTest && okCode && okBsim && okOd && okUi && okProbe && okAds && okIntro && okWxb && okNew && okWx && okSwordGate && okPace && okDaily && okZeal && okFinal && okTangle && okGuard && okVp && okVm && okSfx && okRm && okErr && okSto && bad === 0;
-      if (!all) console.log('  闸门明细:', JSON.stringify({ okCheck, okSim, okSkip, okTest, okCode, okBsim, okOd, okUi, okProbe, probeA3, okAds, adsLine, okIntro, introLine, okWxb, wxbLine, okNew, newLine, okWx, okSwordGate, okPace, paceLine, okDaily, dailyLine, okZeal, zealLine, okFinal, finalLine, okTangle, tangleLine, okGuard, guardLine, okVp, vpLine, okVm, vmLine, okSfx, sfxLine, okRm, rmLine, okErr, errLine, okSto, stoLine, bad }));
+      const all = okCheck && okSim && okSkip && okTest && okCode && okBsim && okOd && okUi && okProbe && okAds && okIntro && okWxb && okNew && okWx && okSwordGate && okPace && okDaily && okZeal && okFinal && okTangle && okGuard && okVp && okVm && okSfx && okRm && okErr && okSto && okTime && bad === 0;
+      if (!all) console.log('  闸门明细:', JSON.stringify({ okCheck, okSim, okSkip, okTest, okCode, okBsim, okOd, okUi, okProbe, probeA3, okAds, adsLine, okIntro, introLine, okWxb, wxbLine, okNew, newLine, okWx, okSwordGate, okPace, paceLine, okDaily, dailyLine, okZeal, zealLine, okFinal, finalLine, okTangle, tangleLine, okGuard, guardLine, okVp, vpLine, okVm, vmLine, okSfx, sfxLine, okRm, rmLine, okErr, errLine, okSto, stoLine, okTime, timeLine, bad }));
       console.log(all ? '✓ 质量闸门通过' : '✗ 质量闸门有失败项');
       process.exit(all ? 0 : 1);
     })();

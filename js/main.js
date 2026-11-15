@@ -3487,6 +3487,19 @@
   }
 
   // ---------- 标题页 ----------
+  // 跨零点：开始页「今日一塔 · M月D日」与榜单「今日」档都按「渲染那一刻」的日期算——
+  // 页面挂着过零点会一直写着昨天，点下去进的却是新一天的塔（文案与内容不一致＝谎话）。
+  // 主循环约每秒对一次日期键；变了就重刷开始页，榜单开着就按新日期重筛。
+  let startDayKey = Daily.keyOf(Date.now());
+  function checkDayRollover() {
+    const k = Daily.keyOf(Date.now());
+    if (k === startDayKey) return false;
+    startDayKey = k;
+    refreshStartBadges();
+    if (el.boardOverlay && el.boardOverlay.classList.contains('show')) openBoard();
+    return true;
+  }
+
   function refreshStartBadges() {
     const plain = Achievements.isUnlocked('end_plain');
     const tru = Achievements.isUnlocked('end_true');
@@ -4813,10 +4826,20 @@
     // 连续报错时压噪（同一异常每秒最多记一次），但每帧都要续命（续命在 finally）。
     let lastRenderErrAt = 0;
     let layoutTick = 0;
+    let frameAt = performance.now();
+    let dayTick = 0;
     window.__tmRenderErrors = [];
     function loop() {
       try {
         const s = Engine.state();
+        const now = performance.now();
+        // 局内用时＝活跃时间：只有真出了一帧才累加（切后台 rAF 不跑，那段不算进去）。
+        // 单帧上限在引擎里（ACTIVE_CAP=250ms），所以「切回来后第一帧」那一大段也进不去。
+        if (s) Engine.accrueActive(now - frameAt);
+        frameAt = now;
+        // 跨零点：开始页的「今日一塔 · M月D日」是渲染那一刻算的，页面挂着过零点会一直写昨天。
+        // 约每秒对一次日期键（一次 Date 分配，可忽略），变了就刷开始页、开着的「今日」榜重筛。
+        if ((dayTick = (dayTick + 1) % 60) === 0) checkDayRollover();
         // 布局自愈（约每 15 帧一次）：地址栏收放、旋转、字体换行都改 stage 尺寸，
         // 不能只指望 resize 事件与 ResizeObserver——实测 320×568 首帧算完就再没触发过。
         if ((layoutTick = (layoutTick + 1) % 15) === 0 && Renderer.ensureLayout) Renderer.ensureLayout(el.stage);
@@ -4863,6 +4886,11 @@
     funnel: () => Funnel.all(), funnelClear: () => Funnel.clear(),
     // 错误通道：探针要能直接读计数与手动记账（tools/err-check.html）
     errSink: ErrorSink,
+    // 时间面（tools/time-check.html）：活跃用时累计 + 跨零点刷新
+    accrueActive: (ms) => Engine.accrueActive(ms),
+    dayKey: () => startDayKey,
+    setDayKey: (k) => { startDayKey = String(k); },
+    checkDayRollover,
   };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
