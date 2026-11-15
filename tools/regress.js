@@ -81,6 +81,22 @@ console.log('== 附加 · 微信工程静态校验 ==');
 const wx = run(process.execPath, ['tools/wechat-check.js']);
 const okWx = wx.code === 0;
 console.log((okWx ? '✓' : '✗') + ' wechat-check.js' + (okWx ? '' : '\n' + wx.out));
+
+// 可读性契约（源码侧）：这六个灰值曾是「同一族暗字」的复制源头（实测 1.6~2.9:1，都低于 3:1 底线），
+// 2026-11-16 已统一收口到 --text / --muted / --dim。探针只能测「今天这些屏」，抄回旧值是「以后某屏才犯」的错，
+// 所以另立一条源码契约：color 声明里再出现这些值就红。同理禁止拿描边色当文字色
+// （--line-* 是画在背景上的线，最亮档 rgba(255,255,255,.16) 当字色只有 1.6:1）。
+{
+  const cssTxt = fs.readFileSync(path.join(ROOT, 'css/style.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  const BAD = ['#555d6d', '#4e5666', '#5d6577', '#5d6675', '#7a8496', '#7d8698'];
+  const declared = Array.from(cssTxt.matchAll(/(?<![-\w])color:\s*(#[0-9a-fA-F]{3,6})/g)).map((m) => m[1].toLowerCase());
+  const hits = BAD.filter((b) => declared.includes(b));
+  // 只看真正的文字色：border-color / background-color 里出现 --line-* 是正常的
+  const lineAsText = /(?<![-\w])color:\s*var\(--line-/.test(cssTxt);
+  const okCss = hits.length === 0 && !lineAsText;
+  console.log((okCss ? '✓' : '✗') + ' 可读性契约（css 里不许再出现旧暗字 / 描边色当字色）'
+    + (okCss ? '' : ` · 命中 ${hits.join(' ') || ''}${lineAsText ? ' 描边色当字色' : ''}`));
+}
 if (!process.argv.includes('--no-shot')) {
   const chrome = CHROME_CANDIDATES.find((p) => fs.existsSync(p));
   if (!chrome) {
@@ -601,6 +617,43 @@ if (!process.argv.includes('--no-shot')) {
         okTap = r.pass;
         tapLine = r.bits ? `${(r.bits.match(/1/g) || []).length}/${r.bits.length} 项` : '读数失败';
         console.log((okTap ? '✓' : '✗') + ` 触控目标尺寸 ${tapLine}` + (okTap ? '' : '\n   ' + r.fails.slice(0, 6).join('\n   ')));
+      }
+
+      // 文字可读性：逐屏枚举所有可见文字节点，算「前景（含 alpha）叠在真实底色（逐层合成 + 渐变取各停靠点）」
+      // 的 WCAG 对比度。此前两轮各碰巧撞见一处（.choice-hint 2.7:1 / .bs-hint 2.90:1），从没整屏扫过；
+      // 本轮扫出的是同一族病散在多个选择器里：弱文档落到带白薄底的行上只有 2.46:1、5 个 hint 类还写着
+      // #555d6d / #4e5666、图鉴「尚未相遇」拿描边色 rgba(255,255,255,.16) 当文字色（1.6:1）、
+      // 复制/贴码两颗按钮压根没套上 .si-buy 的外观（落回浏览器默认浅灰底 = 深色面板里两块白砖）。
+      let okContrast = true, contrastLine = '';
+      {
+        const os = require('os');
+        const args = [
+          '--headless=new', '--disable-gpu', '--no-sandbox', '--no-first-run', '--disable-extensions',
+          '--user-data-dir=' + path.join(os.tmpdir(), 'tm-contrast-' + process.pid),
+          '--virtual-time-budget=240000',
+          '--dump-dom', `http://127.0.0.1:${PORT}/tools/contrast-check.html?gate=1`,
+        ];
+        const read = () => {
+          const p = spawnSync(chrome, args, { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+          const t = p.stdout || '';
+          const num = (k) => {
+            const m = new RegExp(k + '=(\\d+)').exec(t);
+            return m ? Number(m[1]) : -1;
+          };
+          const bits = /(?:ALLPASS|DUMP)\|([01]+)/.exec(t);
+          const fails = (t.match(/^C\|[^<\n]+$/gm) || []).slice(0, 6).map((s) => s.replace(/^C\|/, ''));
+          return { bits: bits ? bits[1] : '', scenes: num('SCENES'), texts: num('TEXTNODES'),
+            below: num('BELOW'), ua: num('UADEFAULT'), fails };
+        };
+        let r = read();
+        if (!r.bits || r.scenes < 0) r = read();
+        // 三条：①一项都不许低于门槛 ②表单控件不许落回浏览器默认外观 ③探针必须真跑到 25 屏 / 900+ 文字节点
+        // （屏数或节点数掉下来 = 探针静默空跑，那种「全绿」是假绿）
+        okContrast = /^1+$/.test(r.bits || '') && r.ua === 0 && r.scenes >= 25 && r.texts >= 900;
+        contrastLine = r.scenes < 0 ? '读数失败'
+          : `${r.texts} 个文字节点 / ${r.scenes} 屏 · 低于门槛 ${r.below} · 表单默认外观 ${r.ua}`;
+        console.log((okContrast ? '✓' : '✗') + ' 文字可读性 ' + contrastLine
+          + (okContrast ? '' : (r.fails.length ? '\n   ' + r.fails.join('\n   ') : '')));
       }
 
       // 音效自检：源码里出现的每个音效名都必须在预置表内（写错就是一个永久静音），

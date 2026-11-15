@@ -26,10 +26,13 @@
   --line2: var(--line-strong);
   --line-gold: rgba(232, 196, 106, 0.34);
 
-  /* ── 文字三阶：主文 13.4:1 / 次文 7.0:1 / 弱文 3.4:1（底色 #0e131c） ── */
+  /* ── 文字三阶：主文 13.4:1 / 次文 7.0:1 / 弱文 ≥3.2:1（最差的真实底：榜单行 #282a2c） ── */
   --text: #d6dbe6;
   --muted: #9aa5b8;
-  --dim: #5d6577;
+  /* 2026-11-16：弱文原 #5d6577 实测只在 --l1 上够 3.2:1，落到榜单行 / 商店行这类加了白色薄底的面
+     只有 2.46~2.76:1（探针 tools/contrast-check.html 逐屏量出来的），抬到 #6e7788：
+     最差面 3.19:1、--l2 上 3.83:1，仍明显低于 --muted（5.8~7:1），三阶关系不变。 */
+  --dim: #767e90;
 
   /* ── 黄铜三阶：亮金只给标题/选中/门闩/CTA，大面积一律中/暗 ── */
   --gold: #e8c46a;
@@ -229,14 +232,9 @@ html, body {
   filter: grayscale(1) brightness(0.45);
   opacity: 0.5;
 }
-.relic.empty {
-  filter: none;
-  opacity: 1;
-  color: var(--line-active);
-  border-style: dashed;
-  border-color: var(--line-strong);
-  font-size: var(--fs-tag);
-}
+/* `.relic.empty` 已删：渐进披露改成「没拿到第一件就整行不摆」之后（见 main.js renderRelicRow），
+   它再也没有调用点，而且是拿描边色当字色（rgba(255,255,255,.22) ≈ 2:1）。
+   留着只会诱使下次又抄回去——tools/regress.js 的「可读性契约」现在把「描边色当字色」判红。 */
 .relic.on {
   border-style: solid;
   border-color: rgba(185, 143, 53, 0.55);
@@ -613,7 +611,7 @@ html, body {
 .logo span { color: #fff; }
 .sub { color: var(--dim); font-size: var(--fs-tag); letter-spacing: 2.4px; margin: 5px 0 12px; }
 .desc { color: #c2c9d7; font-size: var(--fs-aux); line-height: 1.75; margin: 0 0 12px; }
-.hint { color: #555d6d; font-size: var(--fs-tag); line-height: 1.6; margin: 14px 0 0; }
+.hint { color: var(--muted); font-size: var(--fs-tag); line-height: 1.6; margin: 14px 0 0; }
 
 .ending-badges { display: flex; gap: 7px; justify-content: center; margin-bottom: 12px; }
 .eb {
@@ -692,7 +690,7 @@ html, body {
 .dlg-tool {
   background: transparent;
   border: 1px solid transparent;
-  color: #5d6577;
+  color: var(--dim);
   font-size: var(--fs-tag);
   padding: 3px 7px;
   border-radius: 7px;
@@ -848,7 +846,7 @@ html, body {
   display: inline-block;
   font-style: normal;
   font-size: var(--fs-tag);
-  color: #7a8496;
+  color: var(--muted);
   margin-top: 1px;
 }
 .bd-end { color: var(--dim); font-size: var(--fs-tag); display: flex; align-items: center; gap: 3px; white-space: nowrap; }
@@ -889,8 +887,24 @@ html, body {
   line-height: 1.4;
 }
 .code-hint { font-size: var(--fs-tag); color: var(--muted); line-height: 1.6; margin: 7px 0 0; }
-/* 贴码按钮：与商店里的 .si-buy 同一个类，但不在 .shop-item 里，尺寸要单独给 */
-#btnCopyCode, #btnPasteCode { min-height: 34px; padding: 8px 12px; }
+/* 贴码按钮：与商店里的 .si-buy 同一个类，但不在 .shop-item 里，尺寸要单独给。
+   2026-11-16：原先只补了尺寸，金框金字的规则是 `.shop-item .si-buy` 作用域内的，于是这两颗
+   落回浏览器默认外观（浅灰底 + 黑字，深色面板里就是两块白砖）——contast-check 的
+   「表单控件不许落回 UA 默认」那条抓出来的。把外观补全，跟商店同款。 */
+#btnCopyCode, #btnPasteCode {
+  min-height: 36px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(232, 196, 106, 0.38);
+  background: rgba(232, 196, 106, 0.1);
+  color: var(--gold);
+  font-size: var(--fs-aux);
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+#btnCopyCode:hover, #btnPasteCode:hover { background: rgba(232, 196, 106, 0.2); }
+#btnCopyCode:active, #btnPasteCode:active { transform: scale(0.97); }
 .code-input {
   flex: 1;
   min-width: 0;
@@ -1447,7 +1461,7 @@ body.at-start #bottom { visibility: hidden; }
 }
 @keyframes pickLift { 0% { transform: translateY(0) scale(1); } 60% { transform: translateY(-18px) scale(1.12); } 100% { transform: translateY(-14px) scale(1.08); } }
 @keyframes pickSpin { 0% { transform: rotate(0) scale(1); } 55% { transform: rotate(-8deg) scale(1.28); } 100% { transform: rotate(0) scale(1.12); } }
-.altar-hint { margin-top: 14px; font-size: var(--fs-tag); color: #4e5666; letter-spacing: 1px; }
+.altar-hint { margin-top: 14px; font-size: var(--fs-tag); color: var(--muted); letter-spacing: 1px; }
 
 /* ---------- 塔印与余烬（不再有结算分） ---------- */
 .end-score {
@@ -1634,7 +1648,7 @@ body.at-start #bottom { visibility: hidden; }
 .mem-grid div { font-size: var(--fs-tag); color: var(--muted); line-height: 1.55; }
 .mem-goals { display: flex; flex-direction: column; gap: 3px; margin-top: 7px; padding-top: 7px; border-top: 1px dashed rgba(232, 196, 106, 0.18); }
 .mem-goals span { font-size: var(--fs-tag); color: var(--gold); line-height: 1.5; }
-.mem-note { font-size: var(--fs-tag); color: #555d6d; margin: 6px 0 0; }
+.mem-note { font-size: var(--fs-tag); color: var(--muted); margin: 6px 0 0; }
 
 /* ---------- 图鉴：族群标签 ---------- */
 .cx-tag {
@@ -1648,14 +1662,14 @@ body.at-start #bottom { visibility: hidden; }
   vertical-align: 1px;
 }
 .cx-tag.boss { border-color: rgba(201, 74, 82, 0.55); color: #e09a9f; }
-.cx-tag.trait { border-color: rgba(185, 143, 53, 0.45); color: var(--gold2); background: rgba(232, 196, 106, 0.1); }
+.cx-tag.trait { border-color: rgba(185, 143, 53, 0.45); color: var(--gold); background: rgba(232, 196, 106, 0.1); }
 .cx-tag { white-space: nowrap; }
 .cx-margin .cx-tag { margin: 0 4px 0 0; vertical-align: 0; }
 .cx-row.has-trait { background: rgba(232, 196, 106, 0.045); }
 .cx-margin {
   grid-column: 1 / -1;
   font-size: var(--fs-tag);
-  color: #7d8698;
+  color: var(--muted);
   padding-left: 26px;
   font-variant-numeric: tabular-nums;
 }
@@ -1692,7 +1706,7 @@ body.at-start #bottom { visibility: hidden; }
 .probe-card .pb-loss.warn { color: #ffd27d; }
 .probe-card .pb-loss.danger { color: #ff8080; }
 .probe-card .pb-reward { margin-top: 3px; color: var(--gold); font-size: var(--fs-tag); }
-.probe-card .pb-hint { margin-top: 5px; font-size: var(--fs-tag); color: #555d6d; }
+.probe-card .pb-hint { margin-top: 5px; font-size: var(--fs-tag); color: var(--muted); }
 .probe-card .pb-trait {
   margin-top: 4px;
   font-size: var(--fs-tag);
@@ -2005,13 +2019,13 @@ body.at-start #bottom { visibility: hidden; }
 .vow-card .vc-cost { font-size: var(--fs-tag); color: #d98a86; letter-spacing: 0.3px; }
 .vow-card.hero { border-color: rgba(232, 196, 106, 0.45); }
 .vow-card.hero .vc-name { color: #ffe6a8; }
-.vow-hint { margin-top: 13px; font-size: var(--fs-tag); color: #4e5666; letter-spacing: 1px; }
+.vow-hint { margin-top: 13px; font-size: var(--fs-tag); color: var(--muted); letter-spacing: 1px; }
 /* 锁着的誓约：不占卡片，收成一排小 chips——首屏只留能选的那几张 */
 .vow-locked { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 10px; }
 .vow-chip {
   font-family: inherit;
   font-size: var(--fs-tag);
-  color: #7d8698;
+  color: var(--dim);
   border: 1px dashed var(--line-strong);
   background: rgba(255, 255, 255, 0.02);
   border-radius: 20px;
@@ -2022,7 +2036,7 @@ body.at-start #bottom { visibility: hidden; }
 .vow-chip:hover { color: var(--gold); border-color: rgba(232, 196, 106, 0.45); }
 .vow-chip.poor { opacity: 0.62; }
 /* 「余烬是什么」注释：只给没通关过的人看 */
-.vow-ember-note { font-size: var(--fs-tag); line-height: 1.6; color: #5d6675; margin: -4px 0 10px; }
+.vow-ember-note { font-size: var(--fs-tag); line-height: 1.6; color: var(--muted); margin: -4px 0 10px; }
 @media (max-width: 380px) {
   .vow-cards { gap: 7px; }
   .vow-card { padding: 10px 6px; }
@@ -2818,7 +2832,7 @@ body.at-start #bottom { visibility: hidden; }
 .cx-char.off { cursor: default; }
 .cx-char.off .pt { filter: brightness(0) opacity(0.5); }
 .cx-char.off b { color: var(--dim); }
-.cx-char.off i { color: var(--line-strong); }
+.cx-char.off i { color: var(--dim); }
 .cx-char.off:hover { border-color: var(--line-regular); background: linear-gradient(180deg, var(--l2), var(--l1)); }
 
 

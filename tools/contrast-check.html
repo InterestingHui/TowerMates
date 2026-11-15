@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>文字对比度自检</title>
+<style>html,body{margin:0;background:#05070c;color:#7ef0b2;font:12px/1.4 monospace}#out{white-space:pre-wrap;padding:8px}</style>
+</head>
+<body>
+<pre id="out">pending</pre>
+<div id="host" style="position:absolute;left:-30000px;top:0"></div>
+<script>
+// 文字对比度自检（闸门用）：
+// 此前两轮各修过一处「同一屏最暗的字正好是关键提示」（.choice-hint 2.7:1 / .bs-hint 2.90:1），
+// 都是碰巧撞见。本探针把「可读性」当成一个面来量：逐屏枚举所有可见文字节点，
+// 算出「前景（含 alpha）叠在真实背景（逐层合成背景色 + 渐变取最差停靠点）上」的 WCAG 对比度。
+// 口径：正文（<18.66px 或 <24px 常规）≥4.5:1；大字号 ≥3:1；
+//      项目自己的「弱文」档（--dim / .dim）按 ≥3:1 验收（style.css 已写明 3.4:1 的设计值）。
+const SCENES = ['start', 'vow', 'play', 'dialog', 'hint', 'battle', 'battleblock', 'altar', 'choice',
+  'event', 'eventdeep', 'shop', 'echo', 'board', 'codex', 'cfg', 'tower', 'gate', 'end', 'death',
+  'collection', 'bossphase', 'heart', 'stoneidle', 'critters'];
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const out = document.getElementById('out');
+const GATE = /[?&]gate=1/.test(location.search);
+const rows = [];
+
+function c2rgb(s) {
+  if (!s) return null;
+  const m = /rgba?\(([^)]+)\)/.exec(s);
+  if (!m) return null;
+  const p = m[1].split(/[,\s\/]+/).filter(Boolean).map(Number);
+  return { r: p[0] | 0, g: p[1] | 0, b: p[2] | 0, a: p.length > 3 ? Number(p[3]) : 1 };
+}
+function over(top, bot) {   // top 叠在 bot 上
+  const a = top.a + bot.a * (1 - top.a);
+  if (a <= 0) return { r: 0, g: 0, b: 0, a: 0 };
+  const f = (t, b) => (t * top.a + b * bot.a * (1 - top.a)) / a;
+  return { r: f(top.r, bot.r), g: f(top.g, bot.g), b: f(top.b, bot.b), a };
+}
+function lum(c) {
+  const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+  return 0.2126 * f(c.r) + 0.7152 * f(c.g) + 0.0722 * f(c.b);
+}
+function ratio(a, b) {
+  const l1 = lum(a), l2 = lum(b);
+  return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+}
+// 渐变里的颜色停靠点（带 alpha）：一段渐变在「这一层」贡献的候选底色不是一个色，而是若干个停靠色。
+function gradientStops(bgImage) {
+  if (!bgImage || bgImage === 'none') return [];
+  const found = bgImage.match(/rgba?\([^)]*\)|#[0-9a-fA-F]{3,8}/g) || [];
+  return found.map(c2rgb).filter(Boolean);
+}
+// 由外向内逐层合成，遇到渐变则分叉成「每个停靠点一份」的候选面。
+// 关键：渐变停靠色常常是半透明的（rgba(232,196,106,.12)），必须叠在当时的底色上算，
+// 直接当实色用会把「金色 6% 的描边光」误判成整块金底（本探针第一版就栽在这）。
+function bgCandidates(el) {
+  const chain = [];
+  for (let n = el; n && n.nodeType === 1; n = n.parentElement) chain.push(n);
+  chain.reverse();                        // html → … → el（由外向内 = 由底向面）
+  let cands = [{ r: 7, g: 9, b: 15, a: 1 }];   // 页面底色兜底（--l0）
+  for (const n of chain) {
+    const cs = n.ownerDocument.defaultView.getComputedStyle(n);
+    const bg = c2rgb(cs.backgroundColor);
+    if (bg && bg.a > 0) cands = cands.map((c) => over(bg, c));
+    const stops = gradientStops(cs.backgroundImage);
+    if (stops.length) {
+      const next = [];
+      for (const c of cands) for (const s of stops) next.push(over(s, c));
+      // 分叉数封顶：留最亮与最暗两端（worst case 一定在两端）
+      if (next.length > 8) {
+        next.sort((a, b2) => lum(a) - lum(b2));
+        cands = [next[0], next[Math.floor(next.length / 2)], next[next.length - 1]];
+      } else cands = next;
+    }
+  }
+  // 去重（同色只留一份）
+  const seen = new Set();
+  return cands.filter((c) => {
+    const k = Math.round(c.r) + ',' + Math.round(c.g) + ',' + Math.round(c.b);
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+}
+function visible(el, cs) {
+  if (cs.display === 'none' || cs.visibility === 'hidden') return false;
+  if (Number(cs.opacity) < 0.15) return false;
+  if (el.closest('[hidden]')) return false;
+  if (el.getAttribute('aria-hidden') === 'true') return false;
+  const r = el.getBoundingClientRect();
+  return r.width > 0 && r.height > 0;
+}
+function selOf(el) {
+  let s = el.tagName.toLowerCase();
+  if (el.id) s += '#' + el.id;
+  const cls = (el.className || '').toString().trim().split(/\s+/).filter(Boolean);
+  if (cls.length) s += '.' + cls.slice(0, 2).join('.');
+  const p = el.parentElement;
+  if (p && !el.id) {
+    const pc = (p.className || '').toString().trim().split(/\s+/).filter(Boolean);
+    s = p.tagName.toLowerCase() + (p.id ? '#' + p.id : pc.length ? '.' + pc[0] : '') + '>' + s;
+  }
+  return s;
+}
+function isDim(el, cs) {
+  if (cs.color === DIM_RGB) return true;   // --dim（从 CSS 变量现读，改色值不用同步这里）
+  for (let n = el; n && n.nodeType === 1; n = n.parentElement) {
+    if (/(^|\s)(dim|start-broken|footnote)(\s|$)/.test((n.className || '').toString())) return true;
+  }
+  return false;
+}
+let DIM_RGB = 'rgb(93, 101, 119)';
+function scan(doc, scene) {
+  const win = doc.defaultView;
+  const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT);
+  const seen = new Set();
+  const list = [];
+  let node;
+  while ((node = walker.nextNode())) {
+    const t = (node.nodeValue || '').trim();
+    if (!t) continue;
+    if (!/[\p{L}\p{N}]/u.test(t)) continue;          // 纯符号/emoji 不算文字
+    const el = node.parentElement;
+    if (!el || seen.has(el)) continue;
+    seen.add(el);
+    const cs = win.getComputedStyle(el);
+    if (!visible(el, cs)) continue;
+    const fg = c2rgb(cs.color);
+    if (!fg) continue;
+    const bases = bgCandidates(el);
+    let worst = 99, worstBg = null;
+    const fgA = { ...fg, a: fg.a };
+    for (const b of bases) {
+      const f = over(fgA, b);
+      const r = ratio(f, b);
+      if (r < worst) { worst = r; worstBg = b; }
+    }
+    const fs = parseFloat(cs.fontSize) || 13;
+    const bold = (Number(cs.fontWeight) || 400) >= 700;
+    const large = fs >= 24 || (bold && fs >= 18.66);
+    const need = isDim(el, cs) ? 3.0 : (large ? 3.0 : 4.5);
+    list.push({ scene, text: t.slice(0, 26), sel: selOf(el), fs: Math.round(fs * 10) / 10, bold,
+      fg: cs.color, bg: `rgb(${Math.round(worstBg.r)},${Math.round(worstBg.g)},${Math.round(worstBg.b)})`,
+      ratio: Math.round(worst * 100) / 100, need, dim: isDim(el, cs) });
+  }
+  // 表单控件落回浏览器默认外观（buttonface 浅灰底）：在本作深色面板里就是两块白砖，
+  // 而且意味着「写了 .si-buy 却因为选择器作用域没套上」。与「写了 Sound.play('open') 但预置表里没这个名字」
+  // 同一种病：名字写了、效果没到。这里单列一条，闸门按 0 项验收。
+  const ua = [];
+  for (const el of doc.querySelectorAll('button, input, select, textarea')) {
+    const cs = win.getComputedStyle(el);
+    if (!visible(el, cs)) continue;
+    if (cs.backgroundColor === 'rgb(240, 240, 240)' || cs.backgroundColor === 'rgb(239, 239, 239)') {
+      ua.push({ scene, text: (el.textContent || el.id || el.tagName).trim().slice(0, 20), sel: selOf(el) });
+    }
+  }
+  return { list, ua };
+}
+
+(async () => {
+  const uaRows = [];
+  for (const scene of SCENES) {
+    const f = document.createElement('iframe');
+    f.style.cssText = 'width:430px;height:900px;border:0;display:block';
+    f.src = '/tools/shot.html?scene=' + scene;
+    document.getElementById('host').appendChild(f);
+    await wait(1500);
+    try {
+      const inner = f.contentDocument.getElementById('f');
+      if (!inner || !inner.contentDocument) throw new Error('no inner frame');
+      const doc = inner.contentDocument;
+      // --dim 的实际色值从被测页面现读（改了变量这探针不用跟着改）
+      const dv = doc.defaultView.getComputedStyle(doc.documentElement).getPropertyValue('--dim').trim();
+      const probe = doc.createElement('div');
+      probe.style.color = dv || '#5d6577';
+      doc.body.appendChild(probe);
+      DIM_RGB = doc.defaultView.getComputedStyle(probe).color;
+      probe.remove();
+      const r = scan(doc, scene);
+      rows.push(...r.list);
+      uaRows.push(...r.ua);
+    } catch (e) {
+      rows.push({ scene, text: 'ERR ' + e.message, sel: '-', ratio: -1, need: 0, fs: 0, bg: '-' });
+    }
+    f.remove();
+    await wait(60);
+  }
+  const bad = rows.filter((r) => r.ratio >= 0 && r.ratio < r.need).sort((a, b) => a.ratio - b.ratio);
+  const err = rows.filter((r) => r.ratio < 0);
+  const lines = [];
+  lines.push('SCENES=' + SCENES.length + ' TEXTNODES=' + rows.filter((r) => r.ratio >= 0).length
+    + ' BELOW=' + bad.length + ' ERR=' + err.length + ' UADEFAULT=' + uaRows.length);
+  for (const r of bad) {
+    lines.push(`C|${r.scene}|${r.ratio}|${r.need}|${r.fs}px|${r.dim ? 'dim' : 'txt'}|${r.fg}|${r.bg}|${r.text}|${r.sel}`);
+  }
+  // 最暗的 5 个「合格」样本也留档，方便看阈值边缘有没有贴着过的
+  const tight = rows.filter((r) => r.ratio >= r.need).sort((a, b) => a.ratio - b.ratio).slice(0, 5);
+  for (const r of tight) lines.push(`T|${r.scene}|${r.ratio}|${r.need}|${r.text}|${r.sel}`);
+  for (const r of uaRows) lines.push(`U|${r.scene}|${r.text}|${r.sel}`);
+  for (const r of err) lines.push(`E|${r.scene}|${r.text}`);
+  // 逐节点 1/0 位串：闸门读它判「一项都没掉」
+  const bits = rows.filter((r) => r.ratio >= 0).map((r) => (r.ratio >= r.need ? '1' : '0')).join('')
+    + uaRows.map(() => '0').join('');
+  lines.push((GATE ? 'ALLPASS|' + bits : 'DUMP|' + bits));
+  out.textContent = lines.join('\n');
+  document.title = 'done';
+})();
+</script>
+</body>
+</html>
