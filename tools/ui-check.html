@@ -209,6 +209,56 @@ async function run() {
     w.__battleSpeed = 1;
     d.querySelectorAll('.overlay.show').forEach(function (o) { o.classList.remove('show'); });
 
+    // 战斗面板提示行改口（2026-11-15 20:5x）：三把打法互斥，按下任一把之后另外两把只是 disabled、
+    // onclick 仍挂在上面——旧判据于是继续说「可点下面的打法」，而面板上已经一个能点的都没有
+    // （点了没反应，是死按钮的另一种写法）。这里走真实链路：第 4 层那一战 → 按格挡 → 读提示行。
+    out.bsHint = {};
+    d.querySelectorAll('.overlay.show').forEach(function (o) { o.classList.remove('show'); });
+    E.newGame();
+    var sh = E.state();
+    sh.flags.hasBlock = true;
+    sh.floor = 3;                       // 第 2 章起才摆架盾/缠斗
+    sh.atk = 40; sh.def = 20; sh.hp = 800; sh.maxHp = 1000;
+    var bp = null;
+    for (var by = 1; by < 10 && !bp; by++) {
+      for (var bx = 1; bx < 10 && !bp; bx++) {
+        var chB = sh.maps[3][by][bx];
+        var moB = w.GAME_DATA.monsters[chB];
+        if (!moB || moB.ghost || moB.boss) continue;
+        [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (o) {
+          if (bp) return;
+          var ax3 = bx + o[0], ay3 = by + o[1];
+          if (ax3 < 1 || ax3 > 9 || ay3 < 1 || ay3 > 9) return;
+          if (sh.maps[3][ay3][ax3] !== '.') return;
+          bp = { x: bx, y: by, hx: ax3, hy: ay3 };
+        });
+      }
+    }
+    if (bp) {
+      sh.x = bp.hx; sh.y = bp.hy;
+      w.__tm.refreshHud();
+      await new Promise(function (r) { setTimeout(r, 60); });
+      w.__tm.clickMove(bp.x, bp.y);
+      var tB = Date.now(), upB = false;
+      while (Date.now() - tB < 2500) {
+        if (d.getElementById('battleScene').classList.contains('show')) { upB = true; break; }
+        await new Promise(function (r) { setTimeout(r, 40); });
+      }
+      out.bsHint.panelUp = upB;
+      var hEl = d.getElementById('bsHint');
+      out.bsHint.before = hEl ? hEl.textContent.trim() : '';
+      var blkB = d.getElementById('bsBlock'), gdB = d.getElementById('bsGuard'), tgB = d.getElementById('bsTangle');
+      out.bsHint.threeButtons = !!(blkB && !blkB.hidden) && !!(gdB && !gdB.hidden) && !!(tgB && !tgB.hidden);
+      if (blkB && !blkB.hidden && !blkB.disabled) blkB.click();
+      await new Promise(function (r) { setTimeout(r, 120); });
+      out.bsHint.after = hEl ? hEl.textContent.trim() : '';
+      out.bsHint.liveAfter = [blkB, gdB, tgB].filter(function (b) { return b && !b.hidden && !b.disabled; }).length;
+      d.getElementById('battleScene').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await new Promise(function (r) { setTimeout(r, 600); });
+    }
+    w.__battleSpeed = 1;
+    d.querySelectorAll('.overlay.show').forEach(function (o) { o.classList.remove('show'); });
+
     // 商店链：8 / 11 / 13 层的商人，单击一次就要「走到跟前 → 首会对白 → 商店面板」。
     // 第 3 层曾因「walk 教学对白打断寻路 + playStory 覆盖丢回调」卡死，这里把整条链钉进闸门。
     d.querySelectorAll('.overlay.show').forEach(function (o) { o.classList.remove('show'); });

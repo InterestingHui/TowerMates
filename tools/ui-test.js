@@ -161,6 +161,14 @@ const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-ui-'));
   ok(hb.full && hb.full.rowH <= 46, `决战线满载最多两行（${hb.full && hb.full.rowH}px，上限 46）`);
   ok(hb.full && hb.full.kids.every((s) => !/^keytag/.test(s) || /x21$/.test(s)),
     '钥匙不被挤扁（仍是 39×21，文字不折行）');
+  // 战斗面板提示行（三把打法互斥）：按下任一把之后，面板上不许再有任何能点的打法，
+  // 提示行也不许再说「可点下面的打法」——那是叫人点一块已经点不动的东西
+  const bh = out.bsHint || {};
+  ok(bh.panelUp === true, '提示行探针：第 4 层那一战的面板真的开了');
+  ok(bh.threeButtons === true, '三把打法同屏（格挡 / 架盾 / 缠斗）');
+  ok(bh.liveAfter === 0, `按下一把之后面板上再没有能点的打法（实测 ${bh.liveAfter}）`);
+  ok(/按「格挡」打/.test(bh.after || ''), `按下格挡后提示行改口（实测：${bh.after}）`);
+  ok(!/可点下面的打法/.test(bh.after || ''), '选完不再说「可点下面的打法」');
 
   if (bad) console.log('  诊断：' + JSON.stringify(out).slice(0, 700));
   console.log(bad === 0 ? '✓ UI 自检通过' : `✗ UI 自检 ${bad} 项失败`);
