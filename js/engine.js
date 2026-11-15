@@ -238,13 +238,46 @@
   }
 
   // ---------- 存档：save() 立即落盘；移动用 saveSoon() 节流 ----------
+  // 2026-11-15：写入失败原先被 `catch (e) {}` 整条吞掉——存储被占满 / 设备禁用存储 /
+  // 无痕模式下，玩家看到的一切都正常，刷新后进度却凭空退回上一次成功保存的地方，一句提示都没有。
+  // 现在三层口径：①先自救一次（`*_broken` 只是备查副本，占的地方最该让出来）；②仍失败就置
+  // storageErr 并通知一次 UI（60 秒限流，别每 350ms 抖一次）；③save() 返回布尔，调用方想核就核。
+  let storageErr = null;      // null = 正常；否则是异常名（QuotaExceededError / SecurityError …）
+  let storageFailAt = 0;      // 上次通知 UI 的时刻（限流用；成功也不重置窗口＝一次会话只弹一次提示）
+  let storageFailCb = null;   // main 注册：负责弹提示条 / 记漏斗（引擎不依赖 DOM）
+  function markStorageFail(e) {
+    storageErr = (e && e.name) || 'Error';
+    const now = Date.now();
+    if (now - storageFailAt < 60000) return;
+    const first = !storageFailAt;   // 第一次失败：允许弹提示条 + 记漏斗；之后只留日志
+    storageFailAt = now;
+    if (typeof storageFailCb === 'function') {
+      try { storageFailCb(storageErr, first); } catch (err) {}
+    }
+  }
   function persist() {
-    if (!s) return;
-    try { localStorage.setItem(SAVE_KEY, JSON.stringify(s)); } catch (e) {}
+    if (!s) return true;
+    const raw = JSON.stringify(s);
+    try {
+      localStorage.setItem(SAVE_KEY, raw);
+      storageErr = null;
+      return true;
+    } catch (e) {
+      // 一次自救：坏档备查副本是纯留档，先删它腾地方再写一次
+      try {
+        localStorage.removeItem(SAVE_KEY + '_broken');
+        localStorage.setItem(SAVE_KEY, raw);
+        storageErr = null;
+        return true;
+      } catch (e2) {
+        markStorageFail(e2);
+        return false;
+      }
+    }
   }
   function save() {
     if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
-    persist();
+    return persist();
   }
   function saveSoon() {
     if (saveTimer) return;
@@ -279,6 +312,7 @@
       localStorage.removeItem(LEGACY_KEY);
     } catch (e) {}
     s = null;
+    storageErr = null;
   }
 
   const state = () => s;
@@ -1716,7 +1750,7 @@
   }
 
   window.Engine = {
-    setHooks, newGame, load, reset, hasSave, brokenSave, brokenSaveOnDisk, save, state, tile, predict, predictOpt, shuffleFloor1, shufflePickups, nextRand,
+    setHooks, newGame, load, reset, hasSave, brokenSave, brokenSaveOnDisk, save, storageError: () => storageErr, setStorageFailHook: (fn) => { storageFailCb = fn || null; }, state, tile, predict, predictOpt, shuffleFloor1, shufflePickups, nextRand,
     predictAt(dx, dy) {
       if (!s) return null;
       const ch = tile(s.x + dx, s.y + dy);

@@ -610,14 +610,52 @@ if (!process.argv.includes('--no-shot')) {
         console.log((okErr ? '✓' : '✗') + ` 错误通道 ${errLine}` + (okErr ? '' : '\n   ' + r.fails.slice(0, 6).join('\n   ')));
       }
 
+      // 存档写失败：配额满 / 设备禁用存储 / 无痕模式下，写失败必须可查、可见、进漏斗，且不打断游戏。
+      // 这一面此前被 `catch (e) {}` 整条吞掉（2026-11-15 实测）：玩家刷新后进度退回上一次成功保存处，零提示。
+      let okSto = true, stoLine = '';
+      {
+        const os = require('os');
+        const args = [
+          '--headless=new', '--disable-gpu', '--no-sandbox', '--no-first-run', '--disable-extensions',
+          '--user-data-dir=' + path.join(os.tmpdir(), 'tm-sto-' + process.pid),
+          '--virtual-time-budget=20000',
+          '--dump-dom', `http://127.0.0.1:${PORT}/tools/storage-check.html`,
+        ];
+        const read = () => {
+          const p = spawnSync(chrome, args, { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+          const t = p.stdout || '';
+          // 只认 <title>：dump 正文含页内脚本源码（'FAIL|' 字面量），整篇扫会自己判红
+          const tt = (/<title>([^<]*)<\/title>/.exec(t) || [])[1] || '';
+          const bits = /(?:ALLPASS|HASFAIL)\|([01]+)/.exec(tt);
+          const fails = (t.match(/^FAIL\|[^\n<]*/gm) || []).map((x) => x.replace(/^FAIL\|\s*/, ''));
+          return { pass: /ALLPASS\|1+$/.test(tt.trim()), bits: bits ? bits[1] : '', fails: fails };
+        };
+        let r = read();
+        if (!r.bits) r = read();
+        // 源码契约（放 Node 侧：探针页在 headless 下取 /js/* 偶发 NetworkError）
+        const msrc = fs.readFileSync(path.join(ROOT, 'js', 'main.js'), 'utf8');
+        const esrc = fs.readFileSync(path.join(ROOT, 'js', 'engine.js'), 'utf8');
+        const okHook = /Engine\.setStorageFailHook\(\(name, first\)/.test(msrc);
+        const okNoStore = /noStoreHint/.test(msrc) && /towermates_probe/.test(msrc);
+        const okPersist = /function persist\(\)[\s\S]{0,600}?return false;/.test(esrc);
+        if (!okHook) r.fails.push('ST 引擎回调没接（写失败没人知道）');
+        if (!okNoStore) r.fails.push('ST 首页没有「存不了」那行（整块不可用时零提示）');
+        if (!okPersist) r.fails.push('ST persist() 没有失败分支（又退回静默吞错）');
+        if (!okHook || !okNoStore || !okPersist) r.pass = false;
+        r.bits = (r.bits || '') + (okHook ? 1 : 0) + (okNoStore ? 1 : 0) + (okPersist ? 1 : 0);
+        okSto = r.pass;
+        stoLine = r.bits ? `${(r.bits.match(/1/g) || []).length}/${r.bits.length} 项` : '读数失败';
+        console.log((okSto ? '✓' : '✗') + ` 存档写失败 ${stoLine}` + (okSto ? '' : '\n   ' + r.fails.slice(0, 6).join('\n   ')));
+      }
+
       server.kill();      console.log(bad === 0 ? `\n✓ 截图全部生成（${SCENES.length} 张，见 tools/out/）` : `\n✗ ${bad} 张截图异常`);
 
       console.log('== 浏览器 UI 自检 ==');
       const ui = run(process.execPath, ['tools/ui-test.js']);
       const okUi = ui.code === 0;
       console.log((okUi ? '✓' : '✗') + ' ui-test.js' + (okUi ? '' : '\n' + ui.out));
-      const all = okCheck && okSim && okSkip && okTest && okCode && okBsim && okOd && okUi && okProbe && okAds && okIntro && okWxb && okNew && okWx && okSwordGate && okPace && okDaily && okZeal && okFinal && okTangle && okGuard && okVp && okVm && okSfx && okRm && okErr && bad === 0;
-      if (!all) console.log('  闸门明细:', JSON.stringify({ okCheck, okSim, okSkip, okTest, okCode, okBsim, okOd, okUi, okProbe, probeA3, okAds, adsLine, okIntro, introLine, okWxb, wxbLine, okNew, newLine, okWx, okSwordGate, okPace, paceLine, okDaily, dailyLine, okZeal, zealLine, okFinal, finalLine, okTangle, tangleLine, okGuard, guardLine, okVp, vpLine, okVm, vmLine, okSfx, sfxLine, okRm, rmLine, okErr, errLine, bad }));
+      const all = okCheck && okSim && okSkip && okTest && okCode && okBsim && okOd && okUi && okProbe && okAds && okIntro && okWxb && okNew && okWx && okSwordGate && okPace && okDaily && okZeal && okFinal && okTangle && okGuard && okVp && okVm && okSfx && okRm && okErr && okSto && bad === 0;
+      if (!all) console.log('  闸门明细:', JSON.stringify({ okCheck, okSim, okSkip, okTest, okCode, okBsim, okOd, okUi, okProbe, probeA3, okAds, adsLine, okIntro, introLine, okWxb, wxbLine, okNew, newLine, okWx, okSwordGate, okPace, paceLine, okDaily, dailyLine, okZeal, zealLine, okFinal, finalLine, okTangle, tangleLine, okGuard, guardLine, okVp, vpLine, okVm, vmLine, okSfx, sfxLine, okRm, rmLine, okErr, errLine, okSto, stoLine, bad }));
       console.log(all ? '✓ 质量闸门通过' : '✗ 质量闸门有失败项');
       process.exit(all ? 0 : 1);
     })();

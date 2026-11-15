@@ -294,6 +294,95 @@
     };
   })();
 
+  // ---------- 未捕获异常兜底 ----------
+  // 2026-11-15 实测：定时器 / 事件回调 / Promise 三处抛错，漏斗里一条都不留（玩家侧完全静默），
+  // 玩家看到的是「点了没反应」，接 SDK 后也查不出真机崩在哪。这里补一条最薄的沉底通道。
+  // 口径：只记 message + 文件名:行 + 当时层数，不记玩家输入、不记完整堆栈（隐私 + 体积）；
+  // 每会话 ≤20 条、同一处 10 秒内只记一次；只提示一次，且走提示条不走全屏对白（不接管输入）。
+  // 文案按「430 宽下不被省略号吃掉」写：提示条是 nowrap 单行，92vw ≈ 27 个汉字就到头。
+  // 初版那句「…刷新一下就能接着走（每层都存着）」实测被截成「…接着走…」，自救方法正好落在省略号后。
+  const ERR_TIPS = '出了点岔子，已记下。卡住就刷新，进度还在。';
+  const ErrorSink = (() => {
+    const MAX_SESSION = 20;
+    const DEDUP_MS = 10000;
+    const seen = Object.create(null);
+    let count = 0;
+    let toldUser = false;
+    function where(src, line, col) {
+      const f = String(src || '').split('/').pop() || '';
+      if (!f) return '';
+      return f + ':' + (line || 0) + (col ? ':' + col : '');
+    }
+    function note(kind, msg, src, line, col) {
+      try {
+        const text = String(msg == null ? 'unknown' : msg).slice(0, 160);
+        const at = where(src, line, col);
+        const key = kind + '|' + text + '|' + at;
+        const now = Date.now();
+        if (seen[key] && now - seen[key] < DEDUP_MS) return;
+        seen[key] = now;
+        if (count >= MAX_SESSION) return;
+        count++;
+        const rec = { kind, msg: text, src: at };
+        try {
+          const st = Engine.state();
+          rec.floor = st ? st.floor + 1 : 0;
+          rec.run = (Meta.memory.runs || 0) + (st ? 1 : 0);
+        } catch (e) { rec.floor = 0; rec.run = 0; }
+        Funnel.push('err', rec);
+        if (!toldUser) {
+          toldUser = true;
+          // 推到下一拍：异常可能正发生在点击回调里，立刻弹提示会把这一次交互吃掉
+          setTimeout(() => { try { warn(ERR_TIPS, 6000); } catch (e) {} }, 0);
+        }
+      } catch (e) {}
+    }
+    if (typeof window !== 'undefined') {
+      // 第三个参数必须是 true：资源加载失败（img/script）**不冒泡**，只有捕获阶段接得到。
+      // 少了它会静默失效——实测 E3 直接 0 条。
+      window.addEventListener('error', (e) => {
+        const t = e && e.target;
+        // 资源加载失败（img / script）没有 message：单独一种，别混成「脚本崩了」
+        if (t && t !== window && t.tagName && /^(IMG|SCRIPT)$/.test(t.tagName)) {
+          note('res', t.tagName.toLowerCase() + ' ' + (t.src || t.currentSrc || ''), '', 0, 0);
+          return;
+        }
+        note('error', e && e.message, e && e.filename, e && e.lineno, e && e.colno);
+      }, true);
+      window.addEventListener('unhandledrejection', (e) => {
+        const r = e && e.reason;
+        note('reject', r && (r.message || r), '', 0, 0);
+      });
+    }
+    return { note, count: () => count };
+  })();
+
+  // ---------- 存储：写失败 / 整块不可用，都要在玩家察觉之前说出来 ----------
+  // 2026-11-15 实测：存储被占满、设备禁用存储、无痕模式下，引擎原先 `catch (e) {}` 整条吞掉写失败——
+  // 玩家照常玩，刷新后进度凭空退回上一次成功保存的地方，全程零提示（连错误通道都进不去，
+  // 因为根本没抛到 window）。引擎现在只负责置标志并回调一次，玩家看得见的部分在这里。
+  // 文案口径：提示条是 nowrap 单行（92vw ≈ 27 汉字到头），必须把「刷新会退回」这半句留在前面。
+  const STORAGE_TIPS = '进度存不下：浏览器不让写存储，刷新会退回上次保存处。';
+  Engine.setStorageFailHook((name, first) => {
+    // 提示条一次会话只弹一次（持续弹会盖住操作反馈）；日志每 60 秒最多留一行、会随游玩滚走，
+    // 既不刷屏也不至于让「这局没存下」彻底看不见。
+    if (first) {
+      try { Funnel.push('err', { kind: 'storage', msg: String(name || 'save failed') }); } catch (e) {}
+      try { warn(STORAGE_TIPS, 8000); } catch (e) {}
+    }
+    try { log('⚠ ' + STORAGE_TIPS, 'warn'); } catch (e) {}
+  });
+  // 整块不可用（连读都读不到）时首页先说一句：别让人打半小时才发现这局根本没存下。
+  // 只写一个 1 字节的探针键、写完立刻删，不留痕也不占配额。
+  let STORAGE_OK = true;
+  try {
+    localStorage.setItem('towermates_probe', '1');
+    localStorage.removeItem('towermates_probe');
+  } catch (e) { STORAGE_OK = false; }
+  // ?nostore=1（只认本地预览，见 js/devgate.js）强制走「整块不可用」分支：
+  // 线上设备真禁用存储时才会出现这一行，没有这个入口就永远没法目视核对 / 断言它长什么样。
+  if (window.DevGate && DevGate.allow('nostore')) STORAGE_OK = false;
+
   // 退出节点：区分「玩过但走了」与「没开始就关」。页面隐藏/卸载各记一次，30 秒内去重。
   let lastHideAt = 0;
   function logPageHide() {
@@ -3361,6 +3450,20 @@
     } else if (!broken && hint) {
       hint.remove();
     }
+    // 整块存储不可用：这句必须出现在开局之前，而不是打完一局之后
+    let noStore = $('noStoreHint');
+    if (!STORAGE_OK && !noStore) {
+      const anchor2 = $('startEmber');
+      if (anchor2 && anchor2.parentNode) {
+        noStore = document.createElement('p');
+        noStore.id = 'noStoreHint';
+        noStore.className = 'start-broken';
+        noStore.textContent = '设备不让存进度：能玩，关掉页面进度就没了。';
+        anchor2.parentNode.insertBefore(noStore, anchor2.nextSibling);
+      }
+    } else if (STORAGE_OK && noStore) {
+      noStore.remove();
+    }
   }
 
   // 通用二次确认（不放参数＝原来的「重置这一局」文案）：今日一塔要覆盖进度时也走这里
@@ -4552,6 +4655,14 @@
       : '还没有打完的局，攒一局就能看。';
     // 「关键」＝漏斗主干（开局 / 首战 / 结算）。计数与实际筛出来的行必须同一份口径：
     // 之前徽标按 starts+ends 数、列表却把 first_fight 也算进去，一有首战就对不上（实测 8/7）。
+    // 页面异常：这三类（脚本 / 未处理拒绝 / 资源）此前一条都不留，玩家侧等于哑巴。
+    // 只报计数与最近几条 message，不报堆栈——接 SDK 后这一节直接转发就够定位「哪个环节开始崩」。
+    const errs = rows.filter((x) => x.ev === 'err');
+    const errCnt = { error: 0, reject: 0, render: 0, res: 0 };
+    errs.forEach((x) => { if (errCnt[x.kind] != null) errCnt[x.kind]++; });
+    const errLine = errs.length
+      ? `脚本 <b>${errCnt.error}</b> · 未处理拒绝 <b>${errCnt.reject}</b> · 渲染帧 <b>${errCnt.render}</b> · 资源 <b>${errCnt.res}</b>`
+      : '本机这一阵没有未捕获异常。';
     const KEY_EV = ['run_start', 'first_fight', 'run_end'];
     const keyRows = rows.filter((x) => KEY_EV.indexOf(x.ev) >= 0);
     box.innerHTML = `<h2>本机漏斗 · ${rows.length} 条</h2>`
@@ -4560,6 +4671,8 @@
       + `<div class="fv-depth">${depthRows.length ? depthRows.join('') : '<p class="fv-empty">还没有进过塔。</p>'}</div>`
       + `<h3>打法使用 <small>按结算局累计</small></h3>`
       + `<p class="fv-sum">${decLine}</p>`
+      + `<h3>页面异常 <small>接 SDK 后这一节直接转发</small></h3>`
+      + `<p class="fv-sum">${errLine}</p>`
       + `<div class="fv-runs">${runCards || '<p class="fv-empty">还没有完整的一局。</p>'}</div>`
       + `<div class="fv-tools">`
       + `<button class="fv-chip on" data-f="all">全部 ${rows.length}</button>`
@@ -4694,33 +4807,35 @@
 
     window.addEventListener('beforeunload', () => Engine.save());
 
-    // 渲染异常兜底：draw() 抛错（如特效参数异常）只丢当前帧，绝不炸掉 rAF 主循环——
-    // 否则画面从此冻结、只能刷新。连续报错时压噪（同一异常每秒最多记一次）。
+    // 渲染帧兜底：**整帧**（读状态 / 布局自愈 / 判脏 / 绘制）都在保护圈里，且下一帧无条件排队。
+    // 2026-11-15 之前只有 Renderer.draw 在 try 里：ensureLayout / covered / needsDraw 任一抛错，
+    // 末尾的 requestAnimationFrame 就轮不到执行 —— 画面从此冻结，玩家只能刷新。
+    // 连续报错时压噪（同一异常每秒最多记一次），但每帧都要续命（续命在 finally）。
     let lastRenderErrAt = 0;
     let layoutTick = 0;
     window.__tmRenderErrors = [];
     function loop() {
-      const s = Engine.state();
-      // 布局自愈（约每 15 帧一次）：地址栏收放、旋转、字体换行都改 stage 尺寸，
-      // 不能只指望 resize 事件与 ResizeObserver——实测 320×568 首帧算完就再没触发过。
-      if ((layoutTick = (layoutTick + 1) % 15) === 0 && Renderer.ensureLayout) Renderer.ensureLayout(el.stage);
-      // 遮罩完全盖住画布时不重绘：省电，也避免后台空转掉帧
-      const force = Renderer.needsDraw && Renderer.needsDraw();
-      if (s && !document.hidden && (!covered() || force)) {
-        try {
-          Renderer.draw(s);
-        } catch (err) {
-          const now = performance.now();
-          if (now - lastRenderErrAt > 1000) {
-            lastRenderErrAt = now;
-            const rec = { at: Date.now(), msg: String(err && err.message || err), stack: String(err && err.stack || '').split('\n')[1] || '' };
-            window.__tmRenderErrors.push(rec);
-            if (window.__tmRenderErrors.length > 10) window.__tmRenderErrors.shift();
-            if (typeof console !== 'undefined' && console.warn) console.warn('[render]', rec.msg);
-          }
+      try {
+        const s = Engine.state();
+        // 布局自愈（约每 15 帧一次）：地址栏收放、旋转、字体换行都改 stage 尺寸，
+        // 不能只指望 resize 事件与 ResizeObserver——实测 320×568 首帧算完就再没触发过。
+        if ((layoutTick = (layoutTick + 1) % 15) === 0 && Renderer.ensureLayout) Renderer.ensureLayout(el.stage);
+        // 遮罩完全盖住画布时不重绘：省电，也避免后台空转掉帧
+        const force = Renderer.needsDraw && Renderer.needsDraw();
+        if (s && !document.hidden && (!covered() || force)) Renderer.draw(s);
+      } catch (err) {
+        const now = performance.now();
+        if (now - lastRenderErrAt > 1000) {
+          lastRenderErrAt = now;
+          const rec = { at: Date.now(), msg: String(err && err.message || err), stack: String(err && err.stack || '').split('\n')[1] || '' };
+          window.__tmRenderErrors.push(rec);
+          if (window.__tmRenderErrors.length > 10) window.__tmRenderErrors.shift();
+          if (typeof console !== 'undefined' && console.warn) console.warn('[render]', rec.msg);
+          ErrorSink.note('render', rec.msg, '', 0, 0);
         }
+      } finally {
+        requestAnimationFrame(loop);
       }
-      requestAnimationFrame(loop);
     }
     requestAnimationFrame(loop);
   }
@@ -4746,6 +4861,8 @@
     resetEndShown: () => { endShown = false; },
     openCollection, closeCollection, collectionText, rememberCollection, collectionRemain, collectionNext, showColDetail, ringStatBoard,
     funnel: () => Funnel.all(), funnelClear: () => Funnel.clear(),
+    // 错误通道：探针要能直接读计数与手动记账（tools/err-check.html）
+    errSink: ErrorSink,
   };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);

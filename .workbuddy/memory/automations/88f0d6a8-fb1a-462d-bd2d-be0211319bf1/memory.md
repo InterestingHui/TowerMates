@@ -233,3 +233,20 @@
 - **关键坑/手法**：①「返回玩家」≠「有存档」——榜单/玩法/今日一塔要 `Meta.memory.runs>0` 才露脸，只清档量出来 2 个入口（假读数），探针里补 runs=1 + `refreshStartBadges()` 才是真读数；②用 `--force-prefers-reduced-motion` 真测媒体查询，跑完必须核 `matchMedia().matches`，否则旗标无效＝假绿；③查残留进程要按进程名过滤 node.exe，只看命令行 `*serve.js*` 会把查询命令自己也数进去（上轮报「残留 1」就是这个自匹配）。
 - 闸门：check ✓ / engine 523 / code 45 / sim 18,745·68.4% 未漂移 / regress 52 图 + 全屏元素预算 14/14 + 减弱动效 10/10·10/10 / 首局 63s。commit 8fc0698 已推，线上 build **a4b54fb4b9** 已验证（curl css 到新规则）。
 - 剩余：真人数据（唯一结构缺口）；「线上整仓可读」仍等拍板；首页不放图鉴入口已拍板登记（别再提）。
+
+## 2026-11-15 15:3x — 全力模式（错误通道收口，1 项 + 加练美术 C 2 处）
+- 判定：PROGRESS mtime 62 分钟、工作树仅 `_backup/` → 全力；占用表空、无排队；最近 5 条含变体（12:5x 节奏审计）→ 不触发变体。
+- 选活：待办四条仍全挂外部凭据 → 沿用「把 X 当外部系统查一遍」，这次查**玩家侧出错时会发生什么**。实证三类未捕获异常（setTimeout 抛错 / Promise.reject / img 404）**一条都不进漏斗**。
+- 产出：①`ErrorSink`（`error` 必须 `capture:true` + `unhandledrejection` + 渲染帧，四类 kind，message+文件:行+层数，≤20 条/10s 去重，自身 try 包裹）；②只提示一次且走提示条（不接管输入）；③`?funnel=1` 增「页面异常」一节；④main.js loop 保护圈从「只护 draw」扩到整帧、续命进 `finally`。commit 0228378 + c182df6，线上 build 已验证（curl 到 ErrorSink×3 / 并集选择器×1）。
+- 闸门：check ✓ / engine 523 / code 45 / sim 18,745·68.4% 未漂移 / regress 52 图 + **错误通道 18/18** / ui-test ✓ / 首局 63.1s。变异五刀全红得对。
+- **坑（下轮直接用）**：①资源错误不冒泡，`addEventListener('error', fn)` 少第三个参数 `true` 就静默失效；②探针页取 `/js/main.js` 在 headless 下 fetch 与同步 XHR 都会 NetworkError → 源码契约类断言放 regress 的 Node 侧；③`virtual-time` 不推进 CSS 过渡，量浮层位置必须先 `style.transition='none'` 再量；④`Funnel.push` 内部固定写 `at:Date.now()`，自定义字段再叫 `at` 会把时间戳覆盖成字符串（本轮踩过，改 `src`）。
+- 加练：美术 焦点C（动效一致性）——`#warnPill` 与 `#toast` 都 top:12px 居中，同屏时吐司（70px）盖住提示条 → `#warnPill.show ~ #toast.show` 下移 52px；错误文案 33 字在 430 宽被省略号截断且把「刷新」截掉 → 改 22 字并加 `scrollWidth ≤ clientWidth` 断言。发现 2 / 修 2。
+- 剩余：真人数据（缺人/SDK，但错误通道补上了漏斗缺的一格）；「线上整仓可读」仍等拍板。
+
+## 2026-11-15 16:5x — 全力模式（存档写失败收口，1 项 + 加练美术B）
+- 判定：mtime 66 分钟、工作树仅本会话记忆目录 + `_backup/` → 全力；占用表空、无排队行；最近 5 条含变体（12:5x 节奏审计）→ 不触发变体。
+- 选活：待办四条仍全挂外部凭据 → 沿用「把 X 当外部系统查一遍」的手法，这次查**存储写不进去时会怎样**。实证 `E.save()` 在 QuotaExceededError 下不抛错、无返回、无可查标志，磁盘停在旧档——刷新即退回，零提示。
+- 产出：①`persist()` 返回布尔 + `Engine.storageError()`；②写不进先删 `*_broken` 备查副本自救一次；③`storageFailCb` 回给 main → 提示条（会话内一次）+ 日志一行（60s 限流）+ 漏斗 `kind:'storage'`；④首页 1 字节探针 + `?nostore=1`（DevGate，线上无效）让「整块不可用」那行可测。新建 `tools/storage-check.html` 16 项 + 3 契约 = 19 项入闸门，engine 523→**531**。
+- 变异三刀全红：去提示条/日志→S4S6；写失败当成功→S2S3S4S6S7S9；首页入口失效→S12S13。
+- **坑（下轮直接用）**：①只在异常设备出现的 UI 必须有 DevGate 后门才测得；②探针判按钮可见别用 `offsetParent`（offscreen iframe + fixed 容器恒 null），用 computed display + rect.width；③同源 iframe 共享存档，第二个 iframe 首页多给「继续游戏」，取可见那个；④python heredoc 写 JS 正则的 `\n` 会变真换行（本轮把 regress.js 写坏一次，`git checkout` 还原后改用 Edit）。
+- 剩余：真人数据（缺人/SDK，但漏斗又补一格 storage）；「线上整仓可读」仍等拍板。

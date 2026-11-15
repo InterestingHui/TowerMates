@@ -357,6 +357,32 @@
     return { note, count: () => count };
   })();
 
+  // ---------- 存储：写失败 / 整块不可用，都要在玩家察觉之前说出来 ----------
+  // 2026-11-15 实测：存储被占满、设备禁用存储、无痕模式下，引擎原先 `catch (e) {}` 整条吞掉写失败——
+  // 玩家照常玩，刷新后进度凭空退回上一次成功保存的地方，全程零提示（连错误通道都进不去，
+  // 因为根本没抛到 window）。引擎现在只负责置标志并回调一次，玩家看得见的部分在这里。
+  // 文案口径：提示条是 nowrap 单行（92vw ≈ 27 汉字到头），必须把「刷新会退回」这半句留在前面。
+  const STORAGE_TIPS = '进度存不下：浏览器不让写存储，刷新会退回上次保存处。';
+  Engine.setStorageFailHook((name, first) => {
+    // 提示条一次会话只弹一次（持续弹会盖住操作反馈）；日志每 60 秒最多留一行、会随游玩滚走，
+    // 既不刷屏也不至于让「这局没存下」彻底看不见。
+    if (first) {
+      try { Funnel.push('err', { kind: 'storage', msg: String(name || 'save failed') }); } catch (e) {}
+      try { warn(STORAGE_TIPS, 8000); } catch (e) {}
+    }
+    try { log('⚠ ' + STORAGE_TIPS, 'warn'); } catch (e) {}
+  });
+  // 整块不可用（连读都读不到）时首页先说一句：别让人打半小时才发现这局根本没存下。
+  // 只写一个 1 字节的探针键、写完立刻删，不留痕也不占配额。
+  let STORAGE_OK = true;
+  try {
+    localStorage.setItem('towermates_probe', '1');
+    localStorage.removeItem('towermates_probe');
+  } catch (e) { STORAGE_OK = false; }
+  // ?nostore=1（只认本地预览，见 js/devgate.js）强制走「整块不可用」分支：
+  // 线上设备真禁用存储时才会出现这一行，没有这个入口就永远没法目视核对 / 断言它长什么样。
+  if (window.DevGate && DevGate.allow('nostore')) STORAGE_OK = false;
+
   // 退出节点：区分「玩过但走了」与「没开始就关」。页面隐藏/卸载各记一次，30 秒内去重。
   let lastHideAt = 0;
   function logPageHide() {
@@ -3423,6 +3449,20 @@
       }
     } else if (!broken && hint) {
       hint.remove();
+    }
+    // 整块存储不可用：这句必须出现在开局之前，而不是打完一局之后
+    let noStore = $('noStoreHint');
+    if (!STORAGE_OK && !noStore) {
+      const anchor2 = $('startEmber');
+      if (anchor2 && anchor2.parentNode) {
+        noStore = document.createElement('p');
+        noStore.id = 'noStoreHint';
+        noStore.className = 'start-broken';
+        noStore.textContent = '设备不让存进度：能玩，关掉页面进度就没了。';
+        anchor2.parentNode.insertBefore(noStore, anchor2.nextSibling);
+      }
+    } else if (STORAGE_OK && noStore) {
+      noStore.remove();
     }
   }
 

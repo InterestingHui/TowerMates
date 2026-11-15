@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>storage-check</title>
+<style>body{margin:0;background:#05070c;color:#8ef;font:12px monospace}#f{width:430px;height:900px;border:0;position:absolute;left:-9999px}</style>
+</head><body>
+<iframe id="f" src="/index.html"></iframe>
+<pre id="out">…</pre>
+<script>
+// 存档写失败闸门（2026-11-15 存储面收口）。
+// 背景：persist() 原先 `catch (e) {}` 把写失败整条吞掉——配额满 / 设备禁用存储 / 无痕模式下，
+// 玩家看到的一切正常，刷新后进度退回上一次成功保存的地方，零提示、零痕迹（连错误通道都进不去，
+// 因为根本没抛到 window）。现在要求：①失败可查（storageError）；②玩家看得见（提示条 + 日志）；
+// ③进漏斗；④游戏不被打断；⑤磁盘上的旧档不许写坏；⑥只提示一次，不随 350ms 节流刷屏。
+const out = document.getElementById('out');
+const f = document.getElementById('f');
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const rows = [];
+const bits = [];
+const push = (ok, name, detail) => {
+  rows.push((ok ? 'PASS|' : 'FAIL|') + name + '|' + (detail == null ? '' : String(detail).slice(0, 120)));
+  bits.push(ok ? 1 : 0);
+};
+(async () => {
+  try {
+    await wait(1800);
+    const w = f.contentWindow;
+    const d = f.contentDocument;
+    const tm = w.__tm;
+    const E = w.Engine;
+    if (!tm || !E) throw new Error('页面没跑起来（__tm / Engine 缺失）');
+
+    // 先把一局开起来并落一次正常档，才有「旧档」可以比对写失败时有没有被写坏
+    E.newGame('none', { seed: 4242 });
+    await wait(120);
+    const KEY = 'towermates_save_v3';
+    const rawBefore = w.localStorage.getItem(KEY);
+    const hpBefore = rawBefore ? JSON.parse(rawBefore).hp : null;
+    push(!!rawBefore, 'S0 开局落档正常', hpBefore);
+
+    // 让这个 realm 的所有 Storage 写入都失败（模拟配额满；跨 realm 不生效，必须写在 iframe 里）
+    const proto = w.Storage.prototype;
+    const realSet = proto.setItem;
+    const boom = () => { const e = new Error('quota'); e.name = 'QuotaExceededError'; return e; };
+    proto.setItem = function () { throw boom(); };
+
+    tm.funnelClear();
+    const pill = d.getElementById('warnPill');
+    pill.style.transition = 'none';
+    pill.classList.remove('show');
+
+    // S1 走一步：节流存档会失败，但游戏不许被打断
+    const s = E.state();
+    let dir = null;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const t = E.tile(s.x + dx, s.y + dy);
+      if (t === '.' || t === 'p' || t === '$') { dir = [dx, dy]; break; }
+    }
+    const steps0 = s.steps;
+    let moveErr = null;
+    try { E.tryMove(dir[0], dir[1]); } catch (e) { moveErr = e.message; }
+    push(!moveErr && E.state().steps === steps0 + 1, 'S1 写失败不打断游戏（照样能走一格）', moveErr || ('步数 ' + steps0 + '→' + E.state().steps));
+
+    // S2 立即落盘的那条路径必须把失败报出来（返回值 + 可查标志）
+    let ret = null;
+    try { ret = E.save(); } catch (e) { ret = 'threw:' + e.message; }
+    push(ret === false, 'S2 save() 返回 false（不再静默成功）', ret);
+    push(E.storageError() === 'QuotaExceededError', 'S3 storageError() 报出异常名', E.storageError());
+
+    await wait(120);
+    // S4 玩家侧：提示条出现，且自救说明没被省略号吃掉（nowrap 单行，92vw ≈ 27 汉字到头）
+    push(pill.classList.contains('show') && pill.textContent.indexOf('存不下') >= 0, 'S4 提示条出现并说明刷新会退回', pill.textContent);
+    push(pill.scrollWidth <= pill.clientWidth + 2, 'S5 提示文案没被截断', pill.scrollWidth + '/' + pill.clientWidth + 'px');
+
+    // S6 日志区留一行（会随游玩滚走，不算常驻噪音）
+    const warnLines = Array.from(d.querySelectorAll('#log .line')).filter((x) => x.textContent.indexOf('存不下') >= 0);
+    push(warnLines.length === 1, 'S6 日志留一行警告', warnLines.length + ' 行');
+
+    // S7 漏斗可查（接 SDK 后能算出「有多少人被设备卡住存档」）
+    const errs = tm.funnel().filter((x) => x.ev === 'err' && x.kind === 'storage');
+    push(errs.length === 1 && String(errs[0].msg).indexOf('Quota') >= 0, 'S7 漏斗记一条 storage', errs.length + ' 条/' + (errs[0] ? errs[0].msg : '无'));
+
+    // S8 磁盘上的旧档不许写坏（失败 = 一个字节都没动，不是写一半）
+    const rawAfter = w.localStorage.getItem(KEY);
+    push(rawAfter === rawBefore, 'S8 写失败时旧档原样保留', rawAfter === rawBefore ? '一致' : '被改动');
+
+    // S9 只提示一次：连续再失败 5 次，漏斗与提示都不许刷屏
+    for (let i = 0; i < 5; i++) E.save();
+    await wait(150);
+    push(tm.funnel().filter((x) => x.ev === 'err' && x.kind === 'storage').length === 1, 'S9 连续失败仍只记一条（60 秒限流）',
+      tm.funnel().filter((x) => x.ev === 'err' && x.kind === 'storage').length + ' 条');
+
+    // S10 存储恢复后要能自己回到正常态
+    proto.setItem = realSet;
+    let ok2 = false;
+    try { ok2 = E.save() === true; } catch (e) { ok2 = false; }
+    push(ok2 && E.storageError() === null, 'S10 存储恢复后 save() 成功并清标志', ok2 + '/' + E.storageError());
+
+    // S11 恢复后磁盘上必须是新内容（确认整条落盘链路真的通了，不是又静默失败）
+    const rawFinal = w.localStorage.getItem(KEY);
+    push(!!rawFinal && JSON.parse(rawFinal).steps === E.state().steps, 'S11 恢复后存档写的是最新状态', rawFinal ? JSON.parse(rawFinal).steps : '无档');
+
+    // S12–S14 首页「整块存储不可用」那一行（?nostore=1 只认本地预览，线上域名下无效）。
+    // 这一行只在真禁用存储的设备上出现，没有这个入口就永远核不到它长什么样、会不会压住开始按钮。
+    const f2 = document.createElement('iframe');
+    f2.src = '/index.html?nostore=1';
+    f2.style.cssText = 'width:430px;height:900px;border:0;position:absolute;left:-9999px';
+    document.body.appendChild(f2);
+    await wait(1900);
+    const d2 = f2.contentDocument;
+    const hint = d2 ? d2.getElementById('noStoreHint') : null;
+    push(!!hint && hint.textContent.indexOf('不让存进度') >= 0, 'S12 首页先说明「存不了」', hint ? hint.textContent : '没有这行');
+    // 同源共享存档：前面已经开过局，这一屏很可能给的是「继续游戏」——取真正可见的那个
+    const cand = d2 ? [d2.getElementById('btnContinue'), d2.getElementById('btnNew')] : [];
+    const seen = (b) => !!b && d2.defaultView.getComputedStyle(b).display !== 'none' && b.getBoundingClientRect().width > 40;
+    const btn = cand.filter(seen)[0] || cand[0];
+    const hb = hint ? hint.getBoundingClientRect() : null;
+    const bb = btn ? btn.getBoundingClientRect() : null;
+    const overlap = (hb && bb) ? Math.min(hb.bottom, bb.bottom) - Math.max(hb.top, bb.top) : 0;
+    // 这一行压到 2 行以内（430 宽下 24 字刚好一行半，写长了会挤到按钮边上）
+    push(!!hb && hb.height <= 42, 'S13 那行不超过两行', hb ? Math.round(hb.height) + 'px' : '无');
+    push(!!hb && !!bb && overlap <= 0, 'S14 那行不压住开始按钮',
+      hb ? `hint ${Math.round(hb.top)}–${Math.round(hb.bottom)} / btn ${bb ? Math.round(bb.top) + '–' + Math.round(bb.bottom) : '无'}` : '无');
+    // 不能用 offsetParent 判可见：整页塞在 left:-9999px 的 iframe 里，链路上有 fixed 容器时恒为 null
+    const bvis = seen(btn);
+    push(bvis, 'S15 存不了也照样能开局', btn ? btn.id + '/' + Math.round(btn.getBoundingClientRect().width) + 'px' : '无按钮');
+  } catch (e) {
+    push(false, 'PAGE-ERR', (e && e.message) || e);
+  }
+  const allPass = bits.length > 0 && bits.every((x) => x === 1);
+  out.textContent = rows.join('\n') + '\nSTORAGE-ALLPASS|' + (allPass ? '1' : '0') + '|' + bits.join('');
+  document.title = 'storage-check ' + (allPass ? 'ALLPASS|' : 'HASFAIL|') + bits.join('');
+})();
+</script>
+</body></html>

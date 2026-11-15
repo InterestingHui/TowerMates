@@ -2123,5 +2123,51 @@ rg.flags.rings = 'abc';
 putSave(rg);
 ok(Array.isArray(E.load().flags.rings), 'rings 不是数组：归一成空列表');
 
+// ---------- N. 存档写失败：不再静默吞掉（2026-11-15 存储面收口） ----------
+// 换掉 localStorage 模拟「配额满 / 设备禁用存储 / 无痕模式」。此前 persist() 用 `catch (e) {}`
+// 把异常整条吃掉：玩家看着一切正常，刷新后进度退回上一次成功保存的地方，零提示、零痕迹。
+{
+  const realLS = global.localStorage;
+  const boom = () => { const e = new Error('quota'); e.name = 'QuotaExceededError'; return e; };
+  let cbCount = 0, lastName = '', firstFlag = null;
+  E.setStorageFailHook((n, first) => { cbCount++; lastName = n; if (firstFlag === null) firstFlag = first; });
+
+  const ks = {};
+  let fail = false;
+  global.localStorage = {
+    getItem: (k) => (k in ks ? ks[k] : null),
+    setItem: (k, v) => { if (fail) throw boom(); ks[k] = String(v); },
+    removeItem: (k) => { delete ks[k]; },
+  };
+  E.reset();
+  E.newGame('none', { seed: 4242 });
+  const before = JSON.parse(ks[SAVE_KEY]).hp;
+
+  fail = true;
+  E.state().hp = before - 111;
+  ok(E.save() === false, '存储写不进：save() 返回 false（不再静默）');
+  ok(E.storageError() === 'QuotaExceededError', 'storageError() 报出真实异常名');
+  ok(JSON.parse(ks[SAVE_KEY]).hp === before, '写失败时磁盘上的旧档没被改坏（不是写一半）');
+  ok(cbCount === 1 && lastName === 'QuotaExceededError', '失败通知 UI 一次，带上异常名');
+  ok(firstFlag === true, '第一次失败标记 first=true（提示条只弹这一次，之后只留日志）');
+  for (let i = 0; i < 5; i++) E.save();
+  ok(cbCount === 1, '连续再失败 5 次仍只通知一次（60 秒限流，不随 350ms 抖动刷屏）');
+
+  fail = false;
+  ok(E.save() === true && E.storageError() === null, '存储恢复后 save() 成功且清掉失败标志');
+
+  // 自救口径：坏档备查副本在就写不进，删掉它才写进 —— 引擎应当先让路再重试
+  ks[SAVE_KEY + '_broken'] = '{"ver":5}';
+  global.localStorage = {
+    getItem: (k) => (k in ks ? ks[k] : null),
+    setItem: (k, v) => { if (k === SAVE_KEY && (SAVE_KEY + '_broken') in ks) throw boom(); ks[k] = String(v); },
+    removeItem: (k) => { delete ks[k]; },
+  };
+  ok(E.save() === true && !((SAVE_KEY + '_broken') in ks), '写不进时先删坏档备查副本再试一次：救回来算成功');
+
+  global.localStorage = realLS;
+  E.setStorageFailHook(null);
+}
+
 console.log(fail === 0 ? '\n✓ 全部通过' : `\n✗ ${fail} 项失败`);
 process.exit(fail ? 1 : 0);
