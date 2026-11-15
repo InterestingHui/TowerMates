@@ -513,8 +513,25 @@
       heal: () => { beep(440, 0.1, 'sine', 0.035); beep(660, 0.16, 'sine', 0.03, null, 0.08); },
       // 小生物受惊：一声很轻的上滑啾鸣，像虫子惊飞的动静
       flit: () => { beep(720, 0.1, 'sine', 0.02, 1500); beep(1080, 0.07, 'sine', 0.012, 1900, 0.03); },
+      // 石座被放回原处（塔心石「让它留在这儿」）：一声低沉的落座，尾巴拖长。
+      // 故意跟「拿走」的 relic 亮三连一暗一亮——同一个二选一的两面，听感上先分开
+      open: () => { beep(174.61, 0.5, 'sine', 0.05, 130); beep(261.63, 0.9, 'sine', 0.02, null, 0.05); },
+      // Boss 拦路：三连下行 + 一声金属泛音。这是「宣告」不是「挨打」，所以不复用 hitBig
+      boss: () => { beep(110, 0.5, 'sawtooth', 0.05, 55); beep(82.41, 0.7, 'square', 0.04, 41.2, 0.12); beep(440, 0.3, 'triangle', 0.022, 220, 0.06); },
+      // 战斗打法的确认音（格挡/架盾/缠斗三选一）：短促中性，
+      // 不占用 level 那个和弦——那是全游戏唯一的「成长」反馈，按个按钮不该听起来像升级
+      choose: () => { beep(620, 0.05, 'square', 0.03); beep(930, 0.06, 'triangle', 0.018, null, 0.03); },
     };
-    return { play(n) { if (map[n]) map[n](); }, startMusic, stopMusic, setPad, setMotif, stopMotif };
+    return {
+      play(n) { if (map[n]) map[n](); },
+      // 预置名清单：给 tools/sfx-check.html 做「源码里出现的名字必须在表内」的扫描，
+      // 否则写错一个名字就是一处永久静音（2026-11-15 实测 'open' 就是这么静了两处）
+      names: () => Object.keys(map),
+      // 自检专用：停掉一切声音并丢掉 AudioContext，好让探针换上假 AC 从零计数。
+      // 玩家路径不会调用它（无 UI 入口）。
+      reset() { stopMotif(); stopPad(); stopMusic(); actx = null; },
+      startMusic, stopMusic, setPad, setMotif, stopMotif,
+    };
   })();
 
   let flashTimer = null;
@@ -1751,7 +1768,7 @@
     const c = $('ptZoomCap');
     if (c) c.textContent = cap || '';
     el.portraitOverlay.classList.add('show');
-    if (window.Sound) Sound.play('talk');
+    Sound.play('talk');
   }
 
   function openCodex() {
@@ -1937,7 +1954,7 @@
       el.bsBlock.disabled = true;
       if (el.bsTangle) el.bsTangle.disabled = true;   // 与缠斗二选一
       if (el.bsGuard) el.bsGuard.disabled = true; // 与架盾二选一（同一份额度）
-      Sound.play('level');
+      Sound.play('choose');
       vibrate([12, 20, 8]);
       warn(`**格挡**：这一战的承伤降到 **${Math.round(blockScale * 100)}%**`);
     };
@@ -1976,7 +1993,7 @@
           el.bsGuard.disabled = true;
           el.bsBlock.disabled = true;   // 同一份额度，二选一
           if (el.bsTangle) el.bsTangle.disabled = true;
-          Sound.play('level');
+          Sound.play('choose');
           vibrate([12, 20, 8]);
           warn(`**架盾**：这一层余下每场承伤降到 **${100 - spreadPct}%**`);
         };
@@ -2013,7 +2030,7 @@
         el.bsTangle.disabled = true;
         el.bsBlock.disabled = true;   // 与格挡二选一（挡下整场就无从「多磨一轮」）
         if (el.bsGuard) el.bsGuard.disabled = true;
-        Sound.play('level');
+        Sound.play('choose');
         vibrate([12, 20, 8]);
         warn(`**缠斗**：这一战多挨 ${tangle.extra} 血（拖长一回合），换来经验 ${tangle.exp} → ${tangle.expGain}；这一场不再格挡`);
       };
@@ -2922,6 +2939,7 @@
       });
     } else {
       Sound.play('open');
+      vibrate(12);
       Renderer.ring(s.x, s.y, 'rgba(150,215,225,0.85)', T * 2.4, 640);
     }
     log(res.msg, 'gold');
@@ -3422,7 +3440,7 @@
     $('biPortrait').innerHTML = window.Portraits ? Portraits.render(m.name, 'hard', null, 'lg') : '';
     bossIntroCb = cb || null;
     el.bossIntroOverlay.classList.add('show');
-    if (window.Sound) Sound.play('open');
+    Sound.play('boss');
     clearTimeout(bossIntroTimer);
     // 1.2 秒自动过：它只负责「谁在拦你」，不接管任何流程
     bossIntroTimer = hold ? null : setTimeout(closeBossIntro, Settings.fast ? 700 : 1200);
@@ -4717,6 +4735,8 @@
     openEcho, chooseRing, closeEcho, resumePendingRing, setChapterColor, refreshCfg,
     // 提示系统：自动化可验证「加粗渲染 + 角色提示对白」
     richInto: renderRich, say, sayHint, warn, Tips,
+    // 音频：预置名清单 + reset() 供 tools/sfx-check.html 换假 AudioContext 从零计数
+    sound: Sound,
     Settings, hintMs, openHintBook, showStuck, clearStuck,
     openMonsterProbe, showDeath, reviveFromAd, adOfferRevive, adOfferDouble,
     // 自动化专用：清死亡防重入标记再重弹——shot.html 折戟成就链路要连死多次

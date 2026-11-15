@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>sfx-check</title>
+<style>
+body{margin:0;background:#05070c;color:#8ef;font:12.5px/1.6 monospace}
+#f{width:430px;height:640px;border:0;display:block}
+#out{padding:10px;white-space:pre-wrap}
+</style>
+</head>
+<body>
+<iframe id="f"></iframe>
+<pre id="out">running…</pre>
+<script>
+// 音效自检：验收基线写死「关键反馈 = 视觉＋听觉双确认，缺一即缺陷」，但音效名从来没有闸门。
+// 实测两处静音：①`Sound.play('open')` 表里没有 open → 静默；②`if (window.Sound)` 这个
+// 守卫永假（Sound 是模块内常量，从不挂到 window）→ 立绘放大页与 Boss 入场两处彻底没声。
+// 跑法：chrome --headless --dump-dom "http://127.0.0.1:PORT/tools/sfx-check.html?gate=1"
+const f = document.getElementById('f');
+const out = document.getElementById('out');
+const now = () => performance.now();
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const R = [];
+function rec(name, ok, note) {
+  R.push({ name, ok: !!ok, note: note || '' });
+  out.textContent = R.map((r) => `${r.ok ? '✓' : '✗'} ${r.name}${r.note ? ' — ' + r.note : ''}`).join('\n');
+  document.title = (R.every((r) => r.ok) ? 'PASS|' : 'FAIL|') + R.map((r) => (r.ok ? '1' : '0')).join('');
+}
+async function waitFor(fn, timeout = 8000, step = 10) {
+  const t0 = now();
+  while (now() - t0 < timeout) {
+    let v = null;
+    try { v = fn(); } catch (e) {}
+    if (v) return v;
+    await wait(step);
+  }
+  return null;
+}
+
+// 假 AudioContext：只记账，不发声。记录创建的振荡器（发声单元）与每个增益的峰值。
+const FAKE = `
+(function(){
+  const st = { osc: 0, gainPeaks: [] };
+  window.__sfxProbe = st;
+  function param(v){
+    return {
+      value: v, __peak: 0,
+      setValueAtTime(){ return this; },
+      exponentialRampToValueAtTime(x){ if (x > this.__peak) this.__peak = x; return this; },
+      linearRampToValueAtTime(x){ if (x > this.__peak) this.__peak = x; return this; },
+      setTargetAtTime(){ return this; },
+      cancelScheduledValues(){ return this; },
+    };
+  }
+  class FakeCtx {
+    constructor(){ this.currentTime = 0; this.state = 'running'; this.destination = {}; }
+    resume(){ this.state = 'running'; return Promise.resolve(); }
+    createOscillator(){ st.osc++; return { type:'', frequency: param(440), connect(n){ return n; }, start(){}, stop(){} }; }
+    createGain(){ const g = { gain: param(1), connect(n){ return n; } }; st.gainPeaks.push(g.gain); return g; }
+  }
+  window.AudioContext = FakeCtx;
+  window.webkitAudioContext = FakeCtx;
+})();
+`;
+
+(async () => {
+  try {
+    // ---------- A. 源码扫描：代码里出现的每个名字都必须在预置表内 ----------
+    const src = await (await fetch('../js/main.js')).text();
+    const names = new Set();
+    const callRe = /Sound\.play\(([^\n]*?)\);/g;
+    let m;
+    while ((m = callRe.exec(src))) {
+      const arg = m[1];
+      const lit = arg.match(/'([a-zA-Z][a-zA-Z0-9]*)'/g) || [];
+      lit.forEach((s) => names.add(s.replace(/'/g, '')));
+    }
+    rec('A1 源码里找到音效调用', names.size >= 10, '名字 ' + names.size + ' 个：' + [...names].sort().join(' '));
+
+    // 载入游戏（`#demo` 需要一个在跑的局：塔心石分支要 Engine.state() 非空）
+    await new Promise((res) => { f.onload = () => res(); f.src = '/index.html?dev=1#demo=0,2,5'; });
+    const w = f.contentWindow;
+    await waitFor(() => w.__tm && w.__tm.sound && w.Engine && w.Engine.state());
+    await wait(400);
+    rec('A2 __tm.sound 已暴露', !!(w.__tm && w.__tm.sound && typeof w.__tm.sound.names === 'function'),
+      w.__tm && w.__tm.sound ? 'names()=' + w.__tm.sound.names().length : '缺失');
+
+    const table = (w.__tm.sound.names && w.__tm.sound.names()) || [];
+    const missing = [...names].filter((n) => table.indexOf(n) < 0);
+    rec('A3 源码音效名全部在预置表内', missing.length === 0,
+      missing.length ? '静音名字：' + missing.join(' ') : '零静音');
+
+    // 反向：死预置（表里有、代码里没人用）只报告不判红——音乐动机等间接调用不算
+    const unused = table.filter((n) => !names.has(n));
+    rec('A4 预置表无孤儿（仅报告）', true, unused.length ? '未被直接调用：' + unused.join(' ') : '全部有调用点');
+
+    // ---------- B. 守卫：不许再写 window.Sound 这种永假判断 ----------
+    const deadGuard = /if\s*\(\s*window\.Sound\s*\)/.test(src);
+    rec('B1 没有 window.Sound 假守卫', !deadGuard, deadGuard ? '仍有永假守卫（Sound 从不挂 window）' : '干净');
+
+    // ---------- C. 运行期：每个预置都必须真发出声音 ----------
+    const fw = w;
+    const inject = fw.document.createElement('script');
+    inject.textContent = FAKE;
+    fw.document.body.appendChild(inject);
+    fw.__tm.sound.reset();   // 丢掉可能已经建好的真 AudioContext，换假的重数
+
+    const silent = [];
+    const loud = [];
+    table.forEach((n) => {
+      fw.__sfxProbe.osc = 0;
+      fw.__sfxProbe.gainPeaks = [];
+      fw.__tm.sound.play(n);
+      if (fw.__sfxProbe.osc < 1) silent.push(n);
+      const peak = fw.__sfxProbe.gainPeaks.reduce((a, g) => a + (g.__peak || 0), 0);
+      if (peak > 0.2) loud.push(n + '=' + peak.toFixed(3));
+    });
+    rec('C1 每个预置都发声（振荡器 ≥1）', silent.length === 0, silent.length ? '静音：' + silent.join(' ') : table.length + ' 个全响');
+    rec('C2 单个预置峰值 < 0.2（不爆音）', loud.length === 0, loud.length ? '偏响：' + loud.join(' ') : '全部在预算内');
+
+    // ---------- D. 验收基线五项：走 / 打 / 买 / 拾取 / 开门 ----------
+    const base = { step: '走', hit: '打', buy: '买', pick: '拾取', door: '开门' };
+    const lostBase = Object.keys(base).filter((n) => table.indexOf(n) < 0);
+    rec('D1 基线五项音效齐（走/打/买/拾取/开门）', lostBase.length === 0, lostBase.length ? '缺：' + lostBase.join(' ') : '5/5');
+
+    // 本轮补的三个：塔心石放下 / Boss 入场 / 打法确认
+    const added = ['open', 'boss', 'choose'].filter((n) => table.indexOf(n) >= 0);
+    rec('D2 本轮新增三预置在表内', added.length === 3, added.join(' '));
+
+    // ---------- E. 开关：关掉就真不许出声 ----------
+    // Settings 的开关是只读 getter，只能走 toggleXxx()（直接赋值会被静默丢掉，
+    // 本轮第一版探针就是栽在这里——写 sfx=false 其实没关掉，还谎报「关了仍在响」）
+    const sfxWas = fw.__tm.Settings.sfx;
+    if (sfxWas) fw.__tm.Settings.toggleSfx();
+    fw.__sfxProbe.osc = 0;
+    ['step', 'hit', 'relic', 'boss', 'choose'].forEach((n) => fw.__tm.sound.play(n));
+    rec('E1 音效关闭时不发声', fw.__sfxProbe.osc === 0, '开关=' + fw.__tm.Settings.sfx + ' 振荡器 ' + fw.__sfxProbe.osc);
+    if (fw.__tm.Settings.sfx !== sfxWas) fw.__tm.Settings.toggleSfx();
+
+    const musWas = fw.__tm.Settings.music;
+    if (musWas) fw.__tm.Settings.toggleMusic();
+    fw.__sfxProbe.osc = 0;
+    fw.__tm.sound.setMotif(3);
+    fw.__tm.sound.setPad(5);
+    await wait(60);
+    rec('E2 环境音乐关闭时动机不发声', fw.__sfxProbe.osc === 0, '开关=' + fw.__tm.Settings.music + ' 振荡器 ' + fw.__sfxProbe.osc);
+    if (fw.__tm.Settings.music !== musWas) fw.__tm.Settings.toggleMusic();
+
+    // ---------- F. 关键路径真接上了（不是只有预置表里有名字） ----------
+    // 只数「有没有振荡器」会假绿：旁边一句成就音也能凑数。这里直接记录 play() 收到的名字，
+    // 断言「这条路径点的是哪一个预置」——写错名字/守卫挡住，都会在这里现形。
+    const played = [];
+    const origPlay = fw.__tm.sound.play.bind(fw.__tm.sound);
+    fw.__tm.sound.play = (n) => { played.push(n); return origPlay(n); };
+    const spy = () => { played.length = 0; fw.__sfxProbe.osc = 0; };
+
+    // 立绘放大页原先被 window.Sound 假守卫挡住，现在必须真发出声音
+    spy();
+    try { fw.__tm.openPortraitZoom('墨妖', '测试', 'hard'); } catch (e) {}
+    rec('F1 立绘放大页点的是 talk 且真发声', played.indexOf('talk') >= 0 && fw.__sfxProbe.osc >= 1,
+      '调用：' + (played.join(' ') || '无') + ' · 振荡器 ' + fw.__sfxProbe.osc);
+
+    // Boss 入场（showBossIntro 收怪的定义体，不是名字；GAME_DATA.monsters 的键是字符，按 name 找）
+    spy();
+    {
+      const mons = fw.GAME_DATA.monsters || {};
+      const boss = Object.keys(mons).map((k) => mons[k]).find((m) => m && m.boss);
+      try { fw.__tm.showBossIntro(boss, 2, () => {}, true); } catch (e) {}
+      rec('F2 Boss 入场点的是 boss 且真发声', played.indexOf('boss') >= 0 && fw.__sfxProbe.osc >= 1,
+        (boss ? boss.name : '找不到 Boss') + ' · 调用：' + (played.join(' ') || '无') + ' · 振荡器 ' + fw.__sfxProbe.osc);
+    }
+    try { fw.__tm.closeBossIntro(); } catch (e) {}
+
+    // 塔心石「放下」分支：与「带走」一样必须视听双确认
+    {
+      const s = fw.Engine.state() || {};
+      try {
+        if (!s.flags) s.flags = {};
+        delete s.flags.heart;          // heartLeave() 在「已做过决定」时会拒，先清掉
+        fw.__tm.openHeart();
+        fw.__tm.setHeartFocus('leave');
+        spy();
+        fw.__tm.chooseHeart('leave');
+      } catch (e) {}
+      rec('F3 塔心石「放下」点的是 open 且真发声', played.indexOf('open') >= 0 && fw.__sfxProbe.osc >= 1,
+        '调用：' + (played.join(' ') || '无') + ' · 振荡器 ' + fw.__sfxProbe.osc);
+    }
+
+    // 三种打法的按钮必须点 choose，不许再借「升级」那个和弦（它是全游戏唯一的成长反馈）。
+    // 走源码计数：三个按钮各一处，改回 level 会立刻掉到 0~2
+    const chooseSites = (src.match(/Sound\.play\('choose'\)/g) || []).length;
+    rec('F4 三种打法都点 choose（3 处）', chooseSites === 3, 'choose 调用点 ' + chooseSites + ' 处');
+
+    rec('G 汇总', R.every((r) => r.ok), R.filter((r) => !r.ok).length + ' 项未过 / 共 ' + R.length);
+  } catch (e) {
+    rec('X 探针异常', false, String(e && e.message || e));
+  }
+})();
+</script>
+</body>
+</html>

@@ -510,14 +510,42 @@ if (!process.argv.includes('--no-shot')) {
         console.log((okVm ? '✓' : '✗') + ` 弹层多视口 ${vmLine}` + (okVm ? '' : '\n   ' + r.fails.slice(0, 5).join('\n   ')));
       }
 
+      // 音效自检：源码里出现的每个音效名都必须在预置表内（写错就是一个永久静音），
+      // 外加「每个预置真发声 / 关掉开关真不响 / 三条关键路径点的名字对不对」
+      let okSfx = true, sfxLine = '';
+      {
+        const os = require('os');
+        const args = [
+          '--headless=new', '--disable-gpu', '--no-sandbox', '--no-first-run', '--disable-extensions',
+          '--user-data-dir=' + path.join(os.tmpdir(), 'tm-sfx-' + process.pid),
+          '--virtual-time-budget=30000',
+          '--dump-dom', `http://127.0.0.1:${PORT}/tools/sfx-check.html?gate=1`,
+        ];
+        const read = () => {
+          const p = spawnSync(chrome, args, { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+          const t = p.stdout || '';
+          // 只认 <title> 里的读数：dump 的正文里也含脚本源码（'PASS|' / 'FAIL|' 字面量），
+          // 整篇扫会把「页内脚本」误当成失败标记——第一版就是这么把自己判红的
+          const tt = (/<title>([^<]*)<\/title>/.exec(t) || [])[1] || '';
+          const bits = /(?:PASS|FAIL)\|([01]+)/.exec(tt);
+          const fails = (t.match(/^✗ .*$/gm) || []).map((s) => s.replace(/^✗\s*/, ''));
+          return { pass: /^PASS\|1+$/.test(tt.trim()), bits: bits ? bits[1] : '', fails: fails };
+        };
+        let r = read();
+        if (!r.bits) r = read();
+        okSfx = r.pass;
+        sfxLine = r.bits ? `${(r.bits.match(/1/g) || []).length}/${r.bits.length} 项` : '读数失败';
+        console.log((okSfx ? '✓' : '✗') + ` 音效自检 ${sfxLine}` + (okSfx ? '' : '\n   ' + r.fails.slice(0, 5).join('\n   ')));
+      }
+
       server.kill();      console.log(bad === 0 ? `\n✓ 截图全部生成（${SCENES.length} 张，见 tools/out/）` : `\n✗ ${bad} 张截图异常`);
 
       console.log('== 浏览器 UI 自检 ==');
       const ui = run(process.execPath, ['tools/ui-test.js']);
       const okUi = ui.code === 0;
       console.log((okUi ? '✓' : '✗') + ' ui-test.js' + (okUi ? '' : '\n' + ui.out));
-      const all = okCheck && okSim && okSkip && okTest && okCode && okBsim && okOd && okUi && okProbe && okAds && okIntro && okWxb && okNew && okWx && okSwordGate && okPace && okDaily && okZeal && okFinal && okTangle && okGuard && okVp && okVm && bad === 0;
-      if (!all) console.log('  闸门明细:', JSON.stringify({ okCheck, okSim, okSkip, okTest, okCode, okBsim, okOd, okUi, okProbe, probeA3, okAds, adsLine, okIntro, introLine, okWxb, wxbLine, okNew, newLine, okWx, okSwordGate, okPace, paceLine, okDaily, dailyLine, okZeal, zealLine, okFinal, finalLine, okTangle, tangleLine, okGuard, guardLine, okVp, vpLine, okVm, vmLine, bad }));
+      const all = okCheck && okSim && okSkip && okTest && okCode && okBsim && okOd && okUi && okProbe && okAds && okIntro && okWxb && okNew && okWx && okSwordGate && okPace && okDaily && okZeal && okFinal && okTangle && okGuard && okVp && okVm && okSfx && bad === 0;
+      if (!all) console.log('  闸门明细:', JSON.stringify({ okCheck, okSim, okSkip, okTest, okCode, okBsim, okOd, okUi, okProbe, probeA3, okAds, adsLine, okIntro, introLine, okWxb, wxbLine, okNew, newLine, okWx, okSwordGate, okPace, paceLine, okDaily, dailyLine, okZeal, zealLine, okFinal, finalLine, okTangle, tangleLine, okGuard, guardLine, okVp, vpLine, okVm, vmLine, okSfx, sfxLine, bad }));
       console.log(all ? '✓ 质量闸门通过' : '✗ 质量闸门有失败项');
       process.exit(all ? 0 : 1);
     })();
