@@ -17,7 +17,7 @@ body{margin:0;background:#05070c;color:#8ef;font:12px/1.5 monospace}
 //   可交互 = button / input / a[href] / [role=button]；无遮罩时画布算 1 个核心动词面
 //   信息   = 常驻 chip / 钥匙 / 遗物位 / 锁环位 / pip / 楼层点阵 / 日志行
 //   提示条 = 教练卡 / 楼层卡 / 底部引导条 / 卡关条 / 成就吐司 / 顶部警告（单独计）
-const f = document.getElementById('f');
+let f = document.getElementById('f');
 const out = document.getElementById('out');
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const R = [];
@@ -121,7 +121,20 @@ function render() {
   document.title = 'PACE|' + R.map((r) => r.tag + ':' + (r.clickable.length + (r.canvasLive ? 1 : 0) + (r.tap || 0))).join(',');
   window.__report = R;
 }
-function load(url) { return new Promise((res) => { f.onload = () => res(); f.src = url; }); }
+// 每次装载换一个新 iframe 节点：同一个离屏 iframe 连续两次导航时，
+// 无头 Chrome（--virtual-time-budget）第二次的脚本会被整段丢掉——
+// 表现是 body 没有 at-start、__tm 不存在（探针读到"未初始化"而误判节奏）。
+function load(url) {
+  return new Promise((res) => {
+    const nf = document.createElement('iframe');
+    nf.id = 'f';
+    nf.style.cssText = 'width:430px;height:900px;border:0;display:block;position:absolute;left:-9999px';
+    nf.onload = () => res();
+    f.replaceWith(nf);
+    f = nf;
+    nf.src = url;
+  });
+}
 async function ready() {
   const t = performance.now();
   while (performance.now() - t < 12000) {
@@ -239,6 +252,33 @@ function click(w, d, sel) {
     out.textContent += '\nMODALLOG=' + modalLog.join(',');
     out.textContent += '\n\nMODALS=' + modalCount + '（前 3 分钟教学弹窗：教练卡 + 盾谱小传）';
     out.textContent += '\nDONE ' + JSON.stringify(R.map((r) => ({ tag: r.tag, at: r.at, n: r.clickable.length + (r.canvasLive ? 1 : 0) + (r.tap || 0), tips: r.tips.length })));
+    // ===== 闸门断言（v3.11：把「3–10 分钟窗口」纳入自动化——这块此前只有人肉跑过一次）=====
+    // 依据《八、元素登记》与《四、体验验收基线》的开局信息预算；数字取「预算上限」而不是「当前实测」，
+    // 所以上限卡得很紧正是目的：多加一个按钮就会红，逼着提案先回答「换掉哪一个」。
+    const nOf = (tag) => {
+      const r = R.find((x) => x.tag === tag);
+      return r ? r.clickable.length + (r.canvasLive ? 1 : 0) + (r.tap || 0) : -1;
+    };
+    const tipsOf = (tag) => {
+      const r = R.find((x) => x.tag === tag);
+      return r ? r.tips.length : -1;
+    };
+    const GATE = [
+      ['层间可操作 ≤3', ['E 第1层·可操作', 'I 第2层', 'L 第3层', 'O 第4层'].every((t) => nOf(t) >= 0 && nOf(t) <= 3)],
+      ['教练卡屏 ≤4', nOf('D 第1层·教练卡') >= 0 && nOf('D 第1层·教练卡') <= 4],
+      ['商店 ≤7', nOf('M 商店') >= 0 && nOf('M 商店') <= 7],
+      ['祭坛 ≤3', nOf('N 祭坛') >= 0 && nOf('N 祭坛') <= 3],
+      ['章末回响 ≤4', nOf('R 章末回响') >= 0 && nOf('R 章末回响') <= 4],
+      ['层阶之钥面板 ≤6', nOf('Q 层阶之钥面板') >= 0 && nOf('Q 层阶之钥面板') <= 6],
+      ['同屏提示条 ≤2', R.every((r) => r.tips.length <= 2)],
+      ['前 3 分钟教学弹窗 =2', modalCount === 2],
+      ['首战 ≤70 秒', nOf('G 第一次战斗') >= 0 && R.find((r) => r.tag === 'G 第一次战斗').at <= 70],
+      ['19 屏全跑到', R.length >= 19],
+    ];
+    out.textContent += '\n';
+    GATE.forEach((g) => { out.textContent += '\nPACE-GATE|' + g[0] + '|' + (g[1] ? 1 : 0); });
+    out.textContent += '\nPACEGATE-ALLPASS|' + GATE.map((g) => (g[1] ? 1 : 0)).join('');
+    document.title = 'PACE|' + GATE.map((g) => (g[1] ? 1 : 0)).join('') + '|' + R.map((r) => r.tag + ':' + (r.clickable.length + (r.canvasLive ? 1 : 0) + (r.tap || 0))).join(',');
   } catch (e) {
     out.textContent += '\n\nERR ' + (e && e.stack || e);
     document.title = 'PACE-ERR';

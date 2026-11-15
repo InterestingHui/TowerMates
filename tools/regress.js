@@ -279,19 +279,27 @@ if (!process.argv.includes('--no-shot')) {
           // 首战时间：探针按正常阅读节奏走首局，记录第一场战斗发生在第几秒
           const fm = /\[G 第一次战斗\]\s*([\d.]+)s/.exec(t);
           return { start: pick('A'), vow: pick('B'), floor1: pick('D'), ready: pick('E'),
-            modals: mm ? Number(mm[1]) : -1, hud: hm ? Number(hm[1]) : -1, firstFight: fm ? Number(fm[1]) : -1 };
+            modals: mm ? Number(mm[1]) : -1, hud: hm ? Number(hm[1]) : -1, firstFight: fm ? Number(fm[1]) : -1,
+            // 3–10 分钟窗口的十项预算（探针自己算，这里只读结果）：此前后四层/商店/祭坛/回响/楼钥
+            // 这几个屏从未被任何断言看过，只能靠人肉跑一次眼看
+            bits: (/PACEGATE-ALLPASS\|([01]+)/.exec(t) || [])[1] || '',
+            gfail: Array.from(t.matchAll(/PACE-GATE\|([^|<\n]+)\|0/g)).map((m) => m[1]) };
         };
         let r = readPace();
-        if (r.vow < 0 || r.floor1 < 0 || r.modals < 0 || r.hud < 0) r = readPace(); // 偶发空 DOM 重试一次
+        if (r.vow < 0 || r.floor1 < 0 || r.modals < 0 || r.hud < 0 || !r.bits) r = readPace(); // 偶发空 DOM 重试一次
         // 立誓屏首局只留 1 张确认卡；第 1 层（教练卡态）≤4（含画布）；可操作态 ≤3；
         // 前 3 分钟教学弹窗（教练卡 + 盾谱小传）≤2——超过就是同一机制/同一句话在重复打断
         // 首战 ≤70s：60 秒是「1 个核心动词」预算，探针含 10 秒模拟犹豫，留 10 秒余量
         const ffOk = r.firstFight > 0 && r.firstFight <= 70;
+        const gateOk = /^1+$/.test(r.bits || '');
         okPace = r.start >= 0 && r.start <= 1 && r.hud === 1
           && r.vow >= 0 && r.vow <= 1 && r.floor1 >= 0 && r.floor1 <= 4 && r.ready >= 0 && r.ready <= 3
-          && r.modals >= 0 && r.modals <= 2 && ffOk;
+          && r.modals >= 0 && r.modals <= 2 && ffOk && gateOk;
         paceLine = `首屏 ${r.start} / HUD隐藏 ${r.hud} / 立誓 ${r.vow} / 首层 ${r.floor1} / 可操作 ${r.ready} / 教学弹窗 ${r.modals} / 首战 ${r.firstFight < 0 ? '—' : r.firstFight + 's'}`;
         console.log((okPace ? '✓' : '✗') + ' 首局节奏 ' + paceLine + '（预算 1 / 1 / 4 / 3 / ≤2 / ≤70s）');
+        const gBits = r.bits || '';
+        console.log((gateOk ? '✓' : '✗') + ` 三窗口元素预算 ${(gBits.match(/1/g) || []).length}/${gBits.length || 0} 项`
+          + (gateOk ? '' : '\n   超预算：' + (r.gfail.length ? r.gfail.join(' / ') : '读数失败（探针没跑到断言行）')));
       }
       // 今日一塔（P-B）：入口带日期 / 「今日」档只收当天 / 结算标出是哪天的塔
       console.log('== 附加 · 今日一塔自检 ==');
