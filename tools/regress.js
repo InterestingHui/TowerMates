@@ -565,6 +565,33 @@ if (!process.argv.includes('--no-shot')) {
         console.log((okVm ? '✓' : '✗') + ` 弹层多视口 ${vmLine}` + (okVm ? '' : '\n   ' + r.fails.slice(0, 5).join('\n   ')));
       }
 
+      // 触控目标尺寸：此前所有闸门量的都是「元素在不在、会不会溢出」，没有一条量「手指点不点得中」。
+      // 2026-11-15 首次实测：10 类可点元素里 6 类短边不足 30px（最小的「展开方向键」34×22、
+      // 「贴朋友的挑战码」输入框 17px 高）。这里用射线实测命中区（不读 rect：视觉尺寸与可点范围是两件事）。
+      console.log('== 附加 · 触控目标尺寸自检 ==');
+      let okTap = true, tapLine = '';
+      {
+        const os = require('os');
+        const args = [
+          '--headless=new', '--disable-gpu', '--no-sandbox', '--no-first-run', '--disable-extensions',
+          '--user-data-dir=' + path.join(os.tmpdir(), 'tm-tap-' + process.pid),
+          '--virtual-time-budget=150000',
+          '--dump-dom', `http://127.0.0.1:${PORT}/tools/tap-check.html?gate=1`,
+        ];
+        const read = () => {
+          const p = spawnSync(chrome, args, { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+          const t = p.stdout || '';
+          const bits = /(?:ALLPASS|HASFAIL)\|([01]+)/.exec(t);
+          const fails = (t.match(/^✗ .*$/gm) || []).map((s) => s.replace(/^✗\s*/, ''));
+          return { pass: /ALLPASS\|1+/.test(t), bits: bits ? bits[1] : '', fails: fails };
+        };
+        let r = read();
+        if (!r.bits) r = read();
+        okTap = r.pass;
+        tapLine = r.bits ? `${(r.bits.match(/1/g) || []).length}/${r.bits.length} 项` : '读数失败';
+        console.log((okTap ? '✓' : '✗') + ` 触控目标尺寸 ${tapLine}` + (okTap ? '' : '\n   ' + r.fails.slice(0, 6).join('\n   ')));
+      }
+
       // 音效自检：源码里出现的每个音效名都必须在预置表内（写错就是一个永久静音），
       // 外加「每个预置真发声 / 关掉开关真不响 / 三条关键路径点的名字对不对」
       let okSfx = true, sfxLine = '';
@@ -781,8 +808,8 @@ if (!process.argv.includes('--no-shot')) {
       const ui = run(process.execPath, ['tools/ui-test.js']);
       const okUi = ui.code === 0;
       console.log((okUi ? '✓' : '✗') + ' ui-test.js' + (okUi ? '' : '\n' + ui.out));
-      const all = okCheck && okSim && okSkip && okTest && okCode && okBsim && okOd && okUi && okProbe && okAds && okIntro && okWxb && okNew && okWx && okSwordGate && okPace && okDaily && okZeal && okFinal && okTangle && okGuard && okThreat && okVp && okVm && okSfx && okRm && okErr && okSto && okTime && okTab && bad === 0;
-      if (!all) console.log('  闸门明细:', JSON.stringify({ okCheck, okSim, okSkip, okTest, okCode, okBsim, okOd, okUi, okProbe, probeA3, okAds, adsLine, okIntro, introLine, okWxb, wxbLine, okNew, newLine, okWx, okSwordGate, okPace, paceLine, okDaily, dailyLine, okZeal, zealLine, okFinal, finalLine, okTangle, tangleLine, okGuard, guardLine, okThreat, threatLine, okVp, vpLine, okVm, vmLine, okSfx, sfxLine, okRm, rmLine, okErr, errLine, okSto, stoLine, okTime, timeLine, okTab, tabLine, bad }));
+      const all = okCheck && okSim && okSkip && okTest && okCode && okBsim && okOd && okUi && okProbe && okAds && okIntro && okWxb && okNew && okWx && okSwordGate && okPace && okDaily && okZeal && okFinal && okTangle && okGuard && okThreat && okVp && okVm && okTap && okSfx && okRm && okErr && okSto && okTime && okTab && bad === 0;
+      if (!all) console.log('  闸门明细:', JSON.stringify({ okCheck, okSim, okSkip, okTest, okCode, okBsim, okOd, okUi, okProbe, probeA3, okAds, adsLine, okIntro, introLine, okWxb, wxbLine, okNew, newLine, okWx, okSwordGate, okPace, paceLine, okDaily, dailyLine, okZeal, zealLine, okFinal, finalLine, okTangle, tangleLine, okGuard, guardLine, okThreat, threatLine, okVp, vpLine, okVm, vmLine, okTap, tapLine, okSfx, sfxLine, okRm, rmLine, okErr, errLine, okSto, stoLine, okTime, timeLine, okTab, tabLine, bad }));
       console.log(all ? '✓ 质量闸门通过' : '✗ 质量闸门有失败项');
       process.exit(all ? 0 : 1);
     })();

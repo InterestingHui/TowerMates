@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>触控目标尺寸自检</title>
+<style>html,body{margin:0;background:#05070c;color:#7ef0b2;font:12px/1.45 monospace}#out{white-space:pre-wrap;padding:8px}</style>
+</head>
+<body>
+<pre id="out">pending</pre>
+<div id="host" style="position:absolute;left:-30000px;top:0"></div>
+<script>
+// 触控目标尺寸自检（闸门用）：
+// 此前所有闸门量的都是「元素在不在、会不会溢出」，没有一条量「手指点不点得中」。
+// 2026-11-15 23:xx 首次实测（390×844 / 430×900 六种界面）：10 类可点元素的真实命中区里，
+// 有 6 类短边低于 30px —— 最小的「展开方向键」只有 34×22，「贴朋友的挑战码」输入框 17px 高，
+// 商店的「购买」47×27、榜单六个档位 24px 高。手指直径约 9mm（≈34px@390），这些是点一次不成、
+// 点两次就骂人的地方。
+//
+// 口径（写进规格卡）：**短边 ≥ 30px，或长边 ≥ 88px**（够宽的长条按钮横向容错大，不要求 44 高）；
+// 主操作另设更严阈值（见 NAMED）。命中区用「采样 elementFromPoint」实测，不读 rect ——
+// 视觉尺寸和能点到的范围本来就是两件事（::after 撑开的命中区 getBoundingClientRect 量不到）。
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const out = document.getElementById('out');
+const detail = [];
+const bits = [];
+const dumps = [];
+const CASES = [{ w: 390, h: 844, tag: '390x844' }, { w: 430, h: 900, tag: '430x900' }];
+
+const NAMED = [
+  { sel: '#dpadToggle', min: { w: 40, h: 40 }, tag: '展开方向键' },
+  { sel: '.icon-btn', min: { w: 30, h: 42 }, tag: '顶栏图标' },
+  { sel: '.shop-item .si-buy', min: { w: 44, h: 36 }, tag: '商店购买' },
+  { sel: '#btnCopyCode, #btnPasteCode', min: { w: 44, h: 34 }, tag: '复制/贴码' },
+  { sel: '.btab', min: { w: 40, h: 30 }, tag: '榜单档位' },
+  { sel: '.cfg-row', min: { w: 200, h: 38 }, tag: '设置行' },
+  { sel: '#pasteCode', min: { w: 180, h: 28 }, tag: '贴码输入' },
+  { sel: '#achCount', min: { w: 60, h: 30 }, tag: '成就入口' },
+  { sel: '.bs-block', min: { w: 200, h: 32 }, tag: '战斗打法' },
+];
+
+function check(name, ok, extra) {
+  bits.push(ok ? '1' : '0');
+  detail.push((ok ? '✓ ' : '✗ ') + name + (extra ? ' · ' + extra : ''));
+}
+
+function label(el) {
+  const id = el.id ? '#' + el.id : '';
+  const cls = el.className && typeof el.className === 'string' ? '.' + el.className.trim().split(/\s+/).slice(0, 2).join('.') : '';
+  return (el.tagName.toLowerCase() + id + cls).slice(0, 42);
+}
+
+function visible(el, win) {
+  let cs;
+  try { cs = win.getComputedStyle(el); } catch (e) { return false; }
+  if (cs.display === 'none' || cs.visibility === 'hidden' || Number(cs.opacity) === 0) return false;
+  if (el.closest('[hidden]')) return false;
+  return cs.cursor === 'pointer' || ['BUTTON', 'INPUT', 'SELECT', 'A', 'TEXTAREA'].includes(el.tagName);
+}
+
+// 真实命中区：从视觉矩形中心向四个方向「射线」找最后一个仍命中自己的点（2px 粗走 + 二分）。
+// 不用 4px 网格采样 —— 网格会把 -2px 这种小撑边整段吃掉，读数偏小 4-6px，改一行 CSS 看不出来。
+function ray(doc, el, cx, cy, dx, dy, max) {
+  const hit = (p) => {
+    const h = doc.elementFromPoint(cx + dx * p, cy + dy * p);
+    return !!h && (h === el || el.contains(h));
+  };
+  if (!hit(0)) return 0;
+  let lo = 0, p = 0;
+  while (p < max) {
+    p = Math.min(max, p + 2);
+    if (!hit(p)) break;
+    lo = p;
+  }
+  if (p >= max) return max;
+  let hi = p;
+  while (hi - lo > 1) {
+    const mid = (lo + hi) >> 1;
+    if (hit(mid)) lo = mid; else hi = mid;
+  }
+  return lo;
+}
+
+function hitBox(doc, win, el, pad) {
+  const r = el.getBoundingClientRect();
+  const cx = Math.round(r.left + r.width / 2), cy = Math.round(r.top + r.height / 2);
+  const vw = win.innerWidth, vh = win.innerHeight;
+  // 射线能走多远：至少要能覆盖元素自己的半宽（308 宽的按钮用 30 的 pad 会量成 61×34）
+  const padX = Math.max(pad, Math.ceil(r.width / 2) + 4), padY = Math.max(pad, Math.ceil(r.height / 2) + 4);
+  const maxL = Math.min(padX, cx), maxR = Math.min(padX, vw - 1 - cx);
+  const maxU = Math.min(padY, cy), maxD = Math.min(padY, vh - 1 - cy);
+  const l = ray(doc, el, cx, cy, -1, 0, maxL), rr = ray(doc, el, cx, cy, 1, 0, maxR);
+  const u = ray(doc, el, cx, cy, 0, -1, maxU), dd = ray(doc, el, cx, cy, 0, 1, maxD);
+  const w = Math.round(l + rr + 1), h = Math.round(u + dd + 1);
+  return { w, h, L: cx - l, T: cy - u, R: cx + rr, B: cy + dd, grown: l > r.width / 2 || rr > r.width / 2 || u > r.height / 2 || dd > r.height / 2 };
+}
+
+// 被滚动容器裁掉的部分不算「点得到」：屏幕上看不见的按钮不在本轮口径里
+function clipOf(el, doc) {
+  let L = el.getBoundingClientRect();
+  const box = { L: L.left, T: L.top, R: L.right, B: L.bottom };
+  for (let p = el.parentElement; p && p !== doc.body; p = p.parentElement) {
+    const cs = doc.defaultView.getComputedStyle(p);
+    if (cs.overflowY === 'visible' && cs.overflowX === 'visible') continue;
+    const pr = p.getBoundingClientRect();
+    box.L = Math.max(box.L, pr.left); box.T = Math.max(box.T, pr.top);
+    box.R = Math.min(box.R, pr.right); box.B = Math.min(box.B, pr.bottom);
+  }
+  return box;
+}
+
+function collect(doc, win) {
+  const all = Array.from(doc.querySelectorAll('*')).filter((el) => visible(el, win));
+  const vw = win.innerWidth, vh = win.innerHeight;
+  const list = [];
+  for (const el of all) {
+    const r = el.getBoundingClientRect();
+    if (r.width < 1 || r.height < 1) continue;
+    // 外层优先：可点祖先已完整包住它 → 点击会冒泡到祖先，这一层不是真实命中区
+    let covered = false;
+    for (let p = el.parentElement; p; p = p.parentElement) {
+      if (!visible(p, win)) continue;
+      const pr = p.getBoundingClientRect();
+      if (pr.left <= r.left + 1 && pr.right >= r.right - 1 && pr.top <= r.top + 1 && pr.bottom >= r.bottom - 1) { covered = true; break; }
+    }
+    if (covered) continue;
+    const clip = clipOf(el, doc);
+    if (clip.R - clip.L < 4 || clip.B - clip.T < 4) continue; // 滚出视野，眼下的手指够不着
+    // 只露出一角的（被列表滚掉一半）不参与量尺寸：它不完整，读数没有意义，滚动后才谈得上点
+    const visArea = Math.max(0, clip.R - clip.L) * Math.max(0, clip.B - clip.T);
+    if (visArea / (r.width * r.height) < 0.6) continue;
+    const cx = Math.min(vw - 1, Math.max(0, (clip.L + clip.R) / 2));
+    const cy = Math.min(vh - 1, Math.max(0, (clip.T + clip.B) / 2));
+    const hit = doc.elementFromPoint(Math.round(cx), Math.round(cy));
+    const rc = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    const centerIn = rc.x >= clip.L - 1 && rc.x <= clip.R + 1 && rc.y >= clip.T - 1 && rc.y <= clip.B + 1;
+    list.push({ el, r, clip, centerIn, selfHit: !!hit && (hit === el || el.contains(hit)) });
+  }
+  return list;
+}
+
+function audit(tag, doc, win) {
+  const list = collect(doc, win);
+  const live = [];
+  for (const it of list) {
+    const hb = hitBox(doc, win, it.el, 30);
+    live.push({ ...it, hb });
+  }
+  const reachable = live.filter((x) => x.selfHit && x.centerIn);
+  dumps.push(tag + ' ' + JSON.stringify(reachable.map((x) => ({ n: label(x.el), vis: Math.round(x.r.width) + 'x' + Math.round(x.r.height), hit: x.hb.w + 'x' + x.hb.h }))));
+
+  // G1 · 全局底线：短边 ≥ 30，或长边 ≥ 88（宽条按钮横向容错已足够）
+  const bad = reachable.filter((x) => {
+    const s = Math.min(x.hb.w, x.hb.h), l = Math.max(x.hb.w, x.hb.h);
+    return s < 30 && l < 88;
+  });
+  check(tag + ' 每个可点元素短边 ≥30 或长边 ≥88', bad.length === 0,
+    bad.map((x) => label(x.el) + ' ' + x.hb.w + '×' + x.hb.h).join(' / ') || reachable.length + ' 个');
+
+  // G2 · 具名主操作加严
+  for (const n of NAMED) {
+    const hits = reachable.filter((x) => x.el.matches(n.sel));
+    if (!hits.length) continue; // 该界面上本就没有这类控件
+    const badN = hits.filter((x) => x.hb.w < n.min.w || x.hb.h < n.min.h);
+    check(tag + ' ' + n.tag + ` 命中区 ≥${n.min.w}×${n.min.h}`, badN.length === 0,
+      badN.length ? badN.map((x) => x.hb.w + '×' + x.hb.h).join(' / ') : hits.map((x) => x.hb.w + '×' + x.hb.h).join(' '));
+  }
+
+  // G3 · 自己的肉自己吃：中心点若被**另一个可点元素**接收，说明这个按钮的点击被抢走了
+  //      （被弹层背景盖住不算——那只是这一屏暂时不归它管）
+  const vw2 = win.innerWidth, vh2 = win.innerHeight;
+  const shadowed = live.filter((x) => !x.selfHit).filter((x) => {
+    const cx = Math.min(vw2 - 1, Math.max(0, x.r.left + x.r.width / 2));
+    const cy = Math.min(vh2 - 1, Math.max(0, x.r.top + x.r.height / 2));
+    const h = doc.elementFromPoint(cx, cy);
+    return !!h && h !== x.el && !x.el.contains(h) && visible(h, win);
+  });
+  check(tag + ' 没有控件的点击被别人抢走', shadowed.length === 0,
+    shadowed.map((x) => label(x.el)).join(' / ') || '—');
+
+  // G4 · 串点检查：一个控件的命中区不许吃掉邻居的视觉矩形（否则点邻居会点错）
+  let steal = [];
+  for (const a of reachable) {
+    for (const b of reachable) {
+      if (a === b) continue;
+      const ox = Math.max(0, Math.min(a.hb.R, b.r.right) - Math.max(a.hb.L, b.r.left));
+      const oy = Math.max(0, Math.min(a.hb.B, b.r.bottom) - Math.max(a.hb.T, b.r.top));
+      const area = ox * oy, areaB = b.r.width * b.r.height;
+      if (areaB > 0 && area / areaB > 0.25) steal.push(label(a.el) + '→' + label(b.el) + ' ' + Math.round((area / areaB) * 100) + '%');
+    }
+  }
+  check(tag + ' 命中区没吃邻居', steal.length === 0, steal.slice(0, 3).join(' / ') || '—');
+
+  // G5 · 在屏幕里：可点范围（视觉矩形 ∩ 滚动容器裁切）必须整块落在视口内
+  const out5 = reachable.filter((x) => x.clip.L < -1 || x.clip.T < -1 || x.clip.R > win.innerWidth + 1 || x.clip.B > win.innerHeight + 1);
+  check(tag + ' 看得出、够得着（整块在视口内）', out5.length === 0,
+    out5.map((x) => label(x.el) + '[' + Math.round(x.clip.T) + '–' + Math.round(x.clip.B) + ']').join(' / ') || '—');
+}
+
+(async () => {
+  for (const c of CASES) {
+    const f = document.createElement('iframe');
+    f.style.cssText = 'width:' + c.w + 'px;height:' + c.h + 'px;border:0;display:block';
+    f.src = '/index.html?dev=1#demo=3,5,5';
+    document.getElementById('host').appendChild(f);
+    await wait(1500);
+    const w = f.contentWindow;
+    const d = f.contentDocument;
+
+    audit(c.tag + ' 主界面', d, w);
+
+    // 方向键展开态：展开后的小箭头与四个方向键都要够大
+    try {
+      d.getElementById('dpadToggle').click();
+      await wait(320);
+      audit(c.tag + ' 方向键展开', d, w);
+      d.getElementById('dpadToggle').click();
+      await wait(220);
+    } catch (e) { check(c.tag + ' 方向键展开可测', false, e.message); }
+
+    // 战斗面板（第 5 层才有三把打法，沿用 shot 场景的做法：直接造一场）
+    try {
+      const s = w.Engine.state();
+      s.atk = 40; s.def = 20; s.hp = 800; s.maxHp = 1000;
+      s.flags.hasBlock = true; s.flags.rings = ['twice'];
+      w.__tm.refreshHud();
+      w.__battleSpeed = 30;
+      w.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'ArrowUp' }));
+      await wait(420);
+      audit(c.tag + ' 战斗面板', d, w);
+      d.getElementById('battleScene').classList.remove('show');
+      await wait(180);
+    } catch (e) { check(c.tag + ' 战斗面板可测', false, e.message); }
+
+    try {
+      w.__tm.openShop();
+      await wait(260);
+      audit(c.tag + ' 商店', d, w);
+      d.getElementById('shopClose').click();
+      await wait(200);
+    } catch (e) { check(c.tag + ' 商店可测', false, e.message); }
+
+    try {
+      d.getElementById('btnCfg').click();
+      await wait(260);
+      audit(c.tag + ' 设置', d, w);
+      w.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Escape' }));
+      await wait(200);
+    } catch (e) { check(c.tag + ' 设置可测', false, e.message); }
+
+    try {
+      w.__tm.openBoard();
+      await wait(260);
+      audit(c.tag + ' 榜单', d, w);
+      d.getElementById('boardClose').click();
+      await wait(200);
+    } catch (e) { check(c.tag + ' 榜单可测', false, e.message); }
+
+    f.remove();
+    await wait(250);
+  }
+  const all = bits.every((b) => b === '1');
+  out.textContent = detail.join('\n') + '\n' +
+    (all ? 'ALLPASS|' : 'HASFAIL|') + bits.join('') + '\n' +
+    '---- 读数 ----\n' + dumps.join('\n');
+})();
+</script>
+</body>
+</html>
