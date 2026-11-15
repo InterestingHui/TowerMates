@@ -4,6 +4,8 @@
 (function () {
   const D = window.GAME_DATA;
   const S = window.STORY;
+  // 视图模型层（js/view.js）：榜单 / 商店的「规则与文案」都在那边，本文件只管把模型画成 DOM
+  const View = window.View;
   const $ = (id) => document.getElementById(id);
 
   let shopOpen = false;
@@ -1742,73 +1744,61 @@
     try { return JSON.parse(localStorage.getItem('towermates_board') || '[]'); } catch (e) { return []; }
   }
   // 名录按「爬到多深 → 有没有走到真结局 → 谁更快」排，不再比一个算出来的分数
-  // 榜单排序：走到哪层 → 结局 → 决战余裕（同层同结局时，打得干净的人在前）→ 用时 → 步数
-  const MARGIN_RANK = { S: 4, A: 3, B: 2, C: 1 };
-  const marginRank = (r) => MARGIN_RANK[r && r.margin] || 0;
-  function cmpBoard(a, b) {
-    return (b.floor || 0) - (a.floor || 0)
-      || (b.ending === 'true' ? 1 : 0) - (a.ending === 'true' ? 1 : 0)
-      || marginRank(b) - marginRank(a)
-      || (a.time || 999999) - (b.time || 999999)
-      || (a.steps || 0) - (b.steps || 0);
-  }
+  // 排序与展示口径现在只有一处定义：js/view.js（此前这里与榜单渲染各写一份）
+  const cmpBoard = View.cmpBoard;
   function saveBoard(entry) {
     const list = loadBoard();
     list.push(entry);
     list.sort(cmpBoard);
     try { localStorage.setItem('towermates_board', JSON.stringify(list.slice(0, 30))); } catch (e) {}
   }
-  const fmtTime = (t) => (t >= 60 ? `${Math.floor(t / 60)}分${t % 60}秒` : `${t}秒`);
-  const endName = (e) => (e === 'true' ? '第六个名字' : e === 'plain' ? '铁与霜' : '未竟');
+  const fmtTime = View.fmtTime;
+  const endName = View.endName;
 
   let boardFilter = 'all';
-  const VOW_TABS = [['all', '全部'], ['daily', '今日'], ['none', '不立誓'], ['mercy', '慈悲'], ['greed', '贪婪'], ['ascetic', '苦行'], ['guard', '铁壁'], ['nameless', '无名']];
+  const VOW_TABS = View.BOARD_TABS;
+
+  // 影子勇者的脚注：名字后面带一句他们的终点——川那句与断剑小传、薇拉台词三方互证
+  const RIVAL_NOTE = {
+    '第二位勇者·鸦': '停在第 2 层',
+    '第五位勇者·岩': '停在第 3 层',
+    '第八位勇者·川': '剑断在第五层',
+  };
+  // 一行榜单的 DOM：只做「模型 → 标签」的翻译，不带任何判断
+  const boardRowHtml = (r) => `<div class="bd-row ${r.mine ? 'mine' : ''} ${r.rival ? 'rival' : ''}">
+        <span class="bd-rank">${r.rank}</span>
+        <span class="bd-name">${r.name}${r.note ? `<br><i class="bd-rnote">${r.note}</i>` : ''}${r.vowTag ? `<i class="bd-vowtag">${r.vowTag}</i>` : ''}</span>
+        <span class="bd-end ${r.ended ? 't' : ''}">${r.end}${r.margin
+      ? `<i class="bd-margin" title="决战余裕：打完碑魔剩下多少血">${r.margin}</i>`
+      : ''}</span>
+        <span class="bd-floor">${r.floor}层</span>
+        <span class="bd-steps">${r.steps}步</span>
+        <span class="bd-time">${r.time}</span>
+      </div>`;
 
   function openBoard() {
-    const mine = loadBoard().map((x) => Object.assign({ mine: true, vow: x.vow || 'none' }, x));
-    const all = S.shadowRivals.map((x) => Object.assign({ vow: 'none' }, x))
-      .concat(loadRivals())
-      .concat(mine);
-    all.sort(cmpBoard);
-    $('boardTabs').innerHTML = VOW_TABS.map(([id, label]) =>
-      `<button class="btab ${boardFilter === id ? 'on' : ''}" data-f="${id}">${label}</button>`).join('');
+    const mine = loadBoard();
+    const todayKey = Daily.keyOf(Date.now());
+    // 排序 / 筛选 / 10 行上限 / 那句脚注该不该出，全在 View.boardModel 里（纯函数，Node 可测）
+    const m = View.boardModel({
+      mine,
+      rivals: loadRivals(),
+      shadows: S.shadowRivals,
+      filter: boardFilter,
+      todayKey,
+      dayLabel: Daily.label(todayKey),
+      vows: D.vows,
+      rivalNotes: RIVAL_NOTE,
+    });
+    boardFilter = m.filter;
+    $('boardTabs').innerHTML = m.tabs.map((t) =>
+      `<button class="btab ${t.on ? 'on' : ''}" data-f="${t.id}">${t.label}</button>`).join('');
     $('boardTabs').querySelectorAll('.btab').forEach((b) => {
       b.addEventListener('click', () => { boardFilter = b.dataset.f; openBoard(); });
     });
-    const todayKey = Daily.keyOf(Date.now());
-    const rows = boardFilter === 'daily'
-      ? all.filter((r) => r.daily === todayKey)
-      : boardFilter === 'all' ? all : all.filter((r) => (r.vow || 'none') === boardFilter);
-    const myFloor = mine.length ? Math.max.apply(null, mine.map((x) => x.floor || 0)) : 0;
-    const crushed = myFloor > 0 && all[0] && all[0].mine !== true && (all[0].floor || 0) < myFloor;
-    // 影子勇者的脚注：名字后面带一句他们的终点——川那句与断剑小传、薇拉台词三方互证
-    const RIVAL_NOTE = {
-      '第二位勇者·鸦': '停在第 2 层',
-      '第五位勇者·岩': '停在第 3 层',
-      '第八位勇者·川': '剑断在第五层',
-    };
-    const bdNote = boardFilter === 'daily'
-      ? '<div class="bd-note">这一座塔每天零点换一次：同一天走进来的人遇到的是同一座，所以「今天谁走得远」是能比的。贴进来的朋友码只要也是今天这座，就会进这一档。</div>'
-      : (crushed && boardFilter === 'all' ? '<div class="bd-note">影子勇者都停在前五层。你已经走到他们没到过的地方。</div>' : '');
-    $('boardList').innerHTML = (rows.length ? bdNote + rows.slice(0, 10).map((r, i) => {
-      const v = D.vows[r.vow] || D.vows.none;
-      // 幽灵行的名字不再带「第 N 层」——同一行的「N层」列就是那个数，写两遍只是噪音；
-      // 多个朋友靠各自的「层 / 步 / 时」三列区分（码里没有昵称，编一个反而更假）
-      const name = r.mine ? '你' : r.rival ? '挑战·朋友' : r.name;
-      const note = !r.mine && !r.rival && RIVAL_NOTE[r.name] ? `<i class="bd-rnote">${RIVAL_NOTE[r.name]}</i>` : '';
-      return `<div class="bd-row ${r.mine ? 'mine' : ''} ${r.rival ? 'rival' : ''}">
-        <span class="bd-rank">${i + 1}</span>
-        <span class="bd-name">${name}${note ? '<br>' + note : ''}${v.name === '不立誓' ? '' : `<i class="bd-vowtag">${v.tag[0]}</i>`}</span>
-        <span class="bd-end ${r.ending === 'true' ? 't' : ''}">${endName(r.ending)}${r.margin
-          ? `<i class="bd-margin" title="决战余裕：打完碑魔剩下多少血">${r.margin}</i>`
-          : ''}</span>
-        <span class="bd-floor">${r.floor}层</span>
-        <span class="bd-steps">${r.steps}步</span>
-        <span class="bd-time">${r.time ? fmtTime(r.time) : '—'}</span>
-      </div>`;
-    }).join('') : (boardFilter === 'daily'
-      ? `<div class="bd-empty">今天还没走完一局今日一塔。<br>${Daily.label(todayKey)} 这座塔零点就换掉了。</div>`
-      : '<div class="bd-empty">这一档还没有人。去立一条誓约，回来占第一位。</div>'));    const codeEl = $('myCode');
+    $('boardList').innerHTML = m.rows.length
+      ? (m.note ? `<div class="bd-note">${m.note}</div>` : '') + m.rows.map(boardRowHtml).join('')
+      : `<div class="bd-empty">${m.empty}</div>`;    const codeEl = $('myCode');
     codeEl.textContent = mine.length ? encodeChallenge(mine[0]) : '—— 通关后生成 ——';
     $('achCount').textContent = `成就 ${Achievements.count()}/${Achievements.DEFS.length}`;
     // 计数即入口：点一下直跳图鉴成就墙（此前只是死数字，没人知道成就列表在图鉴里）
@@ -2824,86 +2814,59 @@
   function renderShop() {
     const s = Engine.state();
     $('shopGold').textContent = s.gold;
-    // 节奏纠偏：第一次进商店（第 3 层）先摆 4 件常用货，进阶货折进「更多货」。
-    // 8 件货 × 8 个购买按钮同屏会把「明码取舍」变成「读价目表」；玩家点开一次后本局不再折。
-    const SHOP_CORE = ['key', 'potion', 'atk', 'def'];
-    const stock = Engine.shopStock();
-    // 行情：这一层摊主让价的那一件（engine.dealOf 按「本局种子 + 楼层」定，重进商店/重来本层都不重摇）。
-    // 让价的那件可能正好被折进「更多货」里，所以额头上先写一行，别让人错过它。
-    const dealId = Engine.dealOf();
-    const dealItem = dealId ? stock.find((i) => i.id === dealId) : null;
+    // 货架 / 让价 / 折叠 / 每一句「明码取舍」的文案都归 View.shopModel（纯函数，Node 可测）；
+    // 本函数只剩「把模型画成 DOM」与「点了买之后放什么特效」
+    const foldFirst = s.floor === 2 && !s.flags.shopExpanded;
+    const m = View.shopModel({
+      s,
+      stock: Engine.shopStock(),
+      dealId: Engine.dealOf(),
+      stuck: stuckInfo,
+      atkItem: D.shop.find((x) => x.id === 'atk'),
+      foldFirst,
+      fx: {
+        price: (item) => Engine.priceOf(item),
+        listPrice: (item) => Engine.priceOf(item, { noDeal: true }),
+        owned: (item) => !!((item.codex && s.flags.codex) || (item.relic && Engine.hasRelic(item.relic))
+          || (item.block && s.flags.hasBlock) || (item.heartShard && s.flags.heartShard)),
+        relicDesc: (id) => D.relics[id].desc,
+        // 药水回复量有干粮之环 ×1.3：货架上的数字必须走引擎同一个出口
+        potionHeal: (n) => Engine.potionHeal(n),
+        forbidsBlock: () => Engine.vowForbidsBlock(),
+        floorsLeft: () => Engine.floorMonsterCount(),
+        monsterDefByName: (name) => {
+          const bk = Object.keys(D.monsters).find((k) => D.monsters[k].name === name);
+          return bk ? D.monsters[bk].def : null;
+        },
+      },
+    });
     const dealEl = $('shopDeal');
     if (dealEl) {
-      if (dealItem) {
-        const list = Engine.priceOf(dealItem, { noDeal: true });
-        const now = Engine.priceOf(dealItem);
-        dealEl.innerHTML = `秤今天松了口：<b>${dealItem.name}</b> <s>${list}</s> → <b>${now}</b>`;
-      } else {
-        dealEl.textContent = '';
-      }
-    }
-    const foldFirst = s.floor === 2 && !s.flags.shopExpanded;
-    // 折叠不是藏能力：还没学格挡的人，盾谱必须留在首屏——第 3 层是没捡到盾谱的玩家
-    // 唯一补学机会，而格挡是「每层一次」的防御核心，藏进折叠区等于晚一层才学会。
-    // 已经学过的（或这条誓约禁挡）不占位，首屏仍是 4 件。
-    const needBlockBook = !s.flags.hasBlock && !Engine.vowForbidsBlock();
-    const rows = foldFirst
-      ? stock.filter((i) => SHOP_CORE.indexOf(i.id) >= 0 || (i.id === 'blockbook' && needBlockBook))
-      : stock;
-    // 卡关时在货摊上直接标「买几个能打过挡路的怪」：玩家不用自己拿纸算
-    let needAtk = null;
-    if (stuckInfo && stuckInfo.key === 'stuckDef') {
-      const blocker = stuckInfo.monster;
-      const bk = Object.keys(D.monsters).find((k) => D.monsters[k].name === blocker);
-      if (bk) needAtk = { ch: bk, def: D.monsters[bk].def };
+      dealEl.innerHTML = m.deal
+        ? `秤今天松了口：<b>${m.deal.name}</b> <s>${m.deal.was}</s> → <b>${m.deal.now}</b>`
+        : '';
     }
     const list = $('shopList');
     list.innerHTML = '';
-    rows.forEach((item) => {
-      const owned = (item.codex && s.flags.codex) || (item.relic && Engine.hasRelic(item.relic)) || (item.block && s.flags.hasBlock) || (item.heartShard && s.flags.heartShard);
-      // 铁壁/苦行/无名三条誓约不能格挡：盾谱置灰，别让人白花钱
-      const forbidden = item.block && Engine.vowForbidsBlock();
-      const price = Engine.priceOf(item);
-      const afford = s.gold >= price;
-      let tip = item.relic ? D.relics[item.relic].desc : item.key ? (item.key === 'y' ? '开黄门' : '开红门') : item.hp ? `回复 ${item.hp} 生命` : item.atk ? '攻击 +2' : item.def ? '防御 +2' : item.block ? '学会格挡：每层一次，战斗中点盾把承伤降到 55%' : item.heartShard ? '带一点塔的心跳出去：**通关余烬 +8**（唯一）' : '怪物情报';
-      if (forbidden) tip = '**这条誓约不能格挡**，买了也用不上';
-      // 唯一/关键品保底提示：钱不够时告诉玩家「差多少、本层还剩几只怪可刷」，
-      // 别让人以为错过这一层就再也买不到了（盾谱/镜子/灯芯/碎片都算）
-      if (!owned && !forbidden && !afford && (item.once || item.block)) {
-        const left = Engine.floorMonsterCount();
-        const what = item.block ? '学会格挡' : item.codex ? '怪物情报永久解锁' : item.heartShard ? '通关余烬 +8' : item.relic ? D.relics[item.relic].desc : '';
-        tip = `${what ? what + ' · ' : ''}还差 **${price - s.gold}** 金${left ? ` · 这一层还剩 **${left}** 只怪可刷` : ' · 这一层已经清空，回下层找钱'}`;
-      }
-      if (item.atk && needAtk) {
-        const gap = needAtk.def + 1 - s.atk;
-        const times = Math.max(1, Math.ceil(gap / item.atk));
-        const per = Engine.priceOf(D.shop.find((x) => x.id === 'atk')) || price;
-        const total = times * per;
-        tip = `攻击 +2 · **再买 ${times} 次（${total} 金）能打过${blocker}**`;
-      } else if (item.def && stuckInfo && stuckInfo.key === 'stuckHp') {
-        tip = '防御 +2 · **买几个能少掉不少血**';
-      }
+    m.rows.forEach((r) => {
       const row = document.createElement('div');
-      row.className = 'shop-item' + (owned ? ' owned' : '');
+      row.className = 'shop-item' + (r.owned ? ' owned' : '');
       row.innerHTML = `
-        <span class="si-emoji">${item.emoji}</span>
-        <span class="si-name"><b>${item.name}${item.once ? '<small class="si-tag">唯一</small>' : ''}${item.id === dealId ? '<small class="si-tag deal">让价</small>' : ''}</b><small class="si-tip"></small></span>
-        <span class="si-price">${price}</span>
-        <button class="si-buy" data-id="${item.id}" ${owned || forbidden || !afford ? 'disabled' : ''}>${owned ? '已拥有' : forbidden ? '不适用' : '购买'}</button>
+        <span class="si-emoji">${r.emoji}</span>
+        <span class="si-name"><b>${r.name}${r.tags.map((t) => `<small class="si-tag${t.cls ? ' ' + t.cls : ''}">${t.text}</small>`).join('')}</b><small class="si-tip"></small></span>
+        <span class="si-price">${r.price}</span>
+        <button class="si-buy" data-id="${r.id}" ${r.disabled ? 'disabled' : ''}>${r.label}</button>
       `;
       // 提示里的 **重点** 走 rich 渲染：直接拼 innerHTML 会把星号原样显示出来
-      renderRich(row.querySelector('.si-tip'), tip);
+      renderRich(row.querySelector('.si-tip'), r.tip);
       list.appendChild(row);
     });
-    if (foldFirst && rows.length < stock.length) {
+    if (m.more) {
       const more = document.createElement('button');
       more.type = 'button';
       more.className = 'shop-more';
       more.id = 'shopMore';
-      // 摘要按「这一层实际折进去的货」生成：买过的盾谱/镜子不该再被念一遍（文案与货架对不上是本项目高频 bug）
-      const folded = stock.filter((i) => rows.indexOf(i) < 0);
-      const foldedNames = folded.slice(0, 3).map((i) => i.name).join(' / ');
-      more.innerHTML = `更多货 · ${folded.length} 件 <small>含${foldedNames}</small> ▾`;
+      more.innerHTML = `更多货 · ${m.more.count} 件 <small>含${m.more.names}</small> ▾`;
       more.addEventListener('click', () => {
         s.flags.shopExpanded = true;
         Sound.play('door');

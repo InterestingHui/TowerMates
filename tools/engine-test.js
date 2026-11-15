@@ -2370,5 +2370,54 @@ ok(Array.isArray(E.load().flags.rings), 'rings 不是数组：归一成空列表
   E.setConflictHook(null);
 })();
 
+// ---------- 商店货架的承诺 = 引擎真给的增量（跨模块口径，2026-11-16 切边界时补） ----------
+// 这一族 bug 此前只被眼睛撞见过：货架为「明码取舍」而生，写的数与真到手的数一旦分家，
+// 取舍就变成猜。干粮之环给所有药水 ×1.3，而文案曾经直接印价目表原值（160 报 160、实到手 208）。
+(function () {
+  const V = require('../js/view.js');
+  const fxOf = (s) => ({
+    price: (i) => E.priceOf(i),
+    listPrice: (i) => E.priceOf(i, { noDeal: true }),
+    owned: (i) => !!((i.codex && s.flags.codex) || (i.relic && E.hasRelic(i.relic))
+      || (i.block && s.flags.hasBlock) || (i.heartShard && s.flags.heartShard)),
+    relicDesc: (id) => D.relics[id].desc,
+    forbidsBlock: () => E.vowForbidsBlock(),
+    floorsLeft: () => E.floorMonsterCount(),
+    monsterDefByName: () => null,
+    potionHeal: (n) => E.potionHeal(n),
+  });
+  const bad = [];
+  const healed = {};
+  D.shop.forEach((item) => {
+    [false, true].forEach((ring) => {
+      E.newGame('none');
+      const s = E.state();
+      s.floor = 12; s.gold = 99999; s.hp = 100; s.maxHp = 10000; s.atk = 10; s.def = 10;
+      s.flags.rings = ring ? ['ration'] : [];
+      E.openShopAt();
+      const row = V.shopModel({ s, stock: [item], fx: fxOf(s) }).rows[0];
+      const g0 = s.gold, h0 = s.hp, a0 = s.atk, d0 = s.def;
+      E.buy(item.id);
+      const tag = item.id + (ring ? '+环' : '');
+      if (g0 - s.gold !== row.price) bad.push(`${tag} 扣金 ${g0 - s.gold} ≠ 报价 ${row.price}`);
+      const mHp = /回复 (\d+) 生命/.exec(row.tip);
+      if (item.hp) {
+        if (!mHp) bad.push(`${tag} 药水没写回复量`);
+        else if (Number(mHp[1]) !== s.hp - h0) bad.push(`${tag} 承诺回 ${mHp[1]}，实际 +${s.hp - h0}`);
+        if (ring) healed[item.id] = Number((mHp || [])[1]);
+      }
+      if (item.atk && Number((/攻击 \+(\d+)/.exec(row.tip) || [])[1]) !== s.atk - a0) bad.push(`${tag} 攻文案不符`);
+      if (item.def && Number((/防御 \+(\d+)/.exec(row.tip) || [])[1]) !== s.def - d0) bad.push(`${tag} 防文案不符`);
+      if (item.block && !s.flags.hasBlock) bad.push(`${tag} 盾谱没学会格挡`);
+      if (item.codex && !s.flags.codex) bad.push(`${tag} 镜子没开图鉴`);
+      if (item.heartShard && !s.flags.heartShard) bad.push(`${tag} 碎片没到手`);
+      if (item.relic && !E.hasRelic(item.relic)) bad.push(`${tag} 遗物没到手`);
+    });
+  });
+  ok(bad.length === 0, `22 组「货架承诺 vs 实际到手」全部一致${bad.length ? '：' + bad.join('；') : ''}`);
+  ok(healed.potion === 208 && healed.holywater === 1170, '干粮之环下药水按 ×1.3 报数（160→208 / 900→1170）');
+  E.reset();
+})();
+
 console.log(fail === 0 ? '\n✓ 全部通过' : `\n✗ ${fail} 项失败`);
 process.exit(fail ? 1 : 0);
