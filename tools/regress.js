@@ -15,7 +15,7 @@ const CHROME_CANDIDATES = [
   'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
   'C:/Program Files/Microsoft/Edge/Application/msedge.exe',
 ];
-const SCENES = ['start', 'play', 'bossintro', 'codexzoom', 'critters', 'dialog', 'hint', 'stuck', 'battle', 'battleblock', 'bossphase', 'bossyan', 'bossdef', 'probecard', 'altar', 'choice', 'end', 'board', 'codex', 'cfg', 'hud', 'tower', 'core', 'heart', 'stoneidle', 'vow', 'event', 'eventdeep', 'gate', 'echo', 'goal', 'flow', 'showcase', 'death', 'death1', 'collection', 'adsdeath', 'adsend', 'sword', 'daily', 'dailyboard', 'dailyend', 'floor2', 'floor3', 'shop', 'echo2', 'battletwice', 'zeal', 'final', 'tanglebattle', 'guardbattle', 'hudmax'];
+const SCENES = ['start', 'play', 'bossintro', 'codexzoom', 'critters', 'dialog', 'hint', 'stuck', 'battle', 'battleblock', 'bossphase', 'bossyan', 'bossdef', 'probecard', 'altar', 'choice', 'end', 'board', 'codex', 'cfg', 'hud', 'tower', 'core', 'heart', 'stoneidle', 'vow', 'event', 'eventdeep', 'gate', 'echo', 'goal', 'flow', 'showcase', 'death', 'death1', 'collection', 'adsdeath', 'adsend', 'sword', 'daily', 'dailyboard', 'dailyend', 'floor2', 'floor3', 'shop', 'echo2', 'battletwice', 'zeal', 'final', 'tanglebattle', 'guardbattle', 'threatbattle', 'hudmax'];
 
 function run(cmd, args) {
   const r = spawnSync(cmd, args, { cwd: ROOT, encoding: 'utf8' });
@@ -388,12 +388,13 @@ if (!process.argv.includes('--no-shot')) {
         const saved = /"extra":(\d+)/.exec(outR);
         const saveOk = !!saved && outR.indexOf('多挨一轮 +' + saved[1]) >= 0;
         const costOk = outR.indexOf('经验 ×2') >= 0;
-        // 本层威胁读数（同一次面板）：还剩 N 只的数字必须与引擎读到的一致
-        const thM = /bsThreat=([\s\S]*?) threat=/.exec(outR);
-        const thTxt = thM ? thM[1].trim() : '';
-        const thCount = /"count":(\d+)/.exec(outR);
-        const thNum = /这一层还剩 (\d+) 只/.exec(thTxt);
-        const thOk = !!thNum && !!thCount && thNum[1] === thCount[1] && /(最贵|打不穿)/.test(thTxt);
+        // 节奏守门（2026-11-15 21:5x）：缠斗在第 5 层，威胁读数在第 6 层——
+        // 第 5 层这一战不许一次冒出两块，否则第 4 层拆出来的那块又塞回来了
+        const paceOk = /threatAt5=off/.test(outR);
+        // 战斗面板元素预算（2026-11-15 21:5x）：第 5 层的实测上界——块 ≤ 8 / 按钮 = 3 / 字 ≤ 120。
+        // 这屏此前从没进过任何预算，涨到 9 块 3 按钮 119 字也没人管
+        const pb5 = /panelBlocks=(\d+) panelButtons=(\d+) panelChars=(\d+)/.exec(outR);
+        const budgetOk = !!pb5 && Number(pb5[1]) <= 8 && Number(pb5[2]) === 3 && Number(pb5[3]) <= 120;
         // 首章那一战（还没学盾谱）：不许出现「架盾/缠斗」——点了没反应的死按钮
         // （.bs-block 的 display:flex 会盖掉 [hidden]，这条守着「首章只有一个按钮」）
         const readFirst = () => {
@@ -412,8 +413,11 @@ if (!process.argv.includes('--no-shot')) {
         let fb = null;
         try { fb = fbM ? JSON.parse(fbM[1]) : null; } catch (e) { fb = null; }
         const firstOk = !!fb && fb.guard === false && fb.tangle === false;
-        okTangle = shown && saveOk && costOk && thOk && firstOk;
-        tangleLine = `面板 ${shown ? '在' : '缺'} / 多挨一轮与引擎同源 ${saveOk ? saved[1] : '不符'} / 收益写明 ${costOk ? '是' : '否'} / 威胁行 ${thOk ? '对得上' : '缺或对不上'}（${thTxt || '无'}） / 首章只一格 ${firstOk ? '是' : '否（' + JSON.stringify(fb) + '）'}`;
+        // 第 1 层首战那一屏的预算：块 ≤ 5 / 按钮 0（0 按钮＝还没学盾谱，不该有任何打法）
+        const pb1 = /panelBlocks=(\d+) panelButtons=(\d+) panelChars=(\d+)/.exec(outF);
+        const firstBudgetOk = !!pb1 && Number(pb1[1]) <= 5 && Number(pb1[2]) === 0;
+        okTangle = shown && saveOk && costOk && paceOk && budgetOk && firstOk && firstBudgetOk;
+        tangleLine = `面板 ${shown ? '在' : '缺'} / 多挨一轮与引擎同源 ${saveOk ? saved[1] : '不符'} / 收益写明 ${costOk ? '是' : '否'} / 第 5 层不带威胁读数 ${paceOk ? '是' : '否（又塞回来一块）'} / 预算 ${budgetOk ? pb5[1] + '块·' + pb5[2] + '钮·' + pb5[3] + '字' : '超或缺'} / 首章只一格 ${firstOk ? '是' : '否（' + JSON.stringify(fb) + '）'} / 首章预算 ${firstBudgetOk ? pb1[1] + '块·' + pb1[2] + '钮' : '超或缺'}`;
         console.log((okTangle ? '✓' : '✗') + ' 缠斗面板 ' + tangleLine);
       }
       // 架盾（格挡的第二种用法：摊平整层 vs 集中挡一场）：面板数字必须与引擎同源
@@ -440,15 +444,58 @@ if (!process.argv.includes('--no-shot')) {
         const gPlain = /plain=(\d+)/.exec(outG);
         const gCnt = /count=(\d+)/.exec(outG);
         const gCan = /can=(true|false)/.exec(outG);
-        const n = /本层余 (\d+) 场/.exec(txt);
-        const countOk = !!n && !!gCnt && n[1] === gCnt[1];
+        const n = /此后 (\d+) 场/.exec(txt);
+        // 「此后 N 场」＝本层怪数 − 正在打的这只（这一场的账由「这战剩」交代）——
+        // 与威胁读数「这一层还剩 N 只」同一个口径，两处并列时不许差 1
+        const countOk = !!n && !!gCnt && n[1] === String(Number(gCnt[1]) - 1);
         const pctOk = txt.indexOf('每场 −15%') >= 0;
         // 架盾那一场必须正好是白打的 85%——差一点就是面板在说谎
         const mathOk = !!gDmg && !!gPlain && Number(gDmg[1]) === Math.round(Number(gPlain[1]) * 0.85);
         const canOk = !!gCan && gCan[1] === 'true';
-        okGuard = shown && countOk && pctOk && mathOk && canOk;
-        guardLine = `面板 ${shown ? '在' : '缺'} / 余场数与引擎同源 ${countOk ? n[1] : '不符'} / 比例写明 ${pctOk ? '−15%' : '否'} / 承伤=白打×0.85 ${mathOk ? gDmg[1] : '不符'} / 入口条件 ${canOk ? '可架' : '不符'}（${txt || '无'}）`;
+        // 节奏守门（2026-11-15 21:5x）：第 4 层只教架盾——缠斗与威胁读数这时都不许露脸
+        const paceG = /tangleAt4=off/.test(outG) && /threatAt4=off/.test(outG);
+        // 第 4 层的实测上界（改完的量法）：块 ≤ 7 / 按钮 = 2 / 字 ≤ 100
+        const pb4 = /panelBlocks=(\d+) panelButtons=(\d+) panelChars=(\d+)/.exec(outG);
+        const budgetG = !!pb4 && Number(pb4[1]) <= 7 && Number(pb4[2]) === 2 && Number(pb4[3]) <= 100;
+        okGuard = shown && countOk && pctOk && mathOk && canOk && paceG && budgetG;
+        guardLine = `面板 ${shown ? '在' : '缺'} / 余场数与引擎同源 ${countOk ? n[1] : '不符'} / 比例写明 ${pctOk ? '−15%' : '否'} / 承伤=白打×0.85 ${mathOk ? gDmg[1] : '不符'} / 入口条件 ${canOk ? '可架' : '不符'} / 第 4 层只此一块 ${paceG ? '是' : '否'} / 预算 ${budgetG ? pb4[1] + '块·' + pb4[2] + '钮·' + pb4[3] + '字' : '超或缺'}（${txt || '无'}）`;
         console.log((okGuard ? '✓' : '✗') + ' 架盾面板 ' + guardLine);
+      }
+      // 本层威胁读数（第 6 层起）：还剩 N 只的数字必须与引擎读到的一致
+      console.log('== 附加 · 本层威胁读数自检 ==');
+      let okThreat = true, threatLine = '';
+      {
+        const os = require('os');
+        const readTh = () => {
+          const args = [
+            '--headless=new', '--disable-gpu', '--no-sandbox', '--no-first-run', '--disable-extensions',
+            '--user-data-dir=' + path.join(os.tmpdir(), 'tm-threat-' + process.pid),
+            '--virtual-time-budget=30000',
+            '--dump-dom', `http://127.0.0.1:${PORT}/tools/shot.html?scene=threatbattle`,
+          ];
+          const q = spawnSync(chrome, args, { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+          const m = /<pre id="err">([\s\S]*?)<\/pre>/.exec(q.stdout || '');
+          return m ? m[1] : '';
+        };
+        let outT = readTh();
+        if (outT.indexOf('bsThreat=') < 0) outT = readTh();
+        const thM = /bsThreat=([\s\S]*?) threat=/.exec(outT);
+        const thTxt = thM ? thM[1].trim() : '';
+        const thCount = /"count":(\d+)/.exec(outT);
+        const thNum = /这一层还剩 (\d+) 只/.exec(thTxt);
+        const countOkT = !!thNum && !!thCount && thNum[1] === thCount[1] && /(最贵|打不穿)/.test(thTxt);
+        // 第 6 层是三块全在的最满载屏：块 ≤ 9 / 按钮 ≤ 3 / 字 ≤ 140（这是「一屏最多能有多少」的上界）
+        const pb6 = /panelBlocks=(\d+) panelButtons=(\d+) panelChars=(\d+)/.exec(outT);
+        const budgetT = !!pb6 && Number(pb6[1]) <= 9 && Number(pb6[2]) <= 3 && Number(pb6[3]) <= 140;
+        // 同屏口径：架盾「此后 N 场」必须等于威胁读数「这一层还剩 N 只」——
+        // 两个数差 1 并排摆着，玩家只会读成「面板算错了」（2026-11-15 21:5x 加练修的正是这个）
+        const gSame = /bsGuardSame=([\s\S]*?)(?: panelBlocks=|$)/.exec(outT);
+        const gSameTxt = gSame ? gSame[1].trim() : '';
+        const gSameNum = /此后 (\d+) 场/.exec(gSameTxt);
+        const sameOk = !!gSameNum && !!thNum && gSameNum[1] === thNum[1];
+        okThreat = countOkT && budgetT && sameOk;
+        threatLine = `面板 ${thTxt ? '在' : '缺'} / 还剩几只与引擎同源 ${countOkT ? thNum[1] : '不符'} / 与架盾「此后 N 场」同口径 ${sameOk ? gSameNum[1] : '不符（' + gSameTxt + '）'} / 满载预算 ${budgetT ? pb6[1] + '块·' + pb6[2] + '钮·' + pb6[3] + '字' : '超或缺'}（${thTxt || '无'}）`;
+        console.log((okThreat ? '✓' : '✗') + ' 本层威胁读数 ' + threatLine);
       }
       // 横屏留一张目视证据（闸门里只有数字断言，排版错乱还得看眼睛）
       {
@@ -734,8 +781,8 @@ if (!process.argv.includes('--no-shot')) {
       const ui = run(process.execPath, ['tools/ui-test.js']);
       const okUi = ui.code === 0;
       console.log((okUi ? '✓' : '✗') + ' ui-test.js' + (okUi ? '' : '\n' + ui.out));
-      const all = okCheck && okSim && okSkip && okTest && okCode && okBsim && okOd && okUi && okProbe && okAds && okIntro && okWxb && okNew && okWx && okSwordGate && okPace && okDaily && okZeal && okFinal && okTangle && okGuard && okVp && okVm && okSfx && okRm && okErr && okSto && okTime && okTab && bad === 0;
-      if (!all) console.log('  闸门明细:', JSON.stringify({ okCheck, okSim, okSkip, okTest, okCode, okBsim, okOd, okUi, okProbe, probeA3, okAds, adsLine, okIntro, introLine, okWxb, wxbLine, okNew, newLine, okWx, okSwordGate, okPace, paceLine, okDaily, dailyLine, okZeal, zealLine, okFinal, finalLine, okTangle, tangleLine, okGuard, guardLine, okVp, vpLine, okVm, vmLine, okSfx, sfxLine, okRm, rmLine, okErr, errLine, okSto, stoLine, okTime, timeLine, okTab, tabLine, bad }));
+      const all = okCheck && okSim && okSkip && okTest && okCode && okBsim && okOd && okUi && okProbe && okAds && okIntro && okWxb && okNew && okWx && okSwordGate && okPace && okDaily && okZeal && okFinal && okTangle && okGuard && okThreat && okVp && okVm && okSfx && okRm && okErr && okSto && okTime && okTab && bad === 0;
+      if (!all) console.log('  闸门明细:', JSON.stringify({ okCheck, okSim, okSkip, okTest, okCode, okBsim, okOd, okUi, okProbe, probeA3, okAds, adsLine, okIntro, introLine, okWxb, wxbLine, okNew, newLine, okWx, okSwordGate, okPace, paceLine, okDaily, dailyLine, okZeal, zealLine, okFinal, finalLine, okTangle, tangleLine, okGuard, guardLine, okThreat, threatLine, okVp, vpLine, okVm, vmLine, okSfx, sfxLine, okRm, rmLine, okErr, errLine, okSto, stoLine, okTime, timeLine, okTab, tabLine, bad }));
       console.log(all ? '✓ 质量闸门通过' : '✗ 质量闸门有失败项');
       process.exit(all ? 0 : 1);
     })();

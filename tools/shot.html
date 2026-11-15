@@ -27,10 +27,14 @@
     battle: base + '?dev=1#demo=0,2,3',
     battletwice: base + '?dev=1#demo=0,2,3',
     battleblock: base + '?dev=1#demo=0,2,3',
-    // 缠斗：第 2 章（第 4 层）的战斗面板，站 (5,5) 朝上撞石像鬼
-    tanglebattle: base + '?dev=1#demo=3,5,5',
-    // 架盾：同一场战斗面板上的第三种打法（摊平整层 vs 集中挡一场）
+    // 缠斗：第 5 层（floor 4）的战斗面板上第三把打法（多挨一轮 ↔ 经验 ×2）。
+    // 2026-11-15 21:5x：时机从第 4 层后移到第 5 层（第 4 层只教架盾），场景跟着下移一层，
+    // 站 (6,5) 朝上撞吸血鬼。
+    tanglebattle: base + '?dev=1#demo=4,6,5',
+    // 架盾：第 4 层那一场战斗面板上的第二种打法（摊平整层 vs 集中挡一场）
     guardbattle: base + '?dev=1#demo=3,5,5',
+    // 本层威胁读数：第 6 层起才有（信息类元素排在两把打法之后），站 (5,5) 朝左撞锁虫
+    threatbattle: base + '?dev=1#demo=7,5,5',
     shop: base + '?dev=1#demo=2,4,3,424242',
     tower: base + '?dev=1#demo=5,5,7',
     core: base + '?dev=1#demo=12,5,8',
@@ -73,6 +77,24 @@
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   const Q2 = [];   // 场景内往 #err 追加输出（dump-dom 不展开 iframe 内 DOM），onload 尾部统一落盘
   const q2push = (t) => Q2.push(t);
+  // 战斗面板的「元素预算」实测（2026-11-15 21:5x）：块数 / 可点按钮数 / 字数。
+  // 这屏是这十几轮里唯一在膨胀的屏，`pace-audit` 的数屏预算从来没数过它——
+  // 现在由三个战斗场景把每层的真实读数喂给闸门，超了直接红。
+  const panelBudget = (d) => {
+    const pf = d.querySelector('.bs-panel');
+    if (!pf) return 'panelBlocks=NONE';
+    const vis = Array.from(pf.children).filter((k) => {
+      if (k.hidden) return false;
+      const cs = d.defaultView.getComputedStyle(k);
+      if (cs.display === 'none' || cs.visibility === 'hidden') return false;
+      const r = k.getBoundingClientRect();
+      return r.width > 0 && r.height > 0;
+    });
+    const btns = Array.from(pf.querySelectorAll('.bs-block'))
+      .filter((b) => !b.hidden && !b.disabled && b.getBoundingClientRect().width > 0);
+    return 'panelBlocks=' + vis.length + ' panelButtons=' + btns.length
+      + ' panelChars=' + pf.textContent.replace(/\s+/g, '').length;
+  };
 
   f.onload = async () => {
     const w = f.contentWindow, d = f.contentDocument;
@@ -88,7 +110,7 @@
       await wait(120);
       const T = w.__tm;
       const E = w.Engine;
-      if (scene === 'start' || scene === 'floor5' || scene === 'battle' || scene === 'battletwice' || scene === 'battleblock' || scene === 'tanglebattle' || scene === 'guardbattle' || scene === 'shop' || scene === 'tower' || scene === 'core' || scene === 'zeal' || scene === 'final' || scene === 'hudmax') {
+      if (scene === 'start' || scene === 'floor5' || scene === 'battle' || scene === 'battletwice' || scene === 'battleblock' || scene === 'tanglebattle' || scene === 'guardbattle' || scene === 'threatbattle' || scene === 'shop' || scene === 'tower' || scene === 'core' || scene === 'zeal' || scene === 'final' || scene === 'hudmax') {
         if (scene === 'hudmax') {
           // 真满载（一局里可能的最挤一屏）：三件遗物 + 三枚锁环（第 3 章拿到罗盘那份）+ 三格徽记
           // 🛡双挡 / 🧭罗盘 / 💀决战。顶栏预算的数值断言在 tools/ui-check.html 的 hudBudget。
@@ -149,7 +171,7 @@
           const b1 = d.getElementById('bsBlock'), g1 = d.getElementById('bsGuard'), t1 = d.getElementById('bsTangle');
           q2push('firstPanel=' + JSON.stringify({
             block: !!b1 && !b1.hidden, guard: !!g1 && !g1.hidden, tangle: !!t1 && !t1.hidden,
-          }));
+          }) + ' ' + panelBudget(d));
         }
         if (scene === 'battletwice') {          // 双挡之环：盾牌上的剩余次数与战斗面板的「本层剩 2 次」都得对得上
           await wait(200);
@@ -162,15 +184,16 @@
           await wait(300);
         }
         if (scene === 'tanglebattle') {
-          // 缠斗：第 2 章的战斗面板上第三把打法（多挨一轮 ↔ 经验 ×2）。数值必须与引擎同源
+          // 缠斗：第 5 层的战斗面板上第三把打法（多挨一轮 ↔ 经验 ×2）。数值必须与引擎同源
           await wait(200);
           const sT = E.state();
-          sT.atk = 40; sT.def = 20; sT.hp = 800; sT.maxHp = 1000;
+          sT.atk = 40; sT.def = 20; sT.hp = 1500; sT.maxHp = 1500;
+          sT.flags.hasBlock = true;   // 第 5 层这一战的三把打法都得在（格挡/架盾/缠斗），否则量不到满载面
           T.refreshHud();
           // 引擎读数先取（战斗结算会改血量/经验，读数要在开打前定下来）
-          const info = E.tangleInfo('E');
-          const plain = E.fightDamage('E', false, false).damage;
-          const deep = E.fightDamage('E', false, true).damage;
+          const info = E.tangleInfo('V');
+          const plain = E.fightDamage('V', false, false).damage;
+          const deep = E.fightDamage('V', false, true).damage;
           w.__battleSpeed = 30;
           w.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'ArrowUp' }));
           await wait(320);
@@ -178,11 +201,28 @@
           q2push('bsTangle=' + (tgb && !tgb.hidden ? tgb.textContent.replace(/\s+/g, ' ').trim() : 'HIDDEN')
             + ' info=' + JSON.stringify(info)
             + ' plain=' + plain + ' deep=' + deep);
-          // 本层威胁读数：还剩几只 / 最贵的那只值多少血（面板数字必须与引擎同源）
-          // 面板会 skip 掉正在打的那只（场景固定从 (5,5) 往上打 (5,4)），探针按同一口径读
+          // 节奏守门（2026-11-15 21:5x）：威胁读数是第 6 层的元素，第 5 层这一战不许出现——
+          // 否则第 5 层一次又加两块，白拆了第 4 层。用 ON/off 而不是 HIDDEN，免得干扰上面的匹配
+          const th5 = d.getElementById('bsThreat');
+          q2push('threatAt5=' + (th5 && !th5.hidden ? 'ON' : 'off') + ' ' + panelBudget(d));
+        }
+        if (scene === 'threatbattle') {
+          // 本层威胁读数：第 6 层起（还剩几只 / 最贵的白打多少）。数字必须与引擎同源
+          await wait(200);
+          const sTh = E.state();
+          sTh.atk = 120; sTh.def = 20; sTh.hp = 600; sTh.maxHp = 600;
+          sTh.flags.hasBlock = true;   // 满载面：三块（格挡/架盾/缠斗）+ 威胁读数一起量
+          T.refreshHud();
+          w.__battleSpeed = 30;
+          w.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'ArrowLeft' }));
+          await wait(320);
           const tb = d.getElementById('bsThreat');
+          // 同一屏上「架盾 此后 N 场」与「这一层还剩 N 只」必须是同一个数（差 1 会被读成算错）
+          const gb2 = d.getElementById('bsGuard');
           q2push('bsThreat=' + (tb && !tb.hidden ? tb.textContent.replace(/\s+/g, ' ').trim() : 'HIDDEN')
-            + ' threat=' + JSON.stringify(E.floorThreat(undefined, { x: 5, y: 4 })));
+            + ' threat=' + JSON.stringify(E.floorThreat(undefined, { x: 4, y: 5 }))
+            + ' bsGuardSame=' + (gb2 && !gb2.hidden ? gb2.textContent.replace(/\s+/g, ' ').trim() : 'HIDDEN')
+            + ' ' + panelBudget(d));
         }
         if (scene === 'guardbattle') {
           // 架盾：本层余下每场都 −15%，与「挡这一场」二选一。数值必须与引擎同源
@@ -202,6 +242,11 @@
           const gb = d.getElementById('bsGuard');
           q2push('bsGuard=' + (gb && !gb.hidden ? gb.textContent.replace(/\s+/g, ' ').trim() : 'HIDDEN')
             + ' guard=' + guardDmg + ' plain=' + plainG + ' count=' + cnt + ' can=' + canG);
+          // 节奏守门（2026-11-15 21:5x）：第 4 层只教架盾——缠斗（第 5 层）与威胁读数（第 6 层）
+          // 这时都不许出现，否则第 4 层又变成一屏三块
+          const tg4 = d.getElementById('bsTangle'), th4 = d.getElementById('bsThreat');
+          q2push('tangleAt4=' + (tg4 && !tg4.hidden ? 'ON' : 'off')
+            + ' threatAt4=' + (th4 && !th4.hidden ? 'ON' : 'off') + ' ' + panelBudget(d));
         }
         if (scene === 'shop') {
           await wait(200);

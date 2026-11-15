@@ -2057,13 +2057,16 @@
       if (z < 1) zealEl.textContent = `🗡️ 战意 −${Math.round((1 - z) * 100)}% · 已击败 ${Engine.state().flags.killCount || 0} 只`;
     }
 
-    // 本层威胁读数（第 2 章起）：还剩几只、最贵的那只白打要掉多少血。
+    // 本层威胁读数（第 6 层起）：还剩几只、最贵的那只白打要掉多少血。
     // 「先打谁、要不要绕过去」是在战斗外决定的——这一行把它从心里的估数变成屏幕上的数。
     // 只有一行字、不加按钮，数字取引擎同源（与面板上的「承伤 −N」同一个口径）。
+    // 2026-11-15 21:5x：时机从「第 4 层」后移到「第 6 层」——第 4 层那一战原本一口气多出
+    // 威胁读数 + 架盾 + 缠斗三块（3 个机制同屏），撞「前期每 3 分钟 1 个新机制」的门。
+    // 现在每层只加一块：第 4 层架盾 → 第 5 层缠斗 → 第 6 层读数。信息类后移无代价。
     if (el.bsThreat) {
       // skip 掉正在打的这只：它马上倒下，算进「还剩几只 / 最贵」只会让读数变成
       // 「我在打的就是最贵的」——白占一行
-      const th = s.floor >= 3 ? Engine.floorThreat(undefined, info.skip) : null;
+      const th = s.floor >= 5 ? Engine.floorThreat(undefined, info.skip) : null;
       // 排除在打的这只后一只不剩 → 这一层就清完了，没得选，整行不出现
       const showThreat = !!th && th.count >= 1 && !!(th.wall || th.worst);
       el.bsThreat.hidden = !showThreat;
@@ -2118,7 +2121,7 @@
       warn(`**格挡**：这一战的承伤降到 **${Math.round(blockScale * 100)}%**`);
     };
 
-    // 架盾（格挡的第二种用法，第 2 章起）：把这一层的盾一次性架开——
+    // 架盾（格挡的第二种用法，第 4 层起）：把这一层的盾一次性架开——
     // 本层此后每一场承伤 ×0.85，只有一次机会。与「挡这一场」构成集中／摊平的取舍：
     // 单只特别贵就集中挡，本层还有一堆中等怪要清就摊平。谁更值取决于「我到底会不会打完这层」，
     // 这个只有玩家自己知道——面板只给账（余几场、每场省多少），不给结论。
@@ -2126,7 +2129,7 @@
     const spreadActive = Engine.blockSpreadActive();
     const guardDmg = info.dmgGuard || null;
     const spreadPct = Math.round((1 - Engine.blockSpreadScale()) * 100);
-    // 第 2 章起才出现：首章那几场战斗面板只摆一个按钮，别在 63 秒那一战就教三种打法
+    // 第 4 层起才出现：第 1 层那几场战斗面板只摆一个按钮，别在 63 秒那一战就教三种打法
     const guardWorth = s.floor >= 3 && worth && !spreadActive && !!guardDmg && Engine.canGuard();
     if (el.bsGuard) {
       el.bsGuard.classList.remove('done');
@@ -2142,8 +2145,11 @@
         const n = Engine.floorMonsterCount();
         const guardAfter = Math.max(0, Math.round(heroHp - guardDmg.damage));
         el.bsGuard.hidden = false;
-        el.bsGuard.innerHTML = `<b>🧱 架盾</b><span>本层余 ${n} 场 · 每场 −${spreadPct}% · 这战剩 ${guardAfter}</span>`;
-        el.bsGuard.title = `花掉一次格挡：这一层余下 ${n} 场战斗都少挨 ${spreadPct}%（单场格挡则是这一场少挨 ${Math.round((1 - scaleWhenBlocked) * 100)}%）`;
+        // 2026-11-15 21:5x（加练）：第 6 层起威胁读数会说「这一层还剩 5 只」（它把正在打的这只排除了），
+        // 而这里原写「本层余 6 场」（含这只）——两个数差 1 挨在一起，玩家只会读成「面板算错了」。
+        // 改成「此后 N 场」：这一场的账已经由「这战剩 N」交代，这一格只说打完它还护住几场，两处口径对齐。
+        el.bsGuard.innerHTML = `<b>🧱 架盾</b><span>此后 ${Math.max(0, n - 1)} 场 · 每场 −${spreadPct}% · 这战剩 ${guardAfter}</span>`;
+        el.bsGuard.title = `花掉一次格挡：这一场先按 ${100 - spreadPct}% 结算（见「这战剩」），此后 ${Math.max(0, n - 1)} 场每场都少挨 ${spreadPct}%（单场格挡则是只挡这一场，少挨 ${Math.round((1 - scaleWhenBlocked) * 100)}%）`;
         el.bsGuard.onclick = (e) => {
           e.stopPropagation();
           if (guardOn) return;
@@ -2162,9 +2168,11 @@
       }
     }
 
-    // 缠斗（第 2 章起）：不急着收招，一个回合来回多磨一轮——多挨一轮，这一战经验翻倍。
+    // 缠斗（第 5 层起）：不急着收招，一个回合来回多磨一轮——多挨一轮，这一战经验翻倍。
     // 它是本作战斗里的第三把打法：格挡是「用额度省血」，架盾是「摊平盖整层」，
     // 缠斗是「用血换成长」——血是本作最硬的资源，所以它是个真取舍而不是快捷键。
+    // 2026-11-15 21:5x：从「第 4 层」后移到「第 5 层」——第 4 层已经要教架盾（同为「省血」），
+    // 两把都是省血、同一屏摆出来玩家分不清差别；拉开一层，每层只多一个决定。
     // 数字全部取引擎同源（Engine.tangleInfo），面板与实际结算不会各算各的。
     // 引擎已经把三种「不给」的情况滤掉了（缠完会死 / 这怪打不疼你 / 没经验可翻），
     // 面板只负责摆。
@@ -2777,8 +2785,8 @@
     const dmgBlock = Engine.canBlock() ? Engine.fightDamage(ch, true) : null;
     // 架盾：本层余下每场都吃 0.85（不叠盾谱/断刃，那是单场手艺）。与格挡二选一，同样花掉一次格挡
     const dmgGuard = Engine.canGuard() ? Engine.fightDamage(ch, 'all') : null;
-    // 缠斗：第 2 章起才出现（首章的战斗面板只有一个按钮，别在 63 秒那一战就摆两个）
-    const dmgTangle = s.floor >= 3 ? Engine.tangleInfo(ch) : null;
+    // 缠斗：第 5 层起才出现（与架盾分开一层，每屏只多一个决定）
+    const dmgTangle = s.floor >= 4 ? Engine.tangleInfo(ch) : null;
     playBattleScene({
       monster: m, pred, dmgBase, dmgBlock, dmgGuard, dmgTangle,
       phases: m.boss ? Engine.bossPhases(ch) : null,
