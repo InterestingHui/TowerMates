@@ -570,14 +570,54 @@ if (!process.argv.includes('--no-shot')) {
         console.log((okRm ? '✓' : '✗') + ` 减弱动效 ${rmLine}`);
       }
 
+      // 错误通道：三类未捕获异常（脚本 / 未处理拒绝 / 资源）必须留痕，且不接管输入。
+      // 这一面此前一条都不记——玩家侧完全静默（2026-11-15 实测：注入三个异常，漏斗仍是空的）。
+      let okErr = true, errLine = '';
+      {
+        const os = require('os');
+        const args = [
+          '--headless=new', '--disable-gpu', '--no-sandbox', '--no-first-run', '--disable-extensions',
+          '--user-data-dir=' + path.join(os.tmpdir(), 'tm-err-' + process.pid),
+          '--virtual-time-budget=20000',
+          '--dump-dom', `http://127.0.0.1:${PORT}/tools/err-check.html`,
+        ];
+        const read = () => {
+          const p = spawnSync(chrome, args, { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+          const t = p.stdout || '';
+          // 只认 <title>：dump 正文含页内脚本源码（'FAIL|' 字面量），整篇扫会自己判红
+          const tt = (/<title>([^<]*)<\/title>/.exec(t) || [])[1] || '';
+          const bits = /(?:ALLPASS|HASFAIL)\|([01]+)/.exec(tt);
+          const fails = (t.match(/^FAIL\|.*$/gm) || []).map((s) => s.replace(/^FAIL\|\s*/, ''));
+          return { pass: /^ALLPASS\|1+$/.test(tt.trim()), bits: bits ? bits[1] : '', fails: fails };
+        };
+        let r = read();
+        if (!r.bits) r = read();
+        // 源码契约放在 Node 侧（探针页取 /js/main.js 在 headless 下偶发 NetworkError）：
+        // 整帧在 try 里 / 续命在 finally / loop 段里只有一个 try（不再单独护 draw）
+        const msrc = fs.readFileSync(path.join(ROOT, 'js', 'main.js'), 'utf8');
+        const tryFirst = /function loop\(\)\s*\{\s*try\s*\{/.test(msrc);
+        const finallyRaf = /finally\s*\{[\s\S]{0,160}?requestAnimationFrame\(loop\)/.test(msrc);
+        const loopHead = (msrc.match(/function loop\(\)[\s\S]*?finally\s*\{/) || [''])[0];
+        const tryCount = (loopHead.match(/\btry\s*\{/g) || []).length;
+        const okSrc = tryFirst && finallyRaf && tryCount === 1;
+        if (!okSrc) r.pass = false;
+        r.bits = (r.bits || '') + (tryFirst ? 1 : 0) + (finallyRaf ? 1 : 0) + (tryCount === 1 ? 1 : 0);
+        if (!tryFirst) r.fails.push('E9a loop 开头不是 try');
+        if (!finallyRaf) r.fails.push('E9b 续命不在 finally（异常会冻结画面）');
+        if (tryCount !== 1) r.fails.push('E9c loop 段里 try 数=' + tryCount + '（又单独护 draw 了）');
+        okErr = r.pass;
+        errLine = r.bits ? `${(r.bits.match(/1/g) || []).length}/${r.bits.length} 项` : '读数失败';
+        console.log((okErr ? '✓' : '✗') + ` 错误通道 ${errLine}` + (okErr ? '' : '\n   ' + r.fails.slice(0, 6).join('\n   ')));
+      }
+
       server.kill();      console.log(bad === 0 ? `\n✓ 截图全部生成（${SCENES.length} 张，见 tools/out/）` : `\n✗ ${bad} 张截图异常`);
 
       console.log('== 浏览器 UI 自检 ==');
       const ui = run(process.execPath, ['tools/ui-test.js']);
       const okUi = ui.code === 0;
       console.log((okUi ? '✓' : '✗') + ' ui-test.js' + (okUi ? '' : '\n' + ui.out));
-      const all = okCheck && okSim && okSkip && okTest && okCode && okBsim && okOd && okUi && okProbe && okAds && okIntro && okWxb && okNew && okWx && okSwordGate && okPace && okDaily && okZeal && okFinal && okTangle && okGuard && okVp && okVm && okSfx && okRm && bad === 0;
-      if (!all) console.log('  闸门明细:', JSON.stringify({ okCheck, okSim, okSkip, okTest, okCode, okBsim, okOd, okUi, okProbe, probeA3, okAds, adsLine, okIntro, introLine, okWxb, wxbLine, okNew, newLine, okWx, okSwordGate, okPace, paceLine, okDaily, dailyLine, okZeal, zealLine, okFinal, finalLine, okTangle, tangleLine, okGuard, guardLine, okVp, vpLine, okVm, vmLine, okSfx, sfxLine, okRm, rmLine, bad }));
+      const all = okCheck && okSim && okSkip && okTest && okCode && okBsim && okOd && okUi && okProbe && okAds && okIntro && okWxb && okNew && okWx && okSwordGate && okPace && okDaily && okZeal && okFinal && okTangle && okGuard && okVp && okVm && okSfx && okRm && okErr && bad === 0;
+      if (!all) console.log('  闸门明细:', JSON.stringify({ okCheck, okSim, okSkip, okTest, okCode, okBsim, okOd, okUi, okProbe, probeA3, okAds, adsLine, okIntro, introLine, okWxb, wxbLine, okNew, newLine, okWx, okSwordGate, okPace, paceLine, okDaily, dailyLine, okZeal, zealLine, okFinal, finalLine, okTangle, tangleLine, okGuard, guardLine, okVp, vpLine, okVm, vmLine, okSfx, sfxLine, okRm, rmLine, okErr, errLine, bad }));
       console.log(all ? '✓ 质量闸门通过' : '✗ 质量闸门有失败项');
       process.exit(all ? 0 : 1);
     })();

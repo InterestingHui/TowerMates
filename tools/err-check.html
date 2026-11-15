@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>err-check</title>
+<style>body{margin:0;background:#05070c;color:#8ef;font:12px monospace}#f{width:430px;height:900px;border:0;position:absolute;left:-9999px}</style>
+</head><body>
+<iframe id="f" src="/index.html"></iframe>
+<pre id="out">…</pre>
+<script>
+// 错误通道闸门：三类未捕获异常（脚本 / 未处理拒绝 / 资源）必须留痕，且不接管输入、不与成就吐司叠在一起。
+// 背景（2026-11-15 实测）：这三类此前一条都不进漏斗，玩家侧完全静默——点了没反应、复盘也没线索。
+// 判据全走真实事件（setTimeout 抛错 / Promise.reject / img 404 / 30 条灌满），不直调内部函数绕过链路；
+// 只有「会话上限」那一条必须直灌，因为真实异常没法稳定造 20 条。
+const out = document.getElementById('out');
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const rows = [];
+const bits = [];
+const push = (ok, name, detail) => {
+  rows.push((ok ? 'PASS|' : 'FAIL|') + name + '|' + (detail == null ? '' : String(detail).slice(0, 110)));
+  bits.push(ok ? 1 : 0);
+};
+(async () => {
+  try {
+    await wait(1800);
+    const w = f.contentWindow;
+    const d = f.contentDocument;
+    const tm = w.__tm;
+    if (!tm || !tm.funnel) throw new Error('页面没跑起来（__tm 缺失）');
+    const errs = () => tm.funnel().filter((x) => x.ev === 'err');
+    const find = (kw, kind) => errs().filter((x) => String(x.msg).indexOf(kw) >= 0 && (!kind || x.kind === kind));
+
+    tm.funnelClear();
+    await wait(60);
+
+    // 先把成就吐司摆到显示态、关掉过渡（headless 的 virtual-time 不推进 CSS 过渡，不关就量到动画起点）。
+    // 必须赶在第一条错误之前摆好：错误提示只弹一次，错过这次就没有「真文案 + 吐司同屏」的样本了。
+    const pill = d.getElementById('warnPill');
+    const toast = d.getElementById('toast');
+    pill.style.transition = 'none';
+    toast.style.transition = 'none';
+    toast.classList.add('show');
+    void toast.offsetHeight;
+
+    // E1 脚本异常（定时器回调里抛，最常见的一类）
+    w.eval("setTimeout(function(){ throw new Error('probe-e1'); }, 0)");
+    await wait(220);
+    const e1 = find('probe-e1');
+    push(e1.length === 1, 'E1 脚本异常入账', e1.length + ' 条/' + (e1[0] ? e1[0].kind : '无'));
+
+    // E2 与成就吐司同屏时不许叠（两者都 `position:fixed; top:12px` 居中，吐司高 ~70px 正好盖住提示条）
+    const rp = pill.getBoundingClientRect();
+    const rt = toast.getBoundingClientRect();
+    const overlapPx = Math.min(rp.bottom, rt.bottom) - Math.max(rp.top, rt.top);
+    push(overlapPx <= 2, 'E2a 不压住成就吐司', `pill ${Math.round(rp.top)}–${Math.round(rp.bottom)} / toast ${Math.round(rt.top)}–${Math.round(rt.bottom)} / 叠 ${Math.round(overlapPx)}px`);
+    // E3 提示条是 nowrap 单行：超宽就被省略号吃掉，自救方法（刷新）正好会落在被吃掉的那半句
+    push(pill.scrollWidth <= pill.clientWidth + 2, 'E3a 提示文案没被省略号截断', `${pill.scrollWidth}/${pill.clientWidth}px · ${pill.textContent}`);
+    toast.classList.remove('show');
+
+    // E4 未处理的 Promise 拒绝
+    w.eval("Promise.reject(new Error('probe-e4'))");
+    await wait(220);
+    const e4 = find('probe-e4', 'reject');
+    push(e4.length === 1, 'E4 未处理拒绝入账', e4.length + ' 条/' + (e4[0] ? e4[0].kind : '无'));
+
+    // E5 资源加载失败（img 404）：单独一种，不许混成「脚本崩了」（error 事件必须走捕获阶段，否则收不到）
+    w.eval("(function(){var im=new Image(); im.src='/__no_such_file__.png'; document.body.appendChild(im);})()");
+    await wait(320);
+    const e5 = find('__no_such_file__', 'res');
+    push(e5.length === 1, 'E5 资源失败单记一类', e5.length + ' 条/' + (e5[0] ? e5[0].kind : '无'));
+
+    // E6 玩家侧只提示一次，且走提示条不走全屏对白（不许接管输入）
+    const pillShown = pill.classList.contains('show');
+    // 开始页本身就带一层遮罩，不能拿「有没有 .overlay.show」判——要看对白系统是否被激活
+    const tipsUp = !!(tm.Tips && tm.Tips.active);
+    push(pillShown, 'E6a 出错时给了一条提示条', pill.className);
+    push(!tipsUp, 'E6b 不走全屏对白（不接管输入）', tipsUp ? 'Tips.active' : '对白未激活');
+
+    // E7 同一处错误 10 秒内只记一次（防刷爆 200 条上限）
+    for (let i = 0; i < 5; i++) w.eval("setTimeout(function(){ throw new Error('probe-e7'); }, 0)");
+    await wait(420);
+    const e7 = find('probe-e7');
+    push(e7.length === 1, 'E7 同一错误 5 连发只记 1 条', e7.length + ' 条');
+
+    // E8 条目字段口径：只留白名单键，且时间戳仍是数字（at 被位置字符串覆盖过一次）
+    const WHITE = ['at', 'ev', 'kind', 'msg', 'src', 'floor', 'run'];
+    const bad = errs().filter((x) => Object.keys(x).some((k) => WHITE.indexOf(k) < 0));
+    push(bad.length === 0, 'E8a 字段白名单', bad.length ? JSON.stringify(bad[0]) : '干净');
+    const badAt = errs().filter((x) => typeof x.at !== 'number');
+    push(badAt.length === 0, 'E8b 时间戳没被位置字段覆盖', badAt.length ? JSON.stringify(badAt[0].at) : '全数字');
+    const noFloor = errs().filter((x) => typeof x.floor !== 'number');
+    push(noFloor.length === 0, 'E8c 每条都带层数（复盘要知道崩在哪）', noFloor.length + ' 条缺');
+
+    // E9 会话上限：直灌 30 条不同 message（真实异常造不出这么多），只允许记 20 条
+    for (let i = 0; i < 30; i++) tm.errSink.note('error', 'probe-cap-' + i, '', 0, 0);
+    await wait(80);
+    push(tm.errSink.count() === 20, 'E9a 会话上限 20 条', 'count=' + tm.errSink.count());
+    push(errs().length === 20, 'E9b 漏斗里也只有 20 条', 'err=' + errs().length);
+
+    // E10 超限后继续报错不许抛（兜底自己炸掉就是最糟的一种）
+    let threw = '';
+    try { tm.errSink.note('error', 'probe-over', '', 0, 0); } catch (e) { threw = String(e && e.message); }
+    push(threw === '', 'E10a 超限后再报不抛错', threw || '安静');
+    push(tm.errSink.count() === 20, 'E10b 超限也不破上限', 'count=' + tm.errSink.count());
+
+    // 源码契约（整帧 try / 续命 finally / draw 不再单独 catch）放在 regress.js 的 Node 侧做：
+    // 探针页取 /js/main.js 在 headless 下偶发 NetworkError（本轮实测 fetch 与同步 XHR 都中过）。
+
+    pill.style.transition = '';
+    toast.style.transition = '';
+    out.textContent = rows.join('\n');
+    document.title = (bits.every((b) => b) ? 'ALLPASS|' : 'HASFAIL|') + bits.join('');
+  } catch (e) {
+    out.textContent = 'ERR ' + (e && e.stack || e);
+    document.title = 'PROBE-ERR';
+  }
+})();
+</script>
+</body></html>
