@@ -2112,6 +2112,7 @@
       el.bsBlock.disabled = true;
       if (el.bsTangle) el.bsTangle.disabled = true;   // 与缠斗二选一
       if (el.bsGuard) el.bsGuard.disabled = true; // 与架盾二选一（同一份额度）
+      syncHint();
       Sound.play('choose');
       vibrate([12, 20, 8]);
       warn(`**格挡**：这一战的承伤降到 **${Math.round(blockScale * 100)}%**`);
@@ -2151,6 +2152,7 @@
           el.bsGuard.disabled = true;
           el.bsBlock.disabled = true;   // 同一份额度，二选一
           if (el.bsTangle) el.bsTangle.disabled = true;
+          syncHint();
           Sound.play('choose');
           vibrate([12, 20, 8]);
           warn(`**架盾**：这一层余下每场承伤降到 **${100 - spreadPct}%**`);
@@ -2188,6 +2190,7 @@
         el.bsTangle.disabled = true;
         el.bsBlock.disabled = true;   // 与格挡二选一（挡下整场就无从「多磨一轮」）
         if (el.bsGuard) el.bsGuard.disabled = true;
+        syncHint();
         Sound.play('choose');
         vibrate([12, 20, 8]);
         warn(`**缠斗**：这一战多挨 ${tangle.extra} 血（拖长一回合），换来经验 ${tangle.exp} → ${tangle.expGain}；这一场不再格挡`);
@@ -2198,13 +2201,19 @@
     // 那句话说出去等于「你可以不用管这一屏」，而这一屏恰恰在等你决定用哪种打法；
     // 而「点击跳过」和「点按钮选打法」挤在同一块面板里，也容易读成「点哪个都是跳过」。
     // 架盾已架开时那一格是不可点的状态条（onclick 为 null），不算可选打法。
-    if (el.bsHint) {
-      const pickable =
-        (!el.bsBlock.hidden && !el.bsBlock.disabled) ||
-        (!!el.bsGuard && !el.bsGuard.hidden && typeof el.bsGuard.onclick === 'function') ||
-        (!!el.bsTangle && !el.bsTangle.hidden && !el.bsTangle.disabled);
-      el.bsHint.textContent = pickable ? '可点下面的打法 · 或点这里直接打' : '自动战斗中 · 点击跳过';
+    // 2026-11-15 20:5x：判据从「onclick 有没有挂上」改成「看得见 且 没被禁用」——三把打法互斥，
+    // 按下任一把之后另外两把只是 disabled、onclick 仍在，旧判据于是继续说「可点下面的打法」，
+    // 而面板上已经一个能点的都没有（点了没反应）；选完还必须说清选的是哪一把。
+    function syncHint() {
+      if (!el.bsHint) return;
+      const live = (b) => !!b && !b.hidden && !b.disabled;
+      const pickable = live(el.bsBlock) || live(el.bsGuard) || live(el.bsTangle);
+      const picked = guardOn ? '架盾' : blockOn ? '格挡' : tangleOn ? '缠斗' : '';
+      el.bsHint.textContent = pickable
+        ? '可点下面的打法 · 或点这里直接打'
+        : picked ? `这一战按「${picked}」打 · 点这里直接看结果` : '自动战斗中 · 点击跳过';
     }
+    syncHint();
 
     // 这一战最终掉多少血：格挡／架盾优先（引擎里挡下整场就不存在缠斗），
     // 其次缠斗，最后是白打——取值一律走这里，与 Engine.fight 的优先级同序
