@@ -204,10 +204,15 @@
     if (!p.keys || typeof p.keys !== 'object') p.keys = { y: 0, r: 0 };
     p.keys.y = Math.max(0, Math.floor(isFiniteNum(p.keys.y) ? p.keys.y : 0));
     p.keys.r = Math.max(0, Math.floor(isFiniteNum(p.keys.r) ? p.keys.r : 0));
-    // 站位：越界或落在墙里就挪到本层第一块空地（否则渲染与寻路都从坏坐标出发）
+    // 站位：越界或落在墙里就挪到本层第一块空地（否则渲染与寻路都从坏坐标出发）。
+    // 判据是「人能站在上面」，不是「这块地是空的」——玩家合法站位不只有 '.'：
+    // 上下楼后脚在楼梯格（u/n）、逛完商店在摊位上（M）、选完祭坛（X）、路遇（?）、
+    // 石座（K）、公主格（T）。早先只认 '.'，于是**在这些格子上存档、下次进来人物被挪到
+    // 本层左上角**（上楼后关掉页面＝几乎必然发生）。实测：站 (8,9) 楼梯存档，读档落到 (1,1)。
     const map = p.maps[p.floor];
+    const STANDABLE = '.unMX?TK@';
     const stand = (x, y) => Number.isInteger(x) && Number.isInteger(y)
-      && x >= 0 && y >= 0 && x < SIZE && y < SIZE && map[y][x] === '.';
+      && x >= 0 && y >= 0 && x < SIZE && y < SIZE && STANDABLE.indexOf(map[y][x]) >= 0;
     if (!stand(p.x, p.y)) {
       let found = false;
       for (let y = 0; y < SIZE && !found; y++) {

@@ -2910,3 +2910,22 @@ body.at-start #bottom { visibility: hidden; }
   .bs-block { margin-top: 6px; }
   .bs-hint { margin-top: 4px; }
 }
+
+/* 按压反馈（焦点 C · 动效一致性）：卡片型可点块（决策二选一 / 立誓四选一 / 祭坛三选一 /
+   路遇选项 / 门钥行 / 榜单档位 / 购买 / 设置行 / 更多货 / 图鉴条目 / 灯具）此前只有 :hover，
+   而小徽记与按钮早就都有 :active——触屏上按下去没有任何回应，且与旁边的小块手感不一样。
+   统一一档：大卡片 .98（视觉位移小、不晃眼），窄条购买 .97；hover 的位移在按下时让位给缩放。 */
+.choice-card:active,
+.vow-card:active,
+.altar-card:active,
+.ev-opt:active,
+.gate-row:active,
+.btab:active,
+.cfg-row:active,
+.shop-more:active,
+.hb-item:active,
+.lamp-btn:active,
+.dlg-tool:active,
+.mem-toggle:active { transform: scale(0.98); }
+
+.shop-item .si-buy:active:not(:disabled) { transform: scale(0.97); }

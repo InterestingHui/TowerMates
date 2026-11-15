@@ -22,12 +22,12 @@ function run(cmd, args) {
   return { code: r.status, out: (r.stdout || '') + (r.stderr || '') };
 }
 
-console.log('== 1/6 地图与数据校验 ==');
+console.log('== 1/7 地图与数据校验 ==');
 const check = run(process.execPath, ['tools/check.js']);
 const okCheck = check.code === 0;
 console.log((okCheck ? '✓' : '✗') + ' check.js' + (okCheck ? '' : '\n' + check.out));
 
-console.log('== 2/6 平衡模拟 ==');
+console.log('== 2/7 平衡模拟 ==');
 const sim = run(process.execPath, ['tools/sim.js']);
 const simLine = sim.out.split('\n').filter((l) => l.includes('总承伤')).pop() || '';
 const okSim = sim.code === 0 && sim.out.includes('通关成功');
@@ -39,29 +39,40 @@ const skipPct = /真实终局[^\n]*（([\d.]+)%）/.exec(skipSim.out || '');
 const okSkip = skipSim.code === 0 && skipSim.out.includes('通关成功') && skipPct && Number(skipPct[1]) >= 70;
 console.log((okSkip ? '✓' : '✗') + ` 避战流 S 档可达 ${skipPct ? skipPct[1] + '%' : '读数失败'}（阈值 ≥70%）`);
 
-console.log('== 3/6 引擎单测 ==');
+console.log('== 3/7 引擎单测 ==');
 const test = run(process.execPath, ['tools/engine-test.js']);
 const passed = (test.out.match(/^✓/gm) || []).length;
 const okTest = test.code === 0;
 console.log((okTest ? '✓' : '✗') + ` engine-test.js ${passed} 项`);
 
-console.log('== 4/6 挑战码与触控单测 ==');
+console.log('== 4/7 挑战码与触控单测 ==');
 const code = run(process.execPath, ['tools/code-test.js']);
 const codePassed = (code.out.match(/(\d+) 项通过/) || [])[1] || 0;
 const okCode = code.code === 0;
 console.log((okCode ? '✓' : '✗') + ` code-test.js ${codePassed} 项` + (okCode ? '' : '\n' + code.out));
 
-console.log('== 5/6 战斗演出分摊单测 ==');
+console.log('== 5/7 战斗演出分摊单测 ==');
 const bsim = run(process.execPath, ['tools/battle-sim-test.js']);
 const bsimPassed = (bsim.out.match(/(\d+) 项通过/) || [])[1] || 0;
 const okBsim = bsim.code === 0;
 console.log((okBsim ? '✓' : '✗') + ` battle-sim-test.js ${bsimPassed} 项` + (okBsim ? '' : '\n' + bsim.out));
 
-console.log('== 6/6 开放数据域榜单单测 ==');
+console.log('== 6/7 开放数据域榜单单测 ==');
 const od = run(process.execPath, ['tools/opendata-test.js']);
 const odPassed = (od.out.match(/(\d+) 项通过/) || [])[1] || 0;
 const okOd = od.code === 0;
 console.log((okOd ? '✓' : '✗') + ` opendata-test.js ${odPassed} 项` + (okOd ? '' : '\n' + od.out));
+
+// 随机操作序列的不变量 fuzz（种子固定 ⇒ 可复现）：走 / 打（四种打法）/ 买 / 祭坛 / 路遇 /
+// 塔心石 / 锁环 / 重来本层 / 存档读档往返，每一步都查一组不变量。设计好的场景测不到的东西靠它。
+console.log('== 7/7 随机操作不变量 fuzz ==');
+const fz = run(process.execPath, ['tools/fuzz.js', '12000', '6']);
+const okFuzz = fz.code === 0;
+const fzDeep = (fz.out.match(/最深第 (\d+) 层/g) || []).map((m) => Number(m.replace(/\D+/g, '')));
+const fzMax = fzDeep.length ? Math.max.apply(null, fzDeep) : 0;
+const fzBad = (fz.out.match(/^✗/gm) || []).length;
+console.log((okFuzz ? '✓' : '✗') + ` fuzz.js 6 种子 × 12000 步 · 最深第 ${fzMax} 层 · 不变量违规 ${fzBad} 类`
+  + (okFuzz ? '' : '\n' + fz.out));
 
 let okShots = true;
 
@@ -808,14 +819,14 @@ if (!process.argv.includes('--no-shot')) {
       const ui = run(process.execPath, ['tools/ui-test.js']);
       const okUi = ui.code === 0;
       console.log((okUi ? '✓' : '✗') + ' ui-test.js' + (okUi ? '' : '\n' + ui.out));
-      const all = okCheck && okSim && okSkip && okTest && okCode && okBsim && okOd && okUi && okProbe && okAds && okIntro && okWxb && okNew && okWx && okSwordGate && okPace && okDaily && okZeal && okFinal && okTangle && okGuard && okThreat && okVp && okVm && okTap && okSfx && okRm && okErr && okSto && okTime && okTab && bad === 0;
-      if (!all) console.log('  闸门明细:', JSON.stringify({ okCheck, okSim, okSkip, okTest, okCode, okBsim, okOd, okUi, okProbe, probeA3, okAds, adsLine, okIntro, introLine, okWxb, wxbLine, okNew, newLine, okWx, okSwordGate, okPace, paceLine, okDaily, dailyLine, okZeal, zealLine, okFinal, finalLine, okTangle, tangleLine, okGuard, guardLine, okThreat, threatLine, okVp, vpLine, okVm, vmLine, okTap, tapLine, okSfx, sfxLine, okRm, rmLine, okErr, errLine, okSto, stoLine, okTime, timeLine, okTab, tabLine, bad }));
+      const all = okFuzz && okCheck && okSim && okSkip && okTest && okCode && okBsim && okOd && okUi && okProbe && okAds && okIntro && okWxb && okNew && okWx && okSwordGate && okPace && okDaily && okZeal && okFinal && okTangle && okGuard && okThreat && okVp && okVm && okTap && okSfx && okRm && okErr && okSto && okTime && okTab && bad === 0;
+      if (!all) console.log('  闸门明细:', JSON.stringify({ okCheck, okSim, okSkip, okTest, okCode, okBsim, okOd, okUi, okProbe, probeA3, okAds, adsLine, okIntro, introLine, okWxb, wxbLine, okNew, newLine, okWx, okSwordGate, okPace, paceLine, okDaily, dailyLine, okZeal, zealLine, okFinal, finalLine, okTangle, tangleLine, okGuard, guardLine, okThreat, threatLine, okVp, vpLine, okVm, vmLine, okTap, tapLine, okSfx, sfxLine, okRm, rmLine, okErr, errLine, okSto, stoLine, okTime, timeLine, okTab, tabLine, okFuzz, fzMax, bad }));
       console.log(all ? '✓ 质量闸门通过' : '✗ 质量闸门有失败项');
       process.exit(all ? 0 : 1);
     })();
     return;
   }
 }
-const okNoShot = okCheck && okSim && okTest && okCode && okBsim && okOd && okWx;
+const okNoShot = okFuzz && okCheck && okSim && okTest && okCode && okBsim && okOd && okWx;
 console.log(okNoShot ? "\n✓ 质量闸门通过" : "\n✗ 有失败项");
 process.exit(okNoShot ? 0 : 1);

@@ -256,6 +256,38 @@ function audit(tag, doc, win) {
     f.remove();
     await wait(250);
   }
+  // 按压反馈口径（焦点 C · 动效一致性）：卡片型可点块必须有一条 :active 规则。
+  // 只有 :hover 的卡片在触屏上按下去毫无回应，而旁边的小徽记早就 scale(.97)——同一屏两种手感。
+  // 这里读的是 CSSOM（规则真的被解析了），不是源码文本；@media 里的规则一并展开。
+  {
+    const f = document.createElement('iframe');
+    f.style.cssText = 'width:430px;height:900px;border:0;display:block';
+    f.src = '/index.html?dev=1';
+    document.getElementById('host').appendChild(f);
+    await wait(1500);
+    const activeSel = [];
+    const seen = new Set();
+    const scan = (rules) => {
+      for (const r of Array.from(rules || [])) {
+        if (r.selectorText) {
+          for (const one of r.selectorText.split(',')) {
+            const s = one.trim();
+            if (s.indexOf(':active') >= 0 && !seen.has(s)) { seen.add(s); activeSel.push(s); }
+          }
+        }
+        if (r.cssRules) scan(r.cssRules);
+      }
+    };
+    try { for (const sh of Array.from(f.contentDocument.styleSheets)) scan(sh.cssRules); } catch (e) { /* 跨域样式表跳过 */ }
+    const NEED = ['.choice-card', '.vow-card', '.altar-card', '.ev-opt', '.gate-row', '.btab',
+      '.cfg-row', '.shop-more', '.hb-item', '.lamp-btn', '.dlg-tool', '.si-buy'];
+    const missing = NEED.filter((sel) => !activeSel.some((s) => s.indexOf(sel + ':active') >= 0));
+    check('按压反馈：12 类卡片都有 :active', missing.length === 0, missing.length ? '缺 ' + missing.join(' ') : '共 ' + activeSel.length + ' 条');
+    check('按压反馈：缩放幅度与既有小块同档', activeSel.some((s) => /\.(choice-card|vow-card|altar-card):active/.test(s)),
+      '大卡片 .98');
+    f.remove();
+  }
+
   const all = bits.every((b) => b === '1');
   out.textContent = detail.join('\n') + '\n' +
     (all ? 'ALLPASS|' : 'HASFAIL|') + bits.join('') + '\n' +

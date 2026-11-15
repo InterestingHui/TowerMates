@@ -2098,6 +2098,38 @@ putSave(off);
 let ps = E.load();
 ok(!!ps && E.tile(ps.x, ps.y) === '.', '坐标越界：落到本层一块空地上');
 
+// 合法站位不只有空地：上下楼脚在楼梯格、逛完商店在摊位上、选完祭坛 / 路遇 / 塔心石同样。
+// 2026-11-16 前这里只认 '.'，于是**在这些格子上存档，下次进来人物被挪到本层左上角**
+// （上楼后关掉页面＝几乎必然发生）。以下逐格实证「读档站位一字不动」。
+{
+  const SPECIAL = { u: '上楼楼梯', n: '下楼楼梯', M: '货摊', X: '祭坛', '?': '路遇', K: '塔心石', T: '公主格' };
+  for (const ch of Object.keys(SPECIAL)) {
+    const base = rawSave();
+    let spot = null;
+    for (let fi = 0; fi < base.maps.length && !spot; fi++) {
+      const g = base.maps[fi];
+      for (let y = 0; y < 11 && !spot; y++) for (let x = 0; x < 11 && !spot; x++) {
+        if (g[y][x] === ch) spot = { fi, x, y };
+      }
+    }
+    if (!spot) { ok(false, `地图里找不到「${ch}」（${SPECIAL[ch]}）格`); continue; }
+    const sv = rawSave();
+    sv.floor = spot.fi; sv.x = spot.x; sv.y = spot.y;
+    putSave(sv);
+    const back2 = E.load();
+    ok(!!back2 && back2.floor === spot.fi && back2.x === spot.x && back2.y === spot.y,
+      `站在${SPECIAL[ch]}格（${spot.x},${spot.y}）存档：读档站位不变`);
+  }
+  // 反面：站在墙上 / 怪身上这种非法站位仍要归一（这条守住「该救的救、该挪的挪」）
+  const onWall = rawSave();
+  let wall = null;
+  for (let y = 0; y < 11 && !wall; y++) for (let x = 0; x < 11 && !wall; x++) if (onWall.maps[0][y][x] === '#') wall = { x, y };
+  onWall.floor = 0; onWall.x = wall.x; onWall.y = wall.y;
+  putSave(onWall);
+  const wb = E.load();
+  ok(!!wb && !(wb.x === wall.x && wb.y === wall.y), '站在墙里这种非法站位：仍被挪到空地');
+}
+
 // 负钥匙 → 0（手改出 -1 把钥匙等于免费开门）
 let neg = rawSave();
 neg.keys = { y: -2, r: -1 };
