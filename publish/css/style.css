@@ -417,17 +417,29 @@ html, body {
   gap: 4px;
 }
 #dpadToggle {
+  position: relative;
   border: 1px solid var(--line-regular);
   background: linear-gradient(180deg, #1b2230, #111726);
   color: #a9b3c7;
   border-radius: 9px;
-  width: 34px;
-  height: 22px;
+  width: 38px;
+  height: 26px;
   font-size: var(--fs-tag);
   cursor: pointer;
   font-family: inherit;
   transition: transform 0.07s, background 0.15s, color 0.15s;
   touch-action: none;
+}
+/* 触控命中区：视觉 38×26 的小箭头，能点到 48×47。
+   只向上、向两侧撑——向下会盖住展开态的上方向键，点「上」变成收起面板；
+   向上再高也没用，#bottom 自己有 overflow 裁切（实测到 -26 就到边了）。 */
+#dpadToggle::after {
+  content: '';
+  position: absolute;
+  left: -5px;
+  right: -5px;
+  top: -21px;
+  bottom: 0;
 }
 #dpadToggle:active { transform: scale(0.93); background: #26303f; color: var(--gold); }
 
@@ -556,6 +568,7 @@ html, body {
 #endOverlay.death-mode .ad-cta { border-color: rgba(174, 184, 198, 0.45); color: #aeb8c6; background: rgba(174, 184, 198, 0.06); }
 
 .icon-btn {
+  position: relative;
   background: rgba(255, 255, 255, 0.055);
   border: 1px solid var(--line-regular);
   border-radius: 8px;
@@ -566,6 +579,16 @@ html, body {
   font-family: inherit;
   line-height: 1.2;
   transition: background 0.15s, transform 0.07s;
+}
+/* 顶栏图标 28×24：三个并排（间距 5px），横向只让 3px 免得两块命中区叠在一起串点，
+   纵向撑到 48px —— 手指的误差主要发生在上下。实测命中区 33×47。 */
+.icon-btn::after {
+  content: '';
+  position: absolute;
+  left: -3px;
+  right: -3px;
+  top: -12px;
+  bottom: -12px;
 }
 .icon-btn:hover { background: rgba(255, 255, 255, 0.1); }
 .icon-btn:active { transform: scale(0.94); }
@@ -726,6 +749,9 @@ html, body {
 .shop-title { font-size: var(--fs-sub); font-weight: 700; }
 .shop-gold { font-size: var(--fs-aux); color: var(--muted); white-space: nowrap; }
 .shop-gold b { color: var(--gold); font-size: var(--fs-body); }
+/* 榜单右上角「成就 N/M」同时是图鉴入口：16px 高的字谁点得中？撑到 32 高，
+   负边距把盒子拉回原位置，视觉一点不动。 */
+#achCount { padding: 10px; margin: -10px; }
 
 .shop-list { display: flex; flex-direction: column; gap: 6px; max-height: 46dvh; overflow-y: auto; }
 .shop-item {
@@ -744,7 +770,8 @@ html, body {
 .shop-item .si-name small strong, .shop-item .si-name small b { color: var(--gold); font-weight: 800; }
 .shop-item .si-price { color: var(--gold); font-size: var(--fs-aux); margin-right: 6px; font-variant-numeric: tabular-nums; }
 .shop-item .si-buy {
-  padding: 5px 11px;
+  min-height: 40px;
+  padding: 8px 12px;
   border-radius: 8px;
   border: 1px solid rgba(232, 196, 106, 0.38);
   background: rgba(232, 196, 106, 0.1);
@@ -861,7 +888,9 @@ html, body {
   word-break: break-all;
   line-height: 1.4;
 }
-.code-hint { font-size: var(--fs-tag); color: #555d6d; line-height: 1.6; margin: 7px 0 0; }
+.code-hint { font-size: var(--fs-tag); color: var(--muted); line-height: 1.6; margin: 7px 0 0; }
+/* 贴码按钮：与商店里的 .si-buy 同一个类，但不在 .shop-item 里，尺寸要单独给 */
+#btnCopyCode, #btnPasteCode { min-height: 34px; padding: 8px 12px; }
 .code-input {
   flex: 1;
   min-width: 0;
@@ -871,9 +900,9 @@ html, body {
   background: transparent;
   border: none;
   outline: none;
-  padding: 2px 0;
+  padding: 11px 0;
 }
-.code-input::placeholder { color: #555d6d; }
+.code-input::placeholder { color: var(--muted); }
 .bd-row.rival .bd-name { color: #9fd8ff; }
 .bd-row.rival { background: rgba(159, 216, 255, 0.06); }
 
@@ -1005,6 +1034,7 @@ html, body {
 .cfg-list { display: flex; flex-direction: column; gap: 6px; }
 .cfg-row {
   display: flex; justify-content: space-between; align-items: center;
+  min-height: 42px;
   padding: 9px 11px;
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -2021,7 +2051,7 @@ body.at-start #bottom { visibility: hidden; }
 }
 .btab {
   flex: 1 0 auto;
-  padding: 4px 9px;
+  padding: 8px 9px;
   border-radius: 20px;
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.03);
