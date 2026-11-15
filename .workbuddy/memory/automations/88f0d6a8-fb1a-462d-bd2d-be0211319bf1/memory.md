@@ -250,3 +250,11 @@
 - 变异三刀全红：去提示条/日志→S4S6；写失败当成功→S2S3S4S6S7S9；首页入口失效→S12S13。
 - **坑（下轮直接用）**：①只在异常设备出现的 UI 必须有 DevGate 后门才测得；②探针判按钮可见别用 `offsetParent`（offscreen iframe + fixed 容器恒 null），用 computed display + rect.width；③同源 iframe 共享存档，第二个 iframe 首页多给「继续游戏」，取可见那个；④python heredoc 写 JS 正则的 `\n` 会变真换行（本轮把 regress.js 写坏一次，`git checkout` 还原后改用 Edit）。
 - 剩余：真人数据（缺人/SDK，但漏斗又补一格 storage）；「线上整仓可读」仍等拍板。
+
+## 2026-11-15 18:1x — 全力模式（时间面收口：用时改活跃时间 + 跨零点文案，1 项 + 死代码）
+- 判定：PROGRESS mtime 71 分钟、工作树仅 `_backup/` → 全力；占用表空、无排队行；最近 5 条含变体（节奏审计）→ 不触发变体。
+- 选活：待办四条全挂外部凭据/用户拍板/真机 → 沿用「把 X 当没量过的外部系统查一遍」，这次查**时间**：①`summary()` 用墙钟差 → 切后台十分钟算进这一局，而榜单同层按用时排（挂机掉名次），系统时间回拨还会为负；②「今日一塔 · M月D日」与「今日」档按渲染那一刻定死，挂过零点写昨天。
+- 产出：`Engine.accrueActive(ms)`（单帧封顶 250）+ `s.activeMs` 落档 + `summary()` 单一出口；主循环每帧喂 delta；`checkDayRollover()` 约每秒对日期键 → 重刷开始页 + 重筛「今日」榜；删 `Daily.msLeft`（零调用点）。commit bd9a19d 已推，线上三文件 md5 与本地一致（curl 校验 accrueActive×2 / ACTIVE_CAP = 250 / checkDayRollover×3 / msLeft 0）。
+- 闸门：check ✓ / engine **531→544** / code 45 / sim 18,745·68.4% 未漂移 / regress 52 图 + 全套自检 / **时间面 19/19**（15 探针 + 4 源码契约）/ 首局节奏 63.1s 未变。
+- **坑（下轮直接用）**：①无头 `--dump-dom` 下 rAF 一帧都不跑（`--virtual-time-budget` 不产 BeginFrame，加 `--screenshot` 也一样），探针量不到主循环 → 接线类断言放 regress 的 Node 侧；②变异测试要连副本跑：`=== E.ACTIVE_CAP` 这种断言跟着实参走，上限被放大也照样绿（本轮已改写死 250）；③`python heredoc` 被安全策略拦，变异注入改用 `node -e` 写文件。
+- 剩余：真人数据（唯一结构缺口）；「线上整仓可读」等用户拍板换 `publish/`；已知边界：页面开着人走开照常计时（刻意）。
