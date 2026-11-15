@@ -78,6 +78,12 @@ async function run() {
       // 幽灵行只要进榜即可（文案随版本演进：名字列显示楼层，分数在行尾）
       out.rivalScore = !!(rival && rival.textContent.indexOf('挑战·朋友') >= 0);
       out.rivalFloor = !!(rival && /9\s*层/.test(rival.textContent));
+      // 同一行同一个数只该出现一次：楼层由「N层」列交代，名字列不再重复
+      var rc = rival ? rival.querySelector('.bd-floor') : null;
+      var rn = rival ? rival.querySelector('.bd-name') : null;
+      out.rivalFloorCell = rc ? rc.textContent.replace(/\s+/g, '') : null;
+      out.rivalNameCell = rn ? rn.textContent.replace(/\s+/g, '') : null;
+      out.rivalNameNoFloor = !!rn && rn.textContent.indexOf('层') < 0;
     }
 
     // 今日一塔：朋友贴进来的码带了今天的日签，才该进「今日」档
@@ -112,6 +118,30 @@ async function run() {
       var atab2 = d.querySelector('#boardTabs .btab[data-f="all"]');
       if (atab2) atab2.click();
     }
+
+    // 榜单誓约档：六条誓约各有一档（此前只覆盖 4 条，苦行 / 无名两档的局在榜上无处可看）
+    var tabIds = [].map.call(d.querySelectorAll('#boardTabs .btab'), function (b) { return b.dataset.f; });
+    out.tabIds = tabIds.join(',');
+    out.tabCount = tabIds.length;
+    var ascCode = w.Challenge.encode({ ending: 'plain', vow: 'ascetic', floor: 7, level: 10, steps: 300, time: 260 });
+    var inp3 = d.getElementById('pasteCode');
+    inp3.value = ascCode;
+    d.getElementById('btnPasteCode').click();
+    var atabA = d.querySelector('#boardTabs .btab[data-f="ascetic"]');
+    out.hasAscTab = !!atabA;
+    if (atabA) atabA.click();
+    var ascRows = d.querySelectorAll('#boardList .bd-row');
+    out.ascRows = ascRows.length;
+    out.ascOnly = ascRows.length === 1 && /7\s*层/.test(ascRows[0].textContent)
+      && /苦/.test(ascRows[0].textContent);
+    var ntab = d.querySelector('#boardTabs .btab[data-f="nameless"]');
+    out.hasNamelessTab = !!ntab;
+    if (ntab) ntab.click();
+    out.namelessRows = d.querySelectorAll('#boardList .bd-row').length;
+    out.namelessEmpty = (d.getElementById('boardList').textContent || '').indexOf('这一档还没有人') >= 0;
+    var atab3 = d.querySelector('#boardTabs .btab[data-f="all"]');
+    if (atab3) atab3.click();
+    out.allRowsAfterVowTabs = d.querySelectorAll('#boardList .bd-row').length;
 
     // 点一次远处的怪物：应自动走到跟前并直接开打，不需要第二次点击
     E.newGame();

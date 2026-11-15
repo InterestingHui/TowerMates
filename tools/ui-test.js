@@ -76,6 +76,15 @@ const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-ui-'));
   ok(out.codeFloor === 9 && out.codeSeal === 'ward' && out.codeGoals === 3 && out.noScore === true, '挑战码还原层数/塔印/塔规，且不含结算分');
   ok(out.pasteMax >= 45, '贴码输入框容得下新码');
   ok(out.rivalFloor === true, '贴码后名录出现朋友的层数');
+  ok(out.rivalFloorCell === '9层' && out.rivalNameNoFloor === true,
+    `朋友行同一个数只说一遍：楼层交给「N层」列（${out.rivalFloorCell}），名字列不再重复（${out.rivalNameCell}）`);
+  ok(out.tabIds === 'all,daily,none,mercy,greed,ascetic,guard,nameless' && out.tabCount === 8,
+    `榜单档位覆盖全部六条誓约 + 全部 / 今日（实测 ${out.tabIds}）`);
+  ok(out.hasAscTab === true && out.ascOnly === true,
+    `「苦行」档只筛出苦行的局（实测 ${out.ascRows} 行）`);
+  ok(out.hasNamelessTab === true && out.namelessRows === 0 && out.namelessEmpty === true,
+    `没走过的誓约档给出「这一档还没有人」而不是空白（实测 ${out.namelessRows} 行）`);
+  ok(out.allRowsAfterVowTabs >= 4, `「全部」档仍列全部行（实测 ${out.allRowsAfterVowTabs} 行）`);
   ok(out.dailyCodeDay === true && out.dailyCodeLen <= 80, '今日一塔的码带日签（v5）且仍在输入框上限内');
   ok(out.dailyRows === 1 && out.dailyRival === true, '朋友贴的今日码进「今日」档（同塔才可比）');
   ok(out.plainDay === true && out.dailyRowsAfterPlain === 1, '没有日签的普通码进不了「今日」档');

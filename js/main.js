@@ -1762,7 +1762,7 @@
   const endName = (e) => (e === 'true' ? '第六个名字' : e === 'plain' ? '铁与霜' : '未竟');
 
   let boardFilter = 'all';
-  const VOW_TABS = [['all', '全部'], ['daily', '今日'], ['none', '不立誓'], ['mercy', '慈悲'], ['greed', '贪婪'], ['guard', '铁壁']];
+  const VOW_TABS = [['all', '全部'], ['daily', '今日'], ['none', '不立誓'], ['mercy', '慈悲'], ['greed', '贪婪'], ['ascetic', '苦行'], ['guard', '铁壁'], ['nameless', '无名']];
 
   function openBoard() {
     const mine = loadBoard().map((x) => Object.assign({ mine: true, vow: x.vow || 'none' }, x));
@@ -1792,7 +1792,9 @@
       : (crushed && boardFilter === 'all' ? '<div class="bd-note">影子勇者都停在前五层。你已经走到他们没到过的地方。</div>' : '');
     $('boardList').innerHTML = (rows.length ? bdNote + rows.slice(0, 10).map((r, i) => {
       const v = D.vows[r.vow] || D.vows.none;
-      const name = r.mine ? '你' : r.rival ? `挑战·朋友 第 ${r.floor} 层` : r.name;
+      // 幽灵行的名字不再带「第 N 层」——同一行的「N层」列就是那个数，写两遍只是噪音；
+      // 多个朋友靠各自的「层 / 步 / 时」三列区分（码里没有昵称，编一个反而更假）
+      const name = r.mine ? '你' : r.rival ? '挑战·朋友' : r.name;
       const note = !r.mine && !r.rival && RIVAL_NOTE[r.name] ? `<i class="bd-rnote">${RIVAL_NOTE[r.name]}</i>` : '';
       return `<div class="bd-row ${r.mine ? 'mine' : ''} ${r.rival ? 'rival' : ''}">
         <span class="bd-rank">${i + 1}</span>

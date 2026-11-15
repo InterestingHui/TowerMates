@@ -2064,7 +2064,10 @@ body.at-start #bottom { visibility: hidden; }
   flex-wrap: wrap;
 }
 .btab {
-  flex: 1 0 auto;
+  /* 六条誓约 + 全部/今日 = 8 档，窄屏必然换行：让它按内容定宽，
+     否则最后一行只剩一格时会被 flex 拉成整行宽（读起来像个提交按钮，不像筛选项） */
+  flex: 0 0 auto;
+  min-width: 44px;   /* 触控口径短边 ≥30 之外，档位横向也留够 44（tap-check 阈值 40，别贴着走） */
   padding: 8px 9px;
   border-radius: 20px;
   border: 1px solid var(--line);
