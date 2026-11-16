@@ -930,5 +930,43 @@ ok(mainSrc.indexOf("searchParams.set('rival'") < 0, 'main.js 不许自己拼链�
     '占位符（—— 通关后生成 —— / —— 未达结局 ——）不许被拼成链接发出去');
 }
 
+// 工匠位次一致性（2026-11-17 叙事加练）：
+// 名墙从左到右＝第 1~5 位（炎魔/墨妖/锤魔/钟妖/碑魔），第六位是烛空着的那个签名位
+// （＝真结局「第六个名字」）。此前三处各说各的：图鉴把墨妖写成「第一位」（与炎魔撞号）、
+// 钟妖/碑魔的章节卡各比名墙晚一位、注释说烛是第四位——玩家读到「第六个名字」时
+// 会把它读成碑魔（第六位工匠）。判据只有一个：同一个锁匠在章节卡 / 图鉴 / 名墙顺序里是同一位。
+{
+  const fs = require('fs'), p = require('path');
+  const storySrc = fs.readFileSync(p.join(__dirname, '..', 'js', 'story.js'), 'utf8');
+  const dataSrc = fs.readFileSync(p.join(__dirname, '..', 'js', 'data.js'), 'utf8');
+  const CN = { 一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6 };
+  const wm = /'(炎魔[^']*?)。五道刻完的名字。'/.exec(storySrc);
+  ok(!!wm, '名墙上「五道刻完的名字」那句还在（位次以它为准，别改成别的说法）');
+  const wall = wm ? wm[1].split('。').filter(Boolean) : [];
+  ok(wall.length === 5, `名墙正好列 5 个名字（实得 ${wall.length}：${wall.join('/')}）`);
+  const cardRank = {};
+  // 用 [^}] 而不是 [\s\S] 圈住同一个对象——否则「炎魔·守炉者」那条（cap 没有位次）
+  // 会一路吃到下一条墨妖的 cap，把墨妖整条吞掉（本轮第一版就是这么假绿的）
+  for (const m of dataSrc.matchAll(/name:\s*'([^']+)'[^}]{0,160}?title:\s*'第([一二三四五六])位工匠/g)) {
+    cardRank[m[1]] = CN[m[2]];
+  }
+  const codexRank = {};
+  for (const m of viewSrc.matchAll(/who:\s*'([^']+)'[^}]{0,80}?cap:\s*'[^']*?第([一二三四五六])位工匠/g)) {
+    codexRank[m[1]] = CN[m[2]];
+  }
+  const alias = { 炎魔: '魔王' }; // 章节卡与图鉴里第一位工匠那格都叫「魔王」
+  for (const n of ['炎魔', '墨妖', '钟妖', '碑魔']) {
+    const rank = wall.indexOf(n) + 1;
+    const key = alias[n] || n;
+    ok(rank > 0, `${n} 在名墙上有名字（空位只有一个，留给烛）`);
+    ok(cardRank[key] === rank, `${n} 的章节卡位次 = 名墙位置 ${rank}（实得 ${cardRank[key]}）`);
+    ok(codexRank[key] === rank, `${n} 的图鉴位次 = 名墙位置 ${rank}（实得 ${codexRank[key]}）`);
+  }
+  ok(new Set(['炎魔', '墨妖', '钟妖', '碑魔'].map((n) => cardRank[alias[n] || n])).size === 4,
+    '四位锁匠的位次互不重复（同一个数写两处就是对不上）');
+  ok(cardRank['碑魔'] !== 6, '无名之锁不是第六位——第六个签名位是烛空着的，否则「第六个名字」会读成碑魔');
+  ok(storySrc.indexOf('烛（第六位工匠') > 0, '注释里烛是第六位工匠（与「第六个名字」同一个位置）');
+}
+
 console.log(`挑战码 / 触控 / 桥接 / 视图模型单测：${pass} 项通过${bad ? `，${bad} 项失败` : ''}`);
 process.exit(bad ? 1 : 0);

@@ -100,7 +100,7 @@ window.GAME_DATA = (function () {
     },
     Y: {
       name: '钟妖', emoji: '🔔', hp: 780, atk: 104, def: 38, gold: 420, exp: 200, boss: true, kind: '锁',
-      title: '第五位工匠 · 时辰之锁', story: 'bossDuo', after: 'afterDuo', chapter: 3,
+      title: '第四位工匠 · 时辰之锁', story: 'bossDuo', after: 'afterDuo', chapter: 3,
       defeat: '钟声停了。整座塔安静得能听见灰尘落下。',
       phases: [
         { at: 0.66, n: 2, title: '第二声 · 钟', text: '钟妖：钟响第二声，镇上就该点灯了。' },
@@ -119,7 +119,7 @@ window.GAME_DATA = (function () {
     },
     U: {
       name: '碑魔', emoji: '🪶', hp: 1330, atk: 150, def: 52, gold: 600, exp: 260, boss: true, kind: '锁',
-      title: '第六位工匠 · 无名之锁', story: 'bossHeng', after: 'afterHeng', chapter: 4, finalBoss: true,
+      title: '第五位工匠 · 无名之锁', story: 'bossHeng', after: 'afterHeng', chapter: 4, finalBoss: true,
       defeat: '刻刀落在桌上。刀刃还是朝着门。',
       phases: [
         { at: 0.66, n: 2, title: '第二刀 · 深', text: '碑魔：刻深一点。八十年就磨平了。' },

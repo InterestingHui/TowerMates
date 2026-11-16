@@ -495,7 +495,7 @@
         await wait(260);
         const dlB = d.getElementById('dialogOverlay');
         for (let i = 0; i < 8; i++) { dlB.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
-        T.showBossIntro({ boss: true, name: '墨妖', title: '第一位工匠 · 名册之锁', chapter: 1 }, 2, null, true);
+        T.showBossIntro({ boss: true, name: '墨妖', title: '第二位工匠 · 名册之锁', chapter: 1 }, 2, null, true);
         await wait(700);
       } else if (scene === 'cfg') {
         d.getElementById('btnNew').click();
