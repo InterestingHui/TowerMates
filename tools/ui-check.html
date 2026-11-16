@@ -169,6 +169,39 @@ async function run() {
       out.rivalNoCodeBtn = linkBtn.textContent.indexOf('还没码') >= 0;
     }
 
+    // 结算页的分享出口（2026-11-17 社交加练补）：刚通关是全游戏最想「告诉别人」的那一刻，
+    // 码就摆在屏幕上，此前却没有搬走的办法——想复制得先点「榜单」进浮层，而那两颗复制的是
+    // 「历史最好一局」，未必是眼前这串。这一段量「那颗按钮真的把屏幕上这串码送出去了」。
+    var endOv = d.getElementById('endOverlay');
+    var endCodeEl = d.getElementById('endCode');
+    var endBtn = d.getElementById('btnEndShare');
+    out.endActsInDom = !!endBtn;
+    if (endBtn && endCodeEl && endOv) {
+      var wasCls = endOv.className.replace(/\bshow\b/g, '').trim();
+      endOv.classList.remove('death-mode');
+      endOv.classList.add('show');
+      endCodeEl.textContent = code;
+      var actsEl = d.querySelector('#endOverlay .code-acts');
+      out.endActsShown = actsEl ? w.getComputedStyle(actsEl).display !== 'none' : false;
+      var er = endBtn.getBoundingClientRect();
+      out.endBtnSize = Math.round(er.width) + 'x' + Math.round(er.height);
+      copied = null;
+      endBtn.click();
+      await new Promise(function (r) { setTimeout(r, 20); });
+      out.endLinkHasCode = !!copied && copied.indexOf('rival=' + code) > 0;
+      out.endBtnDone = endBtn.textContent.indexOf('已复制') >= 0;
+      // 死亡局没有码：整块藏起来，不能摆一颗点了只会说「先打完一局」的死按钮
+      endOv.classList.add('death-mode');
+      endCodeEl.textContent = '—— 未达结局 ——';
+      out.endActsDeadHidden = actsEl ? w.getComputedStyle(actsEl).display === 'none' : false;
+      copied = null;
+      endBtn.click();
+      await new Promise(function (r) { setTimeout(r, 20); });
+      out.endDeadNoCopy = copied;
+      endOv.className = wasCls;
+      endCodeEl.textContent = '——';
+    }
+
     // 落地链路真跑一遍：另起一个 iframe 带着 ?rival=<码> 开门，看它会不会自己收下、
     // 以及会不会把参数留在地址栏（留着的话刷新一次就重复收一次、提示也重复弹）。
     var landCode = w.Challenge.encode({

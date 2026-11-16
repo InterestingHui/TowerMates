@@ -291,6 +291,25 @@ function measurePanel(frame, sel) {
           const goalCut = clipOf(goalRows);
           check(tag + ' 下一局目标整句可见', goalRows.length >= 1 && goalCut.length === 0,
             goalRows.length + ' 条' + (goalCut.length ? ' · 裁切：' + cutTxt(goalCut) : ''));
+          // 2026-11-17 新加的分享出口（「把这一局发给朋友」）。结算页是内滚长屏，
+          // 码本身就在最底下（玩家要滚过整份账才看到自己的码），所以按钮跟码一起在底部是**对的**——
+          // 要守的不是「首屏可见」，而是①按钮够宽（不被挤成窄条）②滚到底时不被
+          // sticky 钉底的「再来一局」盖住（盖住就是一颗点不动的按钮）。
+          const es0 = m.btns.find((b) => b.id === 'btnEndShare');
+          check(tag + ' 分享出口在、且够宽',
+            !!es0 && es0.w >= 100,
+            es0 ? es0.w + 'x' + es0.h : '缺按钮');
+          {
+            const pane = d.querySelector('#endOverlay .end-panel');
+            if (pane) pane.scrollTop = pane.scrollHeight;
+            await wait(90);
+            const m2 = measurePanel(f, '#endOverlay .end-panel');
+            const es1 = m2 && m2.btns.find((b) => b.id === 'btnEndShare');
+            const ag1 = m2 && m2.btns.find((b) => b.id === 'btnAgain');
+            check(tag + ' 滚到底时分享按钮在可视区内、不被「再来一局」盖住',
+              !!es1 && !!ag1 && es1.top >= m2.r.top - 1 && es1.bottom <= ag1.top + 1,
+              es1 && ag1 ? es1.top + '–' + es1.bottom + ' ≤ 再来一局 ' + ag1.top : '缺按钮');
+          }
         }
       }
     } catch (e) {

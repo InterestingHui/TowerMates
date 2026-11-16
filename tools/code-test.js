@@ -916,6 +916,18 @@ ok(mainSrc.indexOf("searchParams.set('rival'") < 0, 'main.js 不许自己拼链�
       '复制这条路至少四条出口都动了按钮（没码 / 占位符 / 已复制 / 已选中 / 失败）');
   }
   ok(cssSrc.indexOf('#btnCopyLink.done') >= 0, '「已复制」这个状态有自己的样式（金框亮一档）');
+  // 结算页的分享出口（2026-11-17 社交加练）：刚通关是全游戏最想告诉别人的一刻，
+  // 码就摆在屏幕上却没有搬走的办法——要复制得先进榜单，而那两颗复制的是「历史最好一局」。
+  // 四条一起守：元素在 / 走同一条出口 / 有外观（si-buy 的规则在别处作用域）/ 死亡局藏起来。
+  ok(htmlSrc.indexOf('id="btnEndShare"') > 0, '结算页有「把这一局发给朋友」一颗出口');
+  ok(mainSrc.indexOf("copyLinkOf($('endCode')") > 0,
+    '结算页那颗走的是与榜单同一条拼链接出口（不是又手写一份读码 + 拼链接）');
+  ok(cssSrc.indexOf('#btnEndShare') > 0 && cssSrc.indexOf('#btnEndShare.done') >= 0,
+    '结算页按钮有自己的外观与「已复制」态（不许落回 UA 默认白砖）');
+  ok(cssSrc.indexOf('.death-mode .code-acts') > 0,
+    '死亡局没有码：整块在 death-mode 下藏起来（不摆点了只会说「先打完一局」的死按钮）');
+  ok(mainSrc.indexOf("if (raw.indexOf('——') === 0)") > 0,
+    '占位符（—— 通关后生成 —— / —— 未达结局 ——）不许被拼成链接发出去');
 }
 
 console.log(`挑战码 / 触控 / 桥接 / 视图模型单测：${pass} 项通过${bad ? `，${bad} 项失败` : ''}`);

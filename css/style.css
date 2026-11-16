@@ -902,11 +902,15 @@ html, body {
 /* 复制码 / 复制链接并排一行，各占一半：挑战码有 50 多个字符，挤在同一行会把码压成四五折 */
 .code-acts { display: flex; gap: 8px; margin-top: 8px; }
 .code-acts > button { flex: 1; }
+/* 死亡局没有码（`#endCode` 是「—— 未达结局 ——」）：整对按钮跟着藏起来，
+   别摆一颗点了只会说「先打完一局才有挑战码」的死按钮。用 .death-mode 而不是 hidden 属性——
+   面板的高度是紧的，少一行就是少一行。 */
+#endOverlay.death-mode .code-acts { display: none; }
 /* 贴码按钮：与商店里的 .si-buy 同一个类，但不在 .shop-item 里，尺寸要单独给。
    2026-11-16：原先只补了尺寸，金框金字的规则是 `.shop-item .si-buy` 作用域内的，于是这两颗
    落回浏览器默认外观（浅灰底 + 黑字，深色面板里就是两块白砖）——contast-check 的
    「表单控件不许落回 UA 默认」那条抓出来的。把外观补全，跟商店同款。 */
-#btnCopyCode, #btnPasteCode, #btnCopyLink {
+#btnCopyCode, #btnPasteCode, #btnCopyLink, #btnEndShare {
   min-height: 36px;
   padding: 8px 12px;
   border-radius: 8px;
@@ -918,11 +922,14 @@ html, body {
   cursor: pointer;
   transition: background 0.15s;
 }
-#btnCopyCode:hover, #btnPasteCode:hover, #btnCopyLink:hover { background: rgba(232, 196, 106, 0.2); }
-#btnCopyCode:active, #btnPasteCode:active, #btnCopyLink:active { transform: scale(0.97); }
+#btnCopyCode:hover, #btnPasteCode:hover, #btnCopyLink:hover,
+#btnEndShare:hover { background: rgba(232, 196, 106, 0.2); }
+#btnCopyCode:active, #btnPasteCode:active, #btnCopyLink:active,
+#btnEndShare:active { transform: scale(0.97); }
 /* 复制这类「点一下就完事」的按钮，反馈落在按钮自己身上：换字 + 金框亮一档，1.4 秒后回原文案。
    日志区在整屏浮层下面看不见（2026-11-17 焦点A），所以成功/失败都必须在这里看得出来。 */
-#btnCopyCode.done, #btnPasteCode.done, #btnCopyLink.done {
+#btnCopyCode.done, #btnPasteCode.done, #btnCopyLink.done,
+#btnEndShare.done {
   background: rgba(232, 196, 106, 0.26);
   border-color: rgba(232, 196, 106, 0.62);
   color: #fff3d0;

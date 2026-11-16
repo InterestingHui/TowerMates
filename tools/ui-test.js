@@ -112,6 +112,14 @@ const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-ui-'));
     `冲参数只去 rival，sharecode 与 hash 一个不动（实测「${out.rivalStrip}」）`);
   ok(out.rivalNoCodeCopied === null && String(out.rivalNoCodePill).indexOf('先打完一局') >= 0 && out.rivalNoCodeBtn === true,
     `还没通关时不拼垃圾链接，提示条 + 按钮都说清原因（复制到「${out.rivalNoCodeCopied}」/ 提示「${out.rivalNoCodePill}」）`);
+  // 结算页的分享出口：刚通关那一刻码就在屏幕上，搬不走等于没有
+  ok(out.endActsInDom === true, '结算页有「把这一局发给朋友」一颗出口');
+  ok(out.endActsShown === true && /^\d+x\d+$/.test(out.endBtnSize || ''),
+    `胜利局面板里它真的看得见、有尺寸（实测 ${out.endBtnSize}）`);
+  ok(out.endLinkHasCode === true && out.endBtnDone === true,
+    '复制出去的是**屏幕上这串码**拼的链接（不是榜单里「历史最好一局」那份），按钮就地换字');
+  ok(out.endActsDeadHidden === true && out.endDeadNoCopy === null,
+    '死亡局没有码：整块藏起来，也不拼垃圾链接');
   ok(out.clickTarget !== null && out.clickDist >= 2, '找到一只不相邻的怪物作点击目标');
   ok(out.clickKills === 1, '只点一次怪物就自动走到跟前并完成战斗');
   ok(out.clickCleared === true && out.clickOnTile === true, '战斗后怪物消失、人物站上它的格子');
