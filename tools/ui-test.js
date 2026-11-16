@@ -85,6 +85,10 @@ const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-ui-'));
   ok(out.hasNamelessTab === true && out.namelessRows === 0 && out.namelessEmpty === true,
     `没走过的誓约档给出「这一档还没有人」而不是空白（实测 ${out.namelessRows} 行）`);
   ok(out.allRowsAfterVowTabs >= 4, `「全部」档仍列全部行（实测 ${out.allRowsAfterVowTabs} 行）`);
+  // 自己贴自己的码：这条判据原先按「重编码比字符串」写（誓约写死成 none），誓约不是 none 时会漏
+  ok(out.selfWarn.indexOf('自己') >= 0, `贴自己的码 → 明说这是自己的成绩（实测「${out.selfWarn}」）`);
+  ok(out.selfBoardRows === 1 && out.selfRivalRows === 0,
+    `自己的成绩不会变成「挑战·朋友」行（名录行 ${out.selfBoardRows} / 幽灵行 ${out.selfRivalRows}）`);
   ok(out.dailyCodeDay === true && out.dailyCodeLen <= 80, '今日一塔的码带日签（v5）且仍在输入框上限内');
   ok(out.dailyRows === 1 && out.dailyRival === true, '朋友贴的今日码进「今日」档（同塔才可比）');
   ok(out.plainDay === true && out.dailyRowsAfterPlain === 1, '没有日签的普通码进不了「今日」档');

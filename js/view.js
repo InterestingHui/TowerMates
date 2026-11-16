@@ -22,6 +22,23 @@
   }
   const fmtTime = (t) => (t >= 60 ? `${Math.floor(t / 60)}分${t % 60}秒` : `${t}秒`);
   const endName = (e) => (e === 'true' ? '第六个名字' : e === 'plain' ? '铁与霜' : '未竟');
+  // 「这一局是不是我自己打的」：贴码时用来挡自己的码。
+  // 2026-11-16 之前主代码是**重新编码再比字符串**（`encodeChallenge(Object.assign({vow:'none'}, 我的最好一局))`），
+  // 只跟「名录里排第一的那一局」比 —— 于是贴自己**别的**那一局（刚打完那局往往不是最好的那局）的码，
+  // 会被当成朋友进榜：自己刷自己的榜，还多出一条同名的「挑战·朋友」。
+  // 现在按码里带的字段逐项比：誓约 / 层 / 级 / 步 / 时 / 塔印 / 回响 / 余裕 / 日签 / 结局，全部相同才算同一局。
+  const RUN_KEYS = ['vow', 'floor', 'level', 'steps', 'time', 'seal', 'goals', 'margin', 'daily', 'ending'];
+  function sameRun(a, b) {
+    if (!a || !b) return false;
+    return RUN_KEYS.every((k) => {
+      const va = k === 'vow' ? (a[k] || 'none') : (k === 'goals' ? Number(a[k] || 0) : (a[k] == null ? '' : String(a[k])));
+      const vb = k === 'vow' ? (b[k] || 'none') : (k === 'goals' ? Number(b[k] || 0) : (b[k] == null ? '' : String(b[k])));
+      return va === vb;
+    });
+  }
+  function isMine(rec, mine) {
+    return (mine || []).some((r) => sameRun(r, rec));
+  }
 
   // 档位按誓约难度序排（不立誓 → 慈悲 → 贪婪 → 苦行 → 铁壁 → 无名）；
   // 这张表是全集合的唯一来源——加一条誓约必须同时加一档，否则那批局只能淹在「全部」里
@@ -865,7 +882,7 @@
     altarModel, echoModel, eventModel, shortfallText,
     endScoreModel, emberDetailModel, winBrief, deathBrief, briefModel,
     sealOf, nextSealHint, sealTarget, emberModel,
-    cmpBoard, fmtTime, endName, marginRank,
+    cmpBoard, fmtTime, endName, marginRank, sameRun, isMine, RUN_KEYS,
     deathStatsModel, winStatsModel, memModel, floorNo, migrateFloors,
     foeName, threatModel, blockModel, guardModel, tangleModel,
     hintPicked, HINT_PICK, HINT_AUTO,

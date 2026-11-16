@@ -90,6 +90,165 @@
   const SUBSEED_F2 = 0x5BF03635, SUBSEED_F3 = 0x1B56C4E9;
   function subSeed(base, x) { const v = (base ^ x) | 0; return v === 0 ? 1 : v; }
 
+  // ---------- 支路开合（打 S-D1 的另一半：「第 2 局要想什么」）----------
+  // 2026-11-16 结构层诊断量出来的账：前 3 层 363 格里每局只变 9 格（2.5%），且 9 格全是拾取物；
+  // 9 个怪格、5 个钥匙格、门/楼梯/商店/祭坛/路遇逐格不动 —— 于是第二局头 8 分钟的
+  // 「往左还是往右 / 先打哪只 / 这门开不开」答案与上一局完全一致，变化只落在「捡什么」上。
+  // 这里每层再动两格：开一条短路（'#' → '.'）、封一条冗余通道（'.' → '#'）。
+  // 怪 / 门 / 钥匙 / 楼梯 / 商店 / 祭坛 / 路遇 / 拾取物 一律不动，总量与数值零改动。
+  // 两条守卫：①开只「增」可走格，必定不会困人；②封之前做一次全图可达性比对——
+  // 原本能到的格除了它自己必须都还能到，少一格就退回。宁可这一层不变，不许把人拦在宝箱外面。
+  // 种子 0 = 原版布局（与 shufflePickups 同一约定，工具要可复现读数时用它）。
+  const SUBSEED_A1 = 0x2F9C4B17, SUBSEED_A2 = 0x7A3D91E5, SUBSEED_A3 = 0x4C6E28D3;
+  const DIRS4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  function passableAt(map, x, y) {
+    if (x < 0 || y < 0 || x >= SIZE || y >= SIZE) return false;
+    return map[y][x] !== '#';
+  }
+  // 连通性比对的起点：@ → u / n → 第一块可走格。
+  // 「可走」= 不是墙：门要钥匙、怪要打，但两者都迟早能过，这是「走得到」而不是「现在走得过」。
+  function entryOf(map) {
+    for (let y = 0; y < SIZE; y++) for (let x = 0; x < SIZE; x++) if (map[y][x] === '@') return { x: x, y: y };
+    for (let y = 0; y < SIZE; y++) {
+      for (let x = 0; x < SIZE; x++) { const ch = map[y][x]; if (ch === 'u' || ch === 'n') return { x: x, y: y }; }
+    }
+    for (let y = 0; y < SIZE; y++) for (let x = 0; x < SIZE; x++) if (map[y][x] !== '#') return { x: x, y: y };
+    return null;
+  }
+  function reachSet(map, root) {
+    const seen = new Set();
+    if (!root) return seen;
+    const q = [root];
+    seen.add(root.x + ',' + root.y);
+    while (q.length) {
+      const c = q.pop();
+      for (let i = 0; i < DIRS4.length; i++) {
+        const x = c.x + DIRS4[i][0], y = c.y + DIRS4[i][1];
+        if (!passableAt(map, x, y)) continue;
+        const k = x + ',' + y;
+        if (seen.has(k)) continue;
+        seen.add(k);
+        q.push({ x: x, y: y });
+      }
+    }
+    return seen;
+  }
+  // 最短路（可走格 = 非墙；怪与门都算能过——这里算的是「路怎么走」，不是「现在走不走得过去」）
+  function bfsPath(map, from, to) {
+    if (!from || !to) return null;
+    const prev = new Map();
+    const q = [from];
+    const seen = new Set([from.x + ',' + from.y]);
+    while (q.length) {
+      const c = q.shift();
+      if (c.x === to.x && c.y === to.y) {
+        const out = [];
+        let k = c.x + ',' + c.y;
+        while (k) {
+          const p = k.split(',');
+          out.push({ x: +p[0], y: +p[1] });
+          k = prev.get(k) || null;
+        }
+        return out.reverse();
+      }
+      for (let i = 0; i < DIRS4.length; i++) {
+        const x = c.x + DIRS4[i][0], y = c.y + DIRS4[i][1];
+        if (!passableAt(map, x, y)) continue;
+        const k = x + ',' + y;
+        if (seen.has(k)) continue;
+        seen.add(k);
+        prev.set(k, c.x + ',' + c.y);
+        q.push({ x: x, y: y });
+      }
+    }
+    return null;
+  }
+  // 这一层的「上楼口」：楼梯 u / n（前 3 层都有）；拿不到就放弃开合
+  function exitOf(map, from) {
+    const out = [];
+    for (let y = 0; y < SIZE; y++) {
+      for (let x = 0; x < SIZE; x++) {
+        const ch = map[y][x];
+        if (ch !== 'u' && ch !== 'n') continue;
+        if (from && from.x === x && from.y === y) continue;
+        out.push({ x: x, y: y });
+      }
+    }
+    return out;
+  }
+  // 每层动两格：先开一条「真捷径」，再封掉原来那条必经路 —— 逼玩家重新算路线。
+  // 为什么不是「随便开一条、随便封一条」：2026-11-16 实测，只随机开路时 12 颗种子的
+  // @→楼梯 最短路全是 11 步、路上 1 只怪（一模一样）——玩家照旧走最短那条，等于没变。
+  // 所以封的那一格**必须来自原来那条最短路**：开的新路保证「还到得了」，封的旧路保证「得重算」。
+  // 怪 / 门 / 钥匙 / 楼梯 / 商店 / 祭坛 / 路遇 / 拾取物 一律不动，数值与总量零改动。
+  // 守卫：封之前做全图可达性比对——原本能到的格除了它自己必须都还能到，少一格就退回。
+  // 种子 0 = 原版布局（与 shufflePickups 同一约定，工具要可复现读数时用它）。
+  function altRoutes(map, seed) {
+    if (!seed || !map) return null;
+    let sx = -9, sy = -9;
+    for (let y = 0; y < SIZE; y++) for (let x = 0; x < SIZE; x++) if (map[y][x] === '@') { sx = x; sy = y; }
+    // 起点 3×3 不动：开局 60 秒（教练卡 → 首战）的节奏不跟着变
+    const nearStart = (x, y) => Math.abs(x - sx) <= 1 && Math.abs(y - sy) <= 1;
+    const rnd = mulberry32(seed);
+    const root = entryOf(map);
+    const exits = exitOf(map, root);
+    if (!root || !exits.length) return null;
+    // 原来那条最短路（第 1 层 = 起点→楼梯；之后进层的脚也在楼梯上，取另一头的楼梯当目标）
+    const goal = exits[0];
+    const basePath = bfsPath(map, root, goal) || [];
+    // 可封的格：原来那条最短路上的空地（不含起点 / 上楼口 / 起点 3×3）
+    const pathCells = basePath.slice(1, -1).filter((c) => map[c.y][c.x] === '.' && !nearStart(c.x, c.y));
+    if (!pathCells.length) return null;
+    // ① 候选「捷径」：一格薄墙，左右或上下两侧都可走（开只增连通，不会把谁关在外面）
+    const openCand = [];
+    for (let y = 1; y < SIZE - 1; y++) {
+      for (let x = 1; x < SIZE - 1; x++) {
+        if (map[y][x] !== '#' || nearStart(x, y)) continue;
+        const h = passableAt(map, x - 1, y) && passableAt(map, x + 1, y);
+        const v = passableAt(map, x, y - 1) && passableAt(map, x, y + 1);
+        if (h || v) openCand.push([x, y]);
+      }
+    }
+    const shuffle = (arr) => {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = (rnd() * (i + 1)) | 0;
+        const t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+      }
+      return arr;
+    };
+    shuffle(openCand);
+    shuffle(pathCells);
+    const before = reachSet(map, root);
+    let open = null, close = null;
+    const openTries = Math.min(openCand.length, 8);
+    for (let i = 0; i < openTries && !close; i++) {
+      const o = openCand[i];
+      map[o[1]][o[0]] = '.';
+      for (let j = 0; j < pathCells.length; j++) {
+        const p = pathCells[j];
+        map[p.y][p.x] = '#';
+        const after = reachSet(map, root);
+        let okAll = after.size === before.size; // 开了一格、封了一格 → 数量应当持平
+        if (okAll) {
+          for (const k of before) {
+            if (k === p.x + ',' + p.y) continue;
+            if (!after.has(k)) { okAll = false; break; }
+          }
+        }
+        if (okAll) { open = { x: o[0], y: o[1] }; close = { x: p.x, y: p.y }; break; }
+        map[p.y][p.x] = '.';
+      }
+      if (!open) map[o[1]][o[0]] = '#';
+    }
+    // 没有「开 + 封」的成对解法时退回只开（看得见的变化总比一层不变强），再不行就整层不动
+    if (!open && openCand.length) {
+      const o = openCand[0];
+      map[o[1]][o[0]] = '.';
+      open = { x: o[0], y: o[1] };
+    }
+    return { open: open, close: close };
+  }
+
   function newGame(vow, opts) {
     const v = D.vows[vow] ? vow : 'none';
     const mapSeed = opts && typeof opts.seed === 'number' ? opts.seed : (Math.random() * 1e9) | 0;
@@ -126,6 +285,13 @@
     shufflePickups(s.maps[0], mapSeed);
     shufflePickups(s.maps[1], subSeed(mapSeed, SUBSEED_F2));
     shufflePickups(s.maps[2], subSeed(mapSeed, SUBSEED_F3));
+    // 支路开合：同一颗种子各派生一条独立随机流（与拾取物换位互不牵制）。
+    // 种子 0 必须整段跳过——subSeed(0, x) 会退化成一个非零常数，写在这里就再也拿不回原图。
+    if (mapSeed) {
+      altRoutes(s.maps[0], subSeed(mapSeed, SUBSEED_A1));
+      altRoutes(s.maps[1], subSeed(mapSeed, SUBSEED_A2));
+      altRoutes(s.maps[2], subSeed(mapSeed, SUBSEED_A3));
+    }
     
     const map = s.maps[0];
     outer: for (let y = 0; y < SIZE; y++) {
@@ -1870,7 +2036,7 @@
   }
 
   window.Engine = {
-    setHooks, newGame, load, reset, hasSave, brokenSave, brokenSaveOnDisk, save, storageError: () => storageErr, setStorageFailHook: (fn) => { storageFailCb = fn || null; }, state, tile, predict, predictOpt, shuffleFloor1, shufflePickups, nextRand,
+    setHooks, newGame, load, reset, hasSave, brokenSave, brokenSaveOnDisk, save, storageError: () => storageErr, setStorageFailHook: (fn) => { storageFailCb = fn || null; }, state, tile, predict, predictOpt, shuffleFloor1, shufflePickups, altRoutes, reachSet, entryOf, bfsPath, nextRand,
     tabId, claim, noteStorageWrite, foreignOwnerFresh, saveConflict: () => saveConflict, setConflictHook: (fn) => { conflictCb = fn || null; }, saveKey: SAVE_KEY,
     predictAt(dx, dy) {
       if (!s) return null;

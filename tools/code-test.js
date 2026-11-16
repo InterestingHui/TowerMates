@@ -811,5 +811,31 @@ ok(mainSrc.indexOf('点开看大图') < 0 && mainSrc.indexOf('尚未相遇') < 0
 ok(mainSrc.indexOf('maxHp * 0.25') < 0, '承伤标红的 1/4 阈值只在 view.js（两处各写一份就会各说各话）');
 ok(mainSrc.indexOf('守灯人 · 塔里唯一还肯说话的人') < 0, '人物表只在 view.js 定义（main.js 不再有第二份）');
 
+// ---------- 「这是不是我自己那局」：贴码时挡自己的成绩（2026-11-16 社交面收口）----------
+// 旧实现是「把名录排第一的那一局重编成码，跟贴进来的字符串比」：只比一局，于是贴自己**别的**那一局
+// （刚打完那局常常不是最好的那局）的码会被当成朋友进榜——自己刷自己的榜，还多一条同名的「挑战·朋友」。
+{
+  const mine = [
+    { ending: 'plain', vow: 'mercy', floor: 5, level: 6, steps: 460, time: 1220, seal: 'ward', goals: 1, margin: 'B', daily: '' },
+    { ending: 'true', vow: 'none', floor: 12, level: 18, steps: 900, time: 2600, seal: 'clear', goals: 4, margin: 'S', daily: '2026-11-16' },
+  ];
+  const sameAsMine = Object.assign({}, mine[0]);
+  ok(V.sameRun(mine[0], sameAsMine), '同一局（逐字段一致）判为同一局');
+  ok(V.isMine(sameAsMine, mine), '贴自己的码 → 认得出是自己');
+  ok(V.isMine(Object.assign({}, mine[1]), mine), '不是「排第一那一局」的自己的另一局，同样认得出来');
+  ok(!V.sameRun(mine[0], Object.assign({}, mine[0], { time: 1221 })), '用时差 1 秒就不是同一局');
+  ok(!V.sameRun(mine[0], Object.assign({}, mine[0], { vow: 'greed' })), '誓约不同不是同一局');
+  ok(!V.sameRun(mine[0], Object.assign({}, mine[0], { daily: '2026-11-15' })), '日签不同不是同一局');
+  ok(!V.sameRun(mine[0], Object.assign({}, mine[0], { goals: 2 })), '回响章数不同不是同一局');
+  ok(!V.isMine({ ending: 'plain', vow: 'mercy', floor: 5, level: 6, steps: 461, time: 1220, seal: 'ward', goals: 1, margin: 'B', daily: '' }, mine),
+    '朋友那局只差一步 → 不是自己');
+  ok(!V.isMine(sameAsMine, []) && !V.isMine(sameAsMine, null), '还没打过任何一局时不会误判（空名录 / 无名录）');
+  ok(V.sameRun({ floor: 3 }, { floor: 3, margin: undefined, daily: undefined }), '老名录缺 margin / daily 字段时不误判成别人');
+  ok(!V.sameRun(null, mine[0]) && !V.sameRun(mine[0], undefined), '空入参不崩');
+}
+// 源码契约：主代码不许再自己拼一份「我的码」
+ok(mainSrc.indexOf("Object.assign({ vow: 'none' }, loadBoard()[0])") < 0, '「这是不是我的码」不许重编码比字符串（誓约会漏）');
+ok(mainSrc.indexOf('View.isMine') >= 0, '贴码时的自我识别走 view.js');
+
 console.log(`挑战码 / 触控 / 桥接 / 视图模型单测：${pass} 项通过${bad ? `，${bad} 项失败` : ''}`);
 process.exit(bad ? 1 : 0);

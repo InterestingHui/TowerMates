@@ -1826,8 +1826,9 @@
     if (!code) { warn('先贴进一个挑战码'); return; }
     const rec = decodeChallenge(code);
     if (!rec) { warn('这个码读不出来——让朋友复制完整的挑战码'); return; }
-    const myCode = loadBoard().length ? encodeChallenge(Object.assign({ vow: 'none' }, loadBoard()[0])) : '';
-    if (code === myCode) { warn('这是你自己的码'); return; }
+    // 「是不是我自己那一局」按码里的字段比，不重新编码比字符串——旧写法只跟「名录排第一的那一局」比，
+    // 贴自己另一局（刚打完那局通常不是最好的那局）的码会被当成朋友进榜。规则在 view.js，单测在 code-test。
+    if (View.isMine(rec, loadBoard())) { warn('这是你自己打的成绩'); return; }
     const dup = loadRivals().some((x) => x.code === code);
     saveRival(code, rec);
     input.value = '';

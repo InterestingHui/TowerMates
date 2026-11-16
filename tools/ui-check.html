@@ -119,6 +119,32 @@ async function run() {
       if (atab2) atab2.click();
     }
 
+    // 自己贴自己的码：不许当朋友进榜。
+    // 贴的必须是「自己另一局」而不是名录第一局——旧实现只跟第一局比字符串，拿第一局测会假绿。
+    var selfCode = w.Challenge.encode({
+      ending: 'plain', vow: 'greed', floor: 11, level: 15, steps: 700, time: 900,
+      seal: 'name', goals: 2, margin: 'A',
+    });
+    w.localStorage.setItem('towermates_board', JSON.stringify([
+      { ending: 'true', vow: 'none', floor: 12, level: 18, steps: 1500, time: 3000, seal: 'clear', goals: 4, margin: 'S', daily: '' },
+      { ending: 'plain', vow: 'greed', floor: 11, level: 15, steps: 700, time: 900, seal: 'name', goals: 2, margin: 'A', daily: '' },
+    ]));
+    // 榜单要先按新名录重画一次，否则量到的是上一帧的 DOM（贴自己的码会被拒，界面不再重绘）
+    var allTabX = d.querySelector('#boardTabs .btab[data-f="all"]');
+    if (allTabX) allTabX.click();
+    await new Promise(function (r) { setTimeout(r, 100); });
+    var inp4 = d.getElementById('pasteCode');
+    inp4.value = selfCode;
+    d.getElementById('btnPasteCode').click();
+    var warnNow = d.getElementById('warnPill');
+    out.selfWarn = warnNow ? warnNow.textContent.replace(/\s+/g, '') : '';
+    var selfRows = [].filter.call(d.querySelectorAll('#boardList .bd-row'), function (r) {
+      return /11\s*层/.test(r.textContent);
+    });
+    out.selfBoardRows = selfRows.length;
+    out.selfRivalRows = selfRows.filter(function (r) { return r.classList.contains('rival'); }).length;
+    out.selfPasteCleared = inp4.value === '';
+
     // 榜单誓约档：六条誓约各有一档（此前只覆盖 4 条，苦行 / 无名两档的局在榜上无处可看）
     var tabIds = [].map.call(d.querySelectorAll('#boardTabs .btab'), function (b) { return b.dataset.f; });
     out.tabIds = tabIds.join(',');
@@ -412,7 +438,9 @@ async function run() {
     await new Promise(function (r) { setTimeout(r, 120); });
 
     // 第 3 层关键通道：商店不再焊在「打墨妖 → 上楼」的唯一立足格上
-    E.newGame();
+    // 2026-11-16 起前 3 层会「支路开合」（墙与空地各动一格），这条探针盯的是固定坐标，
+    // 必须用种子 0 要回原版布局——否则随机那局把 (5,6) 封成墙就成了假红。
+    E.newGame(null, { seed: 0 });
     var s5 = E.state();
     s5.floor = 2; s5.x = 5; s5.y = 9;
     out.f3Ledge = E.tile(5, 6);
