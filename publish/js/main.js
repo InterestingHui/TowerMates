@@ -2469,29 +2469,30 @@
     $('endDesc').textContent = `你倒在了${monster ? monster.name : '塔里'}的手里。塔把这一局的余烬收进墙上，等下一个人。`;
     $('endBody').textContent = '';
     $('endEpi').textContent = `第 ${s.floor + 1} 层 · 挨了 ${damage} 点。塔不怪你——它只是照章办事。`;
-    $('endScore').innerHTML = `<span class="es-grade fall" data-seal="fall">${sealDef.name}</span>
-      <span class="es-meta">${s.ending ? '' : '败局'} · 第 ${s.floor + 1} 层 · 击杀 ${s.flags.killCount || 0} · 用时 ${fmtTime(sum.time)}</span>
-      <span class="es-num">✦ ${emberGain}<small>余烬</small></span>`;
-    $('endScore').title = `塔印「${sealDef.name}」：${sealDef.desc}`;
+    const score = View.endScoreModel({
+      mode: 'death', sealName: sealDef.name, sealDesc: sealDef.desc,
+      ending: s.ending, floor0: s.floor, kills: s.flags.killCount || 0,
+      time: sum.time, ember: emberGain,
+    });
+    $('endScore').innerHTML = `<span class="es-grade ${score.cls}" data-seal="${score.cls}">${score.name}</span>
+      <span class="es-meta">${score.meta}</span>
+      <span class="es-num">${score.num}</span>`;
+    $('endScore').title = score.title;
     $('endEmberDetail').innerHTML = '';
-    $('endTag').textContent = sealDef.desc;
+    $('endTag').textContent = score.tag;
     // 首局没立过誓（面板只给确认卡）：结算页给一张「下一局预告」卡
     renderNextVow((Meta.memory.runs || 0) === 0);
-    $('endBrief').innerHTML = `<span>败局也算履历：击杀折成余烬带回。</span>`
-      + (s.flags.worstHit ? `<span>最狠的一场：${s.flags.worstName} −${s.flags.worstHit}</span>` : '')
-      + ((Array.isArray(s.flags.collectNew) && s.flags.collectNew.length)
-        ? `<span>图鉴新收录：${s.flags.collectNew.slice(0, 4).join('、')}${s.flags.collectNew.length > 4 ? ` 等 ${s.flags.collectNew.length} 件` : ''}（带走的东西不会因为倒下而丢失）</span>`
-        : '');
     Meta.recordRun({ ending: null, won: false, vow: s.flags.vow || 'none', fullChapters: 0, heart: null, floor: s.floor + 1, time: sum.time, seal, ember: emberGain });
     Funnel.push('run_end', { n: Meta.memory.runs, won: 0, floor: s.floor + 1, seal, time: sum.time, dmg: s.damageTaken || 0, dec: decSummary(s), sinceLoad: Math.max(0, Math.round((Date.now() - LOAD_AT) / 1000)) });
     Meta.add(emberGain);
     // 折戟里程碑：recordRun 之后喂事件，falls 已含本次（3 次「塔的常客」/ 10 次「不死不休」）
     const deathState = Object.assign({}, s, { flags: Object.assign({}, s.flags, { falls: Meta.memory.falls }) });
     Achievements.evaluate('dead', deathState, notifyAchievement);
-    // 折戟预告钩子：差一次解锁里程碑时在败局页点一句——让「再来一局」多一个具体理由
-    const fallsNow = Meta.memory.falls || 0;
-    if (fallsNow === 2) $('endBrief').innerHTML += '<span>💀 再折戟 1 次，解锁成就「塔的常客」</span>';
-    else if (fallsNow === 9) $('endBrief').innerHTML += '<span>💀 再折戟 1 次，解锁成就「不死不休」</span>';
+    // 摘要：内容与那条「差一次折戟解锁成就」的预告都在 View 里定，一次性写完（原先写两遍再 +=）
+    $('endBrief').innerHTML = View.deathBrief({
+      worstHit: s.flags.worstHit, worstName: s.flags.worstName,
+      collectNew: s.flags.collectNew, falls: Meta.memory.falls || 0,
+    }).map((t) => `<span>${t}</span>`).join('');
     // 败局也给「塔的记忆」：同一套履历 + 下一局目标——死不是终点，是排队重来的理由
     const memWrap = renderMemory(View.memModel(memInput('death', s.floor + 1)));
     if (memWrap) {
@@ -3243,64 +3244,56 @@
     });
     Funnel.push('run_end', { n: Meta.memory.runs, won: 1, floor: sum.floor, ending: s.ending || 'plain', seal, time: sum.time, dmg: s.damageTaken || 0, dec: decSummary(s), sinceLoad: Math.max(0, Math.round((Date.now() - LOAD_AT) / 1000)) });
     Meta.ringWin(Engine.rings());   // 图鉴里记「带它通关过几次」
-    $('endScore').innerHTML = `<span class="es-grade ${seal}" data-seal="${seal}">${sealDef.name}</span>
-      <span class="es-meta">${s.ending === 'true' ? '真结局' : '普通结局'}${s.flags.heart === 'taken' ? ' · 塔心带走' : s.flags.heart === 'left' ? ' · 塔心留下' : ''} · 回响 ${echoDone}/4 · 遗物 ${relicIds.length} · 锁环 ${ringList.length}</span>
-      <span class="es-num">✦ ${emberGain}<small>余烬</small></span>`;
-    $('endScore').title = `塔印「${sealDef.name}」：${sealDef.desc}`;
+    const score = View.endScoreModel({
+      mode: 'win', seal, sealName: sealDef.name, sealDesc: sealDef.desc,
+      ending: s.ending, heart: s.flags.heart, echoDone,
+      relicCount: relicIds.length, ringCount: ringList.length, ember: emberGain,
+    });
+    $('endScore').innerHTML = `<span class="es-grade ${score.cls}" data-seal="${score.cls}">${score.name}</span>
+      <span class="es-meta">${score.meta}</span>
+      <span class="es-num">${score.num}</span>`;
+    $('endScore').title = score.title;
     const ed = $('endEmberDetail');
     if (ed) {
       // 与开局立誓的余额行呼应：结算这一刻「之前 → 现在」，落袋看得见
-      const before = Meta.ember;
+      const em = View.emberDetailModel({ parts: ember.parts, total: emberGain, before: Meta.ember });
       ed.innerHTML = `<span class="eed-title">本局余烬</span>`
-        + ember.parts.map((p) => `<span>${p.label} <b>+${p.n}</b></span>`).join('')
-        + `<span class="eed-sum">合计 <b>+${emberGain}</b></span>`
-        + `<span class="eed-total">✦ ${before} → ${before + emberGain}</span>`;
+        + em.parts.map((p) => `<span>${p.html}</span>`).join('')
+        + `<span class="eed-sum">${em.totalHtml}</span>`
+        + `<span class="eed-total">${em.balance}</span>`;
     }
-    $('endTag').textContent = sealDef.desc;
+    $('endTag').textContent = score.tag;
     renderNextVow((Meta.memory.runs || 0) === 1);
-    const brief = [];
-    // 今日一塔排第一：这是「哪座塔」的上下文，藏在「＋N 项」里等于没写
-    if (sum.daily) brief.push(`今日一塔 · ${Daily.label(sum.daily)}`);
-    brief.push(`带走 ${relicIds.length} 件遗物 · 击杀 ${s.flags.killCount || 0} 只`);
-    if (s.flags.worstHit) brief.push(`最狠的一场：${s.flags.worstName} −${s.flags.worstHit}`);
-    brief.push(s.flags.retries ? `重来本层 ${s.flags.retries} 次` : '一次没回头');
-    const hint = nextSealHint(seal, s, echoDone);
-    if (hint) brief.push(`下一枚塔印：${hint}`);
-    // 本局首次收录进图鉴的：把「再玩一局」的动机从通关扩到集齐
-    const newly = Array.isArray(s.flags.collectNew) ? s.flags.collectNew : [];
-    if (newly.length) {
-      const head = newly.slice(0, 4).join('、') + (newly.length > 4 ? ` 等 ${newly.length} 件` : '');
-      brief.push(`图鉴新收录：${head}（还差 ${collectionRemain()} 件集齐）`);
-    }
-    // 带着川的断剑走到结局：给他一个名分（收集向的隐性认可，不加余烬）
-    if (s.flags.relic_edge) brief.push(`<i class="brief-tip" title="第八位勇者川的断剑，一直在你腰上。他没能走完的路，你替他走完了。">替川走到了塔顶 ⓘ</i>`);
+    const margin = Engine.battleMargin();
+    // 摘要条目与折叠全在 View 里定：顺序、几件算超、提示挂在哪一档，都不许在渲染层再判断一次
+    const bm = View.briefModel(View.winBrief({
+      dailyLabel: sum.daily ? Daily.label(sum.daily) : '',
+      relicCount: relicIds.length, kills: s.flags.killCount || 0,
+      worstHit: s.flags.worstHit, worstName: s.flags.worstName,
+      retries: s.flags.retries,
+      hint: nextSealHint(seal, s, echoDone),
+      collectNew: s.flags.collectNew, collectionRemain: collectionRemain(),
+      relicEdge: s.flags.relic_edge,
+      margin, emberGain,
+      fx: { zealFull: () => Engine.zealNeed().full },
+    }));
     Meta.add(emberGain);
     // IAA 卡点：余烬翻倍（Ads 未接入时按钮不出现，见 adOfferDouble）
     adOfferDouble(emberGain, ed);
     // 首通奖励只发一次：结算落袋后才标记，刷新页面也不会重发
     if (vowDef.ember) Meta.claimFirstWin(sum.vow);
-    // 决战余裕：用「打完碑魔那一刻的血」给一个 S/A/B/C，和塔印并列——塔印看的是流程，这个看的是硬实力
-    const margin = Engine.battleMargin();
-    if (margin) {
-      // 不到 S 就把话说明白，但别把整句塞进胶囊（摘要区已经很密）——短标签 + ⓘ 悬停
-      const hint = margin.grade === 'S' ? ''
-        : ` · <i class="brief-tip" title="两条路都能上 S：少打怪把血留到碑魔，或打到 ${Engine.zealNeed().full} 只以上攒满战意（决战减伤 36%）">上 S 有两条路 ⓘ</i>`;
-      brief.push(`决战余裕 <b>${margin.grade}</b> · ${margin.label}（剩 ${margin.pct}%）${hint}`);
-    }
     // 榜单排序用：同层同结局时，余裕高的排前面
     sum.margin = margin ? margin.grade : null;
-    brief.push(`✦ +${emberGain}`);
     // 摘要区默认收起后半段（现在常有 6–8 枚胶囊，全铺开会把结算面板顶得很长）
-    const BRIEF_SHOW = 4;
     const briefEl = $('endBrief');
     briefEl.classList.remove('open');
-    briefEl.innerHTML = brief.map((t, i) => `<span${i >= BRIEF_SHOW ? ' class="brief-extra"' : ''}>${t}</span>`).join('')
-      + (brief.length > BRIEF_SHOW ? `<button class="brief-toggle" type="button">＋${brief.length - BRIEF_SHOW} 项 ▾</button>` : '');
+    briefEl.innerHTML = bm.items.map((t) => `<span${t.extra ? ' class="brief-extra"' : ''}>${t.html}</span>`).join('')
+      + (bm.toggle ? `<button class="brief-toggle" type="button">${bm.toggle}</button>` : '');
     const briefToggle = briefEl.querySelector('.brief-toggle');
     if (briefToggle) {
       briefToggle.addEventListener('click', () => {
         const open = briefEl.classList.toggle('open');
-        briefToggle.textContent = open ? '收起 ▴' : `＋${brief.length - BRIEF_SHOW} 项 ▾`;
+        briefToggle.textContent = open ? bm.openToggle : bm.toggle;
       });
     }
     const ringShorts = ringList.map((id) => D.rings[id].short).join(' ') || '无';

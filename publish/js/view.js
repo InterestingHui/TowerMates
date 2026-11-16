@@ -556,8 +556,112 @@
     };
   }
 
+  // ---------- 结算摘要：顶行、余烬明细、这一局的几条账（2026-11-16 12:xx 切边界第五刀） ----------
+  // 这一块此前是「模板串里嵌判断」：顶行把结局/塔心/回响/遗物/锁环五件事拼一行，
+  // brief 里每一条都带一次算术（遗物件数、图鉴还差几件、上 S 的战意门槛、折叠后剩几项）。
+  // 搬进这儿之后，Node 单测能直接盯「几件算超 4 件」「非 S 档才挂那句提示」「折叠后按钮写几项」。
+  const BRIEF_SHOW = 4;
+  const BRIEF_TIP_EDGE = '第八位勇者川的断剑，一直在你腰上。他没能走完的路，你替他走完了。';
+  const BRIEF_TIP_ZEAL = (full) => `两条路都能上 S：少打怪把血留到碑魔，或打到 ${full} 只以上攒满战意（决战减伤 36%）`;
+  // 图鉴新收录：只念前 4 件，多的收成「等 N 件」——摘要区是胶囊行，念全了会把面板顶长
+  const NEWLY_HEAD = 4;
+
+  // 顶行 + 那枚塔印的一句话。mode:'death' 时 meta 走「败局 · 第 N 层 · 击杀 · 用时」，
+  // 胜局走「结局 · 塔心 · 回响 N/4 · 遗物 · 锁环」。两页共用同一个模型，是为了让「回响几章」只有一处定义。
+  function endScoreModel(input) {
+    const o = input || {};
+    const name = o.sealName || '';
+    const desc = o.sealDesc || '';
+    if (o.mode === 'death') {
+      return {
+        cls: 'fall',
+        name,
+        meta: `${o.ending ? '' : '败局'} · 第 ${floorNo(o.floor0)} 层 · 击杀 ${o.kills || 0} · 用时 ${fmtTime(o.time || 0)}`,
+        num: `✦ ${o.ember || 0}<small>余烬</small>`,
+        title: `塔印「${name}」：${desc}`,
+        tag: desc,
+      };
+    }
+    const heartTxt = o.heart === 'taken' ? ' · 塔心带走' : o.heart === 'left' ? ' · 塔心留下' : '';
+    return {
+      cls: o.seal || 'rough',
+      name,
+      meta: `${o.ending === 'true' ? '真结局' : '普通结局'}${heartTxt} · 回响 ${o.echoDone || 0}/${CHAPTERS}`
+        + ` · 遗物 ${o.relicCount || 0} · 锁环 ${o.ringCount || 0}`,
+      num: `✦ ${o.ember || 0}<small>余烬</small>`,
+      title: `塔印「${name}」：${desc}`,
+      tag: desc,
+    };
+  }
+
+  // 余烬明细：逐项 + 合计 + 「之前 → 现在」。余额这一句必须由 before 算，别在渲染层再加一遍
+  function emberDetailModel(input) {
+    const o = input || {};
+    const before = o.before || 0;
+    const total = o.total || 0;
+    return {
+      parts: (o.parts || []).map((p) => ({ label: p.label, n: p.n, html: `${p.label} <b>+${p.n}</b>` })),
+      total,
+      totalHtml: `合计 <b>+${total}</b>`,
+      balance: `✦ ${before} → ${before + total}`,
+    };
+  }
+
+  // 胜局「这一局的几条账」：顺序就是玩家读的顺序，第一句必须是「哪座塔」（今日一塔藏着等于没写）
+  // fx: { zealFull() }——战意门槛只有引擎知道，这里只负责把它写进那句提示
+  function winBrief(input) {
+    const o = input || {};
+    const fx = o.fx || {};
+    const out = [];
+    if (o.dailyLabel) out.push(`今日一塔 · ${o.dailyLabel}`);
+    out.push(`带走 ${o.relicCount || 0} 件遗物 · 击杀 ${o.kills || 0} 只`);
+    if (o.worstHit) out.push(`最狠的一场：${o.worstName} −${o.worstHit}`);
+    out.push(o.retries ? `重来本层 ${o.retries} 次` : '一次没回头');
+    if (o.hint) out.push(`下一枚塔印：${o.hint}`);
+    const newly = Array.isArray(o.collectNew) ? o.collectNew : [];
+    if (newly.length) {
+      const head = newly.slice(0, NEWLY_HEAD).join('、') + (newly.length > NEWLY_HEAD ? ` 等 ${newly.length} 件` : '');
+      out.push(`图鉴新收录：${head}（还差 ${o.collectionRemain || 0} 件集齐）`);
+    }
+    if (o.relicEdge) out.push(`<i class="brief-tip" title="${BRIEF_TIP_EDGE}">替川走到了塔顶 ⓘ</i>`);
+    // 决战余裕：S 档不挂提示（已经做到了），其余档说清还有两条路——门槛取引擎，不写死 40
+    if (o.margin) {
+      const m = o.margin;
+      const tip = m.grade === 'S' ? '' : ` · <i class="brief-tip" title="${BRIEF_TIP_ZEAL(fx.zealFull ? fx.zealFull() : 40)}">上 S 有两条路 ⓘ</i>`;
+      out.push(`决战余裕 <b>${m.grade}</b> · ${m.label}（剩 ${m.pct}%）${tip}`);
+    }
+    out.push(`✦ +${o.emberGain || 0}`);
+    return out;
+  }
+
+  // 败局「这一局的几条账」：与胜局同构，但第一句是陈述（败局也算履历），
+  // 末尾挂一条「再折戟 1 次解锁成就」的预告——让「再来一局」多一个具体理由
+  function deathBrief(input) {
+    const o = input || {};
+    const out = ['败局也算履历：击杀折成余烬带回。'];
+    if (o.worstHit) out.push(`最狠的一场：${o.worstName} −${o.worstHit}`);
+    const newly = Array.isArray(o.collectNew) ? o.collectNew : [];
+    if (newly.length) {
+      const head = newly.slice(0, NEWLY_HEAD).join('、') + (newly.length > NEWLY_HEAD ? ` 等 ${newly.length} 件` : '');
+      out.push(`图鉴新收录：${head}（带走的东西不会因为倒下而丢失）`);
+    }
+    const falls = o.falls || 0;
+    if (falls === 2) out.push('💀 再折戟 1 次，解锁成就「塔的常客」');
+    else if (falls === 9) out.push('💀 再折戟 1 次，解锁成就「不死不休」');
+    return out;
+  }
+
+  // 摘要区折叠：默认只铺前 4 项，其余收进「＋N 项」
+  function briefModel(lines, cap) {
+    const show = cap || BRIEF_SHOW;
+    const items = (lines || []).map((html, i) => ({ html, extra: i >= show }));
+    const hidden = Math.max(0, items.length - show);
+    return { items, hidden, toggle: hidden ? `＋${hidden} 项 ▾` : '', openToggle: '收起 ▴' };
+  }
+
   return {
     boardModel, shopModel,
+    endScoreModel, emberDetailModel, winBrief, deathBrief, briefModel,
     sealOf, nextSealHint, sealTarget, emberModel,
     cmpBoard, fmtTime, endName, marginRank,
     deathStatsModel, winStatsModel, memModel, floorNo, migrateFloors,
@@ -565,6 +669,6 @@
     hintPicked, HINT_PICK, HINT_AUTO,
     BOARD_TABS, BOARD_CAP, SHOP_CORE, SEALS, CHAPTERS,
     NOTE_DAILY, NOTE_CRUSHED, EMPTY_OTHER, TIP_BLOCK, TIP_SHARD,
-    MEM_NOTE_DEATH, MEM_NOTE_WIN,
+    MEM_NOTE_DEATH, MEM_NOTE_WIN, BRIEF_SHOW,
   };
 });

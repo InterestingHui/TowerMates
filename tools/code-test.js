@@ -569,10 +569,82 @@ const fresh = V.migrateFloors({ runs: 0, endings: {}, deepest: 0, falls: 0, last
 ok(fresh.deepest === 0 && fresh.lastFallFloor === 0, '新档不迁移（blank 已带 floorBase）');
 ok(V.migrateFloors(oldA).deepest === 3 && V.migrateFloors(oldA).lastFallFloor === 3, '迁移幂等（读两次不会越加越多）');
 
+// ---------- 结算摘要（第五刀）：顶行 / 余烬明细 / 摘要条目与折叠 ----------
+// 顶行胜局：五件事同源（结局 · 塔心 · 回响 N/4 · 遗物 · 锁环）
+const wScore = V.endScoreModel({
+  mode: 'win', seal: 'ward', sealName: '守灯', sealDesc: '灯还亮着。',
+  ending: 'true', heart: 'taken', echoDone: 3, relicCount: 2, ringCount: 3, ember: 21,
+});
+ok(wScore.cls === 'ward' && wScore.name === '守灯', '胜局顶行读塔印 id 与名字');
+ok(wScore.meta === '真结局 · 塔心带走 · 回响 3/4 · 遗物 2 · 锁环 3', '胜局顶行五件事一行写完');
+ok(wScore.num === '✦ 21<small>余烬</small>' && wScore.title.indexOf('守灯') === 0 || wScore.title.includes('守灯'), '顶行带余烬数与悬停说明');
+ok(V.endScoreModel({ mode: 'win', seal: 'rough', sealName: '未竟', ending: 'plain', echoDone: 0, relicCount: 0, ringCount: 0 }).meta
+  === '普通结局 · 回响 0/4 · 遗物 0 · 锁环 0', '普通结局 + 没拿塔心石时不挂塔心那半句');
+ok(V.endScoreModel({ mode: 'win', ending: 'true', heart: 'left', echoDone: 4 }).meta.indexOf('塔心留下') > 0, '塔心留下的写法');
+ok(V.endScoreModel({ mode: 'win', echoDone: 4 }).meta.includes('回响 4/4'), '回响分母取 View.CHAPTERS，不写死 4 的第二份');
+// 顶行败局：层数是 1 基（floor0 进来、floorNo 出去），与胜局同一个换算
+const dScore = V.endScoreModel({ mode: 'death', sealName: '折戟', sealDesc: '塔替你记下。', floor0: 0, kills: 7, time: 95, ember: 1 });
+ok(dScore.cls === 'fall' && dScore.meta === '败局 · 第 1 层 · 击杀 7 · 用时 1分35秒', '败局顶行：第 1 层（0 基进、1 基出）+ 用时分钟数');
+ok(V.endScoreModel({ mode: 'death', floor0: 4, time: 40 }).meta.includes('第 5 层'), '败局第 5 层不再偏 1');
+
+// 余烬明细：合计与余额都由 before 算出来，渲染层不许再加一遍
+const edm = V.emberDetailModel({ parts: [{ label: '走到结局', n: 5 }, { label: '念出第六个名字', n: 4 }], total: 9, before: 30 });
+ok(edm.parts.length === 2 && edm.parts[1].html === '念出第六个名字 <b>+4</b>', '明细逐项带增量');
+ok(edm.totalHtml === '合计 <b>+9</b>' && edm.balance === '✦ 30 → 39', '余额 = 落袋前 + 本局（不是随手拼两个数）');
+
+// 胜局摘要：顺序、条件项、门槛
+const briefOf = (o) => V.winBrief(Object.assign({ fx: { zealFull: () => 40 } }, o));
+const b1 = briefOf({ relicCount: 1, kills: 33, retries: 0, emberGain: 12 });
+ok(b1[0] === '带走 1 件遗物 · 击杀 33 只', '没有今日一塔时第一句是「带走 N 件遗物」');
+ok(b1[1] === '一次没回头' && b1[b1.length - 1] === '✦ +12', '没回头写陈述句，余烬收尾');
+ok(briefOf({ relicCount: 0, kills: 0, retries: 3 })[1] === '重来本层 3 次', '重来过几次就报几次');
+ok(briefOf({ dailyLabel: '11月16日', relicCount: 0, kills: 0 })[0] === '今日一塔 · 11月16日', '今日一塔排第一（藏着等于没写）');
+ok(briefOf({ worstHit: 126, worstName: '怨灵', relicCount: 0, kills: 1 }).some((t) => t === '最狠的一场：怨灵 −126'), '最狠的一场');
+ok(!briefOf({ relicCount: 0, kills: 1 }).some((t) => t.indexOf('最狠') === 0), '没挨过大打就不提这一条');
+ok(briefOf({ hint: '锁环攒到 3 枚可换「守灯」', relicCount: 0, kills: 1 }).some((t) => t.indexOf('下一枚塔印：') === 0), '下一枚塔印的提示原样进摘要');
+ok(!briefOf({ relicCount: 0, kills: 1 }).some((t) => t.indexOf('下一枚塔印') === 0), '已经刻满（hint 为 null）时不挂这一条');
+// 图鉴新收录：前 4 件 + 「等 N 件」，并报还差几件
+const newly4 = briefOf({ collectNew: ['红药水', '铜钥匙', '灯芯', '盾谱'], collectionRemain: 7, relicCount: 0, kills: 0 });
+ok(newly4.some((t) => t === '图鉴新收录：红药水、铜钥匙、灯芯、盾谱（还差 7 件集齐）'), '四件全念，不写「等」');
+const newly6 = briefOf({ collectNew: ['a', 'b', 'c', 'd', 'e', 'f'], collectionRemain: 0, relicCount: 0, kills: 0 });
+ok(newly6.some((t) => t === '图鉴新收录：a、b、c、d 等 6 件（还差 0 件集齐）'), '超过四件收成「等 N 件」');
+ok(!briefOf({ collectNew: [], relicCount: 0, kills: 0 }).some((t) => t.indexOf('图鉴新收录') === 0), '没有新收录就不提');
+// 决战余裕：S 档不挂提示，其余档那句门槛取引擎（不写死 40）
+const mS = briefOf({ margin: { grade: 'S', label: '从容', pct: 78 }, relicCount: 0, kills: 0 }).find((t) => t.indexOf('决战余裕') === 0);
+ok(mS.indexOf('brief-tip') < 0 && mS.indexOf('剩 78%') > 0, 'S 档只报数，不再挂「上 S 有两条路」');
+const mA = briefOf({ margin: { grade: 'A', label: '吃力', pct: 41 }, relicCount: 0, kills: 0 }).find((t) => t.indexOf('决战余裕') === 0);
+ok(mA.indexOf('上 S 有两条路') > 0, '非 S 档挂提示');
+const mB = V.winBrief({ margin: { grade: 'B', label: '险', pct: 20 }, relicCount: 0, kills: 0, fx: { zealFull: () => 20 } })
+  .find((t) => t.indexOf('决战余裕') === 0);
+ok(mB.indexOf('打到 20 只以上') > 0, '提示里的战意门槛来自引擎 zealFull（装过手之环时是 20，不是 40）');
+ok(!briefOf({ relicCount: 0, kills: 0 }).some((t) => t.indexOf('决战余裕') === 0), '没有余裕读数时整条不出现');
+ok(briefOf({ relicEdge: true, relicCount: 1, kills: 1 }).some((t) => t.indexOf('替川走到了塔顶') > 0), '带断剑上塔顶的彩蛋条目');
+// 折叠：≤4 全铺开、不给按钮；>4 前 4 显、余下进「＋N 项」
+const fold4 = V.briefModel(['a', 'b', 'c', 'd']);
+ok(fold4.items.length === 4 && fold4.items.every((x) => !x.extra) && fold4.toggle === '' && fold4.hidden === 0, '四项以内不折叠');
+const fold7 = V.briefModel(['a', 'b', 'c', 'd', 'e', 'f', 'g']);
+ok(fold7.items.filter((x) => x.extra).length === 3 && fold7.hidden === 3, '七项时后三项收起');
+ok(fold7.toggle === '＋3 项 ▾' && fold7.openToggle === '收起 ▴', '按钮文案随折叠数走，展开后改口');
+ok(V.BRIEF_SHOW === 4, '默认展示条数写死 4（面板高度预算，别随手放大）');
+
+// 败局摘要：第一句是陈述，抽到里程碑时才挂预告
+const db0 = V.deathBrief({ kills: 3 });
+ok(db0[0] === '败局也算履历：击杀折成余烬带回。' && db0.length === 1, '败局摘要第一句固定，没有别的就不硬凑');
+ok(V.deathBrief({ collectNew: ['a', 'b', 'c', 'd', 'e'], worstHit: 88, worstName: '锁虫' })
+  .some((t) => t === '图鉴新收录：a、b、c、d 等 5 件（带走的东西不会因为倒下而丢失）'), '败局图鉴条目同一套「等 N 件」口径');
+ok(V.deathBrief({ falls: 2 }).some((t) => t.indexOf('塔的常客') > 0), '第 2 次折戟预告「塔的常客」');
+ok(V.deathBrief({ falls: 9 }).some((t) => t.indexOf('不死不休') > 0), '第 9 次折戟预告「不死不休」');
+ok(!V.deathBrief({ falls: 3 }).some((t) => t.indexOf('再折戟') >= 0), '别的次数不挂预告（不然每局都在喊）');
+
 // 源码契约：这些模板串只许留在 view.js（main.js 再手写一遍就会各说各话）
-const endStr = ['<div>深度 <b>', '进塔 ${', '决战余裕最好 ${', '名册有你的签名'];
+const endStr = ['<div>深度 <b>', '进塔 ${', '决战余裕最好 ${', '名册有你的签名',
+  '回响 ${', '塔心带走', '上 S 有两条路', '一次没回头', '决战余裕 <b>'];
 const endHit = endStr.filter((w) => mainSrc.indexOf(w) >= 0);
-ok(endHit.length === 0, `结算标签只在 view.js 拼（main.js 命中：${endHit.join(',') || '无'}）`);
+ok(endHit.length === 0, `结算标签与摘要只在 view.js 拼（main.js 命中：${endHit.join(',') || '无'}）`);
+const sumCalls = ['View.endScoreModel', 'View.emberDetailModel', 'View.briefModel', 'View.winBrief', 'View.deathBrief'];
+ok(sumCalls.every((w) => mainSrc.indexOf(w) >= 0), 'main.js 必须走这五个入口（不许绕过）');
+ok(mainSrc.indexOf('data-seal="fall"') < 0, '败局顶行的 data-seal 也由模型给（不再手写第二份）');
+ok(mainSrc.indexOf('再折戟 1 次') < 0, '折戟预告的那两句只在 view.js（原先 += 拼在渲染层）');
 ok(mainSrc.indexOf('lastFallFloor || 0) + 1') < 0, '折戟层不再在展示端 +1（账本已是 1 基，+1 就成了谎）');
 const endCalls = ['View.deathStatsModel', 'View.winStatsModel', 'View.memModel', 'View.migrateFloors'];
 ok(endCalls.every((w) => mainSrc.indexOf(w) >= 0), 'main.js 必须走这四个入口（不许绕过）');
