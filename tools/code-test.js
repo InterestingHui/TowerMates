@@ -402,5 +402,72 @@ ok(mainSrc.indexOf('function sealOf') < 0 && mainSrc.indexOf('const SEALS = {') 
 ok(mainSrc.indexOf('View.emberModel') >= 0 && mainSrc.indexOf('firstWin:') >= 0,
   'main.js 必须把首通/持环等外部事实注入余烬模型');
 
+// ---------- 战斗面板：三把打法的读数（切边界第三刀） ----------
+// 这一屏的每句话都是算术：「承伤 −45%」是 1−倍率、「挡后剩 N」是血减承伤、
+// 「此后 N 场」是本层怪数减掉正在打的这只、「多挨一轮 +N」是三种打法的差额。
+// 原先全是 playBattleScene 里的模板串，截图只能验「画出来的字」，验不了「算得对不对」。
+
+// 敌名：Boss / 章怪 / 特性徽记三种尾巴
+ok(V.foeName({ name: '砚' , boss: true, title: '第一道锁' }, null) === '砚 · 第一道锁', 'Boss 名带称号');
+ok(V.foeName({ name: '砚', boss: true }, null) === '砚 · 塔的主人', 'Boss 没写称号时兜底「塔的主人」');
+ok(V.foeName({ name: '骸犬', chapter: 3 }, null) === '骸犬 · 第 3 章', '章怪带章节');
+ok(V.foeName({ name: '骸犬' }, null) === '骸犬', '普通怪只有名字（不乱加尾巴）');
+ok(V.foeName({ name: '骸犬', trait: 'thick' }, { icon: '🛡', name: '厚甲' }) === '骸犬 <i class="bs-trait">🛡厚甲</i>', '特性徽记挂在名字后面');
+
+// 威胁读数：一只不剩 / 破不了防 / 最贵 / 已架盾
+ok(V.threatModel(null).show === false, '没有读数就不出现');
+ok(V.threatModel({ count: 0, worst: { name: '骸犬', damage: 20 } }).show === false, '一只不剩＝这层清完了，整行不出现');
+ok(V.threatModel({ count: 2 }).show === false, '既没最贵也没打不穿 → 不出现（不摆空行）');
+const thWall = V.threatModel({ count: 3, wall: { name: '石像鬼' }, worst: { name: '骸犬', damage: 99 } });
+ok(thWall.show && thWall.html.indexOf('这一层还剩 3 只 · <b>打不穿</b> 石像鬼') >= 0, '打不穿优先于「最贵」');
+const thBare = V.threatModel({ count: 4, worst: { name: '怨灵', damage: 126 } });
+ok(thBare.html === '这一层还剩 4 只 · 最贵 怨灵 白打 <b>−126</b>', '没架盾时报「白打 −N」');
+ok(thBare.title.indexOf('不格挡、不缠斗') > 0, '白打的口径写在 title 里');
+const thSpread = V.threatModel({ count: 2, spread: true, worst: { name: '怨灵', damage: 107 } });
+ok(thSpread.html.indexOf('架盾后') > 0 && thSpread.html.indexOf('白打') < 0, '盾架开后改口「架盾后」，不许同一个数两种说法');
+ok(thSpread.title.indexOf('85%') > 0, '架盾后的 title 说明按 85% 结算');
+
+// 格挡：额度 / 比例 / 挡后剩多少血
+const bmOnce = V.blockModel({ limit: 1, left: 1, scale: 0.6, hp: 900, damage: 400 });
+ok(bmOnce.html.indexOf('本层一次') > 0 && bmOnce.html.indexOf('承伤 −40%') > 0, '单次额度写「本层一次」，比例由倍率反算');
+ok(bmOnce.html.indexOf('挡后剩 500') > 0, '挡完还剩多少血直接写出来（不让玩家自己乘百分比）');
+const bmTwice = V.blockModel({ limit: 2, left: 1, scale: 0.5, hp: 900, damage: 580 });
+ok(bmTwice.html.indexOf('本层剩 1 次') > 0 && bmTwice.html.indexOf('承伤 −50%') > 0, '双挡之环写剩余次数、断刃之环的 50% 跟着倍率走');
+ok(V.blockModel({ limit: 1, left: 1, scale: 0.6, hp: 400, damage: 400 }).html.indexOf('挡后仍会倒下') > 0,
+  '挡了照样倒下时必须说出来（原来只在 >0 时说话，等于静默吞掉）');
+ok(V.blockModel({ limit: 1, left: 1, scale: 0.6, hp: 900, damage: null }).html.indexOf('挡后') < 0, '没有挡后读数时不留半句');
+ok(V.blockModel({ limit: 1, left: 1, scale: 0.6, hp: 400, damage: 399.6 }).html.indexOf('挡后剩 1') > 0, '差 0.4 血也活着：显示钳到 1，不许写「倒下」（连击 1.7 倍会算出小数）');
+
+// 架盾：「此后 N 场」= 本层怪数 − 正在打的这只；三种形态
+const gmOffer = V.guardModel({ offer: true, count: 6, heroHp: 300, guardDamage: 60, blockScale: 0.55 });
+ok(gmOffer.mode === 'offer' && gmOffer.html.indexOf('此后 5 场') > 0 && gmOffer.html.indexOf('这战剩 240') > 0,
+  '架盾报「此后 N 场」（排除正在打的这只）与这一场打完剩多少血');
+ok(gmOffer.html.indexOf('每场 −15%') > 0, '架盾每场省下的比例由 0.85 反算（−15%）');
+ok(gmOffer.title.indexOf('单场格挡则是只挡这一场，少挨 45%') > 0, 'title 里并排说明另一种用法省多少（集中 vs 摊平）');
+ok(V.guardModel({ spreadActive: true, count: 5 }).mode === 'active', '盾已架开时是状态条，不是按钮');
+ok(V.guardModel({ spreadActive: true }).html.indexOf('盾已架开') > 0, '状态条文案写明「已架开」');
+ok(V.guardModel({ offer: false }).mode === 'hidden', '不满足条件时整块不出现');
+ok(V.guardModel({ offer: true, count: 0, heroHp: 100, guardDamage: 10 }).html.indexOf('此后 0 场') > 0,
+  '只剩这一只时架盾也说实话（0 场），不粉饰');
+
+// 缠斗：符号与「省下来的 −N%」相反，用「+N 血」；缠完剩多少血在 title
+const tm = V.tangleModel({ extra: 40, mult: 2, exp: 12, expGain: 24, damage: 130, heroHp: 400 });
+ok(tm.html.indexOf('多挨一轮 +40 血 · 经验 ×2') > 0, '缠斗写「+N 血」而不是减号（那会和格挡的「省下 N%」读反）');
+ok(tm.title.indexOf('缠完还剩 270 血') >= 0 && tm.title.indexOf('12 → 24') > 0, '缠完剩多少血与经验收益都写出来');
+ok(V.tangleModel({ extra: 5, mult: 2, exp: 1, expGain: 2, damage: 999, heroHp: 10 }).title.indexOf('缠完还剩 0 血') >= 0,
+  '缠完会倒下时钳到 0，不写出负数');
+
+// 提示行：有得选时不许说「自动战斗中」（那等于叫人别管这一屏）
+ok(V.HINT_PICK === '可点下面的打法 · 或点这里直接打', '有可选打法时的提示行');
+ok(V.HINT_AUTO === '自动战斗中 · 点击跳过', '无可选打法时的提示行');
+ok(V.hintPicked('架盾') === '这一战按「架盾」打 · 点这里直接看结果', '选完必须说清选的是哪一把');
+
+// 源码契约：这些模板串与减法只许在 view.js 一处——main.js 里再手写一遍就会各说各话
+const battleStr = ['此后 ${', '挡后剩 ${', '多挨一轮 +${', '这一层还剩 ${', '盾已架开</b>', '<b>🛡 格挡</b>'];
+const battleHit = battleStr.filter((w) => mainSrc.indexOf(w) >= 0);
+ok(battleHit.length === 0, `战斗面板文案只在 view.js 定义（main.js 命中：${battleHit.join(',') || '无'}）`);
+const battleCalls = ['View.foeName', 'View.threatModel', 'View.blockModel', 'View.guardModel', 'View.tangleModel', 'View.hintPicked'];
+ok(battleCalls.every((w) => mainSrc.indexOf(w) >= 0), 'main.js 必须走这五个模型与提示行函数（不许绕过）');
+
 console.log(`挑战码 / 触控 / 桥接 / 视图模型单测：${pass} 项通过${bad ? `，${bad} 项失败` : ''}`);
 process.exit(bad ? 1 : 0);

@@ -2023,8 +2023,7 @@
     el.bsFoe.textContent = m.emoji;
     // 章末 Boss 带「第 N 章」标记，玩家能看出自己在塔里的位置
     const bTrait = D.TRAITS && m.trait ? D.TRAITS[m.trait] : null;
-    const nameText = m.name + (m.boss ? ' · ' + (m.title || '塔的主人') : (m.chapter ? ` · 第 ${m.chapter} 章` : ''));
-    el.bsName.innerHTML = nameText + (bTrait ? ` <i class="bs-trait">${bTrait.icon}${bTrait.name}</i>` : '');
+    el.bsName.innerHTML = View.foeName(m, bTrait);
     // 第一次碰到某种特性，把规则讲一次，之后不再打扰
     if (bTrait && !s.flags['traitSeen_' + m.trait]) {
       s.flags['traitSeen_' + m.trait] = true;
@@ -2059,19 +2058,12 @@
       // skip 掉正在打的这只：它马上倒下，算进「还剩几只 / 最贵」只会让读数变成
       // 「我在打的就是最贵的」——白占一行
       const th = s.floor >= 5 ? Engine.floorThreat(undefined, info.skip) : null;
-      // 排除在打的这只后一只不剩 → 这一层就清完了，没得选，整行不出现
-      const showThreat = !!th && th.count >= 1 && !!(th.wall || th.worst);
-      el.bsThreat.hidden = !showThreat;
-      if (showThreat) {
-        // 盾架开之后这一层的每一场都在减，读数就得叫「架盾后」——
-        // 否则标签写「白打」、数字却是打过折的，同一行两套说法
-        const label = th.spread ? '架盾后' : '白打';
-        el.bsThreat.innerHTML = th.wall
-          ? `这一层还剩 ${th.count} 只 · <b>打不穿</b> ${th.wall.name}`
-          : `这一层还剩 ${th.count} 只 · 最贵 ${th.worst.name} ${label} <b>−${th.worst.damage}</b>`;
-        el.bsThreat.title = th.spread
-          ? '盾已经架开：这一层此后每场都按 85% 结算，数字是架盾后的实际承伤'
-          : '白打这一只要掉多少血（不格挡、不缠斗）——破不了防的另算';
+      // 口径全在 View.threatModel：一只不剩不出现、盾架开改口「架盾后」、破不了防优先
+      const tm = View.threatModel(th);
+      el.bsThreat.hidden = !tm.show;
+      if (tm.show) {
+        el.bsThreat.innerHTML = tm.html;
+        el.bsThreat.title = tm.title;
       }
     }
 
@@ -2089,14 +2081,15 @@
     // 没学会格挡时也整个不显示——它不再是开局白送的能力
     const worth = s.flags.hasBlock && (m.boss || pred.damage >= heroMax * 0.05);
     // 挡完还剩多少血：整场战斗只有一个主动决策，这个数不写出来，玩家就得自己乘百分比。
-    // 数值直接取引擎的真实承伤（含誓约/锁环乘区），与结算一字不差。
-    const blockAfter = info.dmgBlock && typeof info.dmgBlock.damage === 'number'
-      ? Math.max(0, Math.round(heroHp - info.dmgBlock.damage))
-      : null;
+    // 承伤取引擎真值（含誓约/锁环乘区），与结算一字不差；判死与取整在 View.blockModel 里。
+    const blockDamage = info.dmgBlock && typeof info.dmgBlock.damage === 'number' ? info.dmgBlock.damage : null;
     el.bsBlock.hidden = !worth;
     el.bsBlock.classList.remove('done');
     el.bsBlock.disabled = !canB;
-    el.bsBlock.innerHTML = `<b>🛡 格挡</b><span>${blockLimitN > 1 ? `本层剩 ${blockLeftN} 次` : '本层一次'} · 承伤 −${Math.round((1 - scaleWhenBlocked) * 100)}%${blockAfter !== null && blockAfter > 0 ? ` · 挡后剩 ${blockAfter}` : ''}</span>`;
+    // 额度 / 比例 / 挡后剩多少血：三句算术都在 View.blockModel（挡了照样倒下时不再沉默）
+    el.bsBlock.innerHTML = View.blockModel({
+      limit: blockLimitN, left: blockLeftN, scale: scaleWhenBlocked, hp: heroHp, damage: blockDamage,
+    }).html;
     if (worth && Tips.mark('block')) Tips.banner('block');
     el.bsBlock.onclick = (e) => {
       e.stopPropagation();
@@ -2127,21 +2120,20 @@
       el.bsGuard.classList.remove('done');
       el.bsGuard.disabled = false;
       el.bsGuard.onclick = null;
-      if (spreadActive) {
-        // 盾已经架开：这块变成一条状态，说明「这一层每场都在减」，不再可点
+      // 三种形态（已架开 / 可点 / 不出现）与「此后 N 场」的减法都在 View.guardModel
+      const gM = View.guardModel({
+        spreadActive,
+        spreadScale: Engine.blockSpreadScale(),
+        offer: guardWorth,
+        count: guardWorth ? Engine.floorMonsterCount() : 0,
+        heroHp,
+        guardDamage: guardDmg ? guardDmg.damage : 0,
+        blockScale: scaleWhenBlocked,
+      });
+      if (gM.mode === 'offer') {
         el.bsGuard.hidden = false;
-        el.bsGuard.disabled = true;
-        el.bsGuard.classList.add('done');
-        el.bsGuard.innerHTML = `<b>🧱 盾已架开</b><span>本层每场承伤 −${spreadPct}%</span>`;
-      } else if (guardWorth) {
-        const n = Engine.floorMonsterCount();
-        const guardAfter = Math.max(0, Math.round(heroHp - guardDmg.damage));
-        el.bsGuard.hidden = false;
-        // 2026-11-15 21:5x（加练）：第 6 层起威胁读数会说「这一层还剩 5 只」（它把正在打的这只排除了），
-        // 而这里原写「本层余 6 场」（含这只）——两个数差 1 挨在一起，玩家只会读成「面板算错了」。
-        // 改成「此后 N 场」：这一场的账已经由「这战剩 N」交代，这一格只说打完它还护住几场，两处口径对齐。
-        el.bsGuard.innerHTML = `<b>🧱 架盾</b><span>此后 ${Math.max(0, n - 1)} 场 · 每场 −${spreadPct}% · 这战剩 ${guardAfter}</span>`;
-        el.bsGuard.title = `花掉一次格挡：这一场先按 ${100 - spreadPct}% 结算（见「这战剩」），此后 ${Math.max(0, n - 1)} 场每场都少挨 ${spreadPct}%（单场格挡则是只挡这一场，少挨 ${Math.round((1 - scaleWhenBlocked) * 100)}%）`;
+        el.bsGuard.innerHTML = gM.html;
+        el.bsGuard.title = gM.title;
         el.bsGuard.onclick = (e) => {
           e.stopPropagation();
           if (guardOn) return;
@@ -2155,6 +2147,12 @@
           vibrate([12, 20, 8]);
           warn(`**架盾**：这一层余下每场承伤降到 **${100 - spreadPct}%**`);
         };
+      } else if (gM.mode === 'active') {
+        // 盾已经架开：这块变成一条状态，说明「这一层每场都在减」，不再可点
+        el.bsGuard.hidden = false;
+        el.bsGuard.disabled = true;
+        el.bsGuard.classList.add('done');
+        el.bsGuard.innerHTML = gM.html;
       } else {
         el.bsGuard.hidden = true;
       }
@@ -2176,11 +2174,13 @@
       el.bsTangle.classList.remove('done');
       el.bsTangle.disabled = false;
       if (tangleWorth) {
-        const tangleAfter = Math.max(0, Math.round(heroHp - tangle.damage));
-        // 符号不能跟格挡/架盾共用「−」：那两处 −N% 是「省下来的」，这里 +N 是「多挨的」，
-        // 同一个减号表达相反意思，玩家会读成「缠斗少掉 40 血」
-        el.bsTangle.innerHTML = `<b>🗡️ 缠斗</b><span>多挨一轮 +${tangle.extra} 血 · 经验 ×${tangle.mult}</span>`;
-        el.bsTangle.title = `缠完还剩 ${tangleAfter} 血：多挨这一轮是为了把它的招数看全，这一战经验 ${tangle.exp} → ${tangle.expGain}`;
+        // 「多挨一轮 +N 血 · 经验 ×M」与缠完剩多少血都在 View.tangleModel
+        const tM = View.tangleModel({
+          extra: tangle.extra, mult: tangle.mult, exp: tangle.exp, expGain: tangle.expGain,
+          damage: tangle.damage, heroHp,
+        });
+        el.bsTangle.innerHTML = tM.html;
+        el.bsTangle.title = tM.title;
       }
       el.bsTangle.onclick = (e) => {
         e.stopPropagation();
@@ -2210,8 +2210,8 @@
       const pickable = live(el.bsBlock) || live(el.bsGuard) || live(el.bsTangle);
       const picked = guardOn ? '架盾' : blockOn ? '格挡' : tangleOn ? '缠斗' : '';
       el.bsHint.textContent = pickable
-        ? '可点下面的打法 · 或点这里直接打'
-        : picked ? `这一战按「${picked}」打 · 点这里直接看结果` : '自动战斗中 · 点击跳过';
+        ? View.HINT_PICK
+        : picked ? View.hintPicked(picked) : View.HINT_AUTO;
     }
     syncHint();
 

@@ -46,7 +46,9 @@ function measurePanel(frame, sel) {
   const cs = frame.contentWindow.getComputedStyle(p);
   const btns = Array.from(p.querySelectorAll('button')).filter((b) => !b.hidden && b.offsetParent !== null).map((b) => {
     const br = b.getBoundingClientRect();
-    return { id: b.id || b.className, top: Math.round(br.top), bottom: Math.round(br.bottom), h: Math.round(br.height), w: Math.round(br.width) };
+    // clip：文字被省略号吃掉时 scrollWidth 会大于 clientWidth——「按钮在视口里」与
+    // 「按钮上的字看得全」是两件事，2026-11-16 才把后者也量上（加练 焦点A）
+    return { id: b.id || b.className, top: Math.round(br.top), bottom: Math.round(br.bottom), h: Math.round(br.height), w: Math.round(br.width), clip: b.scrollWidth > b.clientWidth + 1 };
   });
   return {
     r: { top: Math.round(r.top), bottom: Math.round(r.bottom), left: Math.round(r.left), right: Math.round(r.right), h: Math.round(r.height), w: Math.round(r.width) },
@@ -89,6 +91,10 @@ function measurePanel(frame, sel) {
           check(tag + ' 整块在视口内', m.r.top >= -1 && m.r.bottom <= c.h + 1, m.r.top + '–' + m.r.bottom + ' / ' + c.h);
           check(tag + ' 每个打法按钮都完整可点', m.btns.length >= 1 && m.btns.every((b) => b.top >= -1 && b.bottom <= c.h + 1 && b.h >= 30),
             m.btns.map((b) => b.id + ':' + b.top + '–' + b.bottom).join(' ') || '无按钮');
+          // 三把打法的读数一句比一句长（「此后 N 场 · 每场 −15% · 这战剩 528」），
+          // 窄屏上最先坏的不是「按钮掉出视口」而是「字被省略号吃成半句」
+          check(tag + ' 打法读数整句可见', m.btns.length >= 1 && m.btns.every((b) => !b.clip),
+            m.btns.map((b) => b.id + (b.clip ? ':裁切' : ':' + b.w + 'px')).join(' ') || '无按钮');
         }
         try { d.getElementById('battleScene').classList.remove('show'); w.__battleSpeed = 30; } catch (e) {}
         await wait(120);

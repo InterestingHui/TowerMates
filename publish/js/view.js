@@ -344,10 +344,91 @@
     return { total: Math.max(1, list.reduce((a, p) => a + p.n, 0)), parts: list };
   }
 
+  // ---------- 战斗面板：三把打法各自的读数（2026-11-16 09:xx 切边界第三刀） ----------
+  // 这一屏的每一行都嵌着算术：「承伤 −45%」是 1−倍率、「挡后剩 N」是血减承伤、
+  // 「此后 N 场」是本层怪数减掉正在打的这只、「多挨一轮 +N」是三种打法的差额。
+  // 原来它们只以模板串的形式活在 playBattleScene 里，验收只能靠截图看「画出来的字」，
+  // 看一眼看不出「这个数算得对不对」。搬到这儿之后是数据进、数据出，Node 单测直接盯算术。
+  // 文案与口径保持一字不差：任何一句改口都必须同时改断言（截图闸门护着这几行字）。
+
+  // 提示行随状态改口：有得选时不许说「自动战斗中」（那等于叫人别管这一屏）
+  const HINT_PICK = '可点下面的打法 · 或点这里直接打';
+  const HINT_AUTO = '自动战斗中 · 点击跳过';
+  const hintPicked = (name) => `这一战按「${name}」打 · 点这里直接看结果`;
+
+  // 敌名：Boss 带「· 塔的主人」兜底，章怪带「· 第 N 章」，再挂特性徽记
+  function foeName(m, traitDef) {
+    if (!m) return '';
+    const tail = m.boss ? ' · ' + (m.title || '塔的主人') : (m.chapter ? ` · 第 ${m.chapter} 章` : '');
+    const tag = traitDef ? ` <i class="bs-trait">${traitDef.icon}${traitDef.name}</i>` : '';
+    return m.name + tail + tag;
+  }
+
+  // 本层威胁读数（第 6 层起）：还剩几只、最贵的那只白打要掉多少血
+  // th 是引擎 floorThreat 的原样结果（已经排除正在打的这只），这里只做措辞与取舍
+  const THREAT_TITLE_BARE = '白打这一只要掉多少血（不格挡、不缠斗）——破不了防的另算';
+  const THREAT_TITLE_SPREAD = '盾已经架开：这一层此后每场都按 85% 结算，数字是架盾后的实际承伤';
+  function threatModel(th) {
+    // 一只不剩＝这一层清完了，没得选，整行不出现
+    if (!th || !(th.count >= 1) || !(th.wall || th.worst)) return { show: false };
+    // 盾架开之后每场都在减，标签必须叫「架盾后」——否则标「白打」、数字却是打折的
+    const label = th.spread ? '架盾后' : '白打';
+    const html = th.wall
+      ? `这一层还剩 ${th.count} 只 · <b>打不穿</b> ${th.wall.name}`
+      : `这一层还剩 ${th.count} 只 · 最贵 ${th.worst.name} ${label} <b>−${th.worst.damage}</b>`;
+    return { show: true, html, title: th.spread ? THREAT_TITLE_SPREAD : THREAT_TITLE_BARE };
+  }
+
+  // 格挡：本层额度 + 承伤比例 + 挡完还剩多少血
+  // 剩多少血直接由「当前血量 − 引擎承伤」算：判死用原始差值（引擎也是 `hp > damage` 才算活），
+  // 显示才取整并把存活钳到 1——先取整再比会把 0.4 血写成「倒下」（连击 1.7 倍会出小数）
+  function blockModel(f) {
+    const pct = Math.round((1 - (f && f.scale ? f.scale : 1)) * 100);
+    const quota = f && f.limit > 1 ? `本层剩 ${f.left} 次` : '本层一次';
+    let tail = '';
+    if (f && typeof f.hp === 'number' && typeof f.damage === 'number') {
+      const left = f.hp - f.damage;
+      // 原来这里只在「剩 > 0」时说话，于是「挡了照样死」这件事被静默吞掉
+      tail = left <= 0 ? ' · 挡后仍会倒下' : ` · 挡后剩 ${Math.max(1, Math.round(left))}`;
+    }
+    return { pct, quota, html: `<b>🛡 格挡</b><span>${quota} · 承伤 −${pct}%${tail}</span>` };
+  }
+
+  // 架盾：状态条（已架开）/ 可点（摊平整层）/ 不出现
+  function guardModel(f) {
+    const pct = Math.round((1 - (f && f.spreadScale ? f.spreadScale : 0.85)) * 100);
+    if (f && f.spreadActive) {
+      return { mode: 'active', html: `<b>🧱 盾已架开</b><span>本层每场承伤 −${pct}%</span>` };
+    }
+    if (!f || !f.offer) return { mode: 'hidden' };
+    // 「此后 N 场」＝本层怪数减掉正在打的这只：这一场的账由「这战剩」交代，
+    // 两处并排时口径必须对齐（威胁读数「这一层还剩 N 只」也是同一个减法）
+    const rest = Math.max(0, (f.count || 0) - 1);
+    const after = Math.max(0, Math.round((f.heroHp || 0) - (f.guardDamage || 0)));
+    const blockPct = Math.round((1 - (f.blockScale ? f.blockScale : 1)) * 100);
+    return {
+      mode: 'offer',
+      rest,
+      html: `<b>🧱 架盾</b><span>此后 ${rest} 场 · 每场 −${pct}% · 这战剩 ${after}</span>`,
+      title: `花掉一次格挡：这一场先按 ${100 - pct}% 结算（见「这战剩」），此后 ${rest} 场每场都少挨 ${pct}%（单场格挡则是只挡这一场，少挨 ${blockPct}%）`,
+    };
+  }
+
+  // 缠斗：多挨一轮换这一战经验翻倍。符号不能跟格挡/架盾共用「−」（那两处是「省下来的」）
+  function tangleModel(f) {
+    const after = Math.max(0, Math.round((f.heroHp || 0) - (f.damage || 0)));
+    return {
+      html: `<b>🗡️ 缠斗</b><span>多挨一轮 +${f.extra} 血 · 经验 ×${f.mult}</span>`,
+      title: `缠完还剩 ${after} 血：多挨这一轮是为了把它的招数看全，这一战经验 ${f.exp} → ${f.expGain}`,
+    };
+  }
+
   return {
     boardModel, shopModel,
     sealOf, nextSealHint, sealTarget, emberModel,
     cmpBoard, fmtTime, endName, marginRank,
+    foeName, threatModel, blockModel, guardModel, tangleModel,
+    hintPicked, HINT_PICK, HINT_AUTO,
     BOARD_TABS, BOARD_CAP, SHOP_CORE, SEALS,
     NOTE_DAILY, NOTE_CRUSHED, EMPTY_OTHER, TIP_BLOCK, TIP_SHARD,
   };
