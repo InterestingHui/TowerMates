@@ -81,6 +81,37 @@ const CHECK = [
       bits.push(ok ? 1 : 0);
       o.remove();
     }
+    // 5) 面板入场时长口径（2026-11-16 加练美术焦点C 收口）：普通浮层一律 --pop-in，
+    //    章末回响是唯一慢一档（--pop-in-ceremony）。此前同一手势散着 0.22/0.26/0.28/0.30/0.32 五档、
+    //    没有一条有依据，而规范 ④ 写的又是 280~340ms——这条闸门专防下一轮再手写一个中间值。
+    {
+      const DUR = (cls) => {
+        const el = d.createElement('div');
+        el.className = cls;
+        d.body.appendChild(el);
+        const cs = w.getComputedStyle(el);
+        const r = { name: (cs.animationName || 'none').split(',')[0].trim(), dur: (cs.animationDuration || '').split(',')[0].trim() };
+        el.remove();
+        return r;
+      };
+      const plain = [
+        ['常规面板 .panel', DUR('panel')],
+        ['立誓 .vow-stage', DUR('vow-stage')],
+        ['祭坛 .altar-panel', DUR('altar-panel')],
+        ['塔心石 .heart-stage', DUR('heart-stage')],
+        ['路遇 .event-panel', DUR('event-panel')],
+        ['层阶之钥 .gate-panel', DUR('gate-panel')],
+      ];
+      plain.forEach(([name, r]) => {
+        const ok = /popIn/.test(r.name) && r.dur === '0.28s';
+        rows.push((ok ? 'PASS|' : 'FAIL|') + '入场一档 ' + name + '|' + r.name + ' ' + r.dur);
+        bits.push(ok ? 1 : 0);
+      });
+      const cer = DUR('echo-panel');
+      const okCer = /popIn/.test(cer.name) && cer.dur === '0.32s';
+      rows.push((okCer ? 'PASS|' : 'FAIL|') + '入场二档（章末回响） .echo-panel|' + cer.name + ' ' + cer.dur);
+      bits.push(okCer ? 1 : 0);
+    }
     out.textContent = 'REDUCE=' + (reduce ? 1 : 0) + '\n' + rows.join('\n')
       + '\nTRACE|' + bits.join('') + '|';
     document.title = (bits.every((b) => b) ? 'ALLPASS|' : 'HASFAIL|') + bits.join('') + '|R' + (reduce ? 1 : 0);

@@ -170,6 +170,8 @@ async function run() {
     out.allRowsAfterVowTabs = d.querySelectorAll('#boardList .bd-row').length;
 
     // 点一次远处的怪物：应自动走到跟前并直接开打，不需要第二次点击
+    // （先把上面榜单测试留下的浮层收干净——浮层开着时人不许走，这是 2026-11-16 新立的规矩）
+    d.querySelectorAll('.overlay.show').forEach(function (o) { o.classList.remove('show'); });
     E.newGame();
     var s3 = E.state();
     var target = null;
@@ -677,6 +679,92 @@ async function run() {
           E.newGame();
           w.__tm.refreshHud();
           return res;
+        })();
+        // ---- 键盘面（2026-11-16 21:xx）----
+        // 实测四类缺陷：①立誓页是开局第一个决策，却只有鼠标能点（塔心石/结局同为「选卡片」却有 ←/→ + Enter）；
+        // ②速查卡/重置确认/祭坛开着时方向键会在背后走人（能撞怪、能上楼）；③Esc 只覆盖 5 个浮层；
+        // ④在过滤框里按 ← 光标移不动（被全局 keydown preventDefault）、按 d/a/s/w 人会走。
+        out.kbd = (function () {
+          var k = function (key) { w.dispatchEvent(new w.KeyboardEvent('keydown', { key: key, bubbles: true, cancelable: true })); };
+          var clean = function () {
+            d.querySelectorAll('.overlay.show').forEach(function (o) { o.classList.remove('show'); });
+            k('Escape'); k('Escape');   // 立誓后会接开场对白：多按两下把它跳完，后续按键才归本探针
+          };
+          var focusIdx = function () {
+            var cards = [].slice.call(d.querySelectorAll('#vowCards .vow-card'));
+            return cards.indexOf(d.querySelector('#vowCards .vow-card.focus'));
+          };
+          clean();
+          w.__tm.openVow(true);
+          var r = {
+            cards: d.querySelectorAll('#vowCards .vow-card').length,
+            hint: (d.querySelector('#vowOverlay .vow-hint') || {}).textContent || '',
+          };
+          k('ArrowRight');
+          r.focus0 = focusIdx();
+          k('ArrowRight');
+          r.focus1 = focusIdx();
+          k('ArrowLeft'); k('ArrowLeft');
+          r.wrap = focusIdx();
+          r.focusNoDup = d.querySelectorAll('#vowCards .vow-card.focus').length;
+          var want = d.querySelector('#vowCards .vow-card.focus').dataset.vow;
+          k('Enter');
+          var st = E.state();
+          r.enterVow = (st && st.flags) ? st.flags.vow : null;
+          r.enterWant = want;
+          r.enterClosed = !d.getElementById('vowOverlay').classList.contains('show');
+          clean();
+          w.__tm.openVow(true);
+          var want2 = d.querySelectorAll('#vowCards .vow-card')[1].dataset.vow;
+          k('2');
+          var st2 = E.state();
+          r.digitVow = (st2 && st2.flags) ? st2.flags.vow : null;
+          r.digitWant = want2;
+          clean();
+          // 浮层挡走人：三种浮层各开一次，连按两次方向键，坐标一格都不许动
+          E.newGame(null, { seed: 0 });
+          var pos = function () { var s = E.state(); return s ? s.x + ',' + s.y : '?'; };
+          var stay = function (open, close) {
+            var p0 = pos();
+            open();
+            k('ArrowRight'); k('ArrowRight');
+            var p1 = pos();
+            close();
+            return p0 === p1;
+          };
+          r.stayHintBook = stay(function () { w.__tm.openHintBook(); }, function () { d.getElementById('hintBookOverlay').classList.remove('show'); });
+          r.stayReset = stay(function () { d.getElementById('resetConfirmOverlay').classList.add('show'); }, function () { d.getElementById('resetConfirmOverlay').classList.remove('show'); });
+          r.stayCollection = stay(function () { w.__tm.openCollection(); }, function () { w.__tm.closeCollection(); });
+          // Esc 覆盖面（必须选择的路遇 / 祭坛 / 锁芯门不算「可取消」，故意不响应）
+          var esc = function (open, id) {
+            open();
+            var before = d.getElementById(id).classList.contains('show');
+            k('Escape');
+            var after = d.getElementById(id).classList.contains('show');
+            if (after) d.getElementById(id).classList.remove('show');
+            return before && !after;
+          };
+          clean();
+          r.escHintBook = esc(function () { w.__tm.openHintBook(); }, 'hintBookOverlay');
+          r.escReset = esc(function () { d.getElementById('resetConfirmOverlay').classList.add('show'); }, 'resetConfirmOverlay');
+          r.escBoard = esc(function () { w.__tm.openBoard(); }, 'boardOverlay');
+          r.escCollection = esc(function () { w.__tm.openCollection(); }, 'collectionOverlay');
+          // 输入框隔离：过滤框里按 d / ← 都不许被移动分支吃掉（defaultPrevented 是最硬的判据）
+          clean();
+          w.__tm.openHintBook();
+          var fl = d.getElementById('hbFilter');
+          var st3 = E.state();
+          st3.x = 1; st3.y = 1;
+          if (fl) fl.focus();
+          var ed = new w.KeyboardEvent('keydown', { key: 'd', bubbles: true, cancelable: true });
+          if (fl) fl.dispatchEvent(ed);
+          r.fieldDPrevented = ed.defaultPrevented;
+          st3.x = 1; st3.y = 1;
+          var eL = new w.KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true, cancelable: true });
+          if (fl) fl.dispatchEvent(eL);
+          r.fieldArrowPrevented = eL.defaultPrevented;
+          d.getElementById('hintBookOverlay').classList.remove('show');
+          return r;
         })();
         // 渲染异常探针：整轮 UI 自检跑下来一次都不许有
         out.renderErrors = (w.__tmRenderErrors || []).length;

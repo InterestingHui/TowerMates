@@ -182,6 +182,22 @@ const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-ui-'));
   ok(bh.liveAfter === 0, `按下一把之后面板上再没有能点的打法（实测 ${bh.liveAfter}）`);
   ok(/按「格挡」打/.test(bh.after || ''), `按下格挡后提示行改口（实测：${bh.after}）`);
   ok(!/可点下面的打法/.test(bh.after || ''), '选完不再说「可点下面的打法」');
+  // 键盘面（2026-11-16 21:xx）：立誓页可键盘 / 浮层挡走人 / Esc 覆盖 / 输入框隔离
+  const kb = out.kbd || {};
+  ok(kb.cards >= 4, `立誓页出全量卡（实测 ${kb.cards} 张）`);
+  ok(kb.focus0 === 0 && kb.focus1 === 1 && kb.focusNoDup === 1,
+    `立誓页 ← → 移动高亮且只亮一格（实测 ${kb.focus0} / ${kb.focus1} / 亮 ${kb.focusNoDup} 格）`);
+  ok(kb.wrap === kb.cards - 1, `高亮在首尾循环（← 两次落到第 ${(kb.wrap || 0) + 1} 张）`);
+  ok(kb.enterVow === kb.enterWant && kb.enterClosed === true,
+    `Enter 真的选了高亮那张（${kb.enterVow} / 页已关：${kb.enterClosed}）`);
+  ok(kb.digitVow === kb.digitWant, `数字键直选（按 2 → ${kb.digitVow}）`);
+  ok(/← → 切换/.test(kb.hint || ''), `立誓页写明键盘操作（实测「${kb.hint}」）`);
+  ok(kb.stayHintBook === true && kb.stayReset === true && kb.stayCollection === true,
+    `整屏浮层开着时方向键走不动人（速查卡 ${kb.stayHintBook} / 重置确认 ${kb.stayReset} / 图鉴 ${kb.stayCollection}）`);
+  ok(kb.escHintBook === true && kb.escReset === true && kb.escBoard === true && kb.escCollection === true,
+    `Esc 覆盖所有可取消浮层（速查卡 ${kb.escHintBook} / 重置确认 ${kb.escReset} / 榜单 ${kb.escBoard} / 图鉴 ${kb.escCollection}）`);
+  ok(kb.fieldDPrevented === false && kb.fieldArrowPrevented === false,
+    '过滤框里打字不被移动分支吃掉（d / ← 都不 preventDefault）');
 
   if (bad) console.log('  诊断：' + JSON.stringify(out).slice(0, 700));
   console.log(bad === 0 ? '✓ UI 自检通过' : `✗ UI 自检 ${bad} 项失败`);

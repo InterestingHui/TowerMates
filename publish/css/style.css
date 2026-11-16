@@ -26,6 +26,13 @@
   --line2: var(--line-strong);
   --line-gold: rgba(232, 196, 106, 0.34);
 
+  /* ── 入场时长：规范 ④「面板入场 280~340ms」落成两个具名档 ──
+     普通浮层一律 --pop-in（2026-11-16 收口前散着 0.22/0.26/0.28/0.30 四档，
+     同一手势六个时长、没有一条有依据）；章末回响是全局唯一一次「仪式」，慢一档。
+     加新浮层只许用这两个变量——tools/rm-check.html 会量，手写别的数当场红。 */
+  --pop-in: 0.28s;
+  --pop-in-ceremony: 0.32s;
+
   /* ── 文字三阶：主文 13.4:1 / 次文 7.0:1 / 弱文 ≥3.2:1（最差的真实底：榜单行 #282a2c） ── */
   --text: #d6dbe6;
   --muted: #9aa5b8;
@@ -496,7 +503,7 @@ html, body {
   border-radius: var(--r-card);
   padding: 18px;
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.62), inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  animation: popIn 0.22s ease-out;
+  animation: popIn var(--pop-in) ease-out;
 }
 
 .btn {
@@ -1419,7 +1426,7 @@ body.at-start #bottom { visibility: hidden; }
 
 /* ---------- 祭坛：三选一 ---------- */
 #altarOverlay { background: radial-gradient(110% 80% at 50% 40%, rgba(12,10,8,0.9), rgba(2,3,6,0.97)); }
-.altar-panel { width: 100%; max-width: 470px; text-align: center; padding: 32px 20px; animation: popIn 0.28s ease-out; }
+.altar-panel { width: 100%; max-width: 470px; text-align: center; padding: 32px 20px; animation: popIn var(--pop-in) ease-out; }
 .altar-kicker { font-size: var(--fs-tag); letter-spacing: 7px; color: var(--gold); opacity: 0.85; }
 .altar-desc { font-size: var(--fs-aux); line-height: 1.85; color: #b7c0d0; margin: 9px 0 16px; }
 .altar-cards { display: flex; gap: 10px; align-items: stretch; }
@@ -1819,7 +1826,7 @@ body.at-start #bottom { visibility: hidden; }
   .end-sign.write > span, .end-sign.write > span::after { animation: none; }
   /* 常驻循环动效一律停：灯闪 / 教练高亮圈脉动 / 「点击继续」闪烁 / 立绘光圈呼吸 / 立绘呼吸 / 低血脉动。
      信息一条不丢——红血条仍是红的、高亮圈仍亮着、光圈仍有一层底色，只是不再"动"。
-     一次性进场（popIn 0.22s / fadeIn / 战斗伤害飘字）保留：那是在交代"刚才发生了什么"，
+     一次性进场（popIn（--pop-in / --pop-in-ceremony）/ fadeIn / 战斗伤害飘字）保留：那是在交代"刚才发生了什么"，
      不是持续干扰；砍掉它反而会让结算、升级这些节点变成无声跳变。 */
   .g-ico, .coach-spot, .dlg-cue, .pt-aura, .pt-img, .pt-svg, .hpwrap.low .hpbar { animation: none; }
 }
@@ -1828,7 +1835,7 @@ body.at-start #bottom { visibility: hidden; }
 #heartOverlay {
   background: radial-gradient(110% 78% at 50% 42%, rgba(74, 22, 36, 0.62), rgba(6, 3, 8, 0) 68%), #040306;
 }
-.heart-stage { width: 100%; max-width: 470px; text-align: center; animation: popIn 0.28s ease-out; }
+.heart-stage { width: 100%; max-width: 470px; text-align: center; animation: popIn var(--pop-in) ease-out; }
 .heart-kicker {
   font-size: var(--fs-tag);
   letter-spacing: 8px;
@@ -1954,7 +1961,7 @@ body.at-start #bottom { visibility: hidden; }
     radial-gradient(110% 78% at 50% 38%, rgba(52, 42, 24, 0.55), rgba(6, 6, 9, 0) 70%),
     #050507;
 }
-.vow-stage { width: 100%; max-width: 470px; text-align: center; animation: popIn 0.3s ease-out; }
+.vow-stage { width: 100%; max-width: 470px; text-align: center; animation: popIn var(--pop-in) ease-out; }
 .vow-kicker { font-size: var(--fs-tag); letter-spacing: 9px; color: var(--gold); opacity: 0.9; }
 .vow-desc { font-size: var(--fs-aux); line-height: 1.85; color: #b9bfcc; margin: 10px 0 16px; }
 .vow-ember {
@@ -1986,6 +1993,14 @@ body.at-start #bottom { visibility: hidden; }
   transition: transform 0.16s cubic-bezier(0.2, 0.9, 0.25, 1), border-color 0.2s, box-shadow 0.22s;
 }
 .vow-card:hover { transform: translateY(-3px); border-color: rgba(232, 196, 106, 0.62); box-shadow: 0 14px 34px rgba(232, 196, 106, 0.14); }
+/* 键盘高亮（← → / ↑ ↓ / 数字键）：一档比 hover 更重，形状与 .choice-card.focus 同族，
+   过渡复用卡片自身的 0.16s transform / 0.2s border —— 键盘切卡不许「闪一下」 */
+.vow-card.focus {
+  transform: translateY(-4px) scale(1.015);
+  border-color: rgba(232, 196, 106, 0.72);
+  box-shadow: 0 0 0 1px rgba(232, 196, 106, 0.42), 0 16px 38px rgba(232, 196, 106, 0.16);
+}
+.vow-card.focus .vc-name { color: #ffe6a8; }
 .vow-card .vc-emoji { font-size: var(--fs-title); }
 .vow-card .vc-head { display: flex; align-items: center; gap: 7px; }
 .vc-tier { font-size: var(--fs-tag); letter-spacing: 1.5px; padding: 2px 8px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.16); color: #9aa4b5; }
@@ -2126,7 +2141,7 @@ body.at-start #bottom { visibility: hidden; }
   background: linear-gradient(180deg, rgba(22, 20, 25, 0.95), rgba(8, 8, 12, 0.97));
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.65);
   text-align: center;
-  animation: popIn 0.26s ease-out;
+  animation: popIn var(--pop-in) ease-out;
   /* 与 .panel / .vow-stage / .altar-panel / .gate-panel / .echo-panel 同一条口径：
      矮屏（尤其 844×320 横屏）先给滚动兜底，别让最后一个选项掉出视口永远点不到 */
   max-height: 92dvh;
@@ -2233,7 +2248,7 @@ body.at-start #bottom { visibility: hidden; }
   background: linear-gradient(180deg, rgba(20, 22, 28, 0.95), rgba(8, 9, 13, 0.97));
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.65);
   text-align: center;
-  animation: popIn 0.26s ease-out;
+  animation: popIn var(--pop-in) ease-out;
 }
 .gate-kicker, .tab-kicker { font-size: var(--fs-tag); letter-spacing: 8px; color: var(--gold); }
 .gate-desc, .tab-body { font-size: var(--fs-tag); line-height: 1.8; color: var(--muted); margin: 8px 0 13px; }
@@ -2387,7 +2402,7 @@ body.at-start #bottom { visibility: hidden; }
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.7), 0 0 60px var(--chapter-soft);
   text-align: center;
   overflow: hidden;
-  animation: popIn 0.32s ease-out;
+  animation: popIn var(--pop-in-ceremony) ease-out;
 }
 .echo-panel::before {
   content: '';

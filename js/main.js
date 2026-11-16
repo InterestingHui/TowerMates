@@ -24,6 +24,7 @@
   const hintQueue = [];
   let choiceFocus = null;
   let heartFocus = null;
+  let vowFocus = -1;      // 立誓页键盘高亮的下标（-1 = 还没按方向键）
 
   // ---------- 设置 ----------
   // 提示停留：快 / 标准 / 慢，统一乘到对白、顶栏、药丸、成就吐司的时长上
@@ -3747,6 +3748,10 @@
     if (battleBusy) return;
     if (shopOpen || endShown) return;
     if (typing || el.dialogOverlay.classList.contains('show')) { advanceDialog(); return; }
+    // 盖住整屏的浮层开着时，一步都不许走：此前速查卡 / 重置确认 / 祭坛开着，
+    // 方向键会把人一路走过去（能撞怪、能上楼），浮层只是贴在画面上的一层皮。
+    // 对白与首屏不算（前者上面已经接管、后者没有局可走）。
+    if (modalBlocksMove()) return;
     const s = Engine.state();
     if (!s || s.over || s.won) return;
     const ev = Engine.tryMove(dx, dy);
@@ -3893,6 +3898,9 @@
 
     window.addEventListener('keydown', (e) => {
       if (el.startOverlay.classList.contains('show')) return;
+      // 焦点在输入框（速查卡过滤框 / 贴码框）时：Esc 照常关浮层，但字母与方向键一律交还浏览器。
+      // 此前全局 keydown 不认焦点：在过滤框里按 ← 光标移不动（被 preventDefault），按 d/a/s/w 人会走。
+      const inField = !!(e.target && /^(?:INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName || ''));
       // 这两层叠在对白之上：先关上面那层，不能顺手把下面的对白也推进/跳过
       if (el.bossIntroOverlay.classList.contains('show')) {
         if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') { e.preventDefault(); closeBossIntro(); }
@@ -3931,12 +3939,41 @@
         else if (e.key === 'Enter' && choiceFocus) { e.preventDefault(); chooseEnding(choiceFocus); }
         return;
       }
+      // 立誓页：开局第一个决策，此前只有鼠标能点（塔心石/结局同为「选卡片」却有 ←/→ + Enter）。
+      // 高亮不预置——和那两屏一样，先按方向键才有焦点，避免一路 Enter 连点把约定了。
+      if (el.vowOverlay.classList.contains('show')) {
+        const cards = Array.prototype.slice.call(el.vowCards.querySelectorAll('.vow-card'));
+        if (!cards.length) return;
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+          e.preventDefault();
+          const back = (e.key === 'ArrowLeft' || e.key === 'ArrowUp');
+          const next = vowFocus < 0
+            ? (back ? cards.length - 1 : 0)
+            : (vowFocus + (back ? -1 : 1) + cards.length) % cards.length;
+          setVowFocus(next);
+        } else if (e.key === 'Enter' && vowFocus >= 0) {
+          e.preventDefault();
+          const b = cards[vowFocus];
+          if (b) chooseVow(b.dataset.vow);
+        } else if (/^[1-9]$/.test(e.key)) {
+          const b = cards[Number(e.key) - 1];
+          if (b) { e.preventDefault(); chooseVow(b.dataset.vow); }
+        }
+        return;
+      }
       if (endShown) return;
       if (shopOpen) { if (e.key === 'Escape') closeShop(); return; }
       if (el.cfgOverlay.classList.contains('show')) { if (e.key === 'Escape') closeCfg(); return; }
       if (el.boardOverlay.classList.contains('show')) { if (e.key === 'Escape') closeBoard(); return; }
       if (el.codexOverlay.classList.contains('show')) { if (e.key === 'Escape') el.codexOverlay.classList.remove('show'); return; }
       if (el.collectionOverlay.classList.contains('show')) { if (e.key === 'Escape') closeCollection(); return; }
+      // 这两层同样能取消，Esc 的覆盖面此前只到上面五个（速查卡 / 重置确认没有）
+      if (el.hintBookOverlay.classList.contains('show')) { if (e.key === 'Escape') el.hintBookOverlay.classList.remove('show'); return; }
+      if (el.resetConfirmOverlay.classList.contains('show')) {
+        if (e.key === 'Escape') { el.resetConfirmOverlay.classList.remove('show'); confirmCb = null; }
+        return;
+      }
+      if (inField) return;
 
       const k = e.key.toLowerCase();
       let d = null;
@@ -4289,6 +4326,16 @@
     return false;
   }
 
+  // 「浮层开着就别走人」的名单：与 covered() 同源，但去掉对白（它的按键有自己的分支）
+  // 与首屏（还没有局可走）。加新浮层时只改 FULL_OVERLAYS 一处，两边自动同步。
+  function modalBlocksMove() {
+    for (const id of FULL_OVERLAYS) {
+      if (id === 'dialogOverlay' || id === 'startOverlay') continue;
+      if (el[id] && el[id].classList.contains('show')) return true;
+    }
+    return false;
+  }
+
   // ---------- 立誓 ----------
   // 首屏只回答一个问题：这局按哪条规矩走。余烬余额、还差几局、首通奖励一律不讲——
   // 想解锁的人会去点下面那排小 chip，不想的人不该开屏就被一串数字埋掉。
@@ -4301,8 +4348,17 @@
     : false;
   const isFirstRun = () => !((Meta.memory && Meta.memory.runs) || 0);
 
+  // 立誓页的键盘高亮：只标一格，不改任何选中状态（选中＝Enter，见 keydown 的 vow 分支）
+  function setVowFocus(i) {
+    const cards = Array.prototype.slice.call(el.vowCards.querySelectorAll('.vow-card'));
+    if (!cards.length) return;
+    vowFocus = Math.max(0, Math.min(cards.length - 1, i));
+    cards.forEach((c, idx) => c.classList.toggle('focus', idx === vowFocus));
+  }
+
   function openVow(force) {
     const full = force === true || FORCE_FULL_VOW || !isFirstRun();
+    vowFocus = -1;
     Funnel.push('vow_open', { first: isFirstRun() ? 1 : 0, full: full ? 1 : 0 });
     const kicker = document.querySelector('#vowOverlay .vow-kicker');
     const desc = document.querySelector('#vowOverlay .vow-desc');
@@ -4311,7 +4367,8 @@
     if (desc) desc.textContent = full
       ? '定一条规矩，选了改不回来。也可以不立。'
       : '第一局不用定规矩。先上去看看塔里有什么。';
-    if (hint) hint.textContent = full ? '点一张开始' : '点一下开始';
+    // 首局只有一张卡，写「← → 切换」是纯噪音；4 张以上才提键盘
+    if (hint) hint.textContent = full ? '点一张开始 · 或 ← → 切换、Enter 确认' : '点一下开始';
     if (!full) {
       el.vowCards.innerHTML = `<button class="vow-card hero" data-vow="none">
         <span class="vc-head"><span class="vc-emoji">🚪</span><span class="vc-tier t-easy">第一局</span></span>
