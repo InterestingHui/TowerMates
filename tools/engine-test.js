@@ -418,7 +418,7 @@ D.events.forEach((e) => {
 ok(evBad.length === 0, '每条路遇都有 2+ 选项，且 label/tip/msg/effect 齐全' + (evBad.length ? '（' + evBad.slice(0, 5).join('、') + '）' : ''));
 
 // effect 键白名单：写错的键 applyEffect 会静默忽略（选项变成"白点一下"），这条专抓拼写错
-const EFFECT_KEYS = ['gold', 'atk', 'def', 'maxHp', 'hpPct', 'healPct', 'hp', 'keys', 'ember', 'block'];
+const EFFECT_KEYS = ['gold', 'atk', 'def', 'maxHp', 'hpPct', 'healPct', 'hp', 'keys', 'ember', 'block', 'useBlock'];
 const evKeyBad = [];
 D.events.forEach((e) => (e.options || []).forEach((o, i) => {
   Object.keys(o.effect || {}).forEach((k) => { if (EFFECT_KEYS.indexOf(k) < 0) evKeyBad.push(e.id + '#' + i + '.' + k); });
@@ -471,12 +471,81 @@ E.resolveEvent('vent', 0);
 ok(s.gold === evGold + 130, '「墙里的风」伸手进去：金币 +130');
 ok(s.hp === Math.max(1, Math.min(evMax, evHp + Math.round(evMax * -0.07))), '「墙里的风」伸手进去：生命 −7%');
 
+// 11-16 路遇去同构：`vent` 的第二个选项从「回复 11% 生命」（与 jug 同一道题）换成
+// 「攻击 +1，用掉这一层的格挡」——付的是本局的伤害减免，拿的是永久的攻击，与血量不再同一本账。
+const ventOpt = D.events.find((e) => e.id === 'vent').options[1];
+ok(!!ventOpt.effect.useBlock && ventOpt.effect.atk === 1, '「墙里的风」听到底＝攻击 +1 + 用掉这一层格挡');
+
+E.newGame(); s = E.state();
+s.floor = 2; s.x = 8; s.y = 6;
+const atkBeforeVent = s.atk;
+let ventRes = E.resolveEvent('vent', 1);
+ok(ventRes.type === 'refuse' && ventRes.msg === '还没学会格挡', '没学盾谱时「用格挡换攻击」被拒，且说清是没学');
+ok(s.atk === atkBeforeVent && E.blockUsedAt(2) === 0, '被拒时不涨攻击、也不记格挡账');
+
+E.newGame(); s = E.state();
+s.floor = 2; s.x = 8; s.y = 6;
+E.grantBlock();
+const atkWithShield = s.atk;
+ventRes = E.resolveEvent('vent', 1);
+ok(ventRes.type === 'event' && s.atk === atkWithShield + 1, '「墙里的风」听到底：攻击 +1');
+// 与战斗里挡一次记同一本账（惜挡之环的 spare_f / 顶栏 🛡剩N / 决战账都读它）
+ok(E.blockUsedAt(2) === 1 && E.blockLeft() === 0 && !E.canBlock(), '用掉之后这一层挡不了（记在 block_n 同一本账）');
+
+// 这一层的格挡已经用过 → 拒，且说清是「用掉了」而不是「没学」
+E.newGame(); s = E.state();
+s.floor = 2; s.x = 8; s.y = 6;
+E.grantBlock();
+s.flags['block_n2'] = 1;
+const shUsed = E.eventShortfall(ventOpt);
+ok(!!shUsed && shUsed.kind === 'block' && shUsed.why === 'used' && shUsed.msg === '这一层的格挡已经用掉了', '额度用光时拒选并说明「这一层已经用掉了」');
+// 铁壁 / 苦行 / 无名三条誓约根本学不到盾谱：理由要说誓约，别拿「还没学」糊过去
+E.newGame('guard'); s = E.state();
+s.floor = 2;
+const shVow = E.eventShortfall(ventOpt);
+ok(!!shVow && shVow.why === 'vow' && shVow.msg === '这条誓约不能格挡', '禁挡誓约下理由写「这条誓约不能格挡」');
+ok(E.eventShortfall({ effect: { atk: 1 } }) === null, '不带 useBlock 的选项不受格挡门槛影响');
+
 E.newGame(); s = E.state();
 s.floor = 4; s.x = 1; s.y = 1;
 evGold = s.gold; evHp = s.hp; evMax = s.maxHp;
 E.resolveEvent('well', 0);
 ok(s.gold === evGold + 380, '「枯井」下井：金币 +380');
 ok(s.hp === Math.max(1, Math.min(evMax, evHp + Math.round(evMax * -0.14))), '「枯井」下井：生命 −14%');
+
+// 同上：`well` 的第二个选项从「通关余烬 +2」（与 crack 同一道题）换成「黄钥匙 −1 换 3 余烬」——
+// 拿本局的钥匙买跨局的余烬，与「白拿 2 点余烬」不是同一道题。
+E.newGame(); s = E.state();
+s.floor = 4; s.keys.y = 1;
+const emberBeforeWell = s.flags.eventEmber || 0;
+const wellRes = E.resolveEvent('well', 1);
+ok(wellRes.type === 'event' && s.keys.y === 0, '「枯井」锁死：黄钥匙 −1');
+ok((s.flags.eventEmber || 0) === emberBeforeWell + 3, '「枯井」锁死：通关余烬 +3');
+E.newGame(); s = E.state();
+s.floor = 4; s.keys.y = 0;
+const shWell = E.eventShortfall(D.events.find((e) => e.id === 'well').options[1]);
+ok(!!shWell && shWell.kind === 'key' && shWell.key === 'y' && shWell.need === 1, '没黄钥匙时「枯井」锁死报出还差 1 把');
+ok(E.eventCost(D.events.find((e) => e.id === 'well').options[1]) === E.eventShortfall(D.events.find((e) => e.id === 'well').options[1]).msg,
+  '「枯井」的缺额字符串与 eventShortfall 同源');
+
+// 格挡比例在文案里写了四处（盾谱小传 / 两条烛的引导 / 路遇老兵），真值只有引擎 BLOCK_BASE 一处。
+// 0.55 曾被写成「六成」和「−40%」，而战斗面板按 −45% 算——同一件事三个数，全明码身份最不能犯的错。
+{
+  const S = global.STORY;
+  const pct = Math.round((1 - E.BLOCK_BASE) * 100);
+  const lore = S.blockLore.map((l) => l[1]).join('');
+  const tut = [S.tips.block, S.tips.blocksave, S.hints.block.map((l) => l[1]).join('')].join('|');
+  const vetOpt = D.events.find((e) => e.id === 'veteran').options.filter((o) => o.effect.block)[0];
+  ok(lore.indexOf(pct + '%') >= 0, `盾谱小传写的格挡比例 == 引擎算出来的 ${pct}%`);
+  ok(tut.indexOf('−' + pct + '%') >= 0 && tut.indexOf(pct + '%') >= 0, `教程 / 烛的引导写的是同一个 ${pct}%`);
+  ok(!!vetOpt && vetOpt.tip.indexOf('−' + pct + '%') >= 0, `路遇「讨教格挡」写的是 −${pct}%（面板同源）`);
+  ok(lore.indexOf('六成') < 0 && tut.indexOf('六成') < 0 && (!vetOpt || vetOpt.tip.indexOf('六成') < 0),
+    '文案里不再出现旧口径「六成」');
+  // 商店「半部盾谱」那一行副标题是第五处（也是玩家最容易在买之前读到的一处）
+  const viewSrc = require('fs').readFileSync(require('path').join(__dirname, '..', 'js', 'view.js'), 'utf8');
+  const tipLine = (viewSrc.match(/const TIP_BLOCK = '([^']*)'/) || [])[1] || '';
+  ok(tipLine.indexOf('−' + pct + '%') >= 0, `商店「半部盾谱」副标题写的也是 −${pct}%`);
+}
 
 E.newGame(); s = E.state();
 s.floor = 4; s.x = 1; s.y = 1;

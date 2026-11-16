@@ -584,8 +584,12 @@
   const rings = () => (s && Array.isArray(s.flags.rings) ? s.flags.rings : []);
   const hasRing = (id) => rings().indexOf(id) >= 0;
   // 格挡比例：基础 0.55（省下将近一半）；后半部盾谱压到 0.42；断刃之环再收 0.1
+  // 两个基数各留一个名字：教程 / 路遇 / 小传里写的「承伤 −45%」要跟这里同一个数
+  // （engine-test 有源码契约盯着，改了这个数不更新文案就红）
+  const BLOCK_BASE = 0.55;
+  const BLOCK_BASE2 = 0.42;
   const ringBlockScale = () => {
-    const base = s && s.flags.hasBlock2 ? 0.42 : 0.55;
+    const base = s && s.flags.hasBlock2 ? BLOCK_BASE2 : BLOCK_BASE;
     return hasRing('parry') ? base - 0.1 : base;
   };
   // 架盾（格挡的第二种用法）：把这一层的盾一次性架开，本层余下每一场都吃 −15%。
@@ -1313,6 +1317,9 @@
     if (eff.ember) s.flags.eventEmber = (s.flags.eventEmber || 0) + eff.ember;
     // 路遇里「跟老兵讨教」：授予格挡（已学过则什么都不发生）
     if (eff.block) grantBlock();
+    // 路遇里「用掉这一层的格挡」：与战斗里挡一次记同一本账
+    // （惜挡之环的 spare_f、顶栏 🛡剩N、决战账的最省一招都读这同一个计数）
+    if (eff.useBlock) s.flags['block_n' + s.floor] = blockUsed() + Math.abs(eff.useBlock);
   }
 
   // 选项的「付不起」判定：这是**唯一**判据，`eventCost`（给旧调用点的字符串）
@@ -1327,6 +1334,12 @@
           return { kind: 'key', key: k, need: -e.keys[k] - (s.keys[k] || 0), msg: '钥匙不够' };
         }
       }
+    }
+    // 「用掉这一层的格挡」也是付不起的一种：三种情形各说各的话，别一律写「不能格挡」
+    if (e.useBlock) {
+      if (vowForbidsBlock()) return { kind: 'block', why: 'vow', need: 1, msg: '这条誓约不能格挡' };
+      if (!s.flags.hasBlock) return { kind: 'block', why: 'unlearned', need: 1, msg: '还没学会格挡' };
+      if (blockLeft() < e.useBlock) return { kind: 'block', why: 'used', need: 1, msg: '这一层的格挡已经用掉了' };
     }
     return null;
   }
@@ -2043,7 +2056,7 @@
       const ch = tile(s.x + dx, s.y + dy);
       return D.monsters[ch] ? predict(ch) : null;
     },
-    tryMove, fight, canBlock, canGuard, blockLimit, blockLeft, blockUsedAt, grantBlock, vowForbidsBlock, blockSpreadAt, blockSpreadActive, blockSpreadScale, BLOCK_SPREAD, buy, priceOf, shopStock, dealOf, openShopAt, floorMonsterCount, floorPickupCount, floorThreat, battleMargin, potionHeal, finish, altarChoices, pickRelic, pathTo, pathThrough, pathToNear, pathsTo,
+    tryMove, fight, canBlock, canGuard, blockLimit, blockLeft, blockUsedAt, grantBlock, vowForbidsBlock, blockSpreadAt, blockSpreadActive, blockSpreadScale, BLOCK_SPREAD, BLOCK_BASE, BLOCK_BASE2, buy, priceOf, shopStock, dealOf, openShopAt, floorMonsterCount, floorPickupCount, floorThreat, battleMargin, potionHeal, finish, altarChoices, pickRelic, pathTo, pathThrough, pathToNear, pathsTo,
     nextLevelExp, margin, keyName, summary, accrueActive, ACTIVE_CAP, hasRelic, ownedRelics, beginFloor, restoreFloor, revealCore, heartState, heartTake, heartLeave, vow, pickEvent, eventPool, eventCost, eventShortfall, resolveEvent, applyEffect, jumpTo, visitedMax, gateForth, sealPlan,
     rings, hasRing, ringBlockScale, zealScale, zealNext, zealNeed, finalLedger, cleanEmber, fightDamage, tangleInfo, bossPhases, settleChapter, ringChoices, pendingRing, pickRing,
   };

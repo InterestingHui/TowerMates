@@ -109,9 +109,9 @@
 
   // ---------- 商店：货架与「明码取舍」的每一句话 ----------
   const SHOP_CORE = ['key', 'potion', 'atk', 'def'];
-  // 副标题是单行区（最多两行）：写满会正好截在「承伤降到 55%」这个数字上，
+  // 副标题是单行区（最多两行）：写满会正好截在「承伤 −45%」这个数字上，
   // 「每层一次」与「战斗中点盾」的关系由买下后的提示条补（「格挡已学会：每层一次，战斗中点盾」）
-  const TIP_BLOCK = '格挡：每层一次，承伤降到 55%';
+  const TIP_BLOCK = '格挡：每层一次，承伤 −45%';
   const TIP_SHARD = '带一点塔的心跳出去：**通关余烬 +8**（唯一）';
   // 缺钱时那句「这一层还剩 N 只怪可刷」每件货都一样，逐行重复既啰嗦又把副标题撑成三四行；
   // 收成货架下方一行（见 shopModel 返回的 farm）
@@ -732,6 +732,8 @@
     if (!sh) return '';
     if (sh.kind === 'gold') return `还差 ${sh.need} 金`;
     if (sh.kind === 'key') return `还差 ${sh.need} 把${KEY_NAMES[sh.key] || '钥匙'}`;
+    // 「用掉这一层的格挡」付不起时，理由自己就是人话（没学 / 禁挡誓约 / 已用光）
+    if (sh.kind === 'block') return sh.msg || '这一层的格挡不可用';
     return '';
   }
   function eventModel(input) {

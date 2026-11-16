@@ -224,6 +224,33 @@ function measurePanel(frame, sel) {
         const dsm = dis ? dis.querySelector('small').textContent : '';
         check(tag + ' 付不起时仍写着它给什么', !!dis && dsm.indexOf('还差') >= 0 && dsm.indexOf(' · ') > 0 && dsm.length > dsm.indexOf('还差') + 5,
           dis ? dsm : '没有禁用选项（场景失效）');
+
+        // 另一种「付不起」：用掉这一层的格挡（11-16 路遇去同构新增的代价）。
+        // 理由必须说人话（没学 / 禁挡誓约 / 已用光），且仍要写清这个选项给什么。
+        // 造状态而不是碰运气：直接把这层的格挡记成用光，探针在哪个 run 上都成立。
+        {
+          const st = w.Engine.state();
+          const keepHas = st.flags.hasBlock;
+          const keepN = st.flags['block_n' + st.floor];
+          st.flags.hasBlock = true;
+          st.flags['block_n' + st.floor] = 9;
+          w.__tm.openEvent('vent');
+          await wait(240);
+          const vopts = Array.from(d.querySelectorAll('#eventOverlay .ev-opt'));
+          const vdis = vopts.filter((b) => b.disabled)[0];
+          const vsm = vdis ? vdis.querySelector('small') : null;
+          const vtxt = vsm ? vsm.textContent : '';
+          check(tag + ' 格挡付不起时仍写着它给什么',
+            !!vdis && vtxt.indexOf('格挡') >= 0 && vtxt.indexOf('攻击 +1') >= 0 && vtxt.indexOf(' · ') > 0,
+            vdis ? vtxt : '没有禁用选项（场景失效）');
+          check(tag + ' 格挡代价那句整句可见', !!vsm && vsm.scrollWidth <= vsm.clientWidth + 1,
+            vsm ? vsm.scrollWidth + '/' + vsm.clientWidth : '缺 small');
+          try { d.getElementById('eventOverlay').classList.remove('show'); } catch (e) {}
+          st.flags.hasBlock = keepHas;
+          if (keepN === undefined) delete st.flags['block_n' + st.floor];
+          else st.flags['block_n' + st.floor] = keepN;
+          await wait(80);
+        }
         try { d.getElementById('eventOverlay').classList.remove('show'); } catch (e) {}
         await wait(120);
       }

@@ -709,6 +709,9 @@ ok(V.eventModel({ event: { name: 'x', text: 'y', options: [{ label: 'a' }] }, sh
         });
       } else if (k === 'block') {
         if (o.tip.indexOf('格挡') < 0) lies.push(`${e.id}[${i}] block`);
+      } else if (k === 'useBlock') {
+        // 「学会格挡」与「用掉这一层的格挡」是相反的事，明码里必须能分开
+        if (!(o.tip.indexOf('格挡') >= 0 && (o.tip.indexOf('用掉') >= 0 || o.tip.indexOf('消耗') >= 0))) lies.push(`${e.id}[${i}] useBlock`);
       } else if (k === 'gold' && ef[k] === 0) {
         // 0 金不必写进明码
       } else if (!KW[k]) {
