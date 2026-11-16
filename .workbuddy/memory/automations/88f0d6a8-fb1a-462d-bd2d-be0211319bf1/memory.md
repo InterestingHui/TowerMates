@@ -351,3 +351,12 @@
 - 闸门：check / engine 577 / code 166 / sim 18,745·68.4% 未漂移 / 53 图 + 全套 / ui-test ✓。commit 4bb3e35 已推并部署，线上 build 03cc5cb21a 已验证。
 - 坑（下轮直接用）：view.js「纯」契约是子串匹配，注释里写 `Engine.xxx` 会转红；`indexOf(串) > 0` 在串位于开头时假红，用 `>= 0`；源码契约挑标记串（`盾已架开</b>`）而非纯文案，免得误伤历史注释。
 - 剩余：结算页标签拼装（`endStats` / 记忆区）是切边界最后一小块；结构缺口仍是真人数据。
+
+## 2026-11-16 11:1x — 全力模式（切边界第四刀：结算两页标签进 view.js，1 项 + 加练美术B）
+- 判定：mtime 81 分钟、工作树仅 `_backup/` → 全力；占用表空、无排队；最近 5 条含「变体：校准」→ 不做变体。
+- 产出：view.js 增 `deathStatsModel`/`winStatsModel`/`memModel`/`floorNo`/`migrateFloors`（+`CHAPTERS`/`MEM_NOTE_*`），main.js 只剩 `renderEndStats()`/`renderMemory()` 翻译器。code-test 166→**217**。
+- **照出一个活了一个月的谎**：跨局账 `deepest`/`lastFallFloor` 混着 0 基（败局）与 1 基（胜局），显示端一律当 1 基 → 第一次死在第 1 层的人看到「最远第 0 层」，平台桥 `lastRun.floor` 也带错。修：入账统一 `s.floor + 1`、展示去 `+1`、老档 `migrateFloors()`（从没赢过 ⇒ +1；`floorBase` 标记、幂等）。
+- 加练：美术 焦点B —— vp-modal-check 结算段 +12 项（分项 13 行 / 履历 5 行 / 目标 3 条整句可见 ×4 视口），60→**72**，零裁切发现 0 修 0。
+- 闸门：check ✓ / engine 577 / code 217 / fuzz 0 / sim 18,745·68.4% 未漂移 / 53 图 + 全套（可读性 974 / 触控 72 / 弹层 72）/ ui-test ✓。commit 09f27b1 + e77c881（build 7f17c0a987）+ 4471da2，已部署并 curl 核对线上 build 与三处新符号。
+- 坑（下轮直接用）：①`.indexOf(串) > 0` 在串位于开头时假红，一律 `includes()`；②断言 `goals` 某条规则要先 `slice(0,3)` 想清楚——用只触发那一条的 fixture；③`shot.html` 的 `--dump-dom` 不展开 iframe 内 DOM，结算文本只能靠探针页；小窗口下结算分项区永远在面板内滚动区，截不到。
+- 剩余：`endScore` 摘要行 / brief 拼装、祭坛/回响/路遇/图鉴/立绘放大仍在 main.js；结构缺口＝真人数据 + 第 2 局骨架逐格相同。
