@@ -4098,15 +4098,31 @@
     });
     $('btnCodex').addEventListener('click', openCodex);
     $('codexClose').addEventListener('click', () => el.codexOverlay.classList.remove('show'));
+    // 「点一下就完事」的按钮，反馈必须落在按钮自己身上。
+    // 榜单是整屏浮层（z-index 20），日志区被压在下面看不见——2026-11-17 加练焦点A 实测：
+    // 点「复制码 / 复制挑战链接」成功后玩家屏幕上零变化，像是按钮坏了。
+    // 就地换文案 1.4 秒再换回来：不挪版（flex:1 定宽）、不抢输入、也不靠玩家低头找日志。
+    function flashBtn(btn, text) {
+      if (!btn) return;
+      if (!btn.dataset.label) btn.dataset.label = btn.textContent;
+      btn.textContent = text;
+      btn.classList.add('done');
+      clearTimeout(btn._flashT);
+      btn._flashT = setTimeout(() => {
+        btn.textContent = btn.dataset.label;
+        btn.classList.remove('done');
+      }, 1400);
+    }
     // 复制：剪贴板不可用（file://、部分 WebView）时退化成「选中文本让你自己复制」；
     // 没有可选中对象时（比如复制的是链接、屏上没有这段字）就直说复制失败，别假装成功。
-    function copyText(selEl, text, okMsg) {
+    // 每条出口都是「按钮字变了 + 顶部提示 / 提示音」——三处出口不许只有一条静默的日志。
+    function copyText(selEl, text, okMsg, btn) {
       const t = text || '';
-      if (!t) return;
+      if (!t) { warn('这个码还没生成，先打完一局'); flashBtn(btn, '还没码'); return; }
       // 「—— 通关后生成 ——」是占位符，不是码：真复制出去只会发一条读不出来的链接
-      if (t.indexOf('——') === 0) { log('先打完一局才有挑战码', 'warn'); return; }
+      if (t.indexOf('——') === 0) { warn('先打完一局才有挑战码'); flashBtn(btn, '还没码'); return; }
       const fallback = () => {
-        if (!selEl) { log('复制失败，请手动复制挑战码', 'warn'); return; }
+        if (!selEl) { warn('复制失败，请手动复制挑战码'); flashBtn(btn, '复制失败'); return; }
         try {
           const range = document.createRange();
           range.selectNodeContents(selEl);
@@ -4114,25 +4130,34 @@
           sel.removeAllRanges();
           sel.addRange(range);
           log('已选中挑战码，长按/Ctrl+C 复制', 'good');
-        } catch (e) { log('复制失败，请手动复制', 'warn'); }
+          warn('已选中挑战码，长按/Ctrl+C 复制');
+          flashBtn(btn, '已选中');
+        } catch (e) { warn('复制失败，请手动复制'); flashBtn(btn, '复制失败'); }
       };
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(t).then(() => log(okMsg, 'good'), fallback);
+        navigator.clipboard.writeText(t).then(() => {
+          log(okMsg, 'good');
+          // 提示条在浮层之上（z-index 45 > 20），是这颗按钮唯一能「说清发生了什么」的通道
+          warn(okMsg);
+          flashBtn(btn, '已复制 ✓');
+          Sound.play('choose');
+        }, fallback);
       } else fallback();
     }
     $('btnCopyCode').addEventListener('click', () => {
       const codeEl2 = $('myCode');
-      copyText(codeEl2, codeEl2.textContent, '挑战码已复制');
+      copyText(codeEl2, codeEl2.textContent, '挑战码已复制', $('btnCopyCode'));
     });
     // 挑战链接：把码塞进地址发出去，朋友点开就收下（省掉「贴 50 多个字符」那一步）
     $('btnCopyLink').addEventListener('click', () => {
       const codeEl3 = $('myCode');
+      const btn3 = $('btnCopyLink');
       const raw = (codeEl3.textContent || '').trim();
       // 「—— 通关后生成 ——」是占位符：不拦的话会拼出一条 rival=—— 通关后生成 —— 的链接发出去
-      if (raw.indexOf('——') === 0) { log('先打完一局才有挑战链接', 'warn'); return; }
+      if (raw.indexOf('——') === 0) { warn('先打完一局才有挑战链接'); flashBtn(btn3, '还没码'); return; }
       const link = View.rivalLink(location.href, raw);
-      if (!link) { log('先打完一局才有挑战链接', 'warn'); return; }
-      copyText(null, link, '挑战链接已复制 · 发给朋友点开就收下');
+      if (!link) { warn('先打完一局才有挑战链接'); flashBtn(btn3, '还没码'); return; }
+      copyText(null, link, '挑战链接已复制 · 发给朋友点开就收下', btn3);
     });    $('btnCfg').addEventListener('click', openCfg);
     $('cfgClose').addEventListener('click', closeCfg);
     $('btnHelp').addEventListener('click', () => { openCfg(); });

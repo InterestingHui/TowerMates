@@ -140,6 +140,23 @@ async function run() {
       out.rivalCopiedLen = copied ? copied.length : 0;
       var logBox = d.getElementById('log');
       out.rivalLog = logBox && logBox.lastChild ? logBox.lastChild.textContent.trim().slice(0, 32) : '';
+      // 反馈必须在玩家眼前：榜单是整屏浮层，日志被压在下面看不见——
+      // 所以点完按钮自己换字（1.4 秒后回原文案），这一段就量这三件事。
+      var pillEl = d.getElementById('warnPill');
+      out.rivalBtnDone = linkBtn.textContent.indexOf('已复制') >= 0;
+      out.rivalBtnDoneClass = linkBtn.classList.contains('done');
+      out.rivalBtnDoneSame = linkBtn.getBoundingClientRect().height;   // 换字不许把按钮撑高/压扁
+      out.rivalPill = pillEl ? pillEl.textContent.trim().slice(0, 24) : '';
+      await new Promise(function (r) { setTimeout(r, 1500); });
+      out.rivalBtnRestored = linkBtn.textContent.trim();
+      out.rivalBtnRestoredClass = linkBtn.classList.contains('done');
+      // 复制码那颗同样要就地反馈（同一个出口，两条路各量一次）
+      var codeBtn = d.getElementById('btnCopyCode');
+      copied = null;
+      codeBtn.click();
+      await new Promise(function (r) { setTimeout(r, 20); });
+      out.rivalCodeCopied = copied === code;
+      out.rivalCodeBtnDone = codeBtn.textContent.indexOf('已复制') >= 0;
       // 还没通关时点它：占位符「—— 通关后生成 ——」不该被拼成一条垃圾链接发出去
       myCodeEl.textContent = '—— 通关后生成 ——';
       copied = null;
@@ -148,6 +165,8 @@ async function run() {
       out.rivalNoCodeCopied = copied;
       var logBox0 = d.getElementById('log');
       out.rivalNoCodeLog = logBox0 && logBox0.lastChild ? logBox0.lastChild.textContent.trim() : '';
+      out.rivalNoCodePill = pillEl ? pillEl.textContent.trim() : '';
+      out.rivalNoCodeBtn = linkBtn.textContent.indexOf('还没码') >= 0;
     }
 
     // 落地链路真跑一遍：另起一个 iframe 带着 ?rival=<码> 开门，看它会不会自己收下、

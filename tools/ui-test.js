@@ -98,13 +98,20 @@ const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-ui-'));
   ok(out.rivalCopiedSamePage === true, '链接指向同一个页面（不是空白页或别的站）');
   ok(typeof out.rivalLog === 'string' && out.rivalLog.indexOf('挑战链接已复制') >= 0,
     `点完说清复制了什么（实测「${out.rivalLog}」）`);
+  // 复制的反馈必须落在按钮自己身上：榜单是整屏浮层，日志被压在下面看不见（2026-11-17 焦点A）
+  ok(out.rivalBtnDone === true && out.rivalBtnDoneClass === true && out.rivalBtnDoneSame >= 34,
+    `点完按钮就地换成「已复制」（高 ${out.rivalBtnDoneSame}px，不挪版）`);
+  ok(out.rivalPill.indexOf('挑战链接已复制') >= 0, `顶部提示同时说清复制了什么（实测「${out.rivalPill}」）`);
+  ok(out.rivalBtnRestored === '复制挑战链接' && out.rivalBtnRestoredClass === false,
+    `1.4 秒后按钮文案自己回到原样（实测「${out.rivalBtnRestored}」）`);
+  ok(out.rivalCodeCopied === true && out.rivalCodeBtnDone === true, '「复制码」那颗走同一个出口，同样就地反馈');
   ok(out.rivalLandTaken === true && out.rivalLandFloor === 7,
     `带 ?rival= 的链接开门即收下（名录里第 ${out.rivalLandFloor} 层那条）`);
   ok(String(out.rivalLandParam).indexOf('rival=') < 0, `收下后地址栏里的 rival 参数被冲掉（实测「${out.rivalLandParam}」）`);
   ok(out.rivalStrip === '/?sharecode=AAA#demo=1,2,3',
     `冲参数只去 rival，sharecode 与 hash 一个不动（实测「${out.rivalStrip}」）`);
-  ok(out.rivalNoCodeCopied === null && String(out.rivalNoCodeLog).indexOf('先打完一局') >= 0,
-    `还没通关时不拼垃圾链接，直接说清原因（复制到「${out.rivalNoCodeCopied}」/ 日志「${out.rivalNoCodeLog}」）`);
+  ok(out.rivalNoCodeCopied === null && String(out.rivalNoCodePill).indexOf('先打完一局') >= 0 && out.rivalNoCodeBtn === true,
+    `还没通关时不拼垃圾链接，提示条 + 按钮都说清原因（复制到「${out.rivalNoCodeCopied}」/ 提示「${out.rivalNoCodePill}」）`);
   ok(out.clickTarget !== null && out.clickDist >= 2, '找到一只不相邻的怪物作点击目标');
   ok(out.clickKills === 1, '只点一次怪物就自动走到跟前并完成战斗');
   ok(out.clickCleared === true && out.clickOnTile === true, '战斗后怪物消失、人物站上它的格子');

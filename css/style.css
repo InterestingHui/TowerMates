@@ -920,6 +920,13 @@ html, body {
 }
 #btnCopyCode:hover, #btnPasteCode:hover, #btnCopyLink:hover { background: rgba(232, 196, 106, 0.2); }
 #btnCopyCode:active, #btnPasteCode:active, #btnCopyLink:active { transform: scale(0.97); }
+/* 复制这类「点一下就完事」的按钮，反馈落在按钮自己身上：换字 + 金框亮一档，1.4 秒后回原文案。
+   日志区在整屏浮层下面看不见（2026-11-17 焦点A），所以成功/失败都必须在这里看得出来。 */
+#btnCopyCode.done, #btnPasteCode.done, #btnCopyLink.done {
+  background: rgba(232, 196, 106, 0.26);
+  border-color: rgba(232, 196, 106, 0.62);
+  color: #fff3d0;
+}
 .code-input {
   flex: 1;
   min-width: 0;

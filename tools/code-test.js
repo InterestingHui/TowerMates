@@ -891,6 +891,12 @@ ok(mainSrc.indexOf("searchParams.set('rival'") < 0, 'main.js 不许自己拼链�
     '面板上「复制码」与「复制挑战链接」两颗按钮都在');
   ok(cssSrc.indexOf('.code-acts') >= 0 && cssSrc.indexOf('#btnCopyLink') >= 0,
     '两颗按钮并排一行且有外观（si-buy 的金框规则在 .shop-item 作用域里，不补就落回 UA 默认白砖）');
+  // 反馈通道契约：榜单是整屏浮层（z-index 20），日志区被压住 —— 复制这条路不许只写日志
+  ok(mainSrc.indexOf('function flashBtn(') > 0 && mainSrc.indexOf("flashBtn(btn, '已复制 ✓')") > 0,
+    '复制成功时按钮就地换文案（不靠被浮层盖住的日志）');
+  ok(mainSrc.indexOf("log('先打完一局才有挑战码'") < 0 && mainSrc.indexOf("log('先打完一局才有挑战链接'") < 0,
+    '占位符 / 没码这条路不许写进日志（浮层下看不见），必须走提示条 + 按钮');
+  ok(cssSrc.indexOf('#btnCopyLink.done') >= 0, '「已复制」这个状态有自己的样式（金框亮一档）');
 }
 
 console.log(`挑战码 / 触控 / 桥接 / 视图模型单测：${pass} 项通过${bad ? `，${bad} 项失败` : ''}`);
