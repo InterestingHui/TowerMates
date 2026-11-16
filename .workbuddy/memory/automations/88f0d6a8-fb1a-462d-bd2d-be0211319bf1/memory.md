@@ -376,3 +376,12 @@
 - 加练：诊断（结构向，只测量）——前 3 层 363 格里每局只变 9 格（2.5%）且全是拾取物；方案「支路开合」+ 三条保险入待办。
 - **坑（下轮直接用）**：①结算页内容在 `max-height:92dvh` 内滚区里，截图只到上半屏——**别用截图验结算内容**，用同源 iframe 探针读 DOM；②探针的 `fr.contentDocument` 必须在 iframe `load` 之后取（提前取是 about:blank，表现为「按钮不存在」）；`w.__tm` 无 `Engine`，引擎在 `w.Engine`；③`node tools/serve.js PORT .` 前台会阻塞整条 `&&` 链，chrome 根本跑不到；④`check_live.js`（星壤那个）本轮挂了 10 分钟无输出，改用 curl 自查 hub + version.json + 构建号，别死等。
 - 剩余：祭坛 / 回响 / 路遇 / 图鉴 / 立绘放大仍在 main.js；结构缺口＝真人数据 + 第 2 局骨架。
+
+## 2026-11-16 15:35 — 全力模式（切边界第七刀：图鉴 + 承伤判据收口，1 大项 + 加练美术B）
+- 判定：PROGRESS mtime 84 分钟、工作树仅 `_backup/` → 全力；占用表空、无排队；最近 5 条含「变体：校准」→ 不做变体。
+- 产出：`view.js` 增 `codexModel`（怪物顺序＝首次出现楼层 / 幽灵不列 / 承伤染色 / 边际收益三写法 / 「已相遇 N / M」分母）+ `CODEX_CHARS`/Boss 名单搬走；顺手抓出**速查卡自己写了一份 1/4 阈值**（「打不动」写法也与图鉴不一致）→ 提 `lossModel({pred,maxHp,needAtk})` 两处共用。code-test 279→305。立绘放大零规则可切 → 切边界系列收尾。
+- 加练美术焦点B（A 无新资产跳 B）：破防行收口后丢了加粗 → 三状态统一 `<b>`，DOM 探针实测命中。发现 1 / 修 1。
+- 闸门：check ✓ / engine 584 / code 305 / sim 18,745·68.4% 未漂移 / regress 53 图 + 全套（可读性 974 / 触控 72 / 弹层 88 / 首局 63.1s）/ ui-test ✓。commit 011cd4b 已推。
+- 双轨：①根目录 build **052727306f** 已部署并 curl 核对；②`publish_games.js towermates` → `_publish/` 已部署（新链接 starlot-homestead.app.workbuddy.host），`check_live.js` **LIVE: PASS**，hub 内 towermates build 同为 052727306f。
+- 坑：①`codexModel` 的 floors 是**字符串行**，夹具怪 id 必须单字符，多字符键静默扫不到；②「同一个数画在两处」的屏动手前先查第二份判据（靠源码契约 `maxHp * 0.25` 才发现）；③探针读 DOM 比截图可靠。
+- 剩余：路遇池去同构（vent/well）、真人数据 SDK、第 2 局骨架逐格相同、线上整仓可读等拍板。临时 serve 9621 已 kill、探针页已删、残留 0。
