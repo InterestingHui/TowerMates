@@ -896,6 +896,25 @@ ok(mainSrc.indexOf("searchParams.set('rival'") < 0, 'main.js 不许自己拼链�
     '复制成功时按钮就地换文案（不靠被浮层盖住的日志）');
   ok(mainSrc.indexOf("log('先打完一局才有挑战码'") < 0 && mainSrc.indexOf("log('先打完一局才有挑战链接'") < 0,
     '占位符 / 没码这条路不许写进日志（浮层下看不见），必须走提示条 + 按钮');
+  // ↑ 上面那条是「两条字面量」的黑名单：只要换个说法（或漏掉某条出口）就静默失效。
+  // 2026-11-17 变体 4 实证：把「没有可选中对象」那条出口改成 `log(...); return;`（按钮不动、无提示条）
+  // 时它照样绿——所以真正的规矩要按**函数体**守：copyText 里每条出口都得动按钮或弹提示条。
+  const copyAt = mainSrc.indexOf('function copyText(');
+  const copyBody = copyAt < 0 ? '' : mainSrc.slice(copyAt, mainSrc.indexOf('\n    function ', copyAt + 10));
+  ok(copyAt >= 0 && copyBody.length > 400, '能切出 copyText 函数体（切不出来下面那条就是假绿）');
+  {
+    const silent = [];
+    const lines = copyBody.split('\n');
+    lines.forEach((line, i) => {
+      if (line.indexOf('log(') < 0) return;
+      const win = lines.slice(i, i + 3).join('\n');
+      if (win.indexOf('warn(') < 0 && win.indexOf('flashBtn(') < 0) silent.push(line.trim().slice(0, 46));
+    });
+    ok(silent.length === 0,
+      `复制这条路的每条出口都有可见反馈（只写日志＝在浮层下面看不见；违规：${silent.join(' / ') || '无'}）`);
+    ok((copyBody.match(/flashBtn\(/g) || []).length >= 4,
+      '复制这条路至少四条出口都动了按钮（没码 / 占位符 / 已复制 / 已选中 / 失败）');
+  }
   ok(cssSrc.indexOf('#btnCopyLink.done') >= 0, '「已复制」这个状态有自己的样式（金框亮一档）');
 }
 
