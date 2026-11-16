@@ -206,6 +206,22 @@ function measurePanel(frame, sel) {
           check(tag + ' 面板不出视口', m.r.top >= -1 && m.r.bottom <= c.h + 1, m.r.top + '–' + m.r.bottom + ' / ' + c.h);
           check(tag + ' 再来一局不滚就看得见', !!again && again.top >= -1 && again.bottom <= c.h + 1,
             again ? again.top + '–' + again.bottom + ' / ' + c.h : '缺按钮');
+          // 这一屏真正的信息主体是两块标签（13 行分项 + 「塔的记忆」），此前只量过按钮够不够得着。
+          // 两列的 .mem-grid 与逐条的目标最容易在窄屏被 ellipsis 吃掉半句（"决战结束时（现 46…"）
+          const clipOf = (els) => els.filter((el) => el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1);
+          const cutTxt = (els) => els.map((e) => e.textContent.trim().slice(0, 8)).join('/');
+          const statCells = Array.from(d.querySelectorAll('#endStats > div'));
+          const statCut = clipOf(statCells);
+          check(tag + ' 分项标签整句可见', statCells.length >= 12 && statCut.length === 0,
+            statCells.length + ' 行' + (statCut.length ? ' · 裁切：' + cutTxt(statCut) : ''));
+          const memRows = Array.from(d.querySelectorAll('#endMemory .mem-grid > div'));
+          const memCut = clipOf(memRows);
+          check(tag + ' 履历每行整句可见', memRows.length >= 5 && memCut.length === 0,
+            memRows.length + ' 行' + (memCut.length ? ' · 裁切：' + cutTxt(memCut) : ''));
+          const goalRows = Array.from(d.querySelectorAll('#endMemory .mem-goals span'));
+          const goalCut = clipOf(goalRows);
+          check(tag + ' 下一局目标整句可见', goalRows.length >= 1 && goalCut.length === 0,
+            goalRows.length + ' 条' + (goalCut.length ? ' · 裁切：' + cutTxt(goalCut) : ''));
         }
       }
     } catch (e) {

@@ -469,5 +469,115 @@ ok(battleHit.length === 0, `战斗面板文案只在 view.js 定义（main.js �
 const battleCalls = ['View.foeName', 'View.threatModel', 'View.blockModel', 'View.guardModel', 'View.tangleModel', 'View.hintPicked'];
 ok(battleCalls.every((w) => mainSrc.indexOf(w) >= 0), 'main.js 必须走这五个模型与提示行函数（不许绕过）');
 
+// ---------- 结算两页（败局 / 胜局）的标签与履历 ----------
+// 这一屏曾经同一个数有两个口径：层数（引擎 0 基 / 文案 1 基）、章回响分母（手写 4）、
+// 塔印名（两页各取一次）。搬进 view.js 之后这些口径只剩一处，下面的断言直接盯它们。
+const vows = {
+  none: { name: '不立誓', emoji: '○' },
+  mercy: { name: '慈悲之誓', emoji: '🕊' },
+  greed: { name: '贪婪之誓', emoji: '💰' },
+  ascetic: { name: '苦行之誓', emoji: '🥀', ember: 90 },
+  nameless: { name: '无名之誓', emoji: '▨', ember: 120 },
+};
+const blankMem = () => ({ runs: 3, endings: { plain: 1 }, vowWins: { mercy: 1 }, fullChapters: 2, heartTaken: 1, heartLeft: 0, deepest: 7, fastest: 300, bestSeal: 'name', falls: 2, lastFallFloor: 4, marginCounts: { A: 1 }, marginBest: 'A', floorBase: 1 });
+const memOf = (over) => Object.assign(blankMem(), over || {});
+
+// 层数口径：引擎 0 基 → 文案 1 基，只有这一处换算
+ok(V.floorNo(0) === 1 && V.floorNo(4) === 5, '引擎 0 基转「第 N 层」');
+ok(V.floorNo(undefined) === 1 && V.floorNo(-3) === 1, '脏值/负数钳到第 1 层，不写出「第 0 层」');
+ok(V.CHAPTERS === 4, '章数常量只此一处（回响分母不再手写 4）');
+
+// 败局标签：6 行，第 1 层死的人必须看到「第 1 层」
+const ds = V.deathStatsModel({ foe: '墨妖', floor0: 0, sealName: '折戟', kills: 3, vowName: '慈悲之誓', time: 125 });
+ok(ds.length === 6, '败局标签六行（倒在/深度/塔印/击杀/誓约/用时）');
+ok(ds.map((r) => r.label).join(',') === '倒在,深度,塔印,击杀,誓约,用时', '败局标签顺序与文案不变');
+ok(ds[1].value === '第 1 层', '第 1 层倒下时写「第 1 层」（此前写成「第 0 层」）');
+ok(V.deathStatsModel({ floor0: 4 }).map((r) => r.value)[1] === '第 5 层', '深度按 s.floor+1 显示');
+ok(V.deathStatsModel({}).map((r) => r.value)[0] === '塔里', '没有怪物名时写「塔里」（不写 undefined）');
+ok(ds[5].value === '2分5秒', '用时口径与榜单同源');
+ok(V.deathStatsModel({}).map((r) => r.value)[4] === '不立誓', '誓约缺省是「不立誓」');
+
+// 胜局标签：13 行，集齐盾谱 +1
+const ws = V.winStatsModel({
+  ending: 'true', sealName: '无痕', level: 18, atk: 120, def: 96,
+  finalHp: 400, finalMaxHp: 500, curHp: 400, kills: 40, relics: '灯 尺', rings: '刻刀 时辰',
+  echoDone: 4, heart: 'left', vowName: '慈悲之誓', steps: 612, time: 512,
+});
+ok(ws.length === 13, '胜局标签十三行（不含盾谱）');
+ok(V.winStatsModel({ signed: true, curHp: 1, finalHp: 1, finalMaxHp: 1 }).length === 14, '集齐盾谱多一行签名');
+const row = (rows, label) => rows.find((r) => r.label === label).value;
+ok(row(ws, '结局') === '第六个名字' && row(ws, '章回响') === '4/4 章', '结局与章回响按同一套常量拼');
+ok(row(ws, '剩余生命') === '400 / 500' && ws.find((r) => r.label === '剩余生命').sub === '决战结束时',
+  '血量相同只标「决战结束时」');
+const ws2 = V.winStatsModel({ finalHp: 400, finalMaxHp: 500, curHp: 460 });
+ok(ws2.find((r) => r.label === '剩余生命').sub === '决战结束时（现 460）', '之后买药回血要标「现」以免与难度基准对不上');
+ok(row(V.winStatsModel({ curHp: 333 }), '剩余生命') === '333', '没有决战读数时只写当前血');
+ok(row(V.winStatsModel({ heart: 'taken' }), '塔心') === '带走' && row(V.winStatsModel({ heart: 'left' }), '塔心') === '留下'
+  && row(V.winStatsModel({}), '塔心') === '未至', '塔心三种状态');
+ok(row(V.winStatsModel({}), '攻击 / 防御') === '0 / 0', '攻防缺值不写 NaN');
+ok(row(V.winStatsModel({}), '遗物') === '无' && row(V.winStatsModel({}), '锁环') === '无', '没拿东西时写「无」');
+
+// 「塔的记忆」：两页共用一套，败局 5 行 / 胜局 6 行（多一行决战余裕）
+const memIn = (mode, over) => Object.assign({ mode, floorNow: 5, mem: memOf(over), vows, ember: 10, hasVow: () => false }, {});
+const md = V.memModel(memIn('death'));
+const mw = V.memModel(memIn('win'));
+ok(md.items.length === 5 && mw.items.length === 6, '败局履历 5 行、胜局 6 行');
+ok(md.items[0].includes('最远第 7 层') && md.items[0].includes('进塔 3 次'), '最远层与进塔次数');
+ok(V.memModel(memIn('death', { deepest: 2 })).items[0].includes('最远第 5 层'), '本局比纪录更深时取本局');
+ok(md.items[4] === '💀 折戟 ×2 · 上次倒在第 4 层', '「上次倒在第 N 层」不再偏 1（账本已是 1 基）');
+ok(V.memModel(memIn('win', { falls: 0 })).items.length === 5, '没折过戟的胜局不念折戟行');
+ok(mw.items[5] === '决战余裕最好 A · A×1', '决战余裕最好一档 + 分档计数');
+ok(V.memModel(memIn('win', { marginBest: '', marginCounts: {} })).items[5] === '决战余裕最好 尚未记录', '从没通关过的档位写「尚未记录」');
+ok(md.items[2] === '结局：铁与霜 ×1 · 第六个名字 ×0', '双结局分列');
+ok(md.items[3].includes('2/4 章') && md.items[3].includes('带走×1 留下×0'), '回响与塔心取舍');
+ok(md.items[1].includes('留名'), '最好的塔印翻成人话（不留 raw id）');
+
+// 下一局目标：败局第一句必须是「从哪再开始」
+ok(md.goals[0] === '这次倒在了第 5 层——下一局从这里再往上', '败局第一条是本次倒下的层');
+ok(md.goals.length <= 3, '目标最多三条（面板放不下更多）');
+ok(V.memModel({ mode: 'death', floorNow: 4, mem: memOf(), vows, ember: 10, hasVow: () => true }).goals.some((g) => g.includes('再攒')) === false,
+  '誓约都已解锁时不再催「再攒」（hasVow 恒真）');
+const lockedGoal = V.memModel({ mode: 'death', floorNow: 3, mem: memOf({ fullChapters: 4 }), vows, ember: 10, hasVow: () => false });
+ok(lockedGoal.goals[1] === '再攒 80 ✦ 解锁「苦行之誓」', '未解锁誓约按「差多少余烬」报数（90-10）');
+ok(lockedGoal.lockedVow === 'ascetic', '锁着的誓约 id 一并交给 UI（层灯那行要不要出现靠它）');
+ok(V.memModel({ mode: 'death', floorNow: 3, mem: memOf(), vows, ember: 95, hasVow: () => false }).goals[1]
+  .indexOf('已可解锁') > 0, '够余烬时改口「已可解锁」而不是「再攒 0」');
+ok(md.goals.some((g) => g.includes('回响拿满')), '回响没满时给一条推进目标');
+const fullCh = V.memModel({ mode: 'death', floorNow: 6, mem: memOf({ fullChapters: 4, endings: { true: 1, plain: 1 } }), vows, ember: 300, hasVow: () => true });
+ok(fullCh.goals.length === 1, '全收集后只剩「本次倒在哪」一条（不许硬凑三条）');
+// 胜局：目标里要有誓约、决战余裕 S、塔心另一条路
+const wg = mw.goals;
+ok(wg.some((g) => g.includes('拿一次决战余裕 S')), '没拿过 S 时把避战流钉进目标');
+const heartOnly = V.memModel({ mode: 'win', floorNow: 13, vows, ember: 300, hasVow: () => true,
+  mem: memOf({ marginCounts: { S: 1 }, marginBest: 'S', heartTaken: 1, heartLeft: 0, fullChapters: 4, endings: { true: 1, plain: 1 }, vowWins: { mercy: 1, greed: 1, ascetic: 1, nameless: 1 } }) });
+ok(heartOnly.goals.length === 1 && heartOnly.goals[0] === '把塔心石留下一次', '塔心只做过一种选择时催另一种（且不挤掉别人的条目）');
+// 全收集的胜局：四个条件都不成立时目标真的清空（不硬凑三条凑数）
+const allDone = V.memModel({
+  mode: 'win', floorNow: 13, vows, ember: 300, hasVow: () => true,
+  mem: memOf({ marginCounts: { S: 2 }, marginBest: 'S', heartTaken: 1, heartLeft: 1, fullChapters: 4, endings: { true: 1, plain: 1 }, vowWins: { mercy: 1, greed: 1, ascetic: 1, nameless: 1 } }),
+});
+ok(allDone.goals.length === 0, '全收集的胜局目标清空（空面板比硬凑一条更诚实）');
+ok(allDone.lockedVow === null, '誓约都解锁后不再有锁定项（层灯那行才该出现）');
+ok(md.note === '塔收起了你的名字，但位置还留着。' && mw.note === '塔在等你回来——为了上面这些。', '两页结尾那句话随 mode 走');
+
+// 老档层数口径迁移：从没赢过 = 全部来自败局 → 整份账少 1，补上；赢过则不动（可能已是 1 基）
+const oldA = V.migrateFloors({ runs: 3, endings: {}, deepest: 2, falls: 1, lastFallFloor: 2 });
+ok(oldA.deepest === 3 && oldA.lastFallFloor === 3 && oldA.floorBase === 1, '从没赢过的老档：两个层数各 +1');
+const oldB = V.migrateFloors({ runs: 9, endings: { true: 1 }, deepest: 12, falls: 2, lastFallFloor: 4 });
+ok(oldB.deepest === 12 && oldB.lastFallFloor === 5, '赢过的老档：deepest 不动（已是 1 基），折戟层仍 +1');
+const fresh = V.migrateFloors({ runs: 0, endings: {}, deepest: 0, falls: 0, lastFallFloor: 0, floorBase: 1 });
+ok(fresh.deepest === 0 && fresh.lastFallFloor === 0, '新档不迁移（blank 已带 floorBase）');
+ok(V.migrateFloors(oldA).deepest === 3 && V.migrateFloors(oldA).lastFallFloor === 3, '迁移幂等（读两次不会越加越多）');
+
+// 源码契约：这些模板串只许留在 view.js（main.js 再手写一遍就会各说各话）
+const endStr = ['<div>深度 <b>', '进塔 ${', '决战余裕最好 ${', '名册有你的签名'];
+const endHit = endStr.filter((w) => mainSrc.indexOf(w) >= 0);
+ok(endHit.length === 0, `结算标签只在 view.js 拼（main.js 命中：${endHit.join(',') || '无'}）`);
+ok(mainSrc.indexOf('lastFallFloor || 0) + 1') < 0, '折戟层不再在展示端 +1（账本已是 1 基，+1 就成了谎）');
+const endCalls = ['View.deathStatsModel', 'View.winStatsModel', 'View.memModel', 'View.migrateFloors'];
+ok(endCalls.every((w) => mainSrc.indexOf(w) >= 0), 'main.js 必须走这四个入口（不许绕过）');
+ok(mainSrc.indexOf('floor: s.floor + 1, time: sum.time') > 0, '败局入账写 1 基层数（与胜局的 summary().floor 同基准）');
+ok(mainSrc.indexOf("ending: null, vow: s.flags.vow || 'none', floor: s.floor + 1") > 0, '败局上报给平台桥的层数也是 1 基（与胜局同一份字段）');
+
 console.log(`挑战码 / 触控 / 桥接 / 视图模型单测：${pass} 项通过${bad ? `，${bad} 项失败` : ''}`);
 process.exit(bad ? 1 : 0);

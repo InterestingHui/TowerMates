@@ -423,13 +423,148 @@
     };
   }
 
+  // ---------- 结算页：两块面板的标签与履历（2026-11-16 11:xx 切边界第四刀） ----------
+  // 这一屏有两块面板（败局 / 胜局），同一件事各写了一遍，于是同一件事有两个口径：
+  // 塔印名、章回响分母、层数基准都各写过两次。层数这一处已经真的说错过话——见 floorNo。
+  const CHAPTERS = 4;
+
+  // 引擎的 floor 是 0 基（第 1 层 = 0），玩家嘴里与所有文案都是 1 基。
+  // 此前败局把 s.floor（0 基）直接当「第 N 层」显示：第一次死在第 1 层的人读到「最远第 0 层」；
+  // 而胜局写的是 summary().floor（1 基）——同一份跨局账里混着两种基准（见 migrateFloors）。
+  const floorNo = (f0) => Math.max(1, Math.round(f0 || 0) + 1);
+
+  // 老档的层数口径迁移：deepest 可能来自胜局（1 基）也可能来自败局（0 基），无法逐条区分，
+  // 只能按「从没赢过 = 全部来自败局」判——那种情况整份账都少 1，补上即可。
+  // lastFallFloor 只有败局写，一律 0 基 → 直接 +1。跑两次结果相同（幂等）。
+  function migrateFloors(mem) {
+    if (!mem || mem.floorBase) return mem;
+    if ((mem.falls || 0) > 0) mem.lastFallFloor = Math.max(1, (mem.lastFallFloor || 0) + 1);
+    const won = ((mem.endings && (mem.endings.true || 0)) || 0) + ((mem.endings && (mem.endings.plain || 0)) || 0);
+    if (!won && (mem.runs || 0) > 0) mem.deepest = Math.max(1, (mem.deepest || 0) + 1);
+    mem.floorBase = 1;
+    return mem;
+  }
+
+  // 败局标签（6 行）。深度口径与胜局共用 floorNo——两页说同一个数就得是同一个数。
+  function deathStatsModel(input) {
+    const o = input || {};
+    return [
+      { label: '倒在', value: o.foe || '塔里' },
+      { label: '深度', value: `第 ${floorNo(o.floor0)} 层` },
+      { label: '塔印', value: o.sealName || SEALS.fall.name },
+      { label: '击杀', value: String(o.kills || 0) },
+      { label: '誓约', value: o.vowName || '不立誓' },
+      { label: '用时', value: fmtTime(o.time || 0) },
+    ];
+  }
+
+  // 胜局标签（12–13 行，「盾谱」一行只在集齐两半时出现）。
+  // 「剩余生命」要标明是哪个时刻的血：决战结束时与现在（之后可能又买药）不是同一个数，
+  // 只写一个数会让「剩 40% 血」这种读数对不上难度基准。
+  function winStatsModel(input) {
+    const o = input || {};
+    const fh = o.finalHp;
+    const fm = o.finalMaxHp;
+    const cur = Math.round(o.curHp || 0);
+    let hp;
+    if (fh != null && fh !== cur) hp = { value: `${fh} / ${fm}`, sub: `决战结束时（现 ${cur}）` };
+    else if (fh != null) hp = { value: `${fh} / ${fm}`, sub: '决战结束时' };
+    else hp = { value: String(cur) };
+    const rows = [
+      { label: '结局', value: endName(o.ending) },
+      { label: '塔印', value: o.sealName || '' },
+      { label: '最终等级', value: `Lv.${o.level || 1}` },
+      { label: '攻击 / 防御', value: `${o.atk || 0} / ${o.def || 0}` },
+      { label: '剩余生命', value: hp.value, sub: hp.sub },
+      { label: '击杀', value: String(o.kills || 0) },
+      { label: '遗物', value: o.relics || '无' },
+      { label: '锁环', value: o.rings || '无' },
+      { label: '章回响', value: `${o.echoDone || 0}/${CHAPTERS} 章` },
+      { label: '塔心', value: o.heart === 'taken' ? '带走' : o.heart === 'left' ? '留下' : '未至' },
+      { label: '誓约', value: o.vowName || '不立誓' },
+    ];
+    // 集齐前半 + 后半盾谱才有这一行：名册上那格签名是结局彩蛋，结算里得有一行认下它
+    if (o.signed) rows.push({ label: '盾谱', value: '📖+📕 已集齐 · 名册有你的签名' });
+    rows.push({ label: '步数', value: `${o.steps || 0} 步` });
+    rows.push({ label: '用时', value: fmtTime(o.time || 0) });
+    return rows;
+  }
+
+  const MEM_NOTE_DEATH = '塔收起了你的名字，但位置还留着。';
+  const MEM_NOTE_WIN = '塔在等你回来——为了上面这些。';
+
+  // 「塔的记忆」：跨局履历 + 下一局目标。两页共用模型，差别只在 mode 决定的几行：
+  // 败局每次都念「折戟 ×N」（刚刚发生的事），胜局只在真折过戟时念；「决战余裕」只对胜局有意义。
+  // input: { mode:'death'|'win', mem, floorNow, vows, ember, hasVow(id) }
+  function memModel(input) {
+    const o = input || {};
+    const mem = o.mem || {};
+    const mode = o.mode === 'win' ? 'win' : 'death';
+    const endings = mem.endings || {};
+    const mc = mem.marginCounts || {};
+    const nowFloor = Math.max(1, Math.round(o.floorNow || 1));
+    const items = [];
+    // 「最远第 N 层」取自己的最高纪录与本局谁更深——只能有一个判据，两页各写一遍必漂
+    items.push(`进塔 ${mem.runs || 1} 次 · 最远第 ${Math.max(mem.deepest || 0, nowFloor)} 层${mem.fastest ? ` · 最快 ${fmtTime(mem.fastest)}` : ''}`);
+    items.push(`刻下过最好的塔印：${SEALS[mem.bestSeal] ? SEALS[mem.bestSeal].name : '尚未刻下'}`);
+    items.push(`结局：铁与霜 ×${endings.plain || 0} · 第六个名字 ×${endings.true || 0}`);
+    items.push(`满回响 ${mem.fullChapters || 0}/${CHAPTERS} 章 · 塔心 带走×${mem.heartTaken || 0} 留下×${mem.heartLeft || 0}`);
+    if (mode === 'death' || (mem.falls || 0) > 0) {
+      items.push(`💀 折戟 ×${mem.falls || 0} · 上次倒在第 ${mem.lastFallFloor || 0} 层`);
+    }
+    if (mode === 'win') {
+      const tally = ['S', 'A', 'B', 'C'].filter((g) => mc[g]).map((g) => `${g}×${mc[g]}`).join(' · ');
+      items.push(`决战余裕最好 ${mem.marginBest || '尚未记录'}${tally ? ` · ${tally}` : ''}`);
+    }
+    // 还没解锁的誓约：差多少余烬（两页共用，也是「层灯」那行要不要出现的前提）
+    const vows = o.vows || {};
+    const lockedVow = Object.keys(vows).find((id) => vows[id].ember && !(o.hasVow && o.hasVow(id))) || null;
+    const need = lockedVow ? Math.max(0, (vows[lockedVow].ember || 0) - (o.ember || 0)) : 0;
+    const vowGoal = () => (need > 0
+      ? `再攒 ${need} ✦ 解锁「${vows[lockedVow].name}」`
+      : `「${vows[lockedVow].name}」已可解锁——下一局开局选它`);
+    const chapterGoal = `把回响拿满的章推进到 ${(mem.fullChapters || 0) + 1}/${CHAPTERS}`;
+    const endGoal = () => (!(endings.true || 0) ? '去念出第六个名字'
+      : (!(endings.plain || 0) ? '试试另一条路：铁与霜' : null));
+    const goals = [];
+    if (mode === 'death') {
+      // 败局的第一句必须是「下一步从哪开始」：刚倒下的人只想知道离刚才多远
+      goals.push(`这次倒在了第 ${nowFloor} 层——下一局从这里再往上`);
+      if (lockedVow) goals.push(vowGoal());
+      if ((mem.fullChapters || 0) < CHAPTERS) goals.push(chapterGoal);
+      const eg = endGoal();
+      if (eg) goals.push(eg);
+    } else {
+      if (lockedVow) goals.push(vowGoal());
+      // 还没带着走过结局的誓约（解锁过的才算——锁着的已经在上一句里了）
+      const unWon = Object.keys(vows).filter((id) => id !== 'none' && !vows[id].ember && !((mem.vowWins || {})[id]));
+      if (unWon.length) goals.push(`带着「${vows[unWon[0]].name}」走到一次结局`);
+      // 决战余裕还没拿过 S：把「避战流」钉进前三，别让这条隐藏策略永远没人试
+      if (!(mc.S || 0)) goals.splice(2, 0, '拿一次决战余裕 S：清塔攒战意，或绕道省血');
+      if ((mem.fullChapters || 0) < CHAPTERS) goals.push(chapterGoal);
+      const eg = endGoal();
+      if (eg) goals.push(eg);
+      // 塔心还没做过另一个选择：两条都要走一遍，才谈得上「看全这座塔」
+      if (!mem.heartTaken || !mem.heartLeft) goals.push(!mem.heartTaken ? '把塔心石带走一次' : '把塔心石留下一次');
+    }
+    return {
+      items,
+      goals: goals.slice(0, 3),
+      note: mode === 'death' ? MEM_NOTE_DEATH : MEM_NOTE_WIN,
+      lockedVow,
+      need,
+    };
+  }
+
   return {
     boardModel, shopModel,
     sealOf, nextSealHint, sealTarget, emberModel,
     cmpBoard, fmtTime, endName, marginRank,
+    deathStatsModel, winStatsModel, memModel, floorNo, migrateFloors,
     foeName, threatModel, blockModel, guardModel, tangleModel,
     hintPicked, HINT_PICK, HINT_AUTO,
-    BOARD_TABS, BOARD_CAP, SHOP_CORE, SEALS,
+    BOARD_TABS, BOARD_CAP, SHOP_CORE, SEALS, CHAPTERS,
     NOTE_DAILY, NOTE_CRUSHED, EMPTY_OTHER, TIP_BLOCK, TIP_SHARD,
+    MEM_NOTE_DEATH, MEM_NOTE_WIN,
   };
 });

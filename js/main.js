@@ -145,7 +145,7 @@
   const LAMP_MAX = 13;    // 一层一盏，纯收藏，全解锁后的余烬出口
   const Meta = (() => {
     const KEY = 'towermates_meta';
-    const blank = () => ({ runs: 0, endings: {}, vowWins: {}, fullChapters: 0, heartTaken: 0, heartLeft: 0, deepest: 0, fastest: 0, bestSeal: '', emberRuns: [], firstVowWin: {}, lamps: 0, seenRelics: [], seenRings: [], marginCounts: {}, marginBest: '', metChars: [] });
+    const blank = () => ({ runs: 0, endings: {}, vowWins: {}, fullChapters: 0, heartTaken: 0, heartLeft: 0, deepest: 0, fastest: 0, bestSeal: '', emberRuns: [], firstVowWin: {}, lamps: 0, seenRelics: [], seenRings: [], marginCounts: {}, marginBest: '', metChars: [], floorBase: 1 });
     let data = { ember: 0, unlocked: [], resets: 0, memory: blank() };
     try { data = Object.assign(data, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) {}
     if (!data.memory) data.memory = blank();
@@ -160,6 +160,9 @@
     // 折戟账：死亡次数与上一次倒下的层（老档补 0，不作废）
     mem.falls = mem.falls || 0;
     mem.lastFallFloor = mem.lastFallFloor || 0;
+    // 层数口径迁移（2026-11-16）：deepest / lastFallFloor 统一成 1 基（玩家嘴里那个数）。
+    // 旧档里败局写 0 基、胜局写 1 基，规则与幂等在 View.migrateFloors（Node 可测）。
+    View.migrateFloors(mem);
     // 收藏图鉴：见过的遗物/锁环跨局累计（老档补空数组，不作废）
     mem.seenRelics = Array.isArray(mem.seenRelics) ? mem.seenRelics : [];
     mem.seenRings = Array.isArray(mem.seenRings) ? mem.seenRings : [];
@@ -240,6 +243,7 @@
         // 上局誓约：立誓卡标「上局」角标——重开的人一眼认出自己那条，不用每局重新认卡
         if (rec.vow) mem.lastVow = rec.vow;
         // 折戟账：死亡局计一次数 + 记下倒在哪层（收藏感——「折戟 ×N」是履历的一部分）
+        // floor 一律收 1 基（调用方已 +1）：跨局账里混两种基准，显示端就只能靠猜
         if (rec.seal === 'fall') {
           mem.falls = (mem.falls || 0) + 1;
           mem.lastFallFloor = rec.floor != null ? rec.floor : mem.lastFallFloor || 0;
@@ -2423,6 +2427,24 @@
       + `<p class="nv-note">一条规矩换一种走法；越难走，通关留下的 ✦ 越多。</p>`;
   }
 
+  // 结算标签：View 出数据（哪几行、各是什么数），这里只翻译成标签——
+  // 「同一件事两页各写一遍」是这一屏过去两种口径的来源，翻译层不许再塞判断
+  function renderEndStats(rows) {
+    $('endStats').innerHTML = rows.map((r) => `<div>${r.label} <b>${r.value}</b>${r.sub ? ` <small>${r.sub}</small>` : ''}</div>`).join('');
+  }
+  function renderMemory(m, extra) {
+    const wrap = $('endMemory');
+    if (!wrap) return null;
+    wrap.innerHTML = `<div class="mem-grid">${m.items.map((t) => `<div>${t}</div>`).join('')}</div>`
+      + (extra || '')
+      + (m.goals.length ? `<div class="mem-goals">${m.goals.map((g) => `<span>▸ ${g}</span>`).join('')}</div><p class="mem-note">${m.note}</p>` : '');
+    return wrap;
+  }
+  const memInput = (mode, floorNow) => ({
+    mode, floorNow,
+    mem: Meta.memory, vows: D.vows, ember: Meta.ember, hasVow: (id) => Meta.has(id),
+  });
+
   function showDeath(monster, damage) {
     if (deathShown) return;
     deathShown = true;
@@ -2460,7 +2482,7 @@
       + ((Array.isArray(s.flags.collectNew) && s.flags.collectNew.length)
         ? `<span>图鉴新收录：${s.flags.collectNew.slice(0, 4).join('、')}${s.flags.collectNew.length > 4 ? ` 等 ${s.flags.collectNew.length} 件` : ''}（带走的东西不会因为倒下而丢失）</span>`
         : '');
-    Meta.recordRun({ ending: null, won: false, vow: s.flags.vow || 'none', fullChapters: 0, heart: null, floor: s.floor, time: sum.time, seal, ember: emberGain });
+    Meta.recordRun({ ending: null, won: false, vow: s.flags.vow || 'none', fullChapters: 0, heart: null, floor: s.floor + 1, time: sum.time, seal, ember: emberGain });
     Funnel.push('run_end', { n: Meta.memory.runs, won: 0, floor: s.floor + 1, seal, time: sum.time, dmg: s.damageTaken || 0, dec: decSummary(s), sinceLoad: Math.max(0, Math.round((Date.now() - LOAD_AT) / 1000)) });
     Meta.add(emberGain);
     // 折戟里程碑：recordRun 之后喂事件，falls 已含本次（3 次「塔的常客」/ 10 次「不死不休」）
@@ -2471,29 +2493,9 @@
     if (fallsNow === 2) $('endBrief').innerHTML += '<span>💀 再折戟 1 次，解锁成就「塔的常客」</span>';
     else if (fallsNow === 9) $('endBrief').innerHTML += '<span>💀 再折戟 1 次，解锁成就「不死不休」</span>';
     // 败局也给「塔的记忆」：同一套履历 + 下一局目标——死不是终点，是排队重来的理由
-    const mem = Meta.memory;
-    const memItems = [
-      `进塔 ${mem.runs || 1} 次 · 最远第 ${Math.max(mem.deepest || 0, s.floor)} 层${mem.fastest ? ` · 最快 ${fmtTime(mem.fastest)}` : ''}`,
-      `刻下过最好的塔印：${SEALS[mem.bestSeal] ? SEALS[mem.bestSeal].name : '尚未刻下'}`,
-      `结局：铁与霜 ×${mem.endings.plain || 0} · 第六个名字 ×${mem.endings.true || 0}`,
-      `满回响 ${mem.fullChapters || 0}/4 章 · 塔心 带走×${mem.heartTaken || 0} 留下×${mem.heartLeft || 0}`,
-      `💀 折戟 ×${mem.falls || 0} · 上次倒在第 ${(mem.lastFallFloor || 0) + 1} 层`,
-    ];
-    const goals = [];
-    const lockedVow = Object.keys(D.vows).find((id) => D.vows[id].ember && !Meta.has(id));
-    if (lockedVow) {
-      const need = Math.max(0, D.vows[lockedVow].ember - Meta.ember);
-      goals.push(need > 0 ? `再攒 ${need} ✦ 解锁「${D.vows[lockedVow].name}」` : `「${D.vows[lockedVow].name}」已可解锁——下一局开局选它`);
-    }
-    if ((mem.fullChapters || 0) < 4) goals.push(`把回响拿满的章推进到 ${(mem.fullChapters || 0) + 1}/4`);
-    if (!(mem.endings.true || 0)) goals.push('去念出第六个名字');
-    else if (!(mem.endings.plain || 0)) goals.push('试试另一条路：铁与霜');
-    goals.unshift(`这次倒在了第 ${s.floor + 1} 层——下一局从这里再往上`);
-    const memWrap = $('endMemory');
+    const memWrap = renderMemory(View.memModel(memInput('death', s.floor + 1)));
     if (memWrap) {
       memWrap.classList.remove('open');
-      memWrap.innerHTML = `<div class="mem-grid">${memItems.map((t) => `<div>${t}</div>`).join('')}</div>`
-        + (goals.length ? `<div class="mem-goals">${goals.slice(0, 3).map((g) => `<span>▸ ${g}</span>`).join('')}</div><p class="mem-note">塔收起了你的名字，但位置还留着。</p>` : '');
       // 死亡页默认收起履历与目标（焦点 B：刚死的人只想立刻重开，履历是回头才看的）。
       // 胜局不折：那是值得读的时刻。按钮每次重建，避免上一局残留。
       const oldTg = el.endOverlay.querySelector('.mem-toggle');
@@ -2508,17 +2510,14 @@
       };
       memWrap.insertAdjacentElement('beforebegin', tg);
     }
-    $('endStats').innerHTML = `
-      <div>倒在 <b>${monster ? monster.name : '塔里'}</b></div>
-      <div>深度 <b>第 ${s.floor + 1} 层</b></div>
-      <div>塔印 <b>${sealDef.name}</b></div>
-      <div>击杀 <b>${s.flags.killCount || 0}</b></div>
-      <div>誓约 <b>${vowDef.name}</b></div>
-      <div>用时 <b>${fmtTime(sum.time)}</b></div>
-    `;
+    renderEndStats(View.deathStatsModel({
+      foe: monster ? monster.name : '塔里',
+      floor0: s.floor, sealName: sealDef.name,
+      kills: s.flags.killCount || 0, vowName: vowDef.name, time: sum.time,
+    }));
     $('endCode').textContent = '—— 未达结局 ——';
     if (window.__tm) window.__tm.lastRun = {
-      ending: null, vow: s.flags.vow || 'none', floor: s.floor, time: sum.time,
+      ending: null, vow: s.flags.vow || 'none', floor: s.floor + 1, time: sum.time,
       steps: sum.steps, seal, goals: 0,
     };
     el.endOverlay.classList.add('show', 'death-mode');
@@ -3305,65 +3304,18 @@
       });
     }
     const ringShorts = ringList.map((id) => D.rings[id].short).join(' ') || '无';
-    // 「剩余生命」用决战结束那一刻（与难度基准同口径）；之后买药回的血另标「现」
-    const fh = s.flags.finalHp;
-    const fm = s.flags.finalMaxHp;
-    const curHp = Math.round(s.hp);
-    const hpShown = (fh != null && fh !== curHp)
-      ? `${fh} / ${fm} <small>决战结束时（现 ${curHp}）</small>`
-      : (fh != null ? `${fh} / ${fm} <small>决战结束时</small>` : `${curHp}`);
-    $('endStats').innerHTML = `
-      <div>结局 <b>${endName(s.ending)}</b></div>
-      <div>塔印 <b>${sealDef.name}</b></div>
-      <div>最终等级 <b>Lv.${sum.level}</b></div>
-      <div>攻击 / 防御 <b>${s.atk} / ${s.def}</b></div>
-      <div>剩余生命 <b>${hpShown}</b></div>
-      <div>击杀 <b>${s.flags.killCount || 0}</b></div>
-      <div>遗物 <b>${relics}</b></div>
-      <div>锁环 <b>${ringShorts}</b></div>
-      <div>章回响 <b>${echoDone}/4 章</b></div>
-      <div>塔心 <b>${s.flags.heart === 'taken' ? '带走' : s.flags.heart === 'left' ? '留下' : '未至'}</b></div>
-      <div>誓约 <b>${(D.vows[s.flags.vow] || D.vows.none).name}</b></div>
-      ${signed ? '<div>盾谱 <b>📖+📕 已集齐 · 名册有你的签名</b></div>' : ''}
-      <div>步数 <b>${sum.steps} 步</b></div>
-      <div>用时 <b>${fmtTime(sum.time)}</b></div>
-    `;
+    // 「剩余生命」用决战结束那一刻（与难度基准同口径），之后买药回的血另标「现」——这层判断在 View.winStatsModel
+    renderEndStats(View.winStatsModel({
+      ending: sum.ending, sealName: sealDef.name, level: sum.level,
+      atk: s.atk, def: s.def,
+      finalHp: s.flags.finalHp, finalMaxHp: s.flags.finalMaxHp, curHp: s.hp,
+      kills: s.flags.killCount || 0, relics, rings: ringShorts,
+      echoDone, heart: s.flags.heart, vowName: (D.vows[s.flags.vow] || D.vows.none).name,
+      signed, steps: sum.steps, time: sum.time,
+    }));
     // 「塔的记忆」：跨局履历 + 下一局目标（P-4）——把"再来一局"变成"再来一局是为了 X"
-    const mem = Meta.memory;
-    const memItems = [];
-    memItems.push(`进塔 ${mem.runs || 1} 次 · 最远第 ${Math.max(mem.deepest || 0, sum.floor)} 层${mem.fastest ? ` · 最快 ${fmtTime(mem.fastest)}` : ''}`);
-    memItems.push(`刻下过最好的塔印：${SEALS[mem.bestSeal] ? SEALS[mem.bestSeal].name : '尚未刻下'}`);
-    memItems.push(`结局：铁与霜 ×${mem.endings.plain || 0} · 第六个名字 ×${mem.endings.true || 0}`);
-    memItems.push(`满回响 ${mem.fullChapters || 0}/4 章 · 塔心 带走×${mem.heartTaken || 0} 留下×${mem.heartLeft || 0}`);
-    if ((mem.falls || 0) > 0) memItems.push(`💀 折戟 ×${mem.falls} · 上次倒在第 ${(mem.lastFallFloor || 0) + 1} 层`);
-    const mc = mem.marginCounts || {};
-    const marginTally = ['S', 'A', 'B', 'C'].filter((g) => mc[g]).map((g) => `${g}×${mc[g]}`).join(' · ');
-    memItems.push(`决战余裕最好 ${mem.marginBest || '尚未记录'}${marginTally ? ` · ${marginTally}` : ''}`);
-    const goals = [];
-    // 1) 还没解锁的誓约：差多少余烬
-    const lockedVow = Object.keys(D.vows).find((id) => D.vows[id].ember && !Meta.has(id));
-    if (lockedVow) {
-      const v = D.vows[lockedVow];
-      const need = Math.max(0, v.ember - Meta.ember);
-      goals.push(need > 0
-        ? `再攒 ${need} ✦ 解锁「${v.name}」`
-        : `「${v.name}」已可解锁——下一局开局选它`);
-    }
-    // 2) 没通关过的誓约
-    const unWon = Object.keys(D.vows).filter((id) => id !== 'none' && !D.vows[id].ember && !(mem.vowWins || {})[id]);
-    if (unWon.length) goals.push(`带着「${D.vows[unWon[0]].name}」走到一次结局`);
-    // 3) 决战余裕还没拿过 S：把「避战流」钉进前三，别让这条隐藏策略永远没人试
-    if (!(mc.S || 0)) goals.splice(2, 0, '拿一次决战余裕 S：清塔攒战意，或绕道省血');
-    // 4) 没满过的章回响
-    if ((mem.fullChapters || 0) < 4) goals.push(`把回响拿满的章推进到 ${(mem.fullChapters || 0) + 1}/4`);
-    // 5) 双结局收集
-    if (!(mem.endings.true || 0)) goals.push('去念出第六个名字');
-    else if (!(mem.endings.plain || 0)) goals.push('试试另一条路：铁与霜');
-    // 6) 塔心还没做过另一个选择
-    if (!mem.heartTaken || !mem.heartLeft) goals.push(!mem.heartTaken ? '把塔心石带走一次' : '把塔心石留下一次');
-    const goalsHtml = goals.length
-      ? `<div class="mem-goals">${goals.slice(0, 3).map((g) => `<span>▸ ${g}</span>`).join('')}</div><p class="mem-note">塔在等你回来——为了上面这些。</p>`
-      : '';
+    // 履历与目标的行数、口径全在 View.memModel（两页共用一套，胜局多两行）
+    const memView = View.memModel(memInput('win', sum.floor));
     const memWrap = $('endMemory');
     if (memWrap) {
       // 胜局不折履历：清掉死亡页留下的折叠按钮与 open 态，免得按钮挂在一整块展开内容上
@@ -3372,12 +3324,11 @@
       memWrap.classList.remove('open');
       const paint = () => {
         // 誓约全解锁后，余烬改去点亮层灯：一层一盏，纯收藏，不加战力
-        const lampRow = !lockedVow
+        const lampRow = !memView.lockedVow
           ? `<div class="mem-lamps"><span>✦ ${Meta.ember} · 层灯 ${Meta.lamps}/${LAMP_MAX}</span>
               <button class="lamp-btn" data-lamp="1" ${Meta.ember < LAMP_COST || Meta.lamps >= LAMP_MAX ? 'disabled' : ''}>点亮一盏（${LAMP_COST} ✦）</button></div>`
           : '';
-        memWrap.innerHTML = `<div class="mem-grid">${memItems.map((t) => `<div>${t}</div>`).join('')}</div>`
-          + lampRow + goalsHtml;
+        renderMemory(memView, lampRow);
       };
       paint();
       memWrap.onclick = (e) => {
@@ -3517,7 +3468,7 @@
       if ((mem.runs || 0) > 0) parts.push(`第 ${mem.runs + 1} 次进塔 · 最远第 ${mem.deepest || 0} 层`);
       if (Meta.ember > 0) parts.push(`✦ ${Meta.ember}`);
       if (Meta.lamps > 0) parts.push(`层灯 ${Meta.lamps}/${LAMP_MAX}`);
-      if ((mem.falls || 0) > 0) parts.push(`💀 折戟 ×${mem.falls} · 上次第 ${(mem.lastFallFloor || 0) + 1} 层`);
+      if ((mem.falls || 0) > 0) parts.push(`💀 折戟 ×${mem.falls} · 上次第 ${mem.lastFallFloor || 0} 层`);
       em.textContent = parts.length ? parts.join(' · ') : '';
     }
   }
