@@ -344,9 +344,21 @@ if (!process.argv.includes('--no-shot')) {
           const m = /<pre id="err">([\s\S]*?)<\/pre>/.exec(p.stdout || '');
           return m ? m[1] : '';
         };
+        // 「今日之约」：入口那行必须写出今天这条誓约（同一天同一条，跨天换），
+        // 结算里的 vow 也必须真的是这一条——只写日期等于把「今天更难」藏起来。
+        // 期望值由探针按页面数据自己算一遍（`dailyVow=<id>:<名>`），不拿入口的文案验它自己。
         let outD = readShot('daily', 30000);
         if (outD.indexOf('dailyBtn=') < 0) outD = readShot('daily', 30000);
-        const btnOk = /dailyBtn=.*今日一塔/.test(outD) && /@block/.test(outD);
+        const dv = /dailyVow=(\w+):([^\s@<]+)/.exec(outD);
+        const dayVowId = dv ? dv[1] : '';
+        const dayVowName = dv ? dv[2] : '';
+        const btnOk = /dailyBtn=.*今日一塔/.test(outD) && /@block/.test(outD)
+          && !!dayVowName && outD.indexOf('· ' + dayVowName) >= 0;
+        // 誓约名字不解释规则：那一行必须把这条约的规矩写出来（不立誓时写「今天不立誓」）
+        const hm = /dailyHint=(\w+)\|([^\n<]*)/.exec(outD);
+        const hintOk = !!hm && hm[1] === 'block' && dayVowName !== ''
+          && (hm[2].indexOf(dayVowName) >= 0 || hm[2].indexOf('今天不立誓') >= 0)
+          && hm[2].indexOf('零点换下一座') >= 0;
         let outB = readShot('dailyboard', 30000);
         if (outB.indexOf('dailyRows=') < 0) outB = readShot('dailyboard', 30000);
         const bm = /dailyRows=(\d+) empty=(\d)/.exec(outB);
@@ -355,9 +367,14 @@ if (!process.argv.includes('--no-shot')) {
         let outE = readShot('dailyend', 45000);
         if (outE.indexOf('briefDaily=') < 0) outE = readShot('dailyend', 45000);
         const km = /dailyKey=([^\s]+)/.exec(outE);
-        const endOk = !!km && km[1].indexOf('NONE') < 0 && /briefDaily=in/.test(outE);
-        okDaily = !!btnOk && boardOk && endOk;
-        dailyLine = `入口 ${btnOk ? '在' : '缺'} / 今日档 ${bm ? bm[1] + ' 条' : '读数失败'} / 结算日签 ${endOk ? '在' : '缺'}`;
+        const vm = /vow=(\w+)/.exec(outE);
+        const endOk = !!km && km[1].indexOf('NONE') < 0 && /briefDaily=in/.test(outE)
+          && !!vm && !!dayVowId && vm[1] === dayVowId;
+        okDaily = !!btnOk && hintOk && boardOk && endOk;
+        dailyLine = `入口 ${btnOk ? '在' : '缺'}（今日之约 ${dayVowName || '读数失败'}）`
+          + ` / 规矩 ${hintOk ? '写明' : '缺'}`
+          + ` / 今日档 ${bm ? bm[1] + ' 条' : '读数失败'}`
+          + ` / 结算日签 ${endOk ? '在' : '缺'}${vm && dayVowId && vm[1] !== dayVowId ? '（誓约对不上 ' + vm[1] + '）' : ''}`;
         console.log((okDaily ? '✓' : '✗') + ' 今日一塔 ' + dailyLine);
       }
       // 过手之环（第 3 章）：顶栏那一格说的进度必须与引擎门槛同源（不然 HUD 会说谎）

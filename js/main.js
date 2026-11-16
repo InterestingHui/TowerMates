@@ -1791,6 +1791,8 @@
       filter: boardFilter,
       todayKey,
       dayLabel: Daily.label(todayKey),
+      // 「今日之约」当天是不立誓时不写——那本来是默认状态，写出来只是噪音
+      dayVowName: dailyVowDef().name === '不立誓' ? '' : dailyVowDef().name,
       vows: D.vows,
       rivalNotes: RIVAL_NOTE,
     });
@@ -3396,8 +3398,19 @@
     const bd = $('btnDaily');
     if (bd) {
       bd.style.display = metaOn ? 'block' : 'none';
-      // 文案里写明「不立誓」：这一模式跳过开局立誓，不说清楚会让老玩家以为少了第一步
-      bd.textContent = `今日一塔 · ${Daily.label(Daily.keyOf(Date.now()))} · 不立誓`;
+      // 文案里写明今天守哪条誓约：这一模式跳过开局立誓，不说清楚会让老玩家以为少了第一步；
+      // 而「今日之约」每天都换，只写日期等于把「今天更难」这件事藏起来。
+      const dvDef = dailyVowDef();
+      bd.textContent = `今日一塔 · ${Daily.label(Daily.keyOf(Date.now()))} · ${dvDef.name}`;
+      // 誓约改的是规则（不能格挡 / 承伤 +18% …），名字本身不解释规则——
+      // 所以按钮下面那一行把这条约的规矩原样写出来，进塔前就能看清今天要守什么。
+      const dh = $('dailyHint');
+      if (dh) {
+        dh.style.display = metaOn ? 'block' : 'none';
+        dh.innerHTML = dvDef.name === '不立誓'
+          ? '今天不立誓：塔是什么样就什么样 · 零点换下一座'
+          : `今日之约 <b>${dvDef.name}</b>：${dvDef.desc} · 零点换下一座`;
+      }
     }
     // 首次进塔不显示徽章：新人先看到「开始游戏」，收藏品等玩过一局再露脸
     $('endingBadges').innerHTML = (plain || tru || Achievements.count())
@@ -4435,18 +4448,28 @@
 
   // ---------- 今日一塔 ----------
   // 同一天走进来的人拿到的是同一座塔：地图换位、路遇串、锁环与祭坛候选、Boss 台词全部由日期种子
-  // 决定，固定不立誓（没法靠挑誓约打出不可比的分）。只改「看到什么」，一个数值都不动。
+  // 决定；「今日之约」再按日期钉一条固定誓约（同一天所有人同一条，所以比得出来；跨天换，所以
+  // 难度不再天天一样）。地图那层只改「看到什么」，一个数值都不动——难度全部来自已模拟过的誓约规则。
+  function dailyVowDef() {
+    const v = D.vows[Daily.vowOf(Daily.keyOf(Date.now()))];
+    return v || D.vows.none;
+  }
   function startDaily() {
     const key = Daily.keyOf(Date.now());
-    startGame('none', { seed: Daily.seedOf(key), daily: key });
-    warn(`今日一塔 · ${Daily.label(key)}：今天走进塔的人，遇到的都是同一座。零点换下一座。`, 5200);
+    const vow = Daily.vowOf(key);
+    const v = D.vows[vow] || D.vows.none;
+    startGame(vow, { seed: Daily.seedOf(key), daily: key });
+    const tie = vow === 'none' ? '今日不立誓' : `今日之约：${v.name} · ${v.desc}`;
+    warn(`今日一塔 · ${Daily.label(key)}：${tie}。今天走进塔的人，遇到的都是同一座。零点换下一座。`, 6800);
   }
   function enterDaily() {
     if (Engine.hasSave()) {
+      const v = dailyVowDef();
+      const tie = v.name === '不立誓' ? '今天不立誓' : `今天的约是「${v.name}」——${v.desc}`;
       askConfirm({
         emoji: '🗓',
         title: '开始今日一塔？',
-        text: '当前这局的进度会被放下（成就、余烬与誓约解锁都保留）。<br>今日一塔固定不立誓，每天零点换一座新塔。',
+        text: `当前这局的进度会被放下（成就、余烬与誓约解锁都保留）。<br>${tie}。每天零点换一座塔、也换一条约。`,
         ok: '开始今日一塔',
         cb: startDaily,
       });

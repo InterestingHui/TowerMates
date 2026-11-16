@@ -77,7 +77,7 @@
     const shadowBest = shadowFloors.length ? Math.max.apply(null, shadowFloors) : -1;
     const crushed = myFloor > 0 && shadowBest >= 0 && myFloor > shadowBest;
     const note = filter === 'daily'
-      ? NOTE_DAILY
+      ? NOTE_DAILY + (o.dayVowName ? `<br>今日之约：${o.dayVowName}——同一天走进塔的人守的都是这一条。` : '')
       : (crushed && filter === 'all' ? NOTE_CRUSHED : '');
     const out = rows.slice(0, cap).map((r, i) => {
       const v = vows[r.vow] || vows.none || { name: '不立誓', tag: '' };

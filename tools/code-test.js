@@ -161,6 +161,17 @@ const today = V.boardModel({
 ok(today.rows.length === 1 && today.rows[0].name === '你', '今日档只收同一天同一座塔的局');
 ok(today.rows[0].vowTag === '', '今日档自己那局（不立誓）不挂徽记');
 ok(today.note === V.NOTE_DAILY, '今日档带「零点换塔」那句解释');
+const todayVow = V.boardModel({
+  mine: [{ floor: 6, daily: '2026-11-16' }], rivals: [],
+  shadows: [], filter: 'daily', todayKey: '2026-11-16', dayLabel: '11月16日', vows: VOWS, dayVowName: '铁壁之誓',
+});
+ok(todayVow.note.indexOf('今日之约：铁壁之誓') >= 0, '今日档要说出今天这条约（不然「凭什么能比」少了一半）');
+ok(todayVow.note.indexOf(V.NOTE_DAILY) === 0, '今日之约接在零点换塔那句后面，不替换它');
+const allTabVow = V.boardModel({
+  mine: [{ floor: 6, daily: '2026-11-16' }], rivals: [], shadows: [],
+  filter: 'all', todayKey: '2026-11-16', dayLabel: '11月16日', vows: VOWS, dayVowName: '铁壁之誓',
+});
+ok(allTabVow.note.indexOf('今日之约') < 0, '「全部」档不写今日之约（那不是这一档的背景）');
 const emptyDay = V.boardModel({ mine: [], rivals: [], shadows, filter: 'daily', todayKey: '2026-11-16', dayLabel: '11月16日', vows: VOWS });
 ok(emptyDay.empty.indexOf('11月16日') >= 0, '今日档空档要写出是哪一天的塔');
 

@@ -1866,6 +1866,34 @@ ok(Daily.seedOf(dayA) === dSeed, '同一天必得同一颗种子');
 ok(Daily.seedOf('2026-11-15') !== dSeed && Daily.seedOf('2026-11-13') !== dSeed, '换一天就是另一颗种子');
 ok(Daily.label(dayA) === '11月14日' && Daily.label('乱码') === '', '面板短标签：2026-11-14 → 11月14日，脏输入给空');
 
+// 今日之约：日期种子再钉一条固定誓约。同一天必同一条（榜单可比），跨天会换（难度不再是天天一样），
+// 池子里只许有不需要余烬解锁的誓约——苦行(10)/无名(20) 不能当今日任务塞给还没解锁的人。
+ok(Daily.vowOf(dayA) === Daily.vowOf(dayA), '同一天必守同一条誓约');
+ok(Daily.VOW_POOL.join(',') === 'none,mercy,greed,guard', '今日之约池只有四条基础誓约（不含要余烬解锁的两条）');
+{
+  const seen = {};
+  let bad = '';
+  let maxRun = 1, run = 1, prev = null;
+  for (let i = 0; i < 400; i++) {
+    const k = Daily.keyOf(new Date(2026, 0, 1 + i));
+    const v = Daily.vowOf(k);
+    if (Daily.VOW_POOL.indexOf(v) < 0) bad = k + ':' + v;
+    seen[v] = (seen[v] || 0) + 1;
+    if (v === prev) { run++; if (run > maxRun) maxRun = run; } else { run = 1; prev = v; }
+  }
+  ok(!bad, '400 天里没有一条越界的今日之约（含未解锁誓约）');
+  ok(Object.keys(seen).length === 4, '四条誓约在 400 天里都轮到过（不是只挑一条）');
+  ok(maxRun <= 3, '同一条誓约最多连庄 3 天（否则「今天更难」会变成连着好几天一样）');
+}
+// 引擎侧：日签与誓约一起落档，规则真的按这条誓约走（铁壁＝不能格挡）
+const guardDay = (() => { for (let i = 0; i < 400; i++) { const k = Daily.keyOf(new Date(2026, 0, 1 + i)); if (Daily.vowOf(k) === 'guard') return k; } return null; })();
+ok(!!guardDay, '能造出「今日铁壁」这一天（供下面两条用）');
+E.newGame('guard', { seed: Daily.seedOf(guardDay), daily: guardDay });
+ok(E.vow() === 'guard' && E.state().flags.daily === guardDay, '今日一塔也能带誓约：日签与誓约一起落档');
+ok(E.vowForbidsBlock() === true, '今日之约是铁壁时，格挡真的被禁（规则不是贴纸）');
+E.newGame('mercy', { seed: dSeed, daily: dayA });
+ok(E.vow() === 'mercy' && !E.vowForbidsBlock(), '换一条誓约（慈悲）照常生效，且不误禁格挡');
+
 const dailyA = E.newGame('none', { seed: dSeed, daily: dayA });
 const mapA = dailyA.maps[0].join('|');
 const dailyB = E.newGame('none', { seed: dSeed, daily: dayA });

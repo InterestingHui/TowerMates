@@ -2196,6 +2196,17 @@ body.at-start #bottom { visibility: hidden; }
   letter-spacing: 0.4px;
   color: var(--muted);
 }
+/* 今日之约：入口按钮下面那一行。入口只写得出「哪一天的塔 + 哪条誓约」，而誓约改了规则——
+   规则不写出来，玩家就是在一无所知的情况下接受一条约束（全明码身份不允许）。 */
+.daily-hint {
+  margin: -4px auto 6px;
+  max-width: 88%;
+  font-size: 11px;
+  line-height: 1.55;
+  letter-spacing: 0.3px;
+  color: var(--muted);
+}
+.daily-hint b { color: #d8bf85; font-weight: 600; }
 .vow-card.locked { opacity: 0.72; border-style: dashed; }
 .vow-card.locked .vc-emoji { filter: grayscale(0.6) brightness(0.8); }
 .vow-card .vc-lock {

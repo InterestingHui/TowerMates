@@ -321,11 +321,18 @@
         T.showEnd();
         await wait(1600);
       } else if (scene === 'daily') {
-        // 老玩家回来看开始页：今日一塔入口应带日期、只占一行、不与「继续/开新局」抢位置
+        // 老玩家回来看开始页：今日一塔入口应带日期 + 今天那条誓约，只占一行、不与「继续/开新局」抢位置
         T.refreshStartBadges();
         await wait(250);
+        // 探针自己按页面数据算一遍「今天该是哪条约」：入口文案必须写出这个名字，
+        // 写错（或只写日期）当场对不上——不能拿入口自己的字去验它自己
+        const dvk = w.Daily.vowOf(w.Daily.keyOf(Date.now()));
+        const dvn = ((w.GAME_DATA.vows || {})[dvk] || w.GAME_DATA.vows.none).name;
+        q2push('dailyVow=' + dvk + ':' + dvn);
         const bdD = d.getElementById('btnDaily');
         q2push('dailyBtn=' + (bdD ? (bdD.textContent.trim() + '@' + (bdD.style.display || 'block')) : 'MISS'));
+        const dhD = d.getElementById('dailyHint');
+        q2push('dailyHint=' + (dhD ? (dhD.style.display + '|' + dhD.textContent.trim()) : 'MISS'));
       } else if (scene === 'dailyboard') {
         // 「🗓 今日」档：只收今天那一座塔的结算，普通局的条目不许串进来
         const dKey = w.Daily.keyOf(Date.now());
