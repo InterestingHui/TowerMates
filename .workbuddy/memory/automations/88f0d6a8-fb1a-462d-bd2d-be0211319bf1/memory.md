@@ -361,6 +361,14 @@
 - 坑（下轮直接用）：①`.indexOf(串) > 0` 在串位于开头时假红，一律 `includes()`；②断言 `goals` 某条规则要先 `slice(0,3)` 想清楚——用只触发那一条的 fixture；③`shot.html` 的 `--dump-dom` 不展开 iframe 内 DOM，结算文本只能靠探针页；小窗口下结算分项区永远在面板内滚动区，截不到。
 - 剩余：`endScore` 摘要行 / brief 拼装、祭坛/回响/路遇/图鉴/立绘放大仍在 main.js；结构缺口＝真人数据 + 第 2 局骨架逐格相同。
 
+## 2026-11-16 14:0x — 全力模式（路遇面板可达性 + 明码收口 + 切边界第六刀）
+- 判定：mtime 67 分钟、工作树仅 `_backup/` → 全力；占用表空。最近 5 条日志无「变体：」→ 规则上该走变体，但待办里「切边界（半天）」是前几轮点名的活，按「先挑待办」优先做它。
+- 产出：①`.event-panel` 补 max-height 92dvh + 内滚 + 极矮横屏紧凑档（844×320 实测 18–322 → 41–299，09:5x 补另外四个弹层时漏了这块）；②付不起的选项不再把 tip 换掉（「还差 130 金 · 红钥匙 +1」）+ small 允许折行；③引擎新增 `eventShortfall()`，`eventCost()` 退回字符串包装（缺额判据只此一处）；④`view.js` 增 altarModel/echoModel/eventModel；⑤code-test 加「52 个选项的 effect 每个数都必须在 tip 里」的数据契约（全明码身份由闸门守）。
+- 闸门：check ✓ / engine 577→584 / code 255→279 / fuzz 0 / sim 18,745·68.4% 未漂移 / 53 图 + 弹层 72→88 / ui-test ✓；变异两刀都红（退 note 写法 → 4 条；整套退旧样式 → 极矮横屏那条）。
+- 发布：①根目录 build a525203ccd 已部署并 curl 三处新符号；②`publish_games.js towermates` + deploy `_publish/`（appId wbapp_AN7ja6b9o9O01zn8qwUf6W），`check_live.js` LIVE: PASS，version.json towermates ok:true 14:07。
+- 加练：诊断（路遇池同构）——`jug`/`vent` 与 `crack`/`well` 各是同一道题的两份复制；改法入待办（vent 换「耗格挡额度换攻+1」、well 换「耗 1 黄钥匙换 3 余烬」），本轮不动数值。
+- 下轮注意：①view.js 纯契约是子串匹配，注释写 `Engine.xxx` 会红；②变异测试要整套退回才见红（紧凑档会盖住 max-height 缺失）；③`publish_games.js` 之后必须再 deploy `_publish/`；④`version.json` 要带 sharecode cookie 才不是大堂 HTML。切边界还剩祭坛之外 3 块（图鉴/立绘放大/…），支路开合方案仍悬在待办。
+
 ## 2026-11-16 12:29 — 全力模式（切边界第五刀：结算摘要进 view.js，1 项 + 加练结构向诊断）
 - 判定：PROGRESS mtime 64 分钟、工作树仅 `_backup/` → 全力；占用表空、无排队；最近 5 条含「变体：校准」→ 不做变体。
 - 产出：`view.js` 增 `endScoreModel` / `emberDetailModel` / `winBrief` / `deathBrief` / `briefModel`（+`BRIEF_SHOW`），main.js 只剩翻译；顺修两处「同一逻辑写两遍」（`回响 N/4` 分母硬编码、败局摘要先写 innerHTML 再 `+=`）。code-test 217→255。commit 0599ab9 + df17b09，已推。

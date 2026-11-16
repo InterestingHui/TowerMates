@@ -729,5 +729,87 @@ ok(evGone.every((w) => mainSrc.indexOf(w) < 0), '三块面板的文案与「缺�
 ok(mainSrc.indexOf('Engine.eventShortfall') >= 0, '缺多少由引擎判（唯一判据），不是展示层自己乘减');
 ok(viewSrc.indexOf('Engine.') < 0 && viewSrc.indexOf('eventCost') < 0, 'view.js 仍不碰引擎（判据在引擎，文案在视图）');
 
+// ---------- 图鉴：顺序 / 承伤档位 / 边际收益（第七刀，此前只能靠截图看「画出来的字」） ----------
+const CX_MON = {
+  a: { name: '甲', emoji: '🅰', kind: '活', hp: 10, atk: 5, def: 1, gold: 3, exp: 2, trait: 'first' },
+  b: { name: '乙', emoji: '🅱', kind: '亡', hp: 20, atk: 8, def: 2, gold: 5, exp: 4 },
+  g: { name: '幽灵', emoji: '👻', kind: '亡', hp: 1, atk: 0, def: 0, gold: 0, exp: 0, ghost: true },
+  c: { name: '丙', emoji: '🅲', kind: '活', hp: 30, atk: 9, def: 3, gold: 7, exp: 6, boss: true, chapter: 3 },
+  d: { name: '丁', emoji: '🅳', kind: '活', hp: 40, atk: 2, def: 0, gold: 9, exp: 8 },
+};
+const CX_FLOORS = [
+  { map: ['..b....'] },                                    // 乙：第 1 层先出现
+  { map: ['.......'] },
+  { map: ['..a.c..'] },                                    // 甲 / 丙：第 3 层
+];
+const cxBase = { monsters: CX_MON, floors: CX_FLOORS, traits: { first: { icon: '◈', name: '先攻' } }, maxHp: 400 };
+const cxEmpty = V.codexModel(cxBase);
+ok(cxEmpty.rows.map((r) => r.ch).join(',') === 'b,a,c,d',
+  `怪物按首次出现楼层排序、没出场的排末尾、ghost 不列（实得 ${cxEmpty.rows.map((r) => r.ch).join(',')}）`);
+ok(cxEmpty.rows.every((r) => r.ch !== 'g'), '幽灵不占图鉴格子（它是地图上的陷阱，不是可打的怪）');
+
+// 承伤档位：破不了防 / 无伤 / ≥1/4 最大生命 / 其它
+const lossOf = (damage) => V.codexModel(Object.assign({}, cxBase, {
+  predict: (ch) => (ch === 'a' ? { damage } : null),
+})).rows.find((r) => r.ch === 'a');
+ok(lossOf(null).loss === '无法破防' && lossOf(null).lossCls === 'danger', '打不动写「无法破防」并标红（不许写成 −0）');
+ok(lossOf(0).loss === '无伤' && lossOf(0).lossCls === 'safe', '零承伤写「无伤」走绿档');
+ok(lossOf(100).lossCls === 'danger', '承伤正好 1/4 最大生命就标红（>= 判据，不留边界洞）');
+ok(lossOf(99).loss === '-99' && lossOf(99).lossCls === 'warn', '99 < 1/4 走提醒档');
+
+// 承伤判据只有一处：图鉴与「怪物速查卡」共用 lossModel（此前两处各写一份，连破防的写法都不一样）
+ok(V.lossModel({ pred: null, maxHp: 400 }).kind === 'unknown', '没有预测（还没照过面）给 ??');
+ok(V.lossModel({ pred: { damage: null }, maxHp: 400, needAtk: 3 }).text === '攻 +3 才能破防', '速查卡给得出缺几点攻');
+ok(V.lossModel({ pred: { damage: null }, maxHp: 400 }).text === '无法破防', '图鉴给不出数字时只说「无法破防」');
+ok(V.lossModel({ pred: { damage: 120 }, maxHp: 400 }).text === '-120', '有承伤写成 -N，档位由同一个阈值判');
+
+// 边际收益那一行：有数字 / 有特性但打不过 / 两者都没有
+const cxMg = V.codexModel(Object.assign({}, cxBase, {
+  margin: (ch) => (ch === 'a' ? { atk: 3, def: 1, base: 0 } : ch === 'c' ? { atk: 2, def: 2, base: 30 } : null),
+}));
+const r1 = cxMg.rows.find((r) => r.ch === 'a');
+const r3 = cxMg.rows.find((r) => r.ch === 'c');
+const r4 = cxMg.rows.find((r) => r.ch === 'd');
+ok(r1.margin && r1.margin.atk === 3 && r1.margin.noDamage === true, '已无伤：base 0 传给展示层写「（已无伤）」');
+ok(r3.margin.noDamage === false && r3.hasTrait === false, '没有特性的怪照样能报边际收益');
+ok(r4.margin === null && r4.marginEmpty === true, '既无特性又算不出边际：整行不摆（不许画出空行）');
+const cxStuck = V.codexModel(Object.assign({}, cxBase, { margin: () => null }));
+const r1s = cxStuck.rows.find((r) => r.ch === 'a');
+ok(r1s.hasTrait === true && r1s.margin === null && r1s.marginEmpty === false,
+  '有特性但打不过：那一行仍要出现（写「暂时打不过」），不能因为没数字就整行消失');
+ok(r1s.trait.icon === '◈' && r1s.trait.cls === 't-first' && r1s.stat === 'HP 10 · 攻 5 · 防 1',
+  '特性图标与数值行的字段取自怪物表（换数值就跟着换）');
+ok(r1s.reward === '3💰 2✨' && r4.reward === '9💰 8✨', '掉落行按金/经验拼，币种不写错');
+
+// 人物：分母跟着人物表走（原来写死 8），没相遇只写「尚未相遇」不剧透身份
+const cxChars = V.codexModel(Object.assign({}, cxBase, {
+  characters: [
+    { who: '烛', role: '守灯人', cap: 'c1' },
+    { who: '墨妖', role: '名册之锁', cap: 'c2' },
+    { who: '无名氏', role: '谁', cap: 'c3' },
+  ],
+  met: (who) => who !== '无名氏',
+}));
+ok(cxChars.metLine === '已相遇 2 / 3 · 点开看大图', `已相遇分母取人物表长度（实得「${cxChars.metLine}」）`);
+ok(cxChars.chars[2].roleText === '尚未相遇' && cxChars.chars[0].roleText === '守灯人', '没相遇不报身份');
+ok(cxChars.chars[1].boss === true && cxChars.chars[0].boss === false, 'Boss 标记来自 view.js 的名单（不在渲染层各写一份）');
+
+// 真数据：怪物一个不漏、一个不重，Boss 出现在它自己的楼层之前
+{
+  const real = V.codexModel({ monsters: GD.monsters, floors: GD.floors, traits: GD.TRAITS, maxHp: 1000 });
+  const live = Object.keys(GD.monsters).filter((ch) => GD.monsters[ch] && !GD.monsters[ch].ghost);
+  const seq = real.rows.map((r) => r.ch);
+  ok(seq.length === live.length && new Set(seq).size === seq.length, `真数据里每只怪都在图鉴里且只出现一次（${seq.length} / ${live.length}）`);
+  const names = real.rows.map((r) => r.name);
+  ok(names.indexOf('墨妖') >= 0 && names.indexOf('墨妖') < names.indexOf('碑魔'), '第 3 层的锁匠排在第 12 层之前（顺序＝认识它们的顺序）');
+  ok(real.rows.filter((r) => r.boss).length === 4, '四位章节 Boss 都带 Boss 标');
+}
+
+// 源码契约：这三条规则不许在 main.js 里再手写一份
+ok(mainSrc.indexOf('View.codexModel') >= 0 && mainSrc.indexOf('View.lossModel') >= 0, '图鉴与速查卡必须走模型入口（不许绕过）');
+ok(mainSrc.indexOf('点开看大图') < 0 && mainSrc.indexOf('尚未相遇') < 0, '「已相遇 N / M」与「尚未相遇」只在 view.js 生成');
+ok(mainSrc.indexOf('maxHp * 0.25') < 0, '承伤标红的 1/4 阈值只在 view.js（两处各写一份就会各说各话）');
+ok(mainSrc.indexOf('守灯人 · 塔里唯一还肯说话的人') < 0, '人物表只在 view.js 定义（main.js 不再有第二份）');
+
 console.log(`挑战码 / 触控 / 桥接 / 视图模型单测：${pass} 项通过${bad ? `，${bad} 项失败` : ''}`);
 process.exit(bad ? 1 : 0);

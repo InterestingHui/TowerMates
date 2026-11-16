@@ -1853,17 +1853,12 @@
     const maxHp = s.maxHp || Math.max(s.hp, 1000);
     const ch = Engine.tile(tx, ty);
     const pred = Engine.predict(ch);
-    let lossHtml, lossCls;
-    if (pred && pred.damage != null) {
-      lossHtml = pred.damage === 0 ? '无伤' : `<b>-${pred.damage}</b> 生命`;
-      lossCls = pred.damage === 0 ? 'safe' : pred.damage >= maxHp * 0.25 ? 'danger' : 'warn';
-    } else if (pred) {
-      lossHtml = `<b>攻 +${m.def + 1 - s.atk}</b> 才能破防`;
-      lossCls = 'danger';
-    } else {
-      lossHtml = '??';
-      lossCls = 'danger';
-    }
+    // 承伤这一格的判据与图鉴同源（快照卡此前自己写了一份 1/4 阈值，破防的写法还与图鉴不一致）
+    const loss = View.lossModel({ pred, maxHp, needAtk: m.def + 1 - s.atk });
+    const lossCls = loss.cls;
+    // 三种状态同一视觉权重：数字 / 破防 / 未照面都要显眼，别让「打不动」比「−50」看着轻
+    const lossHtml = loss.kind === 'dmg' ? `<b>-${loss.amount}</b> 生命`
+      : loss.kind === 'nopen' ? `<b>${loss.text}</b>` : loss.text;
     const bossTag = m.boss && m.title ? `<i class="cx-tag boss">${m.title}</i>` : '';
     const TR = D.TRAITS && m.trait ? D.TRAITS[m.trait] : null;
     const traitTag = TR ? `<i class="cx-tag trait">${TR.icon}${TR.name}</i>` : '';
@@ -1902,19 +1897,10 @@
 
   // ---------- 图鉴 ----------
   // 自动遍历全部怪物（v0.4 的手抄名单在扩层后丢了 8 只锁梁怪和 4 位 Boss），
-  // 按「首次出现的楼层」排序——那是玩家认识它们的顺序
+  // 按「首次出现的楼层」排序——那是玩家认识它们的顺序。顺序 / 承伤档位 / 边际收益那三行
+  // 的规则在 js/view.js，这里只把事实塞进去再翻成标签。
   // 人物条目：图鉴上半区（大图走 320px 位图放大层）
-  const CHARACTERS = [
-    { who: '烛', role: '守灯人', cap: '守灯人 · 塔里唯一还肯说话的人' },
-    { who: '薇拉', role: '锁里的公主', cap: '薇拉 · 锁里的公主 · 王冠与面纱两种样子' },
-    { who: '秤', role: '流浪商人', cap: '秤 · 流浪商人 · 什么都收，什么都卖' },
-    { who: '炎魔', role: '守炉者', cap: '炎魔 · 守炉者 · 一炉里烧出来的东西' },
-    { who: '墨妖', role: '名册之锁', cap: '墨妖 · 第一位工匠 · 名册之锁 · 第 3 层' },
-    { who: '魔王', role: '炉心之锁', cap: '魔王 · 第一位工匠 · 炉心之锁 · 第 6 层' },
-    { who: '钟妖', role: '时辰之锁', cap: '钟妖 · 第五位工匠 · 时辰之锁 · 第 9 层' },
-    { who: '碑魔', role: '无名之锁', cap: '碑魔 · 第六位工匠 · 无名之锁 · 第 12 层' },
-  ];
-  const BOSS_WHO = { 墨妖: 1, 魔王: 1, 钟妖: 1, 碑魔: 1 };
+  const CHARACTERS = View.CODEX_CHARS;
 
   function openPortraitZoom(who, cap, mood) {
     if (!window.Portraits) return;
@@ -1929,52 +1915,30 @@
     const s = Engine.state();
     if (!s || !s.flags.codex) return;
     const maxHp = s.maxHp || Math.max(s.hp, 1000);
-    const firstFloor = {};
-    D.floors.forEach((f, fi) => {
-      f.map.forEach((row) => {
-        for (const ch of row) {
-          const m = D.monsters[ch];
-          if (m && !m.ghost && firstFloor[ch] === undefined) firstFloor[ch] = fi;
-        }
-      });
+    const model = View.codexModel({
+      monsters: D.monsters, floors: D.floors, traits: D.TRAITS,
+      met: Meta.hasMet, predict: Engine.predict, margin: Engine.margin,
+      maxHp, characters: CHARACTERS,
     });
-    const order = Object.keys(D.monsters).filter((ch) => D.monsters[ch] && !D.monsters[ch].ghost)
-      .sort((a, b) => (firstFloor[a] ?? 99) - (firstFloor[b] ?? 99));
-    const metCount = CHARACTERS.filter((c) => Meta.hasMet(c.who)).length;
-    const charHtml = `<div class="cx-sec"><span>人 物</span><small>已相遇 ${metCount} / 8 · 点开看大图</small></div>
-      <div class="cx-chars">${CHARACTERS.map((c) => {
-        const met = Meta.hasMet(c.who);
-        const boss = BOSS_WHO[c.who] ? '<span class="cx-mark">Boss</span>' : '';
-        return `<button class="cx-char${met ? '' : ' off'}" data-who="${c.who}" data-cap="${c.cap}"${met ? '' : ' disabled'}>
+    const charHtml = `<div class="cx-sec"><span>人 物</span><small>${model.metLine}</small></div>
+      <div class="cx-chars">${model.chars.map((c) => `<button class="cx-char${c.met ? '' : ' off'}" data-who="${c.who}" data-cap="${c.cap}"${c.met ? '' : ' disabled'}>
           ${window.Portraits ? Portraits.render(c.who, 'calm') : ''}
-          <b>${c.who}</b><i>${met ? c.role : '尚未相遇'}</i>${boss}
-        </button>`;
-      }).join('')}</div>`;
-    $('codexList').innerHTML = charHtml + order.map((ch) => {
-      const m = D.monsters[ch];
-      const p = Engine.predict(ch);
-      let loss = '无法破防';
-      let cls = 'danger';
-      if (p && p.damage != null) {
-        loss = p.damage === 0 ? '无伤' : `-${p.damage}`;
-        cls = p.damage === 0 ? 'safe' : p.damage >= maxHp * 0.25 ? 'danger' : 'warn';
-      }
-      const bossTag = m.boss ? `<i class="cx-tag boss">${m.chapter || 0}章</i>` : '';
-      const T = D.TRAITS && m.trait ? D.TRAITS[m.trait] : null;
-      const mg = Engine.margin(ch);
+          <b>${c.who}</b><i>${c.roleText}</i>${c.boss ? '<span class="cx-mark">Boss</span>' : ''}
+        </button>`).join('')}</div>`;
+    $('codexList').innerHTML = charHtml + model.rows.map((r) => {
       // 特性与边际收益放在同一行副信息里：第一行留给「这是谁」，
       // 只给数字不给结论——该加攻还是加防仍由玩家判断
-      const mgRow = (T || mg)
-        ? `<span class="cx-margin">${T ? `<i class="cx-tag trait t-${m.trait}">${T.icon}${T.name}</i>` : ''}${mg
-            ? `攻 +1 省 <b>${mg.atk}</b> 血 · 防 +1 省 <b>${mg.def}</b> 血${mg.base === 0 ? '（已无伤）' : ''}`
-            : '暂时打不过，先攒属性'}</span>`
+      const mgRow = (r.trait || r.margin)
+        ? `<span class="cx-margin">${r.trait ? `<i class="cx-tag trait ${r.trait.cls}">${r.trait.icon}${r.trait.name}</i>` : ''}${r.margin
+          ? `攻 +1 省 <b>${r.margin.atk}</b> 血 · 防 +1 省 <b>${r.margin.def}</b> 血${r.margin.noDamage ? '（已无伤）' : ''}`
+          : '暂时打不过，先攒属性'}</span>`
         : '';
-      return `<div class="cx-row${T ? ' has-trait' : ''}">
-        <span class="cx-emoji">${m.emoji}</span>
-        <span class="cx-name">${m.name}${bossTag}<i class="cx-tag">${m.kind}</i></span>
-        <span class="cx-stat">HP ${m.hp} · 攻 ${m.atk} · 防 ${m.def}</span>
-        <span class="cx-loss ${cls}">${loss}</span>
-        <span class="cx-reward">${m.gold}💰 ${m.exp}✨</span>
+      return `<div class="cx-row${r.hasTrait ? ' has-trait' : ''}">
+        <span class="cx-emoji">${r.emoji}</span>
+        <span class="cx-name">${r.name}${r.boss ? `<i class="cx-tag boss">${r.chapter}章</i>` : ''}<i class="cx-tag">${r.kind}</i></span>
+        <span class="cx-stat">${r.stat}</span>
+        <span class="cx-loss ${r.lossCls}">${r.loss}</span>
+        <span class="cx-reward">${r.reward}</span>
         ${mgRow}
       </div>`;
     }).join('');

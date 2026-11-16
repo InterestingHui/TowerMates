@@ -739,8 +739,129 @@
     };
   }
 
+  // ---------- 图鉴：顺序 / 承伤档位 / 边际收益这一行 ----------
+  // 这一屏此前把三件「规则」写在渲染函数里，只能靠截图看画出来的字：
+  // ①怪物顺序＝首次出现的楼层（那是玩家认识它们的顺序，手抄名单在扩层后漏过 8 只锁梁怪）；
+  // ②承伤染色按「占最大生命的比例」分档（1/4 以上标红）；③边际收益那一行还要分三种写法
+  // （有特性、打不过、已无伤）。搬进来之后这三条都能用 Node 单测直接盯。
+  const CODEX_CHARS = [
+    { who: '烛', role: '守灯人', cap: '守灯人 · 塔里唯一还肯说话的人' },
+    { who: '薇拉', role: '锁里的公主', cap: '薇拉 · 锁里的公主 · 王冠与面纱两种样子' },
+    { who: '秤', role: '流浪商人', cap: '秤 · 流浪商人 · 什么都收，什么都卖' },
+    { who: '炎魔', role: '守炉者', cap: '炎魔 · 守炉者 · 一炉里烧出来的东西' },
+    { who: '墨妖', role: '名册之锁', cap: '墨妖 · 第一位工匠 · 名册之锁 · 第 3 层' },
+    { who: '魔王', role: '炉心之锁', cap: '魔王 · 第一位工匠 · 炉心之锁 · 第 6 层' },
+    { who: '钟妖', role: '时辰之锁', cap: '钟妖 · 第五位工匠 · 时辰之锁 · 第 9 层' },
+    { who: '碑魔', role: '无名之锁', cap: '碑魔 · 第六位工匠 · 无名之锁 · 第 12 层' },
+  ];
+  const CODEX_BOSSES = { 墨妖: 1, 魔王: 1, 钟妖: 1, 碑魔: 1 };
+  // 承伤占最大生命 1/4 以上＝这一战会要命，标红；比它轻的只提醒（warn）
+  const LOSS_DANGER = 0.25;
+  const NO_FIRST_FLOOR = 99;
+
+  // 承伤这一格的唯一判据：图鉴与「怪物速查卡」两处都要显示这一格，
+  // 以前两处各写一份（连「破不了防」的写法都不一样：图鉴写「无法破防」、速查卡写「攻 +N 才能破防」），
+  // 于是同一个阈值 0.25 在渲染层出现两遍，改一处另一处就成了谎。
+  // input: { pred, maxHp, needAtk }（needAtk = 还差几点攻才能破防，速查卡才给得出）
+  // 输出：{ kind, text, cls, amount }——kind: unknown / nopen / zero / dmg
+  function lossModel(input) {
+    const o = input || {};
+    const pred = o.pred;
+    const maxHp = o.maxHp || 1000;
+    if (!pred) return { kind: 'unknown', text: '??', cls: 'danger', amount: null };
+    if (pred.damage == null) {
+      return {
+        kind: 'nopen',
+        text: o.needAtk != null ? `攻 +${o.needAtk} 才能破防` : '无法破防',
+        cls: 'danger',
+        amount: null,
+      };
+    }
+    if (pred.damage === 0) return { kind: 'zero', text: '无伤', cls: 'safe', amount: 0 };
+    return {
+      kind: 'dmg',
+      text: `-${pred.damage}`,
+      cls: pred.damage >= maxHp * LOSS_DANGER ? 'danger' : 'warn',
+      amount: pred.damage,
+    };
+  }
+
+  // input: { monsters, floors, traits, met(who), predict(ch), margin(ch), maxHp, characters }
+  // 输出：{ chars, rows, metCount, total, metLine }
+  //   rows 只含「画出来要用的字段」；margin 为 null 表示没有数字可给（打不过 / 没数据）
+  function codexModel(input) {
+    const o = input || {};
+    const monsters = o.monsters || {};
+    const floors = o.floors || [];
+    const traits = o.traits || {};
+    const met = o.met || (() => false);
+    const predict = o.predict || (() => null);
+    const margin = o.margin || (() => null);
+    const maxHp = o.maxHp || 1000;
+    const charsIn = o.characters || CODEX_CHARS;
+
+    // 首次出现的楼层：扫全塔地图（Boss 在第 3/6/9/12 层，锁梁怪散在各层）
+    const firstFloor = {};
+    floors.forEach((f, fi) => {
+      ((f && f.map) || []).forEach((row) => {
+        for (const ch of row) {
+          const m = monsters[ch];
+          if (m && !m.ghost && firstFloor[ch] === undefined) firstFloor[ch] = fi;
+        }
+      });
+    });
+    const order = Object.keys(monsters)
+      .filter((ch) => monsters[ch] && !monsters[ch].ghost)
+      .sort((a, b) => {
+        const fa = firstFloor[a] === undefined ? NO_FIRST_FLOOR : firstFloor[a];
+        const fb = firstFloor[b] === undefined ? NO_FIRST_FLOOR : firstFloor[b];
+        return fa - fb;
+      });
+
+    const chars = charsIn.map((c) => ({
+      who: c.who,
+      cap: c.cap || '',
+      met: !!met(c.who),
+      boss: !!CODEX_BOSSES[c.who],
+      // 没相遇就不报身份（报了等于剧透），只写「尚未相遇」
+      roleText: met(c.who) ? c.role : '尚未相遇',
+    }));
+
+    const rows = order.map((ch) => {
+      const m = monsters[ch];
+      const loss = lossModel({ pred: predict(ch), maxHp });
+      const T = m.trait && traits[m.trait] ? traits[m.trait] : null;
+      const mg = margin(ch);
+      return {
+        ch,
+        emoji: m.emoji || '',
+        name: m.name || '',
+        kind: m.kind || '',
+        boss: !!m.boss,
+        chapter: m.chapter || 0,
+        stat: `HP ${m.hp} · 攻 ${m.atk} · 防 ${m.def}`,
+        loss: loss.text,
+        lossCls: loss.cls,
+        reward: `${m.gold}💰 ${m.exp}✨`,
+        trait: T ? { icon: T.icon || '', name: T.name || '', cls: `t-${m.trait}` } : null,
+        hasTrait: !!T,
+        // 只给数字不给结论：该加攻还是加防仍由玩家判断
+        margin: mg ? { atk: mg.atk, def: mg.def, noDamage: mg.base === 0 } : null,
+        // 有特性但算不出边际（打不过）时那一行仍要出现，写「暂时打不过」
+        marginEmpty: !T && !mg,
+      };
+    });
+
+    const metCount = chars.filter((c) => c.met).length;
+    return {
+      chars, rows, metCount, total: chars.length,
+      // 分母跟着人物表走（原来写死 8，加人就要回来改一次）
+      metLine: `已相遇 ${metCount} / ${chars.length} · 点开看大图`,
+    };
+  }
+
   return {
-    boardModel, shopModel,
+    boardModel, shopModel, codexModel, lossModel, CODEX_CHARS,
     altarModel, echoModel, eventModel, shortfallText,
     endScoreModel, emberDetailModel, winBrief, deathBrief, briefModel,
     sealOf, nextSealHint, sealTarget, emberModel,
