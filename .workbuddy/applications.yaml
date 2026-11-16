@@ -1,3 +1,5 @@
 applications:
   - name: 魔塔原型 TowerMates
     locator: wbapp_K1iA4rmcP4KxRsy2zowc8c
+  - name: 游戏大堂
+    locator: wbapp_AN7ja6b9o9O01zn8qwUf6W
