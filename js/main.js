@@ -2616,41 +2616,40 @@
     curEcho = echo;
     const s = Engine.state();
     setChapterColor(echo.chapter * 3 - 1); // 该章章末层的索引（2 / 5 / 8 / 11）
-    el.echoKicker.textContent = `${echo.title} · 回响`;
+    // 这一屏的规则（拿过没有 / 已装几枚 / 候选与已有的摆法）全在 View 里，main 只翻译
+    const m = View.echoModel({
+      title: echo.title,
+      pending: !!echo.pending,
+      choices: echo.pending ? (s.flags['ringChoices_' + echo.chapter] || []) : [],
+      owned: Engine.rings(),
+      rings: D.rings,
+    });
+    el.echoKicker.textContent = m.kicker;
     el.echoLine.textContent = (S.echoLines && S.echoLines[echo.chapter - 1]) || '';
-    el.echoReward.textContent = echo.pending
-      ? '锁匠倒下了 · 塔从墙上取下一枚锁环，让你挑'
-      : '这一章的锁环你已经拿过了';
-    el.echoReward.classList.toggle('muted', !echo.pending);
-    const choices = echo.pending ? (s.flags['ringChoices_' + echo.chapter] || []) : [];
+    el.echoReward.textContent = m.reward;
+    el.echoReward.classList.toggle('muted', m.muted);
     // 手里已经有的环要摆出来：第 2 章起是「3 选 1 + 已有 1~3 枚」的加法题，
     // 遮住已有的等于让玩家凭记忆选（章 1 第一次挑时 0 枚，整块不出现）
-    const owned = Engine.rings();
     if (el.echoOwned) {
-      if (owned.length) {
-        el.echoOwned.innerHTML = `<span class="eo-kicker">已装 ${owned.length} 枚</span>`
-          + owned.map((id) => `<span class="eo-row"><b>${D.rings[id].emoji} ${D.rings[id].name}</b> <i>· ${D.rings[id].desc}</i></span>`).join('');
+      if (m.owned.length) {
+        el.echoOwned.innerHTML = `<span class="eo-kicker">${m.ownedHead}</span>`
+          + m.owned.map((r) => `<span class="eo-row"><b>${r.emoji} ${r.name}</b> <i>· ${r.desc}</i></span>`).join('');
         el.echoOwned.hidden = false;
       } else {
         el.echoOwned.innerHTML = '';
         el.echoOwned.hidden = true;
       }
     }
-    el.echoRings.innerHTML = choices.map((id) => {
-      const r = D.rings[id];
-      return `<button class="echo-ring" data-id="${id}">
+    el.echoRings.innerHTML = m.cards.map((r) => `<button class="echo-ring" data-id="${r.id}">
         <span class="er-emoji">${r.emoji}</span>
         <span class="er-name">${r.name}</span>
         <span class="er-desc">${r.desc}</span>
-      </button>`;
-    }).join('');
+      </button>`).join('');
     el.echoRings.querySelectorAll('.echo-ring').forEach((b) => {
       b.addEventListener('click', () => chooseRing(b.dataset.id));
     });
-    renderRich(el.echoHint, echo.pending
-      ? '点一枚装上 · 也可按 1 / 2 / 3 · **选了不能换**'
-      : '');
-    el.echoClose.hidden = !!echo.pending;
+    renderRich(el.echoHint, m.hint);
+    el.echoClose.hidden = !m.closable;
     el.echoOverlay.classList.add('show');
     Sound.play('relic');
     vibrate([10, 20, 10]);
@@ -2925,26 +2924,22 @@
   function openAltar() {
     const s = Engine.state();
     const choices = Engine.altarChoices(s.floor >= 4 ? 2 : 3);
-    if (!choices.length) {
+    const m = View.altarModel({ floor: s.floor, choices, relics: D.relics });
+    if (m.empty) {
       s.flags.altar = true;
       s.flags['altar_f' + s.floor] = true;
       if (Engine.tile(s.x, s.y) === 'X') Engine.state().maps[s.floor][s.y][s.x] = '.';
       Engine.save();
-      log('行李里已经空了，只剩灰。');
+      log(View.ALTAR_EMPTY);
       refreshHud();
       return;
     }
-    document.querySelector('#altarOverlay .altar-desc').innerHTML = s.floor >= 4
-      ? '这一堆还没人动过：一双铁腕、半瓶灯油、一本没写完的账。<br>你只能带走一件。'
-      : '八个人留下的东西堆在墙角：卷刃的剑、干粮、泡烂的账册。<br>你只能带走一件。';
-    el.altarCards.innerHTML = choices.map((id) => {
-      const r = D.relics[id];
-      return `<button class="altar-card" data-id="${id}">
+    document.querySelector('#altarOverlay .altar-desc').innerHTML = m.desc;
+    el.altarCards.innerHTML = m.cards.map((r) => `<button class="altar-card" data-id="${r.id}">
         <span class="ac-emoji">${r.emoji}</span>
         <span class="ac-name">${r.name}</span>
         <span class="ac-desc">${r.desc}</span>
-      </button>`;
-    }).join('');
+      </button>`).join('');
     el.altarCards.querySelectorAll('.altar-card').forEach((b) => {
       b.addEventListener('click', () => chooseAltar(b.dataset.id));
     });
@@ -3018,18 +3013,15 @@
     const e = D.events.find((x) => x.id === id);
     if (!e) return;
     curEvent = e;
-    const s = Engine.state();
-    el.evEmoji.textContent = e.emoji;
-    el.evName.textContent = e.name;
-    el.evText.textContent = e.text;
-    el.evOpts.innerHTML = e.options.map((o, i) => {
-      const block = Engine.eventCost(o);
-      const cost = o.effect.gold && o.effect.gold < 0 ? -o.effect.gold : 0;
-      const why = block === '金币不够' ? `还差 ${cost - s.gold} 金` : block || '';
-      return `<button class="ev-opt" data-i="${i}" ${block ? 'disabled' : ''}>
-        <b>${o.label}</b><small>${block ? why : o.tip}</small>
-      </button>`;
-    }).join('');
+    // 缺多少由引擎判（`eventShortfall` 唯一判据），写成什么话由 View 定：
+    // 付不起时旧版把整句 tip 换成「还差 N 金」，等于在最该看清取舍的一刻把账藏了
+    const m = View.eventModel({ event: e, shorts: e.options.map((o) => Engine.eventShortfall(o)) });
+    el.evEmoji.textContent = m.emoji;
+    el.evName.textContent = m.name;
+    el.evText.textContent = m.text;
+    el.evOpts.innerHTML = m.opts.map((o) => `<button class="ev-opt" data-i="${o.i}" ${o.disabled ? 'disabled' : ''}>
+        <b>${o.label}</b><small>${o.note}</small>
+      </button>`).join('');
     el.evOpts.querySelectorAll('.ev-opt').forEach((b) => {
       b.addEventListener('click', () => chooseEvent(Number(b.dataset.i)));
     });

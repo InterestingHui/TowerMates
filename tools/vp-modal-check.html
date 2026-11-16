@@ -186,7 +186,49 @@ function measurePanel(frame, sel) {
         await wait(150);
       }
 
-      // ---- 6) 结算页（本作最长的一屏：分项 + 码 + 两个出口）----
+      // ---- 6) 路遇（第 7 层起 7 层都有：3 个选项 + 长文案，09:5x 给别的弹层补 max-height 时漏了这块）----
+      {
+        const sEv = w.Engine.state();
+        sEv.gold = 0;                       // 付不起：看禁用选项还写不写「它给什么」
+        w.__tm.openEvent('veteran');
+        await wait(260);
+        const p = d.querySelector('#eventOverlay .event-panel');
+        const r = p.getBoundingClientRect();
+        const opts = Array.from(p.querySelectorAll('.ev-opt'));
+        const info = opts.map((b) => {
+          const sm = b.querySelector('small');
+          const br = b.getBoundingClientRect();
+          return {
+            label: (b.querySelector('b') || {}).textContent || '', dis: b.disabled,
+            top: Math.round(br.top), bottom: Math.round(br.bottom),
+            small: sm.textContent,
+            clip: sm.scrollWidth > sm.clientWidth + 1 || sm.scrollHeight > sm.clientHeight + 1,
+          };
+        });
+        dumps.push(c.tag + ' event ' + JSON.stringify({ r: { top: Math.round(r.top), bottom: Math.round(r.bottom), h: Math.round(r.height) }, opts: info }));
+        const tag = c.tag + ' 路遇';
+        check(tag + ' 面板不出视口', r.top >= -1 && r.bottom <= c.h + 1, Math.round(r.top) + '–' + Math.round(r.bottom) + ' / ' + c.h);
+        check(tag + ' 每个选项的代价整句可见', opts.length >= 2 && info.every((o) => !o.clip && o.small.length > 0),
+          info.map((o) => o.label + (o.clip ? ':裁切' : '')).join(' '));
+        // 最后一项必须能滚到（极矮横屏下 3 个两行选项放不下时，滚动是唯一的补救）
+        p.scrollTop = p.scrollHeight;
+        await wait(80);
+        const last = opts[opts.length - 1].getBoundingClientRect();
+        check(tag + ' 最后一项滚得到', last.top >= -1 && last.bottom <= c.h + 1, Math.round(last.top) + '–' + Math.round(last.bottom) + ' / ' + c.h);
+        p.scrollTop = 0;
+
+        // 付不起的那一条：旧版把整句 tip 换成「还差 N 金」，等于在最该看清取舍的一刻把账藏了
+        w.__tm.openEvent('herbalist');
+        await wait(220);
+        const dis = Array.from(d.querySelectorAll('#eventOverlay .ev-opt')).filter((b) => b.disabled)[0];
+        const dsm = dis ? dis.querySelector('small').textContent : '';
+        check(tag + ' 付不起时仍写着它给什么', !!dis && dsm.indexOf('还差') >= 0 && dsm.indexOf(' · ') > 0 && dsm.length > dsm.indexOf('还差') + 5,
+          dis ? dsm : '没有禁用选项（场景失效）');
+        try { d.getElementById('eventOverlay').classList.remove('show'); } catch (e) {}
+        await wait(120);
+      }
+
+      // ---- 7) 结算页（本作最长的一屏：分项 + 码 + 两个出口）----
       {
         d.getElementById('btnNew').click();
         await wait(260);

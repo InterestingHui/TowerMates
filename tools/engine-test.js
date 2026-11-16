@@ -437,6 +437,22 @@ ok(keyOpt >= 0 && E.eventCost(bridge.options[keyOpt]) === '钥匙不够', '钥�
 s.keys.y = 3;
 ok(E.eventCost(bridge.options[keyOpt]) === null, '钥匙够了就可以选');
 
+// 缺多少要有准数（展示层「还差 2 把黄钥匙」就从这里取，判据只此一处）
+E.newGame(); s = E.state();
+s.gold = 5; s.keys.y = 0; s.keys.r = 0;
+const shGold = E.eventShortfall({ effect: { gold: -130 } });
+ok(!!shGold && shGold.kind === 'gold' && shGold.need === 125 && shGold.msg === '金币不够', '缺钱时报出「还差 125」而不是只说不够');
+ok(E.eventShortfall({ effect: { gold: -5 } }) === null, '钱刚好够时不报缺');
+ok(E.eventShortfall({ effect: { gold: 120 } }) === null, '进账不设门槛');
+s.keys.y = 1;
+const shKey = E.eventShortfall({ effect: { keys: { y: -3 } } });
+ok(!!shKey && shKey.kind === 'key' && shKey.key === 'y' && shKey.need === 2, '缺钥匙报出键名与还差几把');
+s.keys.y = 3;
+ok(E.eventShortfall({ effect: { keys: { y: -3 } } }) === null, '钥匙够了不报缺');
+ok(E.eventCost({ effect: { keys: { y: -3 } } }) === null && E.eventCost({ effect: { gold: -999 } }) === '金币不够',
+  'eventCost 的字符串判据与 eventShortfall 同源（两处不会各说各话）');
+ok(E.eventShortfall(null) === null && E.eventShortfall({}) === null, '没有 effect 的选项不报缺（脏数据不崩）');
+
 // 11-14 扩池新增的四条路遇：落地数值必须与 tip 写的完全一致（文案说谎是本项目最高频 bug）
 E.newGame(); s = E.state();
 s.floor = 1; s.x = 1; s.y = 1;

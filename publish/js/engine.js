@@ -1149,16 +1149,24 @@
     if (eff.block) grantBlock();
   }
 
-  // 选项的"付不起"判定：金币或钥匙不足时返回原因
-  function eventCost(o) {
-    if (!o || !o.effect) return null;
-    if (o.effect.gold && o.effect.gold < 0 && s.gold < -o.effect.gold) return '金币不够';
-    if (o.effect.keys) {
-      for (const k of Object.keys(o.effect.keys)) {
-        if (o.effect.keys[k] < 0 && (s.keys[k] || 0) < -o.effect.keys[k]) return '钥匙不够';
+  // 选项的「付不起」判定：这是**唯一**判据，`eventCost`（给旧调用点的字符串）
+  // 与展示层（「还差 N 金」）都从这里取，否则两处口径迟早各说各话。
+  function eventShortfall(o) {
+    if (!s || !o || !o.effect) return null;
+    const e = o.effect;
+    if (e.gold && e.gold < 0 && s.gold < -e.gold) return { kind: 'gold', need: -e.gold - s.gold, msg: '金币不够' };
+    if (e.keys) {
+      for (const k of Object.keys(e.keys)) {
+        if (e.keys[k] < 0 && (s.keys[k] || 0) < -e.keys[k]) {
+          return { kind: 'key', key: k, need: -e.keys[k] - (s.keys[k] || 0), msg: '钥匙不够' };
+        }
       }
     }
     return null;
+  }
+  function eventCost(o) {
+    const f = eventShortfall(o);
+    return f ? f.msg : null;
   }
 
   function resolveEvent(id, idx) {
@@ -1870,7 +1878,7 @@
       return D.monsters[ch] ? predict(ch) : null;
     },
     tryMove, fight, canBlock, canGuard, blockLimit, blockLeft, blockUsedAt, grantBlock, vowForbidsBlock, blockSpreadAt, blockSpreadActive, blockSpreadScale, BLOCK_SPREAD, buy, priceOf, shopStock, dealOf, openShopAt, floorMonsterCount, floorPickupCount, floorThreat, battleMargin, potionHeal, finish, altarChoices, pickRelic, pathTo, pathThrough, pathToNear, pathsTo,
-    nextLevelExp, margin, keyName, summary, accrueActive, ACTIVE_CAP, hasRelic, ownedRelics, beginFloor, restoreFloor, revealCore, heartState, heartTake, heartLeave, vow, pickEvent, eventPool, eventCost, resolveEvent, applyEffect, jumpTo, visitedMax, gateForth, sealPlan,
+    nextLevelExp, margin, keyName, summary, accrueActive, ACTIVE_CAP, hasRelic, ownedRelics, beginFloor, restoreFloor, revealCore, heartState, heartTake, heartLeave, vow, pickEvent, eventPool, eventCost, eventShortfall, resolveEvent, applyEffect, jumpTo, visitedMax, gateForth, sealPlan,
     rings, hasRing, ringBlockScale, zealScale, zealNext, zealNeed, finalLedger, cleanEmber, fightDamage, tangleInfo, bossPhases, settleChapter, ringChoices, pendingRing, pickRing,
   };
 })();

@@ -651,5 +651,83 @@ ok(endCalls.every((w) => mainSrc.indexOf(w) >= 0), 'main.js 必须走这四个�
 ok(mainSrc.indexOf('floor: s.floor + 1, time: sum.time') > 0, '败局入账写 1 基层数（与胜局的 summary().floor 同基准）');
 ok(mainSrc.indexOf("ending: null, vow: s.flags.vow || 'none', floor: s.floor + 1") > 0, '败局上报给平台桥的层数也是 1 基（与胜局同一份字段）');
 
+// ---------- 祭坛 / 回响 / 路遇：三块弹层的模型 + 「全明码」数据契约 ----------
+// 数据侧用 vm 单独载一份 data.js（不污染 challenge / view 的全局）
+const _vm = require('vm');
+const _fs = require('fs');
+const _sandbox = { window: {} };
+_vm.createContext(_sandbox);
+_vm.runInContext(_fs.readFileSync(require('path').join(__dirname, '..', 'js', 'data.js'), 'utf8'), _sandbox);
+const GD = _sandbox.window.GAME_DATA;
+
+// 祭坛：文案按层分界（第 5 层起换另一堆），空堆走「只剩灰」
+const a0 = V.altarModel({ floor: 0, choices: ['steel', 'thrift', 'vigor'], relics: GD.relics });
+ok(a0.desc === V.ALTAR_DESC_EARLY && !a0.empty && a0.cards.length === 3, '祭坛前四层用「八个人的行李」文案');
+ok(V.altarModel({ floor: 4, choices: ['steel'], relics: GD.relics }).desc === V.ALTAR_DESC_LATE, '第 5 层起换另一堆文案（与引擎同一条 floor>=4 分界）');
+ok(V.altarModel({ floor: 2, choices: [], relics: GD.relics }).empty === true, '没有可拿的就标成空堆');
+ok(V.altarModel({ floor: 2, choices: ['steel', '不存在'], relics: GD.relics }).cards.length === 1, '不认识的遗物不摆卡片（数据脏了不该画出空卡）');
+ok(a0.cards[0].id === 'steel' && a0.cards[0].emoji === GD.relics.steel.emoji, '卡片字段取自遗物本身（图标换掉就跟着换）');
+
+// 回响：拿过没有决定「能不能关」与提示行
+const echoPend = V.echoModel({ title: '墨妖', pending: true, choices: ['spare', 'twice'], owned: ['twice'], rings: GD.rings });
+ok(echoPend.kicker === '墨妖 · 回响' && echoPend.reward === V.ECHO_REWARD_PENDING && !echoPend.muted, '待选时写「塔从墙上取下一枚」');
+ok(echoPend.cards.length === 2 && echoPend.cards[0].name === GD.rings.spare.name, '三选一卡片来自候选，且不是环表里的裸 id');
+ok(echoPend.ownedHead === '已装 1 枚' && echoPend.owned.length === 1, '已装枚数按真实持有算');
+ok(echoPend.hint === V.ECHO_HINT_PICK && echoPend.closable === false, '待选时不能关面板（否则等于放弃这一章的空环）');
+const echoDone = V.echoModel({ title: '墨妖', pending: false, choices: ['spare'], owned: [], rings: GD.rings });
+ok(echoDone.reward === V.ECHO_REWARD_TAKEN && echoDone.muted && echoDone.cards.length === 0, '拿过的章节不摆候选，只说一句');
+ok(echoDone.hint === '' && echoDone.closable === true, '拿过的章节可以关');
+ok(V.echoModel({ title: '墨妖', pending: true, choices: ['脏 id'], owned: [], rings: GD.rings }).cards.length === 0, '脏候选 id 不画成空卡');
+
+// 路遇：付不起时「还差多少」与「它给什么」必须同时看得见
+const ev = GD.events.find((e) => e.id === 'herbalist');
+const evModel = V.eventModel({ event: ev, shorts: [{ kind: 'gold', need: 125, msg: '金币不够' }, null] });
+ok(evModel.opts[0].disabled === true && evModel.opts[0].why === '还差 125 金', '付不起：给出差额');
+ok(evModel.opts[0].note.indexOf('还差 125 金 · ') === 0 && evModel.opts[0].note.indexOf(ev.options[0].tip) > 0,
+  '付不起时仍写着这个选项给什么（旧版把 tip 整句换成「还差 N 金」，等于把账藏了）');
+ok(evModel.opts[1].disabled === false && evModel.opts[1].note === ev.options[1].tip, '付得起时原样显示 tip');
+ok(V.shortfallText({ kind: 'key', key: 'y', need: 2 }) === '还差 2 把黄钥匙', '缺钥匙给准数，不再只说「钥匙不够」');
+ok(V.shortfallText({ kind: 'key', key: 'r', need: 1 }) === '还差 1 把红钥匙', '红钥匙也按名说');
+ok(V.shortfallText(null) === '', '不缺就什么都不写');
+ok(V.eventModel({ event: { name: 'x', text: 'y', options: [{ label: 'a' }] }, shorts: [] }).opts[0].note === '', '没有 tip 的选项不会写出 undefined');
+
+// 「全明码」数据契约：路遇 24 个事件 / 52 个选项，tip 承诺的每个数都得在 effect 里找到同一个数
+{
+  const KW = { atk: '攻击', def: '防御', maxHp: '生命上限', hp: '生命', gold: '金币', exp: '经验', ember: '余烬', block: '格挡' };
+  const KN = { y: '黄钥匙', r: '红钥匙' };
+  const lies = [];
+  GD.events.forEach((e) => e.options.forEach((o, i) => {
+    const ef = o.effect || {};
+    Object.keys(ef).forEach((k) => {
+      const n = Math.abs(ef[k]);
+      if (k === 'healPct' || k === 'hpPct') {
+        const p = Math.round(n * 100);
+        if (!(o.tip.indexOf('生命') >= 0 && o.tip.indexOf(String(p)) >= 0 && o.tip.indexOf('%') >= 0)) lies.push(`${e.id}[${i}] ${k}`);
+      } else if (k === 'keys') {
+        Object.keys(ef.keys).forEach((kk) => {
+          if (!(o.tip.indexOf(KN[kk]) >= 0 && o.tip.indexOf(String(Math.abs(ef.keys[kk]))) >= 0)) lies.push(`${e.id}[${i}] keys.${kk}`);
+        });
+      } else if (k === 'block') {
+        if (o.tip.indexOf('格挡') < 0) lies.push(`${e.id}[${i}] block`);
+      } else if (k === 'gold' && ef[k] === 0) {
+        // 0 金不必写进明码
+      } else if (!KW[k]) {
+        lies.push(`${e.id}[${i}] 未知键 ${k}（检查器要同步）`);
+      } else if (!(o.tip.indexOf(KW[k]) >= 0 && o.tip.indexOf(String(n)) >= 0)) {
+        lies.push(`${e.id}[${i}] ${k}=${ef[k]}`);
+      }
+    });
+  }));
+  ok(lies.length === 0, `路遇每个选项都写明码（effect 的每个数都在 tip 里；不符：${lies.join(',') || '无'}）`);
+}
+
+// 源码契约：这三块不许在 main.js 里再手写一份
+const evCalls = ['View.altarModel', 'View.echoModel', 'View.eventModel'];
+ok(evCalls.every((w) => mainSrc.indexOf(w) >= 0), 'main.js 必须走这三个入口（不许绕过）');
+const evGone = ['行李里已经空了', '锁匠倒下了 · 塔从墙上取下一枚锁环', '金币不够\' ? `还差', '学会格挡（战斗中点盾，承伤 −40%）；若已会'];
+ok(evGone.every((w) => mainSrc.indexOf(w) < 0), '三块面板的文案与「缺多少」判断已不在 main.js（各说各话的源头）');
+ok(mainSrc.indexOf('Engine.eventShortfall') >= 0, '缺多少由引擎判（唯一判据），不是展示层自己乘减');
+ok(viewSrc.indexOf('Engine.') < 0 && viewSrc.indexOf('eventCost') < 0, 'view.js 仍不碰引擎（判据在引擎，文案在视图）');
+
 console.log(`挑战码 / 触控 / 桥接 / 视图模型单测：${pass} 项通过${bad ? `，${bad} 项失败` : ''}`);
 process.exit(bad ? 1 : 0);

@@ -2127,6 +2127,10 @@ body.at-start #bottom { visibility: hidden; }
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.65);
   text-align: center;
   animation: popIn 0.26s ease-out;
+  /* 与 .panel / .vow-stage / .altar-panel / .gate-panel / .echo-panel 同一条口径：
+     矮屏（尤其 844×320 横屏）先给滚动兜底，别让最后一个选项掉出视口永远点不到 */
+  max-height: 92dvh;
+  overflow-y: auto;
 }
 .ev-emoji {
   font-size: 38px;
@@ -2166,8 +2170,10 @@ body.at-start #bottom { visibility: hidden; }
   transition: transform 0.14s cubic-bezier(0.2, 0.9, 0.25, 1), border-color 0.2s, box-shadow 0.2s;
 }
 .ev-opt:hover { transform: translateX(3px); border-color: rgba(232, 196, 106, 0.66); box-shadow: 0 10px 26px rgba(232, 196, 106, 0.14); }
-.ev-opt b { font-weight: 600; color: #ffe6a8; }
-.ev-opt small { font-size: var(--fs-tag); color: var(--muted); white-space: nowrap; }
+.ev-opt b { font-weight: 600; color: #ffe6a8; flex: 0 0 auto; }
+/* 付不起时那行会变成「还差 125 金 · 红钥匙 +1」——两件事都得看得见，
+   所以允许折行（原来是 nowrap，长了就溢出按钮外，短了又必须砍文案） */
+.ev-opt small { font-size: var(--fs-tag); color: var(--muted); white-space: normal; text-align: left; line-height: 1.45; }
 .ev-opt:disabled { opacity: 0.35; cursor: not-allowed; transform: none; box-shadow: none; }
 
 /* ---------- 塔的记忆：余烬 ---------- */
@@ -2931,6 +2937,11 @@ body.at-start #bottom { visibility: hidden; }
   .bs-stage { padding: 0 0 3px; }
   .bs-block { margin-top: 6px; }
   .bs-hint { margin-top: 4px; }
+  /* 路遇在极矮横屏下原本整块 322px 高、比视口还高 2px 且没有滚动兜底——
+     09:5x 给祭坛/立誓/门钥/回响补 max-height 时漏了这一块（第 7 层起 7 层都有路遇） */
+  .event-panel { padding: 16px 16px 14px; }
+  .ev-emoji { font-size: 28px; margin-bottom: 2px; }
+  .ev-text { margin-bottom: 8px; }
 }
 
 /* 按压反馈（焦点 C · 动效一致性）：卡片型可点块（决策二选一 / 立誓四选一 / 祭坛三选一 /

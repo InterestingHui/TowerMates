@@ -659,8 +659,89 @@
     return { items, hidden, toggle: hidden ? `＋${hidden} 项 ▾` : '', openToggle: '收起 ▴' };
   }
 
+  // ---------- 祭坛 / 回响 / 路遇：三块弹层的规则与明码 ----------
+  // 这三块此前是「数据 → 模板串」直接写在 main.js 里：能验「画出来长什么样」，
+  // 验不了「它说的和引擎做的是不是一回事」。搬进来以后 Node 单测能逐条核：
+  // 路遇 24 个事件 52 个选项，每个选项 tip 承诺的每个数都得在 effect 里找到同一个数
+  // ——本作的身份是「全明码」，这条不能只靠写的人记性。
+
+  // 前四层是「八个人的行李」，第 5 层起换成另一堆（引擎侧同一个 `s.floor >= 4` 分界）
+  const ALTAR_DESC_EARLY = '八个人留下的东西堆在墙角：卷刃的剑、干粮、泡烂的账册。<br>你只能带走一件。';
+  const ALTAR_DESC_LATE = '这一堆还没人动过：一双铁腕、半瓶灯油、一本没写完的账。<br>你只能带走一件。';
+  const ALTAR_EMPTY = '行李里已经空了，只剩灰。';
+  function altarModel(input) {
+    const o = input || {};
+    const relics = o.relics || {};
+    const cards = (o.choices || []).filter((id) => relics[id]).map((id) => ({
+      id, emoji: relics[id].emoji, name: relics[id].name, desc: relics[id].desc,
+    }));
+    return {
+      desc: (o.floor || 0) >= 4 ? ALTAR_DESC_LATE : ALTAR_DESC_EARLY,
+      empty: cards.length === 0,
+      cards,
+    };
+  }
+
+  // 回响：章末锁环三选一。手里已有的环必须摆出来——第 2 章起这是
+  // 「新一枚 + 已有 1~3 枚」的加法题，遮住等于让人凭记忆选。
+  const ECHO_REWARD_PENDING = '锁匠倒下了 · 塔从墙上取下一枚锁环，让你挑';
+  const ECHO_REWARD_TAKEN = '这一章的锁环你已经拿过了';
+  const ECHO_HINT_PICK = '点一枚装上 · 也可按 1 / 2 / 3 · **选了不能换**';
+  function echoModel(input) {
+    const o = input || {};
+    const rings = o.rings || {};
+    const pick = (id) => (rings[id] ? { id, emoji: rings[id].emoji, name: rings[id].name, desc: rings[id].desc } : null);
+    const owned = (o.owned || []).map(pick).filter(Boolean);
+    const pending = !!o.pending;
+    // 已经拿过的章节不再摆候选（引擎也没给候选），面板只说一句「拿过了」
+    const cards = pending ? (o.choices || []).map(pick).filter(Boolean) : [];
+    return {
+      kicker: `${o.title || ''} · 回响`,
+      reward: pending ? ECHO_REWARD_PENDING : ECHO_REWARD_TAKEN,
+      muted: !pending,
+      ownedHead: `已装 ${owned.length} 枚`,
+      owned,
+      cards,
+      hint: pending ? ECHO_HINT_PICK : '',
+      closable: !pending,
+    };
+  }
+
+  // 路遇：付不起的时候，旧版把整句 tip 换成「还差 N 金」——最该看清取舍的一刻
+  // 把「它给什么」藏了起来。现在改成「还差 N 金 · 它给什么」，两件事同屏。
+  // 缺多少由引擎给（引擎侧 `eventShortfall` 是唯一判据），这里只负责写成人话。
+  const KEY_NAMES = { y: '黄钥匙', r: '红钥匙' };
+  function shortfallText(sh) {
+    if (!sh) return '';
+    if (sh.kind === 'gold') return `还差 ${sh.need} 金`;
+    if (sh.kind === 'key') return `还差 ${sh.need} 把${KEY_NAMES[sh.key] || '钥匙'}`;
+    return '';
+  }
+  function eventModel(input) {
+    const o = input || {};
+    const e = o.event || {};
+    const shorts = o.shorts || [];
+    return {
+      emoji: e.emoji || '',
+      name: e.name || '',
+      text: e.text || '',
+      opts: (e.options || []).map((opt, i) => {
+        const why = shortfallText(shorts[i]);
+        const tip = opt.tip || '';
+        return {
+          i,
+          label: opt.label,
+          note: why ? (tip ? `${why} · ${tip}` : why) : tip,
+          why,
+          disabled: !!why,
+        };
+      }),
+    };
+  }
+
   return {
     boardModel, shopModel,
+    altarModel, echoModel, eventModel, shortfallText,
     endScoreModel, emberDetailModel, winBrief, deathBrief, briefModel,
     sealOf, nextSealHint, sealTarget, emberModel,
     cmpBoard, fmtTime, endName, marginRank,
@@ -670,5 +751,8 @@
     BOARD_TABS, BOARD_CAP, SHOP_CORE, SEALS, CHAPTERS,
     NOTE_DAILY, NOTE_CRUSHED, EMPTY_OTHER, TIP_BLOCK, TIP_SHARD,
     MEM_NOTE_DEATH, MEM_NOTE_WIN, BRIEF_SHOW,
+    ALTAR_DESC_EARLY, ALTAR_DESC_LATE, ALTAR_EMPTY,
+    ECHO_REWARD_PENDING, ECHO_REWARD_TAKEN, ECHO_HINT_PICK,
+    KEY_NAMES,
   };
 });
