@@ -4144,21 +4144,26 @@
         }, fallback);
       } else fallback();
     }
-    $('btnCopyCode').addEventListener('click', () => {
-      const codeEl2 = $('myCode');
-      copyText(codeEl2, codeEl2.textContent, '挑战码已复制', $('btnCopyCode'));
-    });
     // 挑战链接：把码塞进地址发出去，朋友点开就收下（省掉「贴 50 多个字符」那一步）
-    $('btnCopyLink').addEventListener('click', () => {
-      const codeEl3 = $('myCode');
-      const btn3 = $('btnCopyLink');
-      const raw = (codeEl3.textContent || '').trim();
-      // 「—— 通关后生成 ——」是占位符：不拦的话会拼出一条 rival=—— 通关后生成 —— 的链接发出去
-      if (raw.indexOf('——') === 0) { warn('先打完一局才有挑战链接'); flashBtn(btn3, '还没码'); return; }
+    // 榜单面板与结算页共用这一条出口——两处的差别只是「从哪个元素读码」。
+    function copyLinkOf(codeEl, btn) {
+      const raw = (codeEl.textContent || '').trim();
+      // 「—— 通关后生成 ——」/「—— 未达结局 ——」都是占位符：不拦的话会拼出一条 rival=—— 的链接发出去
+      if (raw.indexOf('——') === 0) { warn('先打完一局才有挑战链接'); flashBtn(btn, '还没码'); return; }
       const link = View.rivalLink(location.href, raw);
-      if (!link) { warn('先打完一局才有挑战链接'); flashBtn(btn3, '还没码'); return; }
-      copyText(null, link, '挑战链接已复制 · 发给朋友点开就收下', btn3);
-    });    $('btnCfg').addEventListener('click', openCfg);
+      if (!link) { warn('先打完一局才有挑战链接'); flashBtn(btn, '还没码'); return; }
+      copyText(null, link, '挑战链接已复制 · 发给朋友点开就收下', btn);
+    }
+    $('btnCopyCode').addEventListener('click', () => {
+      const myEl = $('myCode');
+      copyText(myEl, myEl.textContent, '挑战码已复制', $('btnCopyCode'));
+    });
+    $('btnCopyLink').addEventListener('click', () => copyLinkOf($('myCode'), $('btnCopyLink')));
+    // 结算页：刚通关是全游戏最想告诉别人的那一刻，码就摆在屏幕上——此前却只能靠手选，
+    // 想复制还得先进榜单，而榜单那颗复制的是「历史最好一局」，未必是眼前这串。
+    // 只放一颗、只做「发链接」：50 多个字符的码靠手贴没人干得下去，链接点开就收下；
+    // 多摆一颗「复制码」等于把终点屏的可点元素从 3 推到 5，而终点屏预算是 4。
+    $('btnEndShare').addEventListener('click', () => copyLinkOf($('endCode'), $('btnEndShare')));    $('btnCfg').addEventListener('click', openCfg);
     $('cfgClose').addEventListener('click', closeCfg);
     $('btnHelp').addEventListener('click', () => { openCfg(); });
     $('cfgClearSave').addEventListener('click', () => {
