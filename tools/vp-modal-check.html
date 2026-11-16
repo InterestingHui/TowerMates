@@ -18,6 +18,16 @@ const CASES = [
   { w: 844, h: 320, tag: '极矮横屏' },
 ];
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+// 等条件成立（最多 ms）：闸门在整机跑时 CPU 被前面几十项占着，
+// 固定 sleep 会在「商店还没画完」时量到空列表——空列表量出来的全绿/全红都是假读数
+const waitFor = async (fn, ms) => {
+  const t0 = Date.now();
+  while (Date.now() - t0 < (ms || 2500)) {
+    try { if (fn()) return true; } catch (e) {}
+    await wait(60);
+  }
+  return false;
+};
 const out = document.getElementById('out');
 const detail = [];
 const bits = [];
@@ -88,6 +98,7 @@ function measurePanel(frame, sel) {
       {
         w.__tm.openShop();
         await wait(200);
+        await waitFor(() => d.querySelectorAll('#shopOverlay .shop-item').length >= 3, 2500);
         const m = measurePanel(f, '#shopOverlay .panel');
         dumps.push(c.tag + ' shop ' + JSON.stringify(m));
         if (!m) check(c.tag + ' 商店面板可读', false);
@@ -97,6 +108,12 @@ function measurePanel(frame, sel) {
           check(tag + ' 面板不横向溢出', !m.overflowX, 'scrollW>clientW ' + m.overflowX);
           check(tag + ' 离开按钮不滚就看得见', !!close && close.top >= -1 && close.bottom <= c.h + 1,
             close ? close.top + '–' + close.bottom + ' / ' + c.h : '缺按钮');
+          // 副标题必须整句可见：曾经是单行 nowrap + ellipsis，「承伤降到 55%」这个关键数字
+          // 正好被截在省略号里（第 3 层唯一的补学机会，玩家看不到代价）
+          const tips = Array.from(d.querySelectorAll('#shopOverlay .shop-item .si-tip'));
+          const cut = tips.filter((t) => t.scrollWidth > t.clientWidth + 1 || t.scrollHeight > t.clientHeight + 1);
+          check(tag + ' 货架副标题整句可见', tips.length > 0 && cut.length === 0,
+            cut.length ? cut.map((t) => t.textContent.slice(0, 10)).join(' / ') : tips.length + ' 件全部完整');
         }
         try { d.getElementById('shopClose').click(); } catch (e) {}
         await wait(120);

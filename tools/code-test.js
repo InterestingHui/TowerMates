@@ -1,6 +1,9 @@
 // 挑战码 / 触屏 / 平台桥接单测（纯 Node，不依赖 DOM）
 const C = require('../js/challenge.js');
 let pass = 0, bad = 0;
+// 源码契约要用到的两份源码：声明放最前面，避免后置 const 造成的 TDZ 假红
+const viewSrc = require('fs').readFileSync(require('path').join(__dirname, '..', 'js', 'view.js'), 'utf8');
+const mainSrc = require('fs').readFileSync(require('path').join(__dirname, '..', 'js', 'main.js'), 'utf8');
 function ok(cond, label) {
   if (cond) { pass++; } else { bad++; console.log('✗ ' + label); }
 }
@@ -200,11 +203,15 @@ ok(shop.rows.find((r) => r.id === 'atk').disabled === false, '钱够的货能点
 // 「还差 N 金」必须真的等于价差，且说清本层还剩几只怪可刷
 const poor = V.shopModel({ s: { gold: 100, floor: 4, flags: {} }, stock: STOCK, fx: mkFx() });
 const shardRow = poor.rows.find((r) => r.id === 'shard');
-ok(shardRow.tip.indexOf('还差 **120** 金') >= 0, '唯一货钱不够时报「还差 120 金」（220−100）');
-ok(shardRow.tip.indexOf('这一层还剩 **5** 只怪可刷') >= 0, '并报出本层还剩几只怪可刷');
-ok(shardRow.tip.indexOf('通关余烬 +8') === 0, '保底提示先说要买的是什么');
+ok(shardRow.gap === 120, '唯一货钱不够时差额 120 进价格列（220−100）');
+ok(shardRow.tip.indexOf('还差') < 0, '差额不再挤进副标题（副标题只留「这货给什么」）');
+ok(shardRow.tip.indexOf('这一层还剩') < 0, '刷钱指引不再逐行重复（收到货架下方那一行）');
+ok(poor.farm && poor.farm.text.indexOf('**5** 只怪可刷') >= 0 && poor.farm.count === 3, '货架下方挂一行「这一层还剩 5 只怪可刷」（三件缺钱的一次性货合计一行）');
+ok(shardRow.tip.indexOf('通关余烬 +8') >= 0, '副标题仍说清这件货给什么');
 const cleared = V.shopModel({ s: { gold: 100, floor: 4, flags: {} }, stock: STOCK, fx: mkFx({ floorsLeft: () => 0 }) });
-ok(cleared.rows.find((r) => r.id === 'shard').tip.indexOf('回下层找钱') >= 0, '本层清空时改口「回下层找钱」');
+ok(cleared.farm && cleared.farm.text === '这一层已经清空，回下层找钱', '本层清空时那一行改口「回下层找钱」');
+const richShop = V.shopModel({ s: { gold: 9999, floor: 4, flags: {} }, stock: STOCK, fx: mkFx() });
+ok(richShop.farm === null, '钱够时不挂刷钱指引（不制造噪音）');
 
 // 禁挡誓约：盾谱置灰 + 文案说清原因（此前只在 DOM 里验过「灰了」）
 const forb = V.shopModel({
@@ -260,12 +267,140 @@ ok(bigAtk.rows[0].tip === '攻击 +5' && bigAtk.rows[1].tip === '防御 +3', '�
 ok(require('fs').readFileSync(require('path').join(__dirname, '..', 'js', 'main.js'), 'utf8').indexOf('potionHeal') >= 0, 'main.js 必须把 potionHeal 注入模型（否则环加成又回到写死的老路）');
 
 // 源码契约：这一层的存在意义就是「纯」——出现 DOM / 引擎 / 时钟 / 随机就把边界又揉回去了
-const viewSrc = require('fs').readFileSync(require('path').join(__dirname, '..', 'js', 'view.js'), 'utf8');
 const banned = ['document', 'localStorage', 'innerHTML', 'addEventListener', 'Math.random', 'Date.now', 'Renderer', 'Engine'];
 const hit = banned.filter((w) => viewSrc.indexOf(w) >= 0);
 ok(hit.length === 0, `view.js 必须与 DOM/引擎/时钟无关（命中：${hit.join(',') || '无'}）`);
-const mainSrc = require('fs').readFileSync(require('path').join(__dirname, '..', 'js', 'main.js'), 'utf8');
 ok(mainSrc.indexOf("const SHOP_CORE = [") < 0 && mainSrc.indexOf('const VOW_TABS = [[') < 0, '货架折叠常量与档位表只在 view.js 定义一处');
+
+// ---------- 结算：塔印与余烬（切边界第二刀） ----------
+// 这一屏的每句话都是算术：塔印档位、「下一枚还差什么」、「本局余烬 +N」。
+// 原先是 main.js 里的手写文案 + 手写判据，两边各写一遍就会漂——所以除了逐个档位验，
+// 还加了一条**闭环断言**：把「下一枚」的目标状态喂回判定，必须真的升到那一档。
+const S = (ending, echoDone, retries) => ({ ending, echoDone, retries });
+
+// 判定矩阵：真结局 / 普通结局 × 0–4 枚锁环 × 有没有回头
+ok(V.sealOf(S('true', 4, 0)) === 'clear', '真结局 + 四章全拿 + 一次没回头 = 无痕');
+ok(V.sealOf(S('true', 4, 1)) === 'ward', '回头过一次就拿不到无痕（降到守灯）');
+ok(V.sealOf(S('true', 3, 0)) === 'ward', '真结局 + 3 枚 = 守灯');
+ok(V.sealOf(S('true', 2, 0)) === 'name', '真结局 + 2 枚 = 留名');
+ok(V.sealOf(S('true', 0, 0)) === 'rough', '真结局 + 0 枚 = 未竟');
+ok(V.sealOf(S('plain', 4, 0)) === 'name', '普通结局哪怕四章全拿也上不了守灯（先看结局）');
+ok(V.sealOf(S('plain', 2, 0)) === 'name', '普通结局 + 2 枚 = 留名');
+ok(V.sealOf(S('plain', 1, 0)) === 'rough', '普通结局 + 1 枚仍是未竟');
+ok(V.sealOf({}) === 'rough' && V.sealOf(null) === 'rough', '空状态/空输入不炸，落在最低档');
+ok(V.SEALS.fall && V.SEALS.fall.name === '折戟' && !V.SEALS.fall.desc.match(/null/), '折戟那一档仍留着名分（死亡页用）');
+
+// 提示文案：普通结局停在留名时，2 枚与 3 枚的说法必须不同——2 枚时只说「念出第六个名字」是谎
+ok(V.nextSealHint('clear', S('true', 4, 0)) === null, '已经无痕就没什么可说的（不给 null 之外的废话）');
+ok(V.nextSealHint('rough', S('true', 0, 0)) === '再拿到 2 枚锁环，可换「留名」', '未竟 → 报还差 2 枚');
+ok(V.nextSealHint('rough', S('true', 1, 0)) === '再拿到 1 枚锁环，可换「留名」', '已有一枚时只报还差 1 枚');
+ok(V.nextSealHint('name', S('true', 2, 0)) === '锁环攒到 3 枚可换「守灯」', '真结局留名 → 只差锁环');
+ok(V.nextSealHint('name', S('plain', 2, 0)) === '先念出第六个名字、再把锁环攒到 3 枚，可换「守灯」', '普通结局 2 枚：两件事都得说');
+ok(V.nextSealHint('name', S('plain', 4, 0)) === '念出第六个名字，可换「无痕」', '普通结局 4 枚且没回头：念出名字直接跳无痕（不谎报「守灯」）');
+ok(V.nextSealHint('name', S('plain', 4, 2)) === '念出第六个名字，可换「守灯」', '普通结局 4 枚但回头过：只到守灯');
+ok(V.nextSealHint('ward', S('true', 3, 2)).indexOf('回头 2 次') >= 0, '守灯档报出回头次数');
+
+// 闭环断言：每个状态都按提示的目标去做，判档必须真的往上走一档。
+// 这条是防「文案说谎」的机械证明——手写提示时它抓不到，现在提示与判据同源。
+const SEAL_CHAIN = ['rough', 'name', 'ward', 'clear'];
+let closureBad = 0;
+['true', 'plain', ''].forEach((ending) => {
+  for (let echoDone = 0; echoDone <= 4; echoDone++) {
+    for (const retries of [0, 1, 3]) {
+      const now = V.sealOf(S(ending, echoDone, retries));
+      const t = V.sealTarget(now, S(ending, echoDone, retries));
+      if (!t) continue;                              // 已封顶
+      const reached = V.sealOf(S(t.ending, t.echoDone, t.retries));
+      if (reached !== t.seal) closureBad++;
+      // 目标必须真的比现在高（否则提示就是叫人白跑）
+      if (SEAL_CHAIN.indexOf(t.seal) <= SEAL_CHAIN.indexOf(now)) closureBad++;
+    }
+  }
+});
+ok(closureBad === 0, `照着「下一枚塔印」的提示做，真的能升到那一档（失败 ${closureBad} 组）`);
+ok(V.sealTarget('clear', S('true', 4, 0)) === null && V.sealTarget('fall', S('', 0, 0)) === null, '封顶与折戟没有目标状态');
+
+// 余烬明细：每一项的算术单独验，合计必须等于明细相加（余额对不上是玩家最不能忍的那种谎）
+const emberFx = (over) => Object.assign({
+  hasRing: () => false,
+  timeSec: () => 600,
+  bareUnlocked: () => true,   // 默认当作已经领过，免得每条读数都多 5
+  firstWin: () => true,
+  cleanEmber: () => 0,
+}, over || {});
+const eBase = { ending: 'true', gold: 0, flags: { killCount: 0 } };
+const ePlain = V.emberModel({ s: { ending: 'plain', flags: {} }, echoDone: 0, vowDef: {}, vowId: 'none', fx: emberFx() });
+ok(ePlain.total === 5 && ePlain.parts.length === 1, '普通结局零战果 = 走到结局 5');
+ok(ePlain.parts.reduce((a, p) => a + p.n, 0) === ePlain.total, '合计 = 明细相加');
+const eTrue = V.emberModel({ s: eBase, echoDone: 4, vowDef: {}, vowId: 'none', fx: emberFx() });
+ok(eTrue.total === 9, '真结局 = 5 + 4（念出第六个名字）');
+const eKill = V.emberModel({ s: { ending: 'true', flags: { killCount: 37 } }, echoDone: 4, vowDef: {}, vowId: 'none', fx: emberFx() });
+ok(eKill.total === 12 && eKill.parts.some((p) => p.label === '击杀 37 只' && p.n === 3), '击杀每 10 只 +1（37 只 → +3）');
+const eLedger = V.emberModel({
+  s: { ending: 'true', flags: { killCount: 40 } }, echoDone: 4, vowDef: {}, vowId: 'none',
+  fx: emberFx({ hasRing: (id) => id === 'ledger' }),
+});
+ok(eLedger.parts.some((p) => p.label === '锁环·击杀余烬翻倍' && p.n === 4), '击杀翻倍环把击杀这一项再加一遍（不是重算总数）');
+const eQuill = V.emberModel({
+  s: { ending: 'true', gold: 750, flags: {} }, echoDone: 4, vowDef: {}, vowId: 'none',
+  fx: emberFx({ hasRing: (id) => id === 'quill' }),
+});
+ok(eQuill.parts.some((p) => p.n === 6 && p.label.indexOf('剩 750 金') > 0), '落笔之环：750 金封顶 +6（2 + min(4, 7)）');
+const eSeventh = V.emberModel({
+  s: { ending: 'true', flags: { retries: 1 } }, echoDone: 4, vowDef: {}, vowId: 'none',
+  fx: emberFx({ hasRing: (id) => id === 'seventh' }),
+});
+ok(eSeventh.parts.some((p) => p.label === '锁环·第七格' && p.n === 3), '第七格：回头过只给保底 3');
+const eHour = V.emberModel({
+  s: { ending: 'true', flags: {} }, echoDone: 4, vowDef: {}, vowId: 'none',
+  fx: emberFx({ hasRing: (id) => id === 'hour', timeSec: () => 12 * 60 }),
+});
+ok(eHour.parts.some((p) => p.n === 4 && p.label.indexOf('12 分钟内') > 0), '时辰环：12 分钟通关给 4');
+const eHourSlow = V.emberModel({
+  s: { ending: 'true', flags: {} }, echoDone: 4, vowDef: {}, vowId: 'none',
+  fx: emberFx({ hasRing: (id) => id === 'hour', timeSec: () => 30 * 60 }),
+});
+ok(eHourSlow.parts.some((p) => p.n === 2 && p.label === '锁环·时辰'), '时辰环：超过 20 分钟只给 2');
+const eVow = V.emberModel({
+  s: { ending: 'true', flags: { vow: 'none' } }, echoDone: 4,
+  vowDef: { name: '不立誓', reward: 1, ember: 0 }, vowId: 'none', fx: emberFx(),
+});
+ok(eVow.parts.some((p) => p.label === '无誓通关' && p.n === 1), '不立誓写成「无誓通关」，不写成「「不立誓」+1」');
+const eFirst = V.emberModel({
+  s: { ending: 'true', flags: { vow: 'ascetic' } }, echoDone: 4,
+  vowDef: { name: '苦行之誓', reward: 2, ember: 40 }, vowId: 'ascetic',
+  fx: emberFx({ firstWin: () => false }),
+});
+ok(eFirst.parts.some((p) => p.label === '首通「苦行之誓」' && p.n === 20), '解锁誓约首通给解锁成本的一半（40 → +20）');
+const eFirstDone = V.emberModel({
+  s: { ending: 'true', flags: { vow: 'ascetic' } }, echoDone: 4,
+  vowDef: { name: '苦行之誓', reward: 2, ember: 40 }, vowId: 'ascetic', fx: emberFx(),
+});
+ok(!eFirstDone.parts.some((p) => p.label.indexOf('首通') === 0), '首通过就不再给（不能重复领）');
+const eBare = V.emberModel({
+  s: { ending: 'true', flags: { killCount: 0 } }, echoDone: 4, vowDef: {}, vowId: 'none',
+  fx: emberFx({ bareUnlocked: () => false }),
+});
+ok(eBare.parts.some((p) => p.label === '一口空气（首次）' && p.n === 5), '一件遗物没拿走到结局：首次额外 +5');
+const eRelic = V.emberModel({
+  s: { ending: 'true', flags: { relic_edge: 1 } }, echoDone: 4, vowDef: {}, vowId: 'none',
+  fx: emberFx({ bareUnlocked: () => false }),
+});
+ok(!eRelic.parts.some((p) => p.label.indexOf('一口空气') === 0), '拿过遗物就不算「一口空气」');
+const eZero = V.emberModel({ s: { ending: '', flags: {} }, echoDone: 0, vowDef: {}, vowId: 'none', fx: emberFx() });
+ok(eZero.total >= 1, '明细全空时也保底 1（「+0」看着像没算）');
+const eClean = V.emberModel({
+  s: { ending: 'true', flags: { clean_kills: 3 } }, echoDone: 4, vowDef: {}, vowId: 'none',
+  fx: emberFx({ hasRing: (id) => id === 'clean', cleanEmber: () => 6 }),
+});
+ok(eClean.parts.some((p) => p.n === 6 && p.label.indexOf('清了 3 只') > 0), '净芯环：引擎折算 6 点、文案报锁芯层清了 3 只');
+
+// 源码契约：判定与文案只在 view.js 一处定义——main.js 里再出现一份手写门槛就会各说各话
+ok(mainSrc.indexOf('function sealOf') < 0 && mainSrc.indexOf('const SEALS = {') < 0
+  && mainSrc.indexOf('function emberOf(s, echoDone, vowDef) {\n    const parts') < 0,
+  '塔印判定/余烬明细只在 view.js 定义（main.js 只注入事实）');
+ok(mainSrc.indexOf('View.emberModel') >= 0 && mainSrc.indexOf('firstWin:') >= 0,
+  'main.js 必须把首通/持环等外部事实注入余烬模型');
 
 console.log(`挑战码 / 触控 / 桥接 / 视图模型单测：${pass} 项通过${bad ? `，${bad} 项失败` : ''}`);
 process.exit(bad ? 1 : 0);

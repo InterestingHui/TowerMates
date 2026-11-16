@@ -764,9 +764,14 @@ html, body {
 .shop-item .si-emoji { font-size: var(--fs-sub); width: 22px; text-align: center; }
 .shop-item .si-name { flex: 1; font-size: var(--fs-body); min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .shop-item .si-name b { font-weight: 400; display: flex; align-items: center; gap: 4px; }
-.shop-item .si-name small { color: var(--dim); font-size: var(--fs-tag); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.shop-item .si-name small { color: var(--dim); font-size: var(--fs-tag); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
+/* 缺钱时的刷钱指引：一行，压在货架上方（列表要滚，放末尾等于让人滚到底才看得见） */
+.shop-farm { margin: -2px 0 6px; text-align: center; color: var(--dim); font-size: var(--fs-tag); }
+.shop-farm strong, .shop-farm b { color: var(--gold); font-weight: 800; }
+.shop-farm[hidden] { display: none; }
 .shop-item .si-name small strong, .shop-item .si-name small b { color: var(--gold); font-weight: 800; }
-.shop-item .si-price { color: var(--gold); font-size: var(--fs-aux); margin-right: 6px; font-variant-numeric: tabular-nums; }
+.shop-item .si-price { color: var(--gold); font-size: var(--fs-aux); margin-right: 6px; font-variant-numeric: tabular-nums; display: flex; flex-direction: column; align-items: flex-end; }
+.shop-item .si-price .si-gap { color: var(--dim); font-size: var(--fs-tag); font-variant-numeric: tabular-nums; }
 .shop-item .si-buy {
   min-height: 40px;
   padding: 8px 12px;

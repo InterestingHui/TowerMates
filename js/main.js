@@ -2854,13 +2854,20 @@
       row.innerHTML = `
         <span class="si-emoji">${r.emoji}</span>
         <span class="si-name"><b>${r.name}${r.tags.map((t) => `<small class="si-tag${t.cls ? ' ' + t.cls : ''}">${t.text}</small>`).join('')}</b><small class="si-tip"></small></span>
-        <span class="si-price">${r.price}</span>
+        <span class="si-price">${r.price}${r.gap ? `<small class="si-gap">还差 ${r.gap}</small>` : ''}</span>
         <button class="si-buy" data-id="${r.id}" ${r.disabled ? 'disabled' : ''}>${r.label}</button>
       `;
       // 提示里的 **重点** 走 rich 渲染：直接拼 innerHTML 会把星号原样显示出来
       renderRich(row.querySelector('.si-tip'), r.tip);
       list.appendChild(row);
     });
+    // 缺钱时的刷钱指引：一行，放在货架上方（列表会滚，放在列表末尾等于让人滚到底才看得见）。
+    // 此前是每件货的副标题里各念一遍，把副标题撑成三四行、关键数字被省略号吃掉
+    const farmEl = $('shopFarm');
+    if (farmEl) {
+      farmEl.hidden = !m.farm;
+      if (m.farm) renderRich(farmEl, m.farm.text);
+    }
     if (m.more) {
       const more = document.createElement('button');
       more.type = 'button';
@@ -3113,113 +3120,34 @@
   }
 
   // ---------- 塔印：不看分数，只看这一局真的做到了什么 ----------
-  // 四档塔印由明确条件判定；结算页会直接写出「还差什么」，玩家知道下一局该做什么。
-  // 折戟 = 死亡专属：不参与 bestSeal 竞争（rank 里排最低），但结算页有自己的名分。
-  const SEALS = {
-    clear: { name: '无痕', desc: '六盏灯全亮。这一趟，你没欠谁。' },
-    ward:  { name: '守灯', desc: '灯还亮着。你没让它灭在自己手里。' },
-    name:  { name: '留名', desc: '塔的墙上，多了你的一道刻痕。' },
-    rough: { name: '未竟', desc: '塔记住了你的名字——仅此而已。' },
-    fall:  { name: '折戟', desc: '你没能走到结局。塔替你记下倒下的地方。' },
-  };
-  function sealOf(s, echoDone) {
-    const trueEnd = s.ending === 'true';
-    const noRetry = !(s.flags && s.flags.retries);
-    if (trueEnd && echoDone >= 4 && noRetry) return 'clear';
-    if (trueEnd && echoDone >= 3) return 'ward';
-    if (echoDone >= 2) return 'name';
-    return 'rough';
-  }
-  function nextSealHint(seal, s, echoDone) {
-    if (seal === 'clear') return null;
-    if (seal === 'rough') return `再拿到 ${2 - echoDone} 枚锁环，可换「留名」`;
-    if (seal === 'name') return s.ending === 'true'
-      ? `锁环攒到 3 枚可换「守灯」`
-      : '念出第六个名字，塔印才会再往上走';
-    return `锁环 ${echoDone}/4 · 回头 ${s.flags.retries || 0} 次——四章全拿且一次不回头可换「无痕」`;
-  }
+  // 判定与「还差什么」都在 js/view.js（纯函数）——那两句话必须同源：
+  // 提示说「再拿到 2 枚锁环可换留名」，就得真能换到；写在模板里时只能靠截图对，验不了。
+  // 这里只剩把这一局的事实喂进去。
+  const SEALS = View.SEALS;
+  const runShape = (s, echoDone) => ({
+    ending: s.ending,
+    echoDone: echoDone || 0,
+    retries: (s.flags && s.flags.retries) || 0,
+  });
+  const sealOf = (s, echoDone) => View.sealOf(runShape(s, echoDone));
+  const nextSealHint = (seal, s, echoDone) => View.nextSealHint(seal, runShape(s, echoDone));
   // 余烬：按这一局留下的东西逐项累加，返回明细供结局页展示（不再绕分数换算）
+  // 「带着哪枚环」「某誓约首通了没」这些只有引擎/Meta 知道，一律注入
   function emberOf(s, echoDone, vowDef) {
-    const parts = [{ label: '走到结局', n: 5 }];
-    if (s.ending === 'true') parts.push({ label: '念出第六个名字', n: 4 });
-    const kills = Math.floor((s.flags.killCount || 0) / 10);
-    if (kills) parts.push({ label: `击杀 ${s.flags.killCount} 只`, n: kills });
-    if (s.flags.heart === 'left') parts.push({ label: '塔心留在原处', n: 3 });
-    // 决战余裕 S（打完碑魔还剩 70% 以上）：替「打得干净」记一笔，只此一档，其余不加
-    const fhp = s.flags.finalHp;
-    const fmhp = s.flags.finalMaxHp;
-    if (fmhp > 0 && fhp / fmhp >= 0.7) parts.push({ label: '决战余裕 S', n: 2 });
-    // 「一口空气」首解锁：一件遗物都没拿走到结局，第一次额外给 5 余烬。
-    // 放在这里而不是成就回调里——结算明细要先把它算进去，余额才不会对不上
-    // （此刻成就还没解锁，evaluate('finish') 在结算面板渲染之后才跑）
-    const bareRun = !!s.ending && !Object.keys(s.flags).some((k) => k.indexOf('relic_') === 0);
-    if (bareRun && !Achievements.isUnlocked('bare')) parts.push({ label: '一口空气（首次）', n: 5 });
-    if (s.flags.eventEmber) parts.push({ label: '路遇里的选择', n: s.flags.eventEmber });
-    // 锁芯买的塔心碎片：带一点塔的心跳出去，结算时化为余烬
-    if (s.flags.heartShard) parts.push({ label: '塔心碎片', n: 8 });
-    // 誓约奖励：其他誓约用「誓约名」（那是玩家主动立的），不立誓改成陈述句
-    // 「无誓通关」——「「不立誓」+1」读起来像双重否定，结算明细里反而费解
-    if (vowDef.reward) {
-      const vowLabel = vowDef === D.vows.none ? '无誓通关' : `「${vowDef.name}」`;
-      parts.push({ label: vowLabel, n: vowDef.reward });
-    }
-    // 解锁誓约第一次通关：额外给解锁成本的一半，让「解锁 → 真的用它」当场回本一半
-    // 按 vowDef 反查 id，不用 s.flags.vow，避免结算与自动化取到不同口径
-    const vowId = Object.keys(D.vows).find((k) => D.vows[k] === vowDef) || s.flags.vow;
-    if (vowDef.ember && !Meta.hasFirstWin(vowId)) {
-      parts.push({ label: `首通「${vowDef.name}」`, n: Math.round(vowDef.ember / 2) });
-    }
-    const has = (id) => Engine.hasRing(id);
-    if (has('ledger') || has('ash') || has('ledger2')) parts.push({ label: '锁环·击杀余烬翻倍', n: kills });
-    // 第七格：保底 +3，一次没回头（没重来本层）再 +3——与「刻刀」的稳定 +4 形成「稳 vs 冒险」
-    if (has('seventh')) {
-      const clean = !(s.flags.retries);
-      parts.push({ label: clean ? '锁环·第七格（一次没回头）' : '锁环·第七格', n: clean ? 6 : 3 });
-    }
-    // 落笔之环：保底 +2，剩下的金币每 100 再 +1（上限 6）。
-    // 曾按「每 100 金 +1、上限 5」做过，sim 验证是陷阱：留 500 金会少 28 点攻，
-    // 终局血量从 66.6% 掉到 48.5%，却只换到 2 余烬——保底把它拉回「稳定小收益」。
-    if (has('quill')) {
-      const byGold = 2 + Math.min(4, Math.floor((s.gold || 0) / 100));
-      parts.push({ label: `锁环·落笔（剩 ${s.gold} 金）`, n: byGold });
-    }
-    // 落款之环：本局第一次收录进图鉴的件数，每件 +1（上限 5，避免开局撞大运爆收益）
-    if (has('signature')) {
-      const nNew = Array.isArray(s.flags.collectNew) ? Math.min(5, s.flags.collectNew.length) : 0;
-      if (nNew > 0) parts.push({ label: `锁环·落款（图鉴新收录 ${nNew} 件）`, n: nNew });
-    }
-    // 通关型锁环各有触发条件，逐条列出来源（不再是「锁环加成」一笔带过）
-    if (has('pace')) parts.push({ label: '锁环·更漏', n: 2 });
-    if (has('chisel')) parts.push({ label: '锁环·刻刀', n: 4 });
-    if (has('hour')) {
-      const mins = Math.round((Engine.summary().time || 0) / 60);
-      if (mins > 0 && mins <= 20) parts.push({ label: `锁环·时辰（${mins} 分钟内通关）`, n: 4 });
-      else parts.push({ label: '锁环·时辰', n: 2 });
-    }
-    if (has('oath')) {
-      const withVow = (s.flags.vow || 'none') !== 'none';
-      parts.push({ label: withVow ? `锁环·守誓（${(D.vows[s.flags.vow] || {}).name || '誓约'}）` : '锁环·守誓', n: withVow ? 5 : 3 });
-    }
-    if (has('heart') && s.flags.heart === 'left') parts.push({ label: '锁环·塔心（放下）', n: 3 });
-    // 拾柴之环：每击败一位锁匠 +2（与击杀数无关，奖励推进度）
-    if (has('ash')) {
-      const bossesDown = ['N', 'Z', 'Y', 'U'].filter((c) => s.flags['bossKilled_' + c]).length;
-      if (bossesDown > 0) parts.push({ label: `锁环·拾柴（${bossesDown} 位锁匠）`, n: bossesDown });
-    }
-    // 终章之环：四位锁匠全倒才给（要求把四位都打完，比拾柴更严格）
-    if (has('finale')) {
-      const allBosses = ['N', 'Z', 'Y', 'U'].every((c) => s.flags['bossKilled_' + c]);
-      if (allBosses) parts.push({ label: '锁环·终章（四锁匠全倒）', n: 3 });
-    }
-    // 净芯之环：锁芯层清掉的怪（折算在 Engine.cleanEmber，四只封顶）——
-    // 最后一层「打不打角落那四只」的答案
-    if (has('clean')) {
-      const ce = Engine.cleanEmber();
-      const nk = Math.min(4, s.flags.clean_kills || 0);
-      if (ce > 0) parts.push({ label: `锁环·净芯（锁芯层清了 ${nk} 只）`, n: ce });
-    }
-    const list = parts.filter((p) => p.n > 0);
-    return { total: Math.max(1, list.reduce((a, p) => a + p.n, 0)), parts: list };
+    return View.emberModel({
+      s,
+      echoDone,
+      vowDef,
+      // 按 vowDef 反查 id，不用 s.flags.vow，避免结算与自动化取到不同口径
+      vowId: Object.keys(D.vows).find((k) => D.vows[k] === vowDef) || (s.flags && s.flags.vow) || 'none',
+      fx: {
+        hasRing: (id) => Engine.hasRing(id),
+        timeSec: () => Engine.summary().time || 0,
+        bareUnlocked: () => Achievements.isUnlocked('bare'),
+        firstWin: (id) => Meta.hasFirstWin(id),
+        cleanEmber: () => Engine.cleanEmber(),
+      },
+    });
   }
 
   // ---------- 结局 ----------
