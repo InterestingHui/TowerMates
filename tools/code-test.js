@@ -851,5 +851,47 @@ ok(mainSrc.indexOf('守灯人 · 塔里唯一还肯说话的人') < 0, '人物�
 ok(mainSrc.indexOf("Object.assign({ vow: 'none' }, loadBoard()[0])") < 0, '「这是不是我的码」不许重编码比字符串（誓约会漏）');
 ok(mainSrc.indexOf('View.isMine') >= 0, '贴码时的自我识别走 view.js');
 
+// ---------- 挑战链接（社交面）：发送的是链接，码只是链接里的一段 ----------
+// 社交链路唯一的摩擦是「50 多个字符」：复制码 → 粘到聊天 → 对方再找到榜面板 → 贴进来。
+// 下面这几条守的就是「发出去的那串东西」：既有参数不能丢（丢了线上打不开）、旧参数不能叠、
+// 码不能二次转义（base64url 本来就安全，转了只会变长变丑）、落地后参数要能干净冲掉。
+{
+  const code5 = C.encode(sum); // 与上面同一个 v5 码
+  const page = 'https://towermates.app.workbuddy.host/?sharecode=U7XMLC2NKJ';
+  const link = V.rivalLink(page, code5);
+  ok(link.indexOf('sharecode=U7XMLC2NKJ') > 0, '链接必须保留 sharecode（丢了线上直接 403）');
+  ok(link.indexOf('rival=' + code5) > 0, '链接里带的码就是面板上那串（不做二次转义）');
+  ok(link.indexOf('%2E') < 0 && link.indexOf('%2D') < 0 && link.indexOf('%5F') < 0,
+    '码里的 . - _ 都是 URL 安全字符，不该被转义（转完又长又不可读）');
+  const twice = V.rivalLink(link, code5);
+  ok((twice.match(/rival=/g) || []).length === 1, '连点两次不该叠出两个 rival 参数');
+  const swapped = V.rivalLink(link, 'TM5.NEWCODE-x_y');
+  ok(swapped.indexOf('NEWCODE-x_y') > 0 && swapped.indexOf(code5) < 0, '换一局再复制 → 旧码被替换掉');
+  ok(V.rivalLink(page, '') === '' && V.rivalLink(page, null) === '' && V.rivalLink('', code5) === '',
+    '还没通关（空码）或拿不到地址时返回空串，不生成半截链接');
+
+  ok(V.withoutRival('https://x.test/?sharecode=A&rival=TM5.x#demo=1,2,3') === '/?sharecode=A#demo=1,2,3',
+    '落地冲参数：只去掉 rival，其余参数与 hash 一个不动');
+  ok(V.withoutRival('https://x.test/?rival=TM5.x') === '/', '只有 rival 时冲成干净的根路径');
+  ok(V.withoutRival(page) === '/?sharecode=U7XMLC2NKJ', '本来没有 rival 也不会改坏地址');
+
+  ok(V.rivalFromSearch('?sharecode=A&rival=' + code5) === code5, '从地址读回码');
+  ok(V.rivalFromSearch('?rival=%20' + code5 + '%20') === code5, '前后空白要吃掉（聊天软件常在链接尾部带空格）');
+  ok(V.rivalFromSearch('?sharecode=A') === '' && V.rivalFromSearch('') === '' && V.rivalFromSearch(null) === '',
+    '没有 rival 参数时返回空串');
+}
+// 源码契约：这一串只许在 view.js 里拼（main.js 再手写一份就会漏 sharecode / 叠参数）
+ok(mainSrc.indexOf('View.rivalLink') >= 0 && mainSrc.indexOf('View.rivalFromSearch') >= 0
+  && mainSrc.indexOf('View.withoutRival') >= 0, '复制链接 / 落地收下 / 冲参数三处都走 view.js');
+ok(mainSrc.indexOf("searchParams.set('rival'") < 0, 'main.js 不许自己拼链接（参数口径只留一处）');
+{
+  const htmlSrc = require('fs').readFileSync(require('path').join(__dirname, '..', 'index.html'), 'utf8');
+  const cssSrc = require('fs').readFileSync(require('path').join(__dirname, '..', 'css', 'style.css'), 'utf8');
+  ok(htmlSrc.indexOf('id="btnCopyLink"') > 0 && htmlSrc.indexOf('id="btnCopyCode"') > 0,
+    '面板上「复制码」与「复制挑战链接」两颗按钮都在');
+  ok(cssSrc.indexOf('.code-acts') >= 0 && cssSrc.indexOf('#btnCopyLink') >= 0,
+    '两颗按钮并排一行且有外观（si-buy 的金框规则在 .shop-item 作用域里，不补就落回 UA 默认白砖）');
+}
+
 console.log(`挑战码 / 触控 / 桥接 / 视图模型单测：${pass} 项通过${bad ? `，${bad} 项失败` : ''}`);
 process.exit(bad ? 1 : 0);

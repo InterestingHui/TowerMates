@@ -899,11 +899,14 @@ html, body {
   line-height: 1.4;
 }
 .code-hint { font-size: var(--fs-tag); color: var(--muted); line-height: 1.6; margin: 7px 0 0; }
+/* 复制码 / 复制链接并排一行，各占一半：挑战码有 50 多个字符，挤在同一行会把码压成四五折 */
+.code-acts { display: flex; gap: 8px; margin-top: 8px; }
+.code-acts > button { flex: 1; }
 /* 贴码按钮：与商店里的 .si-buy 同一个类，但不在 .shop-item 里，尺寸要单独给。
    2026-11-16：原先只补了尺寸，金框金字的规则是 `.shop-item .si-buy` 作用域内的，于是这两颗
    落回浏览器默认外观（浅灰底 + 黑字，深色面板里就是两块白砖）——contast-check 的
    「表单控件不许落回 UA 默认」那条抓出来的。把外观补全，跟商店同款。 */
-#btnCopyCode, #btnPasteCode {
+#btnCopyCode, #btnPasteCode, #btnCopyLink {
   min-height: 36px;
   padding: 8px 12px;
   border-radius: 8px;
@@ -915,8 +918,8 @@ html, body {
   cursor: pointer;
   transition: background 0.15s;
 }
-#btnCopyCode:hover, #btnPasteCode:hover { background: rgba(232, 196, 106, 0.2); }
-#btnCopyCode:active, #btnPasteCode:active { transform: scale(0.97); }
+#btnCopyCode:hover, #btnPasteCode:hover, #btnCopyLink:hover { background: rgba(232, 196, 106, 0.2); }
+#btnCopyCode:active, #btnPasteCode:active, #btnCopyLink:active { transform: scale(0.97); }
 .code-input {
   flex: 1;
   min-width: 0;

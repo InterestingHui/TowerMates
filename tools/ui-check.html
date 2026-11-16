@@ -119,6 +119,68 @@ async function run() {
       if (atab2) atab2.click();
     }
 
+    // 挑战链接（社交面）：把剪贴板换成探针，点一下看「真正被复制到的是什么」。
+    // 只断言「按钮在」是假绿——要断言那串被复制出去的东西带码、且还落在同一个页面上。
+    var linkBtn = d.getElementById('btnCopyLink');
+    var myCodeEl = d.getElementById('myCode');
+    out.rivalBtn = !!(linkBtn && linkBtn.getBoundingClientRect().width > 40);
+    if (linkBtn && myCodeEl) {
+      myCodeEl.textContent = code;           // 造出「已经通关过」的状态（探针不该依赖真实通关）
+      var copied = null;
+      try {
+        Object.defineProperty(w.navigator, 'clipboard', {
+          configurable: true,
+          value: { writeText: function (t) { copied = t; return Promise.resolve(); } },
+        });
+      } catch (e) { out.rivalStub = String(e); }
+      linkBtn.click();
+      await new Promise(function (r) { setTimeout(r, 20); });
+      out.rivalCopiedHasCode = !!copied && copied.indexOf('rival=' + code) > 0;
+      out.rivalCopiedSamePage = !!copied && copied.indexOf(w.location.origin + w.location.pathname) === 0;
+      out.rivalCopiedLen = copied ? copied.length : 0;
+      var logBox = d.getElementById('log');
+      out.rivalLog = logBox && logBox.lastChild ? logBox.lastChild.textContent.trim().slice(0, 32) : '';
+      // 还没通关时点它：占位符「—— 通关后生成 ——」不该被拼成一条垃圾链接发出去
+      myCodeEl.textContent = '—— 通关后生成 ——';
+      copied = null;
+      linkBtn.click();
+      await new Promise(function (r) { setTimeout(r, 20); });
+      out.rivalNoCodeCopied = copied;
+      var logBox0 = d.getElementById('log');
+      out.rivalNoCodeLog = logBox0 && logBox0.lastChild ? logBox0.lastChild.textContent.trim() : '';
+    }
+
+    // 落地链路真跑一遍：另起一个 iframe 带着 ?rival=<码> 开门，看它会不会自己收下、
+    // 以及会不会把参数留在地址栏（留着的话刷新一次就重复收一次、提示也重复弹）。
+    var landCode = w.Challenge.encode({
+      ending: 'plain', vow: 'mercy', floor: 7, level: 9, steps: 300, time: 220, seal: 'ward', goals: 1,
+    });
+    var f2 = document.createElement('iframe');
+    f2.style.cssText = 'width:400px;height:700px;border:0;position:absolute;left:-9999px;top:0';
+    f2.src = '../index.html?rival=' + landCode;
+    document.body.appendChild(f2);
+    var landed = false, tLand = Date.now();
+    while (Date.now() - tLand < 9000) {
+      try {
+        var list2 = JSON.parse(w.localStorage.getItem('towermates_rivals') || '[]');
+        if (list2.some(function (x) { return x.code === landCode; })) { landed = true; break; }
+      } catch (e) {}
+      await new Promise(function (r) { setTimeout(r, 60); });
+    }
+    await new Promise(function (r) { setTimeout(r, 120); });
+    out.rivalLandTaken = landed;
+    try {
+      out.rivalLandFloor = landed
+        ? (JSON.parse(w.localStorage.getItem('towermates_rivals') || '[]')
+          .filter(function (x) { return x.code === landCode; })[0] || {}).floor
+        : null;
+      out.rivalLandParam = String(f2.contentWindow.location.search || '');
+      // 冲参数不能顺手把别的参数冲掉（线上链接带 sharecode，冲掉就打不开）
+      var f3href = w.View.withoutRival('https://x.test/?sharecode=AAA&rival=' + landCode + '#demo=1,2,3');
+      out.rivalStrip = f3href;
+    } catch (e) { out.rivalLandErr = String(e && e.message || e); }
+    if (f2.parentNode) f2.parentNode.removeChild(f2);
+
     // 自己贴自己的码：不许当朋友进榜。
     // 贴的必须是「自己另一局」而不是名录第一局——旧实现只跟第一局比字符串，拿第一局测会假绿。
     var selfCode = w.Challenge.encode({

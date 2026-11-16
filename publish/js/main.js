@@ -4098,15 +4098,18 @@
     });
     $('btnCodex').addEventListener('click', openCodex);
     $('codexClose').addEventListener('click', () => el.codexOverlay.classList.remove('show'));
-    $('btnCopyCode').addEventListener('click', () => {
-      const codeEl2 = $('myCode');
-      const code = codeEl2.textContent;
-      if (!code || code.startsWith('——')) return;
+    // 复制：剪贴板不可用（file://、部分 WebView）时退化成「选中文本让你自己复制」；
+    // 没有可选中对象时（比如复制的是链接、屏上没有这段字）就直说复制失败，别假装成功。
+    function copyText(selEl, text, okMsg) {
+      const t = text || '';
+      if (!t) return;
+      // 「—— 通关后生成 ——」是占位符，不是码：真复制出去只会发一条读不出来的链接
+      if (t.indexOf('——') === 0) { log('先打完一局才有挑战码', 'warn'); return; }
       const fallback = () => {
-        // 剪贴板不可用（file://、部分 WebView）：选中文本让用户自己复制
+        if (!selEl) { log('复制失败，请手动复制挑战码', 'warn'); return; }
         try {
           const range = document.createRange();
-          range.selectNodeContents(codeEl2);
+          range.selectNodeContents(selEl);
           const sel = window.getSelection();
           sel.removeAllRanges();
           sel.addRange(range);
@@ -4114,10 +4117,23 @@
         } catch (e) { log('复制失败，请手动复制', 'warn'); }
       };
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(code).then(() => log('挑战码已复制', 'good'), fallback);
+        navigator.clipboard.writeText(t).then(() => log(okMsg, 'good'), fallback);
       } else fallback();
+    }
+    $('btnCopyCode').addEventListener('click', () => {
+      const codeEl2 = $('myCode');
+      copyText(codeEl2, codeEl2.textContent, '挑战码已复制');
     });
-    $('btnCfg').addEventListener('click', openCfg);
+    // 挑战链接：把码塞进地址发出去，朋友点开就收下（省掉「贴 50 多个字符」那一步）
+    $('btnCopyLink').addEventListener('click', () => {
+      const codeEl3 = $('myCode');
+      const raw = (codeEl3.textContent || '').trim();
+      // 「—— 通关后生成 ——」是占位符：不拦的话会拼出一条 rival=—— 通关后生成 —— 的链接发出去
+      if (raw.indexOf('——') === 0) { log('先打完一局才有挑战链接', 'warn'); return; }
+      const link = View.rivalLink(location.href, raw);
+      if (!link) { log('先打完一局才有挑战链接', 'warn'); return; }
+      copyText(null, link, '挑战链接已复制 · 发给朋友点开就收下');
+    });    $('btnCfg').addEventListener('click', openCfg);
     $('cfgClose').addEventListener('click', closeCfg);
     $('btnHelp').addEventListener('click', () => { openCfg(); });
     $('cfgClearSave').addEventListener('click', () => {
@@ -4779,6 +4795,24 @@
     const qs = new URLSearchParams(location.search);
     quickStart = qs.get('play') === '1';
     if (qs.get('funnel') === '1') showFunnelView();
+
+    // 挑战链接落地：?rival=<码> —— 朋友点开就收下，不必自己找到榜面板再贴 50 多个字符。
+    // 收下后立刻把参数冲掉：刷新不该重复收一次，也不该重复弹提示。
+    const rivalCode = View.rivalFromSearch(location.search);
+    if (!demo && rivalCode) {
+      const rrec = decodeChallenge(rivalCode);
+      if (!rrec) warn('这个挑战链接读不出来，让朋友重新复制一次');
+      else if (View.isMine(rrec, loadBoard())) warn('这是你自己那一局的链接');
+      else {
+        saveRival(rivalCode, rrec);
+        const sameDay = !!rrec.daily && rrec.daily === Daily.keyOf(Date.now());
+        warn(`收下了挑战·朋友：第 ${rrec.floor} 层 · 用时 ${fmtTime(rrec.time)}${sameDay ? ' · 今天这座' : ''}`);
+        // 塔友榜第 2 局起才露脸（首局摆榜单会挤占开屏预算）——老玩家就顺手把榜打开
+        if (!isFirstRun()) openBoard();
+      }
+      try { history.replaceState(null, '', View.withoutRival(location.href)); } catch (e) {}
+    }
+
     if (!demo && quickStart) {
       startGame('none');
       skipDialog();

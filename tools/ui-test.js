@@ -92,6 +92,19 @@ const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-ui-'));
   ok(out.dailyCodeDay === true && out.dailyCodeLen <= 80, '今日一塔的码带日签（v5）且仍在输入框上限内');
   ok(out.dailyRows === 1 && out.dailyRival === true, '朋友贴的今日码进「今日」档（同塔才可比）');
   ok(out.plainDay === true && out.dailyRowsAfterPlain === 1, '没有日签的普通码进不了「今日」档');
+  // 挑战链接（社交面）：发出去的是链接而不是 50 多个字符——复制的内容必须带码、且还落在同一个页面
+  ok(out.rivalBtn === true, '榜面板有「复制挑战链接」按钮且真的占位');
+  ok(out.rivalCopiedHasCode === true, `复制出去的链接里带着这一局的码（实测 ${out.rivalCopiedLen} 字符）`);
+  ok(out.rivalCopiedSamePage === true, '链接指向同一个页面（不是空白页或别的站）');
+  ok(typeof out.rivalLog === 'string' && out.rivalLog.indexOf('挑战链接已复制') >= 0,
+    `点完说清复制了什么（实测「${out.rivalLog}」）`);
+  ok(out.rivalLandTaken === true && out.rivalLandFloor === 7,
+    `带 ?rival= 的链接开门即收下（名录里第 ${out.rivalLandFloor} 层那条）`);
+  ok(String(out.rivalLandParam).indexOf('rival=') < 0, `收下后地址栏里的 rival 参数被冲掉（实测「${out.rivalLandParam}」）`);
+  ok(out.rivalStrip === '/?sharecode=AAA#demo=1,2,3',
+    `冲参数只去 rival，sharecode 与 hash 一个不动（实测「${out.rivalStrip}」）`);
+  ok(out.rivalNoCodeCopied === null && String(out.rivalNoCodeLog).indexOf('先打完一局') >= 0,
+    `还没通关时不拼垃圾链接，直接说清原因（复制到「${out.rivalNoCodeCopied}」/ 日志「${out.rivalNoCodeLog}」）`);
   ok(out.clickTarget !== null && out.clickDist >= 2, '找到一只不相邻的怪物作点击目标');
   ok(out.clickKills === 1, '只点一次怪物就自动走到跟前并完成战斗');
   ok(out.clickCleared === true && out.clickOnTile === true, '战斗后怪物消失、人物站上它的格子');

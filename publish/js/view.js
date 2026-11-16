@@ -879,8 +879,42 @@
     };
   }
 
+  // ---------- 挑战链接：把码放进地址，朋友点开就一步收下 ----------
+  // 社交面唯一的摩擦点是「50 多个字符」：复制码 → 粘到聊天 → 对方再找到榜面板 → 贴进来。
+  // 关掉链路的不是没有社交功能，而是这条搬运链太长——所以发出去的应该是链接，码只是链接里的一段。
+  // 三条口径：①只改 `rival` 参数，`sharecode` 等既有参数一个都不能丢（丢了打不开线上）；
+  // ②码本身是 base64url（`-` `_` `.` 都在 URL 安全字符集里），不做二次转义，链接短且可读；
+  // ③读参数一律走 URLSearchParams，别自己 split('&')（码里没 &，但参数多起来就会错）。
+  const LINK_BASE = 'https://towermates.invalid/';
+  function rivalLink(href, code) {
+    const c = String(code == null ? '' : code).trim();
+    const h = String(href == null ? '' : href);
+    // 没有码（还没通关）或拿不到当前地址 → 不生成链接，交给调用方说人话
+    if (!c || !h) return '';
+    try {
+      const u = new URL(h, LINK_BASE);
+      u.searchParams.delete('rival'); // 连点两次不该出现两个 rival
+      u.searchParams.set('rival', c);
+      return u.toString();
+    } catch (e) { return ''; }
+  }
+  // 落地后把参数冲掉（相对地址即可，交给 replaceState）：刷新不该再收一次、也不该重复弹提示
+  function withoutRival(href) {
+    try {
+      const u = new URL(String(href == null ? '' : href), LINK_BASE);
+      u.searchParams.delete('rival');
+      return `${u.pathname}${u.search || ''}${u.hash || ''}`;
+    } catch (e) { return String(href == null ? '' : href); }
+  }
+  function rivalFromSearch(search) {
+    try {
+      return String(new URLSearchParams(String(search == null ? '' : search)).get('rival') || '').trim();
+    } catch (e) { return ''; }
+  }
+
   return {
     boardModel, shopModel, codexModel, lossModel, CODEX_CHARS,
+    rivalLink, withoutRival, rivalFromSearch,
     altarModel, echoModel, eventModel, shortfallText,
     endScoreModel, emberDetailModel, winBrief, deathBrief, briefModel,
     sealOf, nextSealHint, sealTarget, emberModel,
