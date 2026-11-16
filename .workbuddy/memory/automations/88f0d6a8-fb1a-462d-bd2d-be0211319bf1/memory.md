@@ -360,3 +360,11 @@
 - 闸门：check ✓ / engine 577 / code 217 / fuzz 0 / sim 18,745·68.4% 未漂移 / 53 图 + 全套（可读性 974 / 触控 72 / 弹层 72）/ ui-test ✓。commit 09f27b1 + e77c881（build 7f17c0a987）+ 4471da2，已部署并 curl 核对线上 build 与三处新符号。
 - 坑（下轮直接用）：①`.indexOf(串) > 0` 在串位于开头时假红，一律 `includes()`；②断言 `goals` 某条规则要先 `slice(0,3)` 想清楚——用只触发那一条的 fixture；③`shot.html` 的 `--dump-dom` 不展开 iframe 内 DOM，结算文本只能靠探针页；小窗口下结算分项区永远在面板内滚动区，截不到。
 - 剩余：`endScore` 摘要行 / brief 拼装、祭坛/回响/路遇/图鉴/立绘放大仍在 main.js；结构缺口＝真人数据 + 第 2 局骨架逐格相同。
+
+## 2026-11-16 12:29 — 全力模式（切边界第五刀：结算摘要进 view.js，1 项 + 加练结构向诊断）
+- 判定：PROGRESS mtime 64 分钟、工作树仅 `_backup/` → 全力；占用表空、无排队；最近 5 条含「变体：校准」→ 不做变体。
+- 产出：`view.js` 增 `endScoreModel` / `emberDetailModel` / `winBrief` / `deathBrief` / `briefModel`（+`BRIEF_SHOW`），main.js 只剩翻译；顺修两处「同一逻辑写两遍」（`回响 N/4` 分母硬编码、败局摘要先写 innerHTML 再 `+=`）。code-test 217→255。commit 0599ab9 + df17b09，已推。
+- 双轨发布：轨道① build **e960a29e4b** 已部署、`live-check` 四查全过；轨道② `publish_games.js towermates` 已同步并部署 `_publish/`，hub 200 + `version.json` towermates ok:true + 里面 build 也是 e960a29e4b。
+- 加练：诊断（结构向，只测量）——前 3 层 363 格里每局只变 9 格（2.5%）且全是拾取物；方案「支路开合」+ 三条保险入待办。
+- **坑（下轮直接用）**：①结算页内容在 `max-height:92dvh` 内滚区里，截图只到上半屏——**别用截图验结算内容**，用同源 iframe 探针读 DOM；②探针的 `fr.contentDocument` 必须在 iframe `load` 之后取（提前取是 about:blank，表现为「按钮不存在」）；`w.__tm` 无 `Engine`，引擎在 `w.Engine`；③`node tools/serve.js PORT .` 前台会阻塞整条 `&&` 链，chrome 根本跑不到；④`check_live.js`（星壤那个）本轮挂了 10 分钟无输出，改用 curl 自查 hub + version.json + 构建号，别死等。
+- 剩余：祭坛 / 回响 / 路遇 / 图鉴 / 立绘放大仍在 main.js；结构缺口＝真人数据 + 第 2 局骨架。
