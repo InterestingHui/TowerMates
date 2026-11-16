@@ -196,75 +196,78 @@ window.GAME_DATA = (function () {
   // 规则：击败章末 Boss 必得一次三选一。
   // 刻意不做「直接 +攻防」：这座塔的余量极小，加战力会打穿曲线；
   // 锁环改的是规则、资源与信息，让每一章的选择拼出不同的构筑。
+  // cat = 「这枚环要你权衡什么」（不是实现方式），engine 用它防止一次三选一给出
+  // 三道同一道题。五类：ember 余烬折算 / resource 立刻给资源 / heal 续航 /
+  // info 情报 / rule 改规则。加新环必须给 cat，且别把整章都塞进同一类。
   const rings = {
-    ledger:   { name: '名册之环', emoji: '📖', short: '册', chapter: 1, desc: '每击败 10 只怪额外 +1 余烬' },
-    lamp:     { name: '借灯之环', emoji: '🕯️', short: '灯', chapter: 1, desc: '每上一层回复 5% 生命' },
-    coin:     { name: '铜币之环', emoji: '🪙', short: '币', chapter: 1, desc: '立刻获得 280 金币' },
-    keyring:  { name: '钥匙之环', emoji: '🔑', short: '钥', chapter: 1, desc: '立刻获得 2 黄钥匙、1 红钥匙' },
+    ledger:   { cat: 'ember', name: '名册之环', emoji: '📖', short: '册', chapter: 1, desc: '每击败 10 只怪额外 +1 余烬' },
+    lamp:     { cat: 'heal', name: '借灯之环', emoji: '🕯️', short: '灯', chapter: 1, desc: '每上一层回复 5% 生命' },
+    coin:     { cat: 'resource', name: '铜币之环', emoji: '🪙', short: '币', chapter: 1, desc: '立刻获得 280 金币' },
+    keyring:  { cat: 'resource', name: '钥匙之环', emoji: '🔑', short: '钥', chapter: 1, desc: '立刻获得 2 黄钥匙、1 红钥匙' },
 
-    parry:    { name: '断刃之环', emoji: '🗡️', short: '断', chapter: 2, desc: '格挡时承伤 ×0.45（原 ×0.55）' },
-    cinder:   { name: '灰烬之环', emoji: '🔥', short: '灰', chapter: 2, desc: '每次击杀回复 0.7% 生命（至少 2）' },
-    thrift2:  { name: '账期之环', emoji: '📉', short: '账', chapter: 2, desc: '商店价格再 −25%' },
-    vitality: { name: '灯油之环', emoji: '🏺', short: '油', chapter: 2, desc: '生命上限 +240，并回复 240' },
+    parry:    { cat: 'rule', name: '断刃之环', emoji: '🗡️', short: '断', chapter: 2, desc: '格挡时承伤 ×0.45（原 ×0.55）' },
+    cinder:   { cat: 'heal', name: '灰烬之环', emoji: '🔥', short: '灰', chapter: 2, desc: '每次击杀回复 0.7% 生命（至少 2）' },
+    thrift2:  { cat: 'rule', name: '账期之环', emoji: '📉', short: '账', chapter: 2, desc: '商店价格再 −25%' },
+    vitality: { cat: 'heal', name: '灯油之环', emoji: '🏺', short: '油', chapter: 2, desc: '生命上限 +240，并回复 240' },
 
-    bell:     { name: '停钟之环', emoji: '🔔', short: '钟', chapter: 3, desc: 'Boss 战承伤 −15%' },
-    stair:    { name: '回廊之环', emoji: '🪜', short: '廊', chapter: 3, desc: '每上一层额外回复 4% 生命' },
-    scope:    { name: '明镜之环', emoji: '🔮', short: '明', chapter: 3, desc: '顶栏显示本层还剩几只怪' },
-    hour:     { name: '时辰之环', emoji: '⏳', short: '辰', chapter: 3, desc: '通关额外 +2 余烬；20 分钟内通关再 +2' },
+    bell:     { cat: 'rule', name: '停钟之环', emoji: '🔔', short: '钟', chapter: 3, desc: 'Boss 战承伤 −15%' },
+    stair:    { cat: 'heal', name: '回廊之环', emoji: '🪜', short: '廊', chapter: 3, desc: '每上一层额外回复 4% 生命' },
+    scope:    { cat: 'info', name: '明镜之环', emoji: '🔮', short: '明', chapter: 3, desc: '顶栏显示本层还剩几只怪' },
+    hour:     { cat: 'ember', name: '时辰之环', emoji: '⏳', short: '辰', chapter: 3, desc: '通关额外 +2 余烬；20 分钟内通关再 +2' },
 
-    seventh:  { name: '第七格之环', emoji: '✍️', short: '格', chapter: 4, desc: '名字刻得更深：通关额外 +3 余烬；本局一次没回头（没重来本层）再 +3' },
-    chisel:   { name: '刻刀之环', emoji: '🪶', short: '刀', chapter: 4, desc: '通关额外 +4 余烬' },
-    heart:    { name: '塔心之环', emoji: '💗', short: '心', chapter: 4, desc: '带走塔心石多 +100 上限；放下再多 +3 余烬' },
-    oath:     { name: '守誓之环', emoji: '📿', short: '誓', chapter: 4, desc: '通关额外 +3 余烬；带着誓约通关再 +2' },
+    seventh:  { cat: 'ember', name: '第七格之环', emoji: '✍️', short: '格', chapter: 4, desc: '名字刻得更深：通关额外 +3 余烬；本局一次没回头（没重来本层）再 +3' },
+    chisel:   { cat: 'ember', name: '刻刀之环', emoji: '🪶', short: '刀', chapter: 4, desc: '通关额外 +4 余烬' },
+    heart:    { cat: 'rule', name: '塔心之环', emoji: '💗', short: '心', chapter: 4, desc: '带走塔心石多 +100 上限；放下再多 +3 余烬' },
+    oath:     { cat: 'ember', name: '守誓之环', emoji: '📿', short: '誓', chapter: 4, desc: '通关额外 +3 余烬；带着誓约通关再 +2' },
 
     // ---- 扩容池（P-3）：每章 4→6 枚，每局抽 3，同一条锁配出不同的构筑 ----
-    pace:     { name: '更漏之环', emoji: '⏱️', short: '漏', chapter: 1, desc: '通关额外 +2 余烬' },
-    ward2:    { name: '旧誓之环', emoji: '💫', short: '誓', chapter: 1, desc: '每场战斗承伤 −6%' },
+    pace:     { cat: 'ember', name: '更漏之环', emoji: '⏱️', short: '漏', chapter: 1, desc: '通关额外 +2 余烬' },
+    ward2:    { cat: 'rule', name: '旧誓之环', emoji: '💫', short: '誓', chapter: 1, desc: '每场战斗承伤 −6%' },
 
-    ash:      { name: '拾柴之环', emoji: '🪵', short: '柴', chapter: 2, desc: '每击败一位章节锁匠，额外 +1 余烬' },
-    scout2:   { name: '窥探之环', emoji: '👁️', short: '窥', chapter: 2, desc: '立刻获得窥探之镜；顶栏常驻显示本层还剩几件东西没捡' },
+    ash:      { cat: 'ember', name: '拾柴之环', emoji: '🪵', short: '柴', chapter: 2, desc: '每击败一位章节锁匠，额外 +1 余烬' },
+    scout2:   { cat: 'info', name: '窥探之环', emoji: '👁️', short: '窥', chapter: 2, desc: '立刻获得窥探之镜；顶栏常驻显示本层还剩几件东西没捡' },
 
-    ledger2:  { name: '墨账之环', emoji: '📓', short: '墨', chapter: 3, desc: '每击败 10 只怪额外 +1 余烬，且击杀金币 +15%' },
-    vitality2:{ name: '深井之环', emoji: '💧', short: '井', chapter: 3, desc: '生命上限 +280，并回复 280' },
+    ledger2:  { cat: 'ember', name: '墨账之环', emoji: '📓', short: '墨', chapter: 3, desc: '每击败 10 只怪额外 +1 余烬，且击杀金币 +15%' },
+    vitality2:{ cat: 'heal', name: '深井之环', emoji: '💧', short: '井', chapter: 3, desc: '生命上限 +280，并回复 280' },
 
-    coin2:    { name: '夜市之环', emoji: '🪙', short: '市', chapter: 4, desc: '立刻获得 380 金币' },
-    lamp2:    { name: '长明之环', emoji: '🕯️', short: '明', chapter: 4, desc: '每上一层回复 4% 生命' },
+    coin2:    { cat: 'resource', name: '夜市之环', emoji: '🪙', short: '市', chapter: 4, desc: '立刻获得 380 金币' },
+    lamp2:    { cat: 'heal', name: '长明之环', emoji: '🕯️', short: '明', chapter: 4, desc: '每上一层回复 4% 生命' },
 
     // ---- 扩容池（每章 6→7，组合数 20→35）：只改资源与信息，不碰攻防 ----
-    ration:   { name: '干粮之环', emoji: '🍞', short: '粮', chapter: 1, desc: '所有药水回复量 +30%' },
-    bargain:  { name: '秤砣之环', emoji: '⚖️', short: '秤', chapter: 2, desc: '钥匙价目 −50%' },
-    compass:  { name: '罗盘之环', emoji: '🧭', short: '盘', chapter: 3, desc: '顶栏显示本层还剩几件东西没捡' },
-    signature:{ name: '落款之环', emoji: '🖊️', short: '款', chapter: 4, desc: '图鉴每新收录 1 件，通关额外 +1 余烬（最多 5）' },
+    ration:   { cat: 'rule', name: '干粮之环', emoji: '🍞', short: '粮', chapter: 1, desc: '所有药水回复量 +30%' },
+    bargain:  { cat: 'rule', name: '秤砣之环', emoji: '⚖️', short: '秤', chapter: 2, desc: '钥匙价目 −50%' },
+    compass:  { cat: 'info', name: '罗盘之环', emoji: '🧭', short: '盘', chapter: 3, desc: '顶栏显示本层还剩几件东西没捡' },
+    signature:{ cat: 'ember', name: '落款之环', emoji: '🖊️', short: '款', chapter: 4, desc: '图鉴每新收录 1 件，通关额外 +1 余烬（最多 5）' },
 
     // ---- 第二轮扩容（每章 7→8，组合数 35→56）：同样只改资源与规则，不碰攻防 ----
-    tally:    { name: '刻痕之环', emoji: '🪢', short: '痕', chapter: 1, desc: '每击败 8 只怪，额外交给你一把黄钥匙' },
-    toll:     { name: '过路之环', emoji: '🎫', short: '路', chapter: 2, desc: '每次路遇结算后，额外获得 40 金币' },
-    tome:     { name: '名录之环', emoji: '📜', short: '录', chapter: 3, desc: '每击败一位章节锁匠，额外得到一把黄钥匙' },
-    quill:    { name: '落笔之环', emoji: '🪶', short: '笔', chapter: 4, desc: '通关额外 +2 余烬；剩的金币每 100 再 +1（最多 6）' },
+    tally:    { cat: 'resource', name: '刻痕之环', emoji: '🪢', short: '痕', chapter: 1, desc: '每击败 8 只怪，额外交给你一把黄钥匙' },
+    toll:     { cat: 'resource', name: '过路之环', emoji: '🎫', short: '路', chapter: 2, desc: '每次路遇结算后，额外获得 40 金币' },
+    tome:     { cat: 'resource', name: '名录之环', emoji: '📜', short: '录', chapter: 3, desc: '每击败一位章节锁匠，额外得到一把黄钥匙' },
+    quill:    { cat: 'ember', name: '落笔之环', emoji: '🪶', short: '笔', chapter: 4, desc: '通关额外 +2 余烬；剩的金币每 100 再 +1（最多 6）' },
 
     // ---- 第三轮扩容（每章 8→9，组合数 56→84）：避开已有 24 种效果，只补新维度 ----
-    notch:    { name: '刻数之环', emoji: '🗓', short: '数', chapter: 1, desc: '每走 100 步，额外获得 30 金币' },
-    chain:    { name: '短链之环', emoji: '⛓', short: '链', chapter: 2, desc: '商店训练不再越买越贵（涨价阶梯取消）' },
-    bulwark:  { name: '基石之环', emoji: '🧱', short: '基', chapter: 3, desc: '每层进入时生命低于三成，自动回复 15%' },
-    finale:   { name: '终章之环', emoji: '📖', short: '终', chapter: 4, desc: '四位锁匠全倒时，通关额外 +3 余烬' },
+    notch:    { cat: 'resource', name: '刻数之环', emoji: '🗓', short: '数', chapter: 1, desc: '每走 100 步，额外获得 30 金币' },
+    chain:    { cat: 'rule', name: '短链之环', emoji: '⛓', short: '链', chapter: 2, desc: '商店训练不再越买越贵（涨价阶梯取消）' },
+    bulwark:  { cat: 'heal', name: '基石之环', emoji: '🧱', short: '基', chapter: 3, desc: '每层进入时生命低于三成，自动回复 15%' },
+    finale:   { cat: 'ember', name: '终章之环', emoji: '📖', short: '终', chapter: 4, desc: '四位锁匠全倒时，通关额外 +3 余烬' },
 
     // ---- 第四轮扩容（第 2 章 9→10）：第一个「改规则」而不改资源的环 ——
     // 双挡把「这一层留给哪一场」从一次判断变成两次判断，逼玩家回头审视还没打的怪。
-    twice:    { name: '双挡之环', emoji: '🛡️', short: '双', chapter: 2, desc: '每层可以格挡两次（上楼才恢复）' },
+    twice:    { cat: 'rule', name: '双挡之环', emoji: '🛡️', short: '双', chapter: 2, desc: '每层可以格挡两次（上楼才恢复）' },
 
     // ---- 第五轮扩容（第 1 章 9→10）：把格挡本身变成一笔账 ——
     // 刻痕之章的主题是「规矩与计数」，这枚环让「忍住不挡」有价：
     // 一层里一次格挡都没动，上楼时补 90 金。它不改任何数值，只把
     // 「盾留给哪一场」这道判断从「保命」扩成「保命还是换钱」。
     // 没学盾谱 / 不能格挡的三条誓约拿不到这笔钱，所以候选池里直接滤掉。
-    spare:    { name: '惜挡之环', emoji: '✋', short: '惜', chapter: 1, desc: '一整层没动用格挡，上楼时 +90 金币' },
+    spare:    { cat: 'rule', name: '惜挡之环', emoji: '✋', short: '惜', chapter: 1, desc: '一整层没动用格挡，上楼时 +90 金币' },
 
     // ---- 第六轮扩容（第 3 章 9→10）：最后一程唯一的「打多少算够」是一道明账 ——
     // 战意（决战减伤）原本要 25 / 40 只才吃档，第 10–12 层怪密度最高，
     // 玩家在名墙与刻名室之间反复算的正是「再清几只才值」。
     // 这枚环把门槛整体前移一档：够 20 只就已是 −16%，33 只吃满 −36%，
     // 于是「剩下 7 只难缠的能不能绕」当场有了答案。不改承伤公式，只改门槛。
-    merit:    { name: '过手之环', emoji: '🥊', short: '手', chapter: 3, desc: '战意门槛前移：击败 20 只即 −16%，33 只吃满 −36%（原 25 / 40）' },
+    merit:    { cat: 'rule', name: '过手之环', emoji: '🥊', short: '手', chapter: 3, desc: '战意门槛前移：击败 20 只即 −16%，33 只吃满 −36%（原 25 / 40）' },
 
     // ---- 第七轮扩容（第 4 章 9→10，四章池齐平）：锁芯层「还打不打剩下几只」总算有价 ——
     // 第 4 章只作用于锁芯一层与结算，能改的决定只剩三个：
@@ -272,7 +275,7 @@ window.GAME_DATA = (function () {
     //   ③ 最后一层绕开角落那四只怪——此前正确答案永远是「绕」，因为余烬只按通关算。
     // 净芯把 ③ 揭成明账：锁芯层每倒一只 +2 余烬（四只上限 +8）。
     // 不改战力、不改承伤，只把「上楼前把最后那点血花不花」变成能算的一笔。
-    clean:    { name: '净芯之环', emoji: '🧹', short: '净', chapter: 4, desc: '锁芯层每击败一只怪，额外 +2 余烬（最多 4 只）' },
+    clean:    { cat: 'ember', name: '净芯之环', emoji: '🧹', short: '净', chapter: 4, desc: '锁芯层每击败一只怪，额外 +2 余烬（最多 4 只）' },
   };
 
   // 每章抽 3 个给玩家选（每章池 10 个，C(10,3)=120 → 每局的构筑起点不同）

@@ -2672,5 +2672,72 @@ ok(Array.isArray(E.load().flags.rings), 'rings 不是数组：归一成空列表
   E.reset();
 })();
 
+// ---------- 9z. 三选一防错配（扩展轮 · 候选池 #10「1+2 选择」）----------
+// 口径：一次回响给出的三枚，不许是「同一道题算三遍」。第 4 章池 10 枚里 7 枚都是
+// 余烬折算，纯随机抽样下约 29% 的三选一全是余烬牌（全章合计 10.6%）——那不是取舍。
+{
+  const CATS = ['ember', 'resource', 'heal', 'info', 'rule'];
+  const ringIds = Object.keys(D.rings);
+  const noCat = ringIds.filter((id) => CATS.indexOf(D.rings[id].cat) < 0);
+  ok(noCat.length === 0,
+    `${ringIds.length} 枚锁环都按「要你权衡什么」归了类（缺/错 ${noCat.length} 枚${noCat.length ? '：' + noCat.join(',') : ''}）`);
+
+  const thinCh = [1, 2, 3, 4].filter((c) => new Set(D.ringPools[c].map((id) => D.rings[id].cat)).size < 2);
+  ok(thinCh.length === 0, `每章池至少两类（否则防错配无处可换）：问题章 ${thinCh.length ? thinCh.join(',') : '无'}`);
+
+  const same = [];
+  const dup = [];
+  const threeCat = { 1: 0, 2: 0, 3: 0, 4: 0 };
+  const N = 120;
+  [1, 2, 3, 4].forEach((c) => {
+    for (let k = 0; k < N; k++) {
+      E.newGame('none');
+      E.state().flags.hasBlock = true;
+      const cs = E.ringChoices(c);
+      if (new Set(cs).size !== 3) dup.push(c + ':' + cs.join('/'));
+      const cats = cs.map((id) => D.rings[id].cat);
+      const u = new Set(cats).size;
+      if (u === 1) same.push(c + ':' + cs.join('/'));
+      if (u === 3) threeCat[c]++;
+    }
+  });
+  ok(same.length === 0, `480 次三选一抽不出「三枚同一道题」${same.length ? '：' + same.slice(0, 3).join('；') : ''}`);
+  ok(dup.length === 0, `480 次三选一都是三枚不同的环${dup.length ? '：' + dup.slice(0, 3).join('；') : ''}`);
+
+  // 第 4 章是最严重的一章：7 枚余烬环，改前三枚全余烬约 29%
+  let allEmber = 0;
+  for (let k = 0; k < N; k++) {
+    E.newGame('none');
+    E.state().flags.hasBlock = true;
+    if (E.ringChoices(4).every((id) => D.rings[id].cat === 'ember')) allEmber++;
+  }
+  ok(allEmber === 0, `第 4 章不再给出「三枚全在算余烬」的一组（${N} 次实测 ${allEmber} 次）`);
+
+  // 反过度修正：只换最后一枚、不强行凑三类齐——否则稀有小类那枚会变成每组必现
+  ok(threeCat[4] < N * 0.4, `第 4 章不强行凑「三类齐」（${N} 次里 ${threeCat[4]} 次，应 < ${Math.round(N * 0.4)}）`);
+  E.reset();
+}
+
+// ---------- 9y. 叙事碎片完整性（加练 · 叙事）----------
+// 断链实证：祭坛池六件里 cross / coin 拿到手一个字都没有（另外四件都有一句小传），
+// 也就是说三分之一的祭坛选择结果对叙事是哑的。契约改成「祭坛池每件必须有来路」。
+{
+  const S = global.STORY;
+  const mute = D.altarPool.filter((id) => !(S.relicLore && S.relicLore[id] && S.relicLore[id].length));
+  ok(mute.length === 0, `祭坛 ${D.altarPool.length} 件每件都有小传（哑的：${mute.length ? mute.join(',') : '无'}）`);
+
+  const thin = [];
+  Object.keys(S.relicLore).forEach((id) => {
+    S.relicLore[id].forEach((line, i) => {
+      const text = Array.isArray(line) ? line[1] : line;
+      if (!text || String(text).trim().length < 8) thin.push(id + '#' + i);
+    });
+  });
+  ok(thin.length === 0, `每句小传都不是空行/占位（问题：${thin.length ? thin.join(',') : '无'}）`);
+
+  const noFrom = Object.keys(D.relics).filter((id) => !D.relics[id].from);
+  ok(noFrom.length === 0, `遗物都写明出处（缺 from：${noFrom.length ? noFrom.join(',') : '无'}）`);
+}
+
 console.log(fail === 0 ? '\n✓ 全部通过' : `\n✗ ${fail} 项失败`);
 process.exit(fail ? 1 : 0);

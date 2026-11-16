@@ -769,7 +769,25 @@
       const j = (nextRand() * (i + 1)) | 0;
       const t = pool[i]; pool[i] = pool[j]; pool[j] = t;
     }
-    return pool.slice(0, 3);
+    return spreadRings(pool.slice(0, 3), pool);
+  }
+
+  // 三选一防错配（扩展轮 · 候选池 #10「1+2 选择」）
+  // 纯随机抽样时，一次回响约 10.6% 会给出三道同一道题（第 4 章池 7/10 是余烬环 → 29%），
+  // 那不是取舍而是同一笔账算三遍。规则：抽完若三枚同一 cat，把最后一枚换成
+  // 「cat 没出现过」的一枚（随机）；只要已经有两个 cat 就不动——保留「2+1」的天然手感，
+  // 也不去强行凑「三类齐」（那会把稀有小类的那一枚变成必现）。
+  const ringCat = (id) => (D.rings[id] && D.rings[id].cat) || '';
+  function spreadRings(picked, pool) {
+    if (picked.length < 3) return picked;
+    const cats = picked.map(ringCat);
+    if (new Set(cats).size > 1) return picked;
+    const others = pool.filter((id) => cats.indexOf(ringCat(id)) < 0);
+    // 整章只有一类环（或可用池已被清空）时无解，保持原样而不是给一枚废卡
+    if (!others.length) return picked;
+    const out = picked.slice();
+    out[out.length - 1] = others[(nextRand() * others.length) | 0];
+    return out;
   }
 
   function settleChapter(ch) {
