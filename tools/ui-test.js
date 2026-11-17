@@ -223,7 +223,7 @@ const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-ui-'));
   // 顶栏徽记预算（规格卡「顶栏徽记预算」行）：一组读数格最多 3 格同场，且不许把钥匙挤变形
   const hb = out.hudBudget || {};
   const hbKeys = Object.keys(hb);
-  ok(hbKeys.length === 5, '顶栏徽记预算：五组满载组合都量到了');
+  ok(hbKeys.length === 6, '顶栏徽记预算：六组满载组合都量到了');
   ok(hbKeys.every((k) => hb[k].pips <= 3), `可见徽记 ≤ 3 格（实测 ${hbKeys.map((k) => k + '=' + hb[k].pips).join(' ')}）`);
   ok(hbKeys.every((k) => hb[k].clipped.length === 0), '徽记一格都没被裁到内边距外');
   ok(hbKeys.every((k) => hb[k].over <= 0), `徽记区不横向溢出（实测 over ${hbKeys.map((k) => hb[k].over).join('/')}）`);
@@ -232,6 +232,9 @@ const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-ui-'));
   ok(hb.full && hb.full.rowH <= 46, `决战线满载最多两行（${hb.full && hb.full.rowH}px，上限 46）`);
   ok(hb.full && hb.full.kids.every((s) => !/^keytag/.test(s) || /x21$/.test(s)),
     '钥匙不被挤扁（仍是 39×21，文字不折行）');
+  // 遗物全表（11 件，比一局真实上限 9 件更狠）+ 三锁环 + 三徽记：顶栏宽度预算此前只按三件遗物量过
+  ok(hb.relicmax && hb.relicmax.over <= 0,
+    `遗物全表满载不横向溢出（over ${hb.relicmax && hb.relicmax.over} / 行高 ${hb.relicmax && hb.relicmax.rowH}px / kids ${hb.relicmax && hb.relicmax.kids.join(' ')}）`);
   // 战斗面板提示行（三把打法互斥）：按下任一把之后，面板上不许再有任何能点的打法，
   // 提示行也不许再说「可点下面的打法」——那是叫人点一块已经点不动的东西
   const bh = out.bsHint || {};

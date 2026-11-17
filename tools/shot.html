@@ -119,13 +119,16 @@
       const E = w.Engine;
       if (scene === 'start' || scene === 'floor5' || scene === 'battle' || scene === 'battletwice' || scene === 'battleblock' || scene === 'tanglebattle' || scene === 'guardbattle' || scene === 'threatbattle' || scene === 'shop' || scene === 'tower' || scene === 'core' || scene === 'zeal' || scene === 'final' || scene === 'hudmax') {
         if (scene === 'hudmax') {
-          // 真满载（一局里可能的最挤一屏）：三件遗物 + 三枚锁环（第 3 章拿到罗盘那份）+ 三格徽记
-          // 🛡双挡 / 🧭罗盘 / 💀决战。顶栏预算的数值断言在 tools/ui-check.html 的 hudBudget。
+          // 真满载（一局里可能的最挤一屏）：一局真实上限 9 件遗物（守誓之盾 / 断刃之锋 / 余烬灯芯 /
+          // 无名之镜 / 层阶之钥 / 塔心石 + 三座祭坛各一件）+ 三枚锁环（第 3 章拿到罗盘那份）+ 三格徽记
+          // 🛡双挡 / 🧭罗盘 / 💀决战。清单走数据全表（比真实上限更狠，加遗物自动跟上）。
+          // 2026-11-18 之前这里只摆三件遗物——截图与断言一起把宽度预算量小了 6 格。
           await wait(200);
           const sh = E.state();
           sh.flags.hasBlock = true;
           sh.flags.rings = ['twice', 'spare', 'compass'];
-          ['ward', 'edge', 'ember'].forEach((id) => { sh.flags['relic_' + id] = true; });
+          Object.keys(w.GAME_DATA.relics)
+            .forEach((id) => { sh.flags['relic_' + id] = true; });
           sh.flags.killCount = 12;
           sh.atk = 120; sh.def = 60; sh.hp = 1400; sh.maxHp = 1400;
           T.refreshHud();

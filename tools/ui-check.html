@@ -956,6 +956,12 @@ async function run() {
             // 另两条第 3 章读数（与罗盘同池互斥，各自单独在场面）
             zealish: { floor: 9, rings: ['twice', 'spare', 'merit'], block: true, relics: REL },
             scopeish: { floor: 9, rings: ['twice', 'spare', 'scope'], block: true, relics: REL },
+            // 遗物满载：上面四组都只摆三件遗物（旧口径），而一局真能拿到 9 件
+            //（守誓之盾 / 断刃之锋 / 余烬灯芯 / 无名之镜 / 层阶之钥 / 塔心石 + 三座祭坛各一件）。
+            // 清单直接取数据全表（11 件）——比真实上限更狠，且以后加遗物自动进这条压力测试，
+            // 不用回来改这个数组。顶栏宽度预算此前只按 3 件量过，这条 case 就是补那个盲点。
+            relicmax: { floor: 9, rings: ['twice', 'spare', 'compass'], block: true,
+              relics: Object.keys(w.GAME_DATA.relics) },
           };
           var res = {};
           Object.keys(cases).forEach(function (k) {

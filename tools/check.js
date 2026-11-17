@@ -171,7 +171,40 @@ Object.keys(D.relics).forEach((id) => {
 });
 D.shop.forEach((it) => {
   if (!it.id || !it.name || typeof it.price !== 'number') err(`商店商品异常：${JSON.stringify(it)}`);
+  if (it.relic && !D.relics[it.relic]) err(`商店商品 ${it.id} 指向未定义的遗物 ${it.relic}`);
 });
+
+// 每件遗物都必须有一条真实获取途径。图鉴分母是 Object.keys(D.relics)，
+// 有一件拿不到 = 收集系统没有终点，而玩家不会知道是游戏错了，只会以为自己漏了。
+// 2026-11-18 抓到 scout（无名之镜）孤儿：分母 11、可达 10，from 还写着「行李堆三选一」。
+function relicSource(id) {
+  if (D.altarPool.indexOf(id) >= 0) return '祭坛三选一';
+  if (D.shop.some((it) => it.relic === id)) return '商店';
+  if (Object.keys(D.items).some((ch) => D.items[ch].type === 'relic' && D.items[ch].relic === id)) return '地图道具';
+  if (id === 'heart') return '第 13 层塔心石（coreTake）';
+  return '';
+}
+Object.keys(D.relics).forEach((id) => {
+  if (!relicSource(id)) err(`遗物 ${id}（${D.relics[id].name}）没有任何获取途径——图鉴会把它算进分母，玩家永远凑不齐`);
+});
+// 商店里带 relic 的商品，必须真的在购买时落 flags（buy() 里读 item.relic）；
+// 反过来，指着 codex 的商品若忘了挂 relic，就是「花钱买了却不算收集」——这条是上面那条的兜底。
+if (global.STORY && global.STORY.relicLore) {
+  D.altarPool.forEach((id) => {
+    if (!global.STORY.relicLore[id]) err(`祭坛池遗物 ${id} 没有小传——三选一里会有一格拿到手是哑的`);
+  });
+  // 遗物名里带人名的，小传必须写出那个人名（三条影子勇者互证链）
+  // 2026-11-18 之前 thrift（川的账本）只写「账本」，玩家读不出川是谁。
+  const NAMED = { steel: '鸦', vigor: '岩', thrift: '川' };
+  Object.keys(NAMED).forEach((id) => {
+    if (!D.relics[id]) return;
+    const lore = global.STORY.relicLore[id] || [];
+    const text = lore.map((l) => (Array.isArray(l) ? l[1] : l)).join('');
+    if (D.relics[id].name.indexOf(NAMED[id]) >= 0 && text.indexOf(NAMED[id]) < 0) {
+      err(`遗物「${D.relics[id].name}」的小传里没出现「${NAMED[id]}」——名字锚点断了，玩家读不出主人是谁`);
+    }
+  });
+}
 
 // ---------- 跨局余烬经济：解锁线不能掐断循环 ----------
 // 一局常规通关约 16 余烬（基础 5 + 击杀/回响/结局/路遇），最贵的解锁应在 3 局内够得着。

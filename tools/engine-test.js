@@ -1106,6 +1106,10 @@ ok(ev.type === 'princess' && ev.hasJournal === true, '有手记 → 真结局分
 s.gold = 250;
 const codex1 = E.buy('codex');
 ok(codex1.type === 'buy' && s.flags.codex === true, '购买窥探之镜解锁怪物情报');
+// 镜子同时是遗物「无名之镜」（图鉴第 11 件）——曾经只挂 codex 不挂 relic，
+// 于是那件遗物在图鉴里永远是个 ○：分母算它，却没有任何入口能拿到。
+ok(s.flags.relic_scout === true && E.hasRelic('scout'), '窥探之镜同时记进遗物（图鉴可达）');
+ok(codex1.msg.indexOf('遗物') >= 0, '购买回执写明这是一件遗物（别让玩家以为只是开了个功能）');
 const codex2 = E.buy('codex');
 ok(codex2.type === 'refuse', '窥探之镜不可重复购买');
 ok(s.gold === 150, '窥探之镜扣 100 金');
@@ -2341,6 +2345,11 @@ let dealt = null;
 try { dealt = E.dealOf(); } catch (e) { dealt = { err: e.message }; }
 ok(!dealt || (!dealt.err && (dealt.price === undefined || isFinite(dealt.price))),
   '老档补上 mapSeed 后行情报价不是 NaN');
+// 老档买过镜子却没记遗物（镜子 2026-11-18 起才算遗物）：读档补齐，图鉴不因存档早晚空一格
+old.flags.codex = true;
+delete old.flags.relic_scout;
+putSave(old);
+ok(E.load().flags.relic_scout === true, '老档已买窥探之镜 → 读档补齐 relic_scout（图鉴可达）');
 
 // 关键数值坏 → 拒绝 + 隔离
 let bad = rawSave();
