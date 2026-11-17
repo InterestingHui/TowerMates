@@ -23,6 +23,8 @@
     document.head.appendChild(st2);
   }
   const src = {
+    // 首局立誓页（runs=0 只出 1 张确认卡）：不带 dev=1——dev 会强制全量，正好是用户看不到的形态
+    vowfirst: base,
     floor5: base + '?dev=1#demo=4,2,8',
     battle: base + '?dev=1#demo=0,2,3',
     battletwice: base + '?dev=1#demo=0,2,3',
@@ -70,6 +72,11 @@
         ember: 12, unlocked: [], resets: 0,
         memory: { runs: 3, deepest: 9, endings: { plain: 2 }, vowWins: {}, fullChapters: 1, heartTaken: 1, heartLeft: 0 },
       }));
+    }
+    // vowfirst 场景要「首局」态：清掉一切履历（runs=0）→ 立誓页只出 1 张确认卡
+    if (scene === 'vowfirst') {
+      localStorage.removeItem('towermates_meta');
+      localStorage.removeItem('towermates_save');
     }
   } catch (e) {}
   f.src = src;
@@ -738,6 +745,22 @@
         T.refreshHud();
         try { d.getElementById('guide').classList.add('show'); d.getElementById('guideText').textContent = '点你想去的格子，会自动寻路过去；方向键走一格。'; } catch (e) {}
         await wait(300);
+      } else if (scene === 'vowfirst') {
+        // 首局立誓页：runs=0 只出 1 张确认卡。断言「唯一一张卡铺满整行」——
+        // 2026-11-17 用户报「只有一个誓言右边却空一块」：固定两列网格会让单卡落在左列。
+        const out = [];
+        for (let i = 0; i < 20 && !w.__tm; i++) await wait(200);   // 等 boot（无头解析慢）
+        d.getElementById('btnNew').click();
+        for (let i = 0; i < 10 && !d.querySelector('#vowCards .vow-card'); i++) await wait(200);
+        const cards = d.querySelectorAll('#vowCards .vow-card');
+        const wrap = d.getElementById('vowCards');
+        const cw = wrap.getBoundingClientRect().width;
+        const first = cards[0] && cards[0].getBoundingClientRect();
+        out.push('cards=' + cards.length
+          + ' fullRow=' + (first ? Math.round(first.width) >= Math.round(cw * 0.95) : 'MISSING')
+          + ' kicker=' + (d.querySelector('#vowOverlay .vow-kicker') || {}).textContent);
+        q2push('VOWFIRST ' + out.join(' '));
+        await wait(400);   // 留截图时间
       } else if (scene === 'coach') {
         // 新手标注端到端：开局 → coach 卡（怎么走）→ 点掉 → 画面干净
         const out = [];

@@ -2007,8 +2007,14 @@ body.at-start #bottom { visibility: hidden; }
 }
 /* hidden 属性要被尊重：否则 display:inline-block 会盖掉 UA 的 display:none，留下一个空胶囊 */
 .vow-ember[hidden] { display: none; }
-.vow-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+/* 卡数不定：首局 1 张确认卡、解锁无名之誓前 5 张——固定两列会在右边留空格。
+   改用居中换行：两列排，落单的最后一张居中；只有 1 张时铺满整行当「开始」按钮。 */
+.vow-cards { display: flex; flex-wrap: wrap; justify-content: center; gap: 9px; }
+/* 首局确认卡只有一张：铺满整行，读作一个「开始」按钮，而不是半宽悬在中间 */
+.vow-card:only-child { flex: 1 1 100%; }
 .vow-card {
+  flex: 0 1 calc(50% - 4.5px);
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2089,7 +2095,7 @@ body.at-start #bottom { visibility: hidden; }
 .vow-ember-note { font-size: var(--fs-tag); line-height: 1.6; color: var(--muted); margin: -4px 0 10px; }
 @media (max-width: 380px) {
   .vow-cards { gap: 7px; }
-  .vow-card { padding: 10px 6px; }
+  .vow-card { padding: 10px 6px; flex-basis: calc(50% - 3.5px); }
   .vow-card .vc-name { font-size: var(--fs-aux); }
 }
 
