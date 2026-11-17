@@ -420,6 +420,133 @@ async function run() {
     w.__battleSpeed = 1;
     d.querySelectorAll('.overlay.show').forEach(function (o) { o.classList.remove('show'); });
 
+    // 演出抛错不许锁死输入（2026-11-17 自检）：演出链原来没有 catch，一抛错 done 永不调用、
+    // battleBusy 恒 true —— 走格 / 点面板 / 再点怪全部静默失效，战斗层还赖在屏幕上（面板本身没有关闭按钮），
+    // 玩家只能刷新、进度退回上次存档。两条路各试一次：同步装配段（画双方形象时抛）与
+    // 异步演出段（回合音效时抛）。判据统一是「这一战没算、输入立刻可用、下一次还能正常打完」。
+    out.battleAbort = {};
+    E.newGame();
+    w.__battleSpeed = 1;          // 这一块要数「第几帧抛的」，别让演出倍率把时序拖长
+    var sb = E.state();
+    sb.atk = 60; sb.def = 30; sb.hp = 4000; sb.maxHp = 4000;
+    var ab = null;
+    for (var ay2 = 1; ay2 < 10 && !ab; ay2++) {
+      for (var ax2 = 1; ax2 < 10 && !ab; ax2++) {
+        var chA = sb.maps[0][ay2][ax2];
+        var moA = w.GAME_DATA.monsters[chA];
+        if (!moA || moA.ghost || moA.boss) continue;
+        [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (o) {
+          if (ab) return;
+          var qx = ax2 + o[0], qy = ay2 + o[1];
+          if (qx < 1 || qx > 9 || qy < 1 || qy > 9) return;
+          if (sb.maps[0][qy][qx] !== '.') return;
+          ab = { x: ax2, y: ay2, hx: qx, hy: qy, ch: chA };
+        });
+      }
+    }
+    if (ab) {
+      sb.x = ab.hx; sb.y = ab.hy;
+      w.__tm.refreshHud();
+      // ① 同步段：paintIcon 是演出装配的第一步（画双方形象）
+      var paint0 = w.Renderer.paintIcon;
+      var aborts0 = w.__battleAbortCount || 0;
+      w.Renderer.paintIcon = function () { throw new Error('probe-sync-boom'); };
+      w.__tm.clickMove(ab.x, ab.y);
+      await new Promise(function (r) { setTimeout(r, 260); });
+      out.battleAbort.syncStuck = d.getElementById('battleScene').classList.contains('show');
+      out.battleAbort.syncAborts = (w.__battleAbortCount || 0) - aborts0;
+      out.battleAbort.syncKills = (E.state().flags.killCount || 0);
+      w.Renderer.paintIcon = paint0;
+      // ② 异步段：让「挨打那一帧」的 classList 抛错——这是演出链里 await 之间的一步，
+      //    不是装配段。Sound 是模块内私有对象（窗口上没有），所以改从 el.bsFoe 上下手。
+      var foeEl = d.getElementById('bsFoe');
+      var aborts1 = w.__battleAbortCount || 0;
+      Object.defineProperty(foeEl, 'classList', {
+        configurable: true,
+        get: function () { throw new Error('probe-async-boom'); },
+      });
+      w.__tm.clickMove(ab.x, ab.y);
+      var t2 = Date.now();
+      while (Date.now() - t2 < 4000 && (w.__battleAbortCount || 0) === aborts1) {
+        await new Promise(function (r) { setTimeout(r, 40); });
+      }
+      await new Promise(function (r) { setTimeout(r, 120); });
+      out.battleAbort.asyncAborts = (w.__battleAbortCount || 0) - aborts1;
+      out.battleAbort.asyncClosed = !d.getElementById('battleScene').classList.contains('show');
+      out.battleAbort.asyncKills = (E.state().flags.killCount || 0);
+      delete foeEl.classList;
+      // ③ 修好之后必须还能打：同一次运行里再点同一只怪，这一场应当正常结算
+      var kills0b = (E.state().flags.killCount || 0);
+      var aborts2 = w.__battleAbortCount || 0;
+      w.__tm.clickMove(ab.x, ab.y);
+      var t3 = Date.now();
+      while (Date.now() - t3 < 6000 && (E.state().flags.killCount || 0) === kills0b) {
+        await new Promise(function (r) { setTimeout(r, 60); });
+      }
+      out.battleAbort.retryKills = (E.state().flags.killCount || 0) - kills0b;
+      out.battleAbort.retryCleared = E.tile(ab.x, ab.y) !== ab.ch;
+      out.battleAbort.retryAborts = (w.__battleAbortCount || 0) - aborts2;
+      // ④ 结算本体抛错（Engine.fight 自己炸）。这是「修了一半」最典型的漏口：
+      //    上面两条路都在演出链上，而 done 回调里的结算在演出**收场之后**才跑——
+      //    场景收了、兜底没走、锁还锁着，玩家看到的是空屏点不动，只能刷新。
+      E.newGame();
+      w.__battleSpeed = 1;
+      var sbD = E.state();
+      sbD.atk = 60; sbD.def = 30; sbD.hp = 4000; sbD.maxHp = 4000;
+      var abd = null;
+      for (var ay3 = 1; ay3 < 10 && !abd; ay3++) {
+        for (var ax3 = 1; ax3 < 10 && !abd; ax3++) {
+          var chD = sbD.maps[0][ay3][ax3];
+          var moD = w.GAME_DATA.monsters[chD];
+          if (!moD || moD.ghost || moD.boss) continue;
+          [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (o) {
+            if (abd) return;
+            var qx = ax3 + o[0], qy = ay3 + o[1];
+            if (qx < 1 || qx > 9 || qy < 1 || qy > 9) return;
+            if (sbD.maps[0][qy][qx] !== '.') return;
+            abd = { x: ax3, y: ay3, hx: qx, hy: qy, ch: chD };
+          });
+        }
+      }
+      if (abd) {
+        sbD.x = abd.hx; sbD.y = abd.hy;
+        w.__tm.refreshHud();
+        var fight0 = E.fight;
+        var kills3 = sbD.flags.killCount || 0;
+        E.fight = function () { throw new Error('probe-done-boom'); };
+        w.__tm.clickMove(abd.x, abd.y);
+        var t4 = Date.now();
+        while (Date.now() - t4 < 3000 && d.getElementById('battleScene').classList.contains('show')) {
+          await new Promise(function (r) { setTimeout(r, 50); });
+        }
+        await new Promise(function (r) { setTimeout(r, 300); });
+        out.battleAbort.doneClosed = !d.getElementById('battleScene').classList.contains('show');
+        out.battleAbort.doneKills = (sbD.flags.killCount || 0) - kills3;
+        E.fight = fight0;
+        // 解锁判据：再走一格必须真的动（锁没放的时候 clickMove 是静默无效的）
+        var pD = { x: sbD.x, y: sbD.y };
+        var freeCell = null;
+        [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (o) {
+          if (freeCell) return;
+          var qx = pD.x + o[0], qy = pD.y + o[1];
+          if (qx < 1 || qx > 9 || qy < 1 || qy > 9) return;
+          if (sbD.maps[sbD.floor][qy][qx] !== '.') return;
+          freeCell = { x: qx, y: qy };
+        });
+        if (freeCell) {
+          w.__tm.clickMove(freeCell.x, freeCell.y);
+          var t5 = Date.now();
+          while (Date.now() - t5 < 2500 && sbD.x === pD.x && sbD.y === pD.y) {
+            await new Promise(function (r) { setTimeout(r, 40); });
+          }
+        }
+        out.battleAbort.doneMoved = !!(freeCell && (sbD.x !== pD.x || sbD.y !== pD.y));
+        out.battleAbort.doneMonster = E.tile(abd.x, abd.y) === abd.ch;
+      }
+    }
+    w.__battleSpeed = 1;
+    d.querySelectorAll('.overlay.show').forEach(function (o) { o.classList.remove('show'); });
+
     // 战斗面板提示行改口（2026-11-15 20:5x）：三把打法互斥，按下任一把之后另外两把只是 disabled、
     // onclick 仍挂在上面——旧判据于是继续说「可点下面的打法」，而面板上已经一个能点的都没有
     // （点了没反应，是死按钮的另一种写法）。这里走真实链路：第 5 层那一战 → 按格挡 → 读提示行。

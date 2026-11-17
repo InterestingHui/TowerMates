@@ -136,6 +136,17 @@ const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-ui-'));
   ok(da.f === 1 && da.b === 0 && da.n === 0, `自动挡单记 f、不混进玩家格挡率（实测 f=${da.f} b=${da.b} n=${da.n}）`);
   ok(typeof da.hpLeft === 'number' && da.hpLeft > 0 && da.hpLeft < da.white,
     `自动挡真的救下这一场（剩 ${da.hpLeft} 血 < 白打 ${da.white}）`);
+  // 演出抛错兜底（2026-11-17 自检）：抛错不许把「战斗忙」留在 true 上，也不许把战斗层留在屏幕上
+  const ab = out.battleAbort || {};
+  ok(ab.syncStuck === false, '装配段抛错：战斗层没留在屏幕上（否则没有关闭按钮 = 只能刷新）');
+  ok(ab.syncAborts === 1 && ab.asyncAborts === 1, `两条抛错路径都走到兜底出口（装配段 ${ab.syncAborts} / 演出中段 ${ab.asyncAborts} 次）`);
+  ok(ab.asyncClosed === true, '演出中段抛错后战斗层面板自己收掉');
+  ok(ab.syncKills === 0 && ab.asyncKills === 0, `抛错的那两场都没算打赢（实测 ${ab.syncKills}/${ab.asyncKills} 只）`);
+  ok(ab.retryKills === 1 && ab.retryCleared === true && ab.retryAborts === 0, '抛错之后输入立刻解锁：同一次运行里再点那只怪能正常打完');
+  // 结算本体抛错（Engine.fight 自己炸）：演出已收场，锁必须跟着放，否则是空屏点不动
+  ok(ab.doneClosed === true, '结算本体抛错：战斗层收掉后锁没有再留着（否则空屏点不动）');
+  ok(ab.doneKills === 0 && ab.doneMonster === true, `结算失败的怪留在原地、没算打赢（实测击杀 +${ab.doneKills}）`);
+  ok(ab.doneMoved === true, '结算抛错后输入立刻解锁：再走一格真的动了');
   ok(out.f3Walkable === true && out.f3ReachLedge === true, '第 3 层打墨妖的立足格可直达');
   ok(Array.isArray(out.shopChain) && out.shopChain.length === 3, '三层商人（8/11/13）都跑过单击流程');
   ok(out.shopChain.every((r) => r.hasM && r.hasStart), '每层商人与可走到的起点都找得到');

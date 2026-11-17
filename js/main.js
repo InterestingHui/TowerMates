@@ -1974,6 +1974,9 @@
     let heroHp = s.hp;
     let foeHp = foeMax;
     let skipped = false;
+    // 演出链是否已把控制权交回结算。兜底靠它区分「还没打」与「已经打完」——
+    // 已打完还抛错只该记一笔，不能把这一战重新算成「没打」。
+    let sceneDone = false;
     // 「快速战斗」把整段演出压到 42%，重复刷层时不再被迫看完
     // 三档速度（设置里调）× 快速战斗总开关 × 测试钩子：重复刷层不必看完演出
     const speed = (window.__battleSpeed || 1) * BATTLE_SPEED[Settings.battleSpeed] * (Settings.fast ? 0.42 : 1);
@@ -2317,8 +2320,44 @@
       if (el.bsTangle) el.bsTangle.onclick = null;
       if (el.bsGuard) el.bsGuard.onclick = null;
       skipWaiter = null; // 战斗结束必须清掉唤醒器，别让下一次点击去唤醒上一场的等待
+      sceneDone = true;
       done({ block: guardOn ? 'all' : blockOn, tangle: tangleOn });
-    })();
+    })().catch((e) => {
+      // 演出链上没有第二个人接这个异常：不接的话 done 永不调用，battleBusy 就一直是 true。
+      // 已经交出控制权的那类不回滚数值（可能已落盘），但**锁一定要放**——
+      // done 就是结算本体（Engine.fight / applyFightResult），它自己抛错时战斗层早在上面收掉了，
+      // 场景收掉却不放锁是比「层还开着」更糟的形态：玩家看着空屏点不动，只能刷新。
+      if (sceneDone) {
+        try { ErrorSink.note('error', 'battle cb: ' + (e && (e.message || e)), (e && e.filename) || 'js/main.js', (e && e.lineno) || 0, 0); } catch (e2) {}
+        battleBusy = false;
+        refreshHud();
+        return;
+      }
+      abandonBattle(e);
+    });
+  }
+
+  // ---------- 战斗演出的唯一逃生口 ----------
+  // 演出是一段 90 多行、几十个 DOM 引用的 async 链；任何一处抛错（画布尺寸为 0、节点缺失、
+  // 音效上下文异常…）都会让 done 永远不调用，而 battleBusy 是全局输入闸门：它卡住，
+  // 走格 / 点面板 / 再点怪全部静默失效，战斗层还赖在屏幕上没有关闭按钮——玩家只能刷新，
+  // 进度退回上一次存档。所以「这一战没打成」必须有一条明确的出口：解锁、收层、怪留在原地。
+  function abandonBattle(e) {
+    battleBusy = false;
+    el.battleScene.classList.remove('show', 'hero-win', 'phasing');
+    el.battleScene.onclick = null;
+    el.bsBlock.onclick = null;
+    if (el.bsTangle) el.bsTangle.onclick = null;
+    if (el.bsGuard) el.bsGuard.onclick = null;
+    // 探针钩子：演出「开了又收」在无头里可能整个发生在一次轮询之间，只能数次数
+    window.__battleAbortCount = (window.__battleAbortCount || 0) + 1;
+    if (e) {
+      try {
+        ErrorSink.note('error', 'battle: ' + (e.message || e), e.filename || 'js/main.js', e.lineno || 0, 0);
+      } catch (e2) {}
+    }
+    warn('这一战没打起来 · 再点一次那只怪');
+    refreshHud();
   }
 
   function applyFightResult(res, tx, ty) {
@@ -2764,25 +2803,31 @@
     const dmgGuard = Engine.canGuard() ? Engine.fightDamage(ch, 'all') : null;
     // 缠斗：第 5 层起才出现（与架盾分开一层，每屏只多一个决定）
     const dmgTangle = s.floor >= 4 ? Engine.tangleInfo(ch) : null;
-    playBattleScene({
-      ch, monster: m, pred, dmgBase, dmgBlock, dmgGuard, dmgTangle,
-      phases: m.boss ? Engine.bossPhases(ch) : null,
-      skip: { x: tx, y: ty },     // 本层威胁读数要排除的格子（正在打的这只）
-    }, (opt) => {
-      // 这一战只有格挡才能活：玩家撞上去就是求战，结算时自动带上格挡
-      // opt.block 可能是 true（挡这一场）或 'all'（架盾）——原样透传给引擎
-      // auto：这一记挡不是玩家按的（他没有选任何打法，是系统替他挡下来保命）。
-      // 只给引擎用来区分记账口径（dec 的 'f' 与 'b'），不参与任何数值。
-      const autoBlock = !opt.block && !!pred.blockSave;
-      const res = Engine.fight(dx, dy, { block: opt.block || (pred.blockSave ? true : false), tangle: opt.tangle, auto: autoBlock });
-      battleBusy = false;
-      if (res.type === 'fight') {
-        // 打法计数只记打成了的（战斗中断不算一次选择）；归属由引擎给（Engine.fight 的 pick 字段），
-        // 单一口径——面板怎么摆、引擎怎么结算、账本怎么记，三处不许各算各的
-        logBattlePick(s, res.pick);
-        applyFightResult(res, tx, ty);
-      } else { warn(res.msg || '战斗中断'); refreshHud(); }
-    });
+    // 演出装配段（同步抛错）在这里接；演出链上的抛错在 playBattleScene 内部接。
+    // 两处都走同一个出口，否则「战斗忙」这把锁会连人带局一起锁住。
+    try {
+      playBattleScene({
+        ch, monster: m, pred, dmgBase, dmgBlock, dmgGuard, dmgTangle,
+        phases: m.boss ? Engine.bossPhases(ch) : null,
+        skip: { x: tx, y: ty },     // 本层威胁读数要排除的格子（正在打的这只）
+      }, (opt) => {
+        // 这一战只有格挡才能活：玩家撞上去就是求战，结算时自动带上格挡
+        // opt.block 可能是 true（挡这一场）或 'all'（架盾）——原样透传给引擎
+        // auto：这一记挡不是玩家按的（他没有选任何打法，是系统替他挡下来保命）。
+        // 只给引擎用来区分记账口径（dec 的 'f' 与 'b'），不参与任何数值。
+        const autoBlock = !opt.block && !!pred.blockSave;
+        const res = Engine.fight(dx, dy, { block: opt.block || (pred.blockSave ? true : false), tangle: opt.tangle, auto: autoBlock });
+        battleBusy = false;
+        if (res.type === 'fight') {
+          // 打法计数只记打成了的（战斗中断不算一次选择）；归属由引擎给（Engine.fight 的 pick 字段），
+          // 单一口径——面板怎么摆、引擎怎么结算、账本怎么记，三处不许各算各的
+          logBattlePick(s, res.pick);
+          applyFightResult(res, tx, ty);
+        } else { warn(res.msg || '战斗中断'); refreshHud(); }
+      });
+    } catch (e) {
+      abandonBattle(e);
+    }
   }
 
   // ---------- 商店 ----------
