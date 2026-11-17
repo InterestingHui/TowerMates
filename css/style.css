@@ -1694,6 +1694,11 @@ body.at-start #bottom { visibility: hidden; }
   color: #e8dcc2;
   font-size: var(--fs-tag);
   white-space: nowrap;
+  /* chip 里是 14px 线刻徽记（VowIcons），中缝对齐代替 emoji 的基线对齐 */
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  vertical-align: middle;
 }
 .next-vow .nv-note { margin: 0; font-size: var(--fs-tag); line-height: 1.6; color: var(--dim); }
 
@@ -2093,7 +2098,15 @@ body.at-start #bottom { visibility: hidden; }
   box-shadow: 0 0 0 1px rgba(232, 196, 106, 0.42), 0 16px 38px rgba(232, 196, 106, 0.16);
 }
 .vow-card.focus .vc-name { color: #ffe6a8; }
-.vow-card .vc-emoji { font-size: var(--fs-title); }
+/* 誓约徽记（js/vow-icons.js）：黄铜线刻 SVG，替代原先的整颗 emoji——
+   彩色卡通贴暗金卡是两种语言；线刻 + 中央一点高光才接得住剪影叙事（圣经 §6） */
+.vow-card .vc-emoji { display: none; }
+.vow-glyph {
+  display: block;
+  flex: 0 0 auto;
+  /* 徽记底一圈极淡的暖光：像被烛照亮的小铭牌，不让线刻在纯暗卡上发闷 */
+  filter: drop-shadow(0 0 5px rgba(232, 196, 106, 0.28));
+}
 .vow-card .vc-head { display: flex; align-items: center; gap: 7px; }
 .vc-tier { font-size: var(--fs-tag); letter-spacing: 1.5px; padding: 2px 8px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.16); color: #9aa4b5; }
 /* 上局誓约角标：重开的人一眼认出自己那条，不再逐卡认描述 */
@@ -2315,7 +2328,7 @@ body.at-start #bottom { visibility: hidden; }
 }
 .daily-hint b { color: #d8bf85; font-weight: 600; }
 .vow-card.locked { opacity: 0.72; border-style: dashed; }
-.vow-card.locked .vc-emoji { filter: grayscale(0.6) brightness(0.8); }
+.vow-card.locked .vow-glyph { filter: grayscale(0.6) brightness(0.8); }
 .vow-card .vc-lock {
   font-size: var(--fs-tag);
   color: #ffb08a;

@@ -21,11 +21,17 @@
   // 底部 ~y>700 是对白框区域，只放雾和地面，不放关键内容。
 
   // ---------- 第一幕：王座厅（抓走） ----------
+  // 2026-11-17 重绘：原先王座与魔王同色（INK），两条路径叠成一团黑斑，角小得读不出。
+  // 现在按圣经 §3 分层：王座亮一阶（INK2 系渐变）当背板，魔王压最暗一阶浮出来，
+  // 右缘一条 EDGE 受光边勾轮廓；薇拉是拢在臂弯里的光滑小剪影（小而完整，不再是一块悬空的浅色）。
   const abduct = `
 <svg viewBox="0 0 430 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
   <defs>
     <linearGradient id="scA-sky" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#18202e"/><stop offset=".62" stop-color="#10151f"/><stop offset="1" stop-color="#0a0e15"/>
+    </linearGradient>
+    <linearGradient id="scA-thr" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#121a28"/><stop offset="1" stop-color="#0a0e16"/>
     </linearGradient>
     <radialGradient id="scA-glow" cx=".5" cy=".5" r=".5">
       <stop offset="0" stop-color="${WARM_HI}" stop-opacity=".5"/><stop offset=".45" stop-color="${WARM}" stop-opacity=".16"/><stop offset="1" stop-color="${WARM}" stop-opacity="0"/>
@@ -49,23 +55,43 @@
   <!-- 地面 -->
   <rect x="0" y="738" width="430" height="162" fill="#06080f"/>
   <rect x="0" y="736" width="430" height="3" fill="${EDGE}" opacity=".35"/>
-  <!-- 王座 -->
-  <path d="M148 738 v-236 q0 -14 14 -14 h10 v-38 q0 -10 10 -10 h56 q10 0 10 10 v38 h10 q14 0 14 14 v236 z" fill="${INK}"/>
-  <path d="M162 500 v-30 q0 -8 8 -8 h6 v-26 q0 -8 8 -8 h20" fill="none" stroke="${EDGE}" stroke-width="1.4" opacity=".5"/>
-  <!-- 魔王：坐姿剪影 + 双角 + 披风铺地 -->
+  <!-- 王座：高背 + 中冠 + 双尖饰 + 外伸扶手（亮一阶，和魔王的剪影分开读） -->
+  <path d="M150 738 V342 q0 -14 14 -14 h102 q14 0 14 14 V738 z" fill="url(#scA-thr)"/>
+  <path d="M150 342 q0 -14 14 -14 h102 q14 0 14 14" fill="none" stroke="${EDGE}" stroke-width="1.4" opacity=".45"/>
+  <path d="M196 330 l19 -26 19 26 z" fill="#10151f"/>
+  <path d="M150 342 l9 -22 9 22 z" fill="#10151f"/>
+  <path d="M262 342 l9 -22 9 22 z" fill="#10151f"/>
+  <rect x="126" y="466" width="38" height="14" rx="5" fill="#0e1420"/>
+  <rect x="266" y="466" width="38" height="14" rx="5" fill="#0e1420"/>
+  <rect x="131" y="480" width="9" height="258" fill="#0a0e16"/>
+  <rect x="290" y="480" width="9" height="258" fill="#0a0e16"/>
+  <!-- 魔王：双角 / 宽肩 / 搭扶手的手（最暗一阶，压在亮背板上轮廓才立得住） -->
   <g fill="${INK}">
-    <path d="M186 262 q-20 -44 8 -66 q-4 22 10 38 q22 26 16 62 q-6 -20 -18 -26 q-12 -6 -16 -8 z"/>
-    <path d="M244 262 q20 -44 -8 -66 q4 22 -10 38 q-22 26 -16 62 q6 -20 18 -26 q12 -6 16 -8 z"/>
-    <path d="M215 300 q-26 0 -34 24 q-30 10 -38 52 q-10 56 6 130 q4 22 4 40 l14 6 q-6 -60 2 -108 q4 -26 16 -40 l36 -4 q26 6 40 34 q14 30 12 116 l14 -8 q6 -90 -6 -142 q-10 -44 -40 -56 q-8 -24 -26 -24 z"/>
-    <path d="M175 556 q-28 44 -34 182 h148 q-8 -140 -34 -182 q-18 -22 -40 -22 q-22 0 -40 22 z"/>
+    <path d="M211 254 C196 249 181 236 174 214 C172 207 176 203 181 207 C189 226 199 241 213 248 Z"/>
+    <path d="M219 254 C234 249 249 236 256 214 C258 207 254 203 249 207 C241 226 231 241 217 248 Z"/>
+    <path d="M200 292 Q200 264 215 262 Q230 264 230 292 L230 302 L200 302 Z"/>
+    <path d="M163 336 Q170 306 202 300 L228 300 Q260 306 267 336 L272 410 Q274 462 268 520 L262 566 L168 566 L162 520 Q156 462 158 410 Z"/>
+    <path d="M165 334 Q150 380 147 436 Q146 458 150 474 L170 478 Q165 434 168 392 Q170 360 178 338 Z"/>
+    <path d="M265 334 Q280 380 283 436 Q284 458 280 474 L260 478 Q265 434 262 392 Q260 360 252 338 Z"/>
+    <path d="M146 470 h28 v15 q-15 6 -28 0 z"/>
+    <path d="M256 470 h28 v15 q-15 6 -28 0 z"/>
   </g>
-  <!-- 膝上：小薇拉被拢在披风里（只有裙摆露出来） -->
-  <path d="M206 528 q14 -8 26 0 l6 34 q-20 10 -38 0 z" fill="${INK2}"/>
-  <path d="M212 522 q7 -4 13 0 l2 10 q-8 4 -17 0 z" fill="${EDGE}" opacity=".55"/>
-  <!-- 魔王受光窄边（右上 45°） -->
-  <path d="M252 300 q26 8 34 52" fill="none" stroke="${EDGE}" stroke-width="1.6" opacity=".6"/>
-  <!-- 薇拉的小脚印从门口进来（地上淡痕） -->
-  <path d="M300 760 h56" stroke="${INK2}" stroke-width="2" opacity=".5"/>
+  <!-- 魔王亮瞳（焦点层）+ 右缘受光边 + 火光在披风上的一线暖反光 -->
+  <circle cx="207" cy="279" r="1.6" fill="${WARM_HI}" opacity=".85"/>
+  <circle cx="223" cy="279" r="1.6" fill="${WARM_HI}" opacity=".85"/>
+  <path d="M267 336 Q275 380 277 434" fill="none" stroke="${EDGE}" stroke-width="1.6" opacity=".55"/>
+  <path d="M219 254 C234 249 248 237 255 217" fill="none" stroke="${EDGE}" stroke-width="1.1" opacity=".5"/>
+  <path d="M262 600 Q271 660 269 722" fill="none" stroke="${WARM}" stroke-width="2" opacity=".14"/>
+  <!-- 薇拉：拢在左臂弯里的小小剪影（光滑小形对着父亲的尖角） -->
+  <circle cx="193" cy="424" r="9" fill="#0e1420"/>
+  <path d="M193 433 Q179 437 177 458 L175 486 H211 L209 458 Q207 437 193 433 Z" fill="#0e1420"/>
+  <path d="M186 417 q-5 9 -4 20" fill="none" stroke="${PAL}" stroke-width="1.1" opacity=".4"/>
+  <path d="M205 439 Q209 452 210 468" fill="none" stroke="${EDGE}" stroke-width="1" opacity=".5"/>
+  <!-- 披风铺地（侧缘撕口 + 垂褶近读彩蛋） -->
+  <path d="M170 566 Q152 646 156 738 H274 Q278 646 260 566 Q215 552 170 566 Z" fill="${INK}"/>
+  <path d="M158 642 l16 8 -14 12 z" fill="#0d1320"/>
+  <path d="M272 668 l-16 8 14 12 z" fill="#0d1320"/>
+  <path d="M188 612 q-6 50 -4 94 M215 602 v106 M242 612 q6 50 4 94" fill="none" stroke="#0e1520" stroke-width="2" opacity=".8"/>
   <!-- 火盆（本幕唯一暖光） -->
   <g>
     <ellipse cx="330" cy="690" rx="86" ry="86" fill="url(#scA-glow)"/>

@@ -2402,7 +2402,7 @@
     if (!first) { box.innerHTML = ''; return; }
     const ids = ['none', 'mercy', 'greed', 'guard'];
     box.innerHTML = `<div class="nv-title">下一局开局可以立誓</div>`
-      + `<div class="nv-chips">${ids.map((id) => `<span class="nv-chip">${D.vows[id].emoji} ${D.vows[id].name.replace('之誓', '')}</span>`).join('')}</div>`
+      + `<div class="nv-chips">${ids.map((id) => `<span class="nv-chip">${VowIcons.icon(id, 14)} ${D.vows[id].name.replace('之誓', '')}</span>`).join('')}</div>`
       + `<p class="nv-note">一条规矩换一种走法；越难走，通关留下的 ✦ 越多。</p>`;
   }
 
@@ -3387,6 +3387,23 @@
     box.classList.add('show');
   }
 
+  // 重置游戏：放弃当前这一局并从头开始（保留成就、余烬与解锁）。统一走二次确认弹层。
+  // 必须留在模块层：cfgReset（bindInput 内）与 btnNewRun（boot 内）两个绑定都引用它——
+  // 2026-11-17 实测它误留在 bindInput 里时，boot 里的按钮一点就抛
+  // ReferenceError: doResetRun is not defined（有存档的老玩家「开新局」必踩）。
+  function doResetRun() {
+    Sound.stopMotif();
+    Sound.setPad(-1);
+    Sound.stopMusic();
+    const n = Meta.incReset();
+    Engine.reset();
+    refreshStartActions();
+    closeCfg();
+    openVow();
+    log('已重置本局 · 从头开始', 'gold');
+    warn(`本局已重置（成就、余烬与解锁保留）· 第 ${n} 次重来`);
+  }
+
   // ---------- 标题页 ----------
   // 跨零点：开始页「今日一塔 · M月D日」与榜单「今日」档都按「渲染那一刻」的日期算——
   // 页面挂着过零点会一直写着昨天，点下去进的却是新一天的塔（文案与内容不一致＝谎话）。
@@ -4212,19 +4229,6 @@
       refreshCfg();
       warn('已清空存档、成就、收藏与榜单');
     });
-    // 重置游戏：放弃当前这一局并从头开始（保留成就、余烬与解锁）。统一走二次确认弹层
-    function doResetRun() {
-      Sound.stopMotif();
-      Sound.setPad(-1);
-      Sound.stopMusic();
-      const n = Meta.incReset();
-      Engine.reset();
-      refreshStartActions();
-      closeCfg();
-      openVow();
-      log('已重置本局 · 从头开始', 'gold');
-      warn(`本局已重置（成就、余烬与解锁保留）· 第 ${n} 次重来`);
-    }
     $('cfgReset').addEventListener('click', () => askConfirm({ cb: doResetRun }));
     $('resetCancel').addEventListener('click', () => { el.resetConfirmOverlay.classList.remove('show'); confirmCb = null; });
     $('resetConfirm').addEventListener('click', () => {
@@ -4439,7 +4443,7 @@
     if (hint) hint.textContent = full ? '点一张开始 · 或 ← → 切换、Enter 确认' : '点一下开始';
     if (!full) {
       el.vowCards.innerHTML = `<button class="vow-card hero" data-vow="none">
-        <span class="vc-head"><span class="vc-emoji">🚪</span><span class="vc-tier t-easy">第一局</span></span>
+        <span class="vc-head">${VowIcons.icon('door', 30)}<span class="vc-tier t-easy">第一局</span></span>
         <span class="vc-name">先进塔看看</span>
         <span class="vc-desc">第一局按塔本来的样子走。下一局起可以立誓，用一条规矩换一种走法。</span>
       </button>`;
@@ -4487,7 +4491,7 @@
       const cost = (v.desc.match(costRe) || []).join(' · ');
       const rest = cost ? v.desc.split(costRe).map((p) => p.replace(/^[；;、]+|[；;、]+$/g, '').trim()).filter(Boolean).join('；') : v.desc;
       return `<button class="vow-card ${id === 'none' ? 'hero' : ''}" data-vow="${id}">
-        <span class="vc-head"><span class="vc-emoji">${v.emoji}</span>${tier}${lastMark}</span>
+        <span class="vc-head">${VowIcons.icon(id, 30)}${tier}${lastMark}</span>
         <span class="vc-name">${v.name}</span>
         <span class="vc-desc">${rest}</span>
         ${cost ? `<span class="vc-cost">${cost}</span>` : ''}
