@@ -879,6 +879,8 @@ html, body {
 /* 用时列吃 auto 宽度：10分40秒 这类 6 字时间在固定 60px 里会竖着断成四行 */
 .bd-time { color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
+/* 码行：标签与码同排（430 宽下码只有 250px 可用，一枚真码 42~56 字符放不满一行，
+   折行怎么分见 .code-val 里那条 text-wrap 说明） */
 .code-row {
   display: flex;
   align-items: center;
@@ -896,6 +898,14 @@ html, body {
   font-family: Consolas, monospace;
   color: var(--gold);
   word-break: break-all;
+  /* 挑战码折行必须**等分**（2026-11-17 美术焦点B 实测）：一枚真码 42~56 个字符，
+     标签「我的挑战码」占掉 59px 后，430 宽只剩 250px 可用（约 40 字符/行）。
+     默认折行是「填满第一行再甩尾巴」—— 42 字符的码折成 40+2、56 字符折成 48+8，
+     截图里 `...yy4xhy` 下面孤零零一个 `4u`，读起来像码本身就是错的。
+     `text-wrap: balance` 让它分成两行等长（28+28 / 21+21），像一块码而不是断掉的串。
+     试过「标签独占一行、码吃满 316px」：实测行分布与现在一样（都两行等长），
+     只白多一行高度 —— 按收敛第四问「它换掉了什么」退回，只留这一行声明。 */
+  text-wrap: balance;
   line-height: 1.4;
 }
 .code-hint { font-size: var(--fs-tag); color: var(--muted); line-height: 1.6; margin: 7px 0 0; }
