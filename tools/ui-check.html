@@ -272,6 +272,43 @@ async function run() {
     } catch (e) { out.rivalLandErr = String(e && e.message || e); }
     if (f2.parentNode) f2.parentNode.removeChild(f2);
 
+    // 名录上限 12：满员时再收一位，被挤掉的必须是最早那条（旧实现先 push 再 slice(0,12)，
+    // 新来的排末尾 ⇒ 切掉的正是刚收下的那条，而提示条已经说过「收下了」）。
+    // 整段自带存档还原：后面的榜单断言还要用原来那份名录。
+    var savedRivals = w.localStorage.getItem('towermates_rivals');
+    var seed = [];
+    for (var si = 0; si < 12; si++) {
+      seed.push({ code: 'seed' + si, name: '挑战·朋友', rival: true, ending: 'plain', floor: 5, steps: 100 + si, time: 90 + si });
+    }
+    w.localStorage.setItem('towermates_rivals', JSON.stringify(seed));
+    var capCode = w.Challenge.encode({ ending: 'plain', vow: 'none', floor: 8, level: 9, steps: 222, time: 321 });
+    var f4 = document.createElement('iframe');
+    f4.style.cssText = 'width:400px;height:700px;border:0;position:absolute;left:-9999px;top:0';
+    f4.src = '../index.html?rival=' + capCode;
+    document.body.appendChild(f4);
+    var capAt = Date.now(), capList = null;
+    out.rivalCapWarn = '';
+    while (Date.now() - capAt < 9000) {
+      try {
+        capList = JSON.parse(w.localStorage.getItem('towermates_rivals') || '[]');
+        // 提示条会自己淡出，所以在轮询里顺手抓——不在事后单独读一次（那时可能已经空了）
+        var pillLive = f4.contentWindow.document.getElementById('warnPill');
+        var pillTxt = pillLive ? String(pillLive.textContent || '').replace(/\s+/g, '') : '';
+        if (pillTxt.indexOf('收下了') >= 0) out.rivalCapWarn = pillTxt;
+        if (capList.some(function (x) { return x.code === capCode; })) break;
+      } catch (e) { capList = null; }
+      await new Promise(function (r) { setTimeout(r, 60); });
+    }
+    await new Promise(function (r) { setTimeout(r, 120); });
+    capList = capList || [];
+    out.rivalCapLen = capList.length;
+    out.rivalCapKept = capList.some(function (x) { return x.code === capCode; });
+    out.rivalCapEvictedOldest = capList.some(function (x) { return x.code === 'seed11'; })
+      && !capList.some(function (x) { return x.code === 'seed0'; });
+    if (f4.parentNode) f4.parentNode.removeChild(f4);
+    if (savedRivals === null) w.localStorage.removeItem('towermates_rivals');
+    else w.localStorage.setItem('towermates_rivals', savedRivals);
+
     // 自己贴自己的码：不许当朋友进榜。
     // 贴的必须是「自己另一局」而不是名录第一局——旧实现只跟第一局比字符串，拿第一局测会假绿。
     var selfCode = w.Challenge.encode({

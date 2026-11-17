@@ -283,6 +283,34 @@ const hit = banned.filter((w) => viewSrc.indexOf(w) >= 0);
 ok(hit.length === 0, `view.js 必须与 DOM/引擎/时钟无关（命中：${hit.join(',') || '无'}）`);
 ok(mainSrc.indexOf("const SHOP_CORE = [") < 0 && mainSrc.indexOf('const VOW_TABS = [[') < 0, '货架折叠常量与档位表只在 view.js 定义一处');
 
+// ---------- 朋友名录：上限 12 与「挤掉谁」（2026-11-18 社交轮） ----------
+// 旧实现是 `list.push(...)` 之后 `slice(0, 12)`：新收下的那条永远排在末尾 ⇒ 满 12 条时被切掉的
+// 正是**刚收下的这一条**，而提示条已经说过「收下了挑战·朋友」。玩家看到的症状是「说收下了，榜上没有」；
+// 而 PROGRESS 里写的口径是「挤掉最老那条」。上限与挤法现在只在 view.js 一处。
+const rivalN = (n) => Array.from({ length: n }, (_, i) => ({ code: `c${i + 1}` }));
+ok(V.RIVAL_CAP === 12, `名录上限只有一处定义（实测 ${V.RIVAL_CAP}）`);
+const fullCap = V.capRivals(rivalN(13));
+ok(fullCap.length === 12 && fullCap[0].code === 'c2' && fullCap[11].code === 'c13',
+  `满员后再收一位：挤掉最早那条、新收下的留下（实测首 ${fullCap[0].code} / 末 ${fullCap[11].code}）`);
+ok(V.capRivals(rivalN(3)).length === 3 && V.capRivals([]).length === 0 && V.capRivals(null).length === 0,
+  '不满上限原样保留；空值与空名单不炸');
+ok(V.capRivals(rivalN(4), 2).map((x) => x.code).join(',') === 'c3,c4', '上限可注入（同一份逻辑给测试与将来的名单复用）');
+const capInput = rivalN(13);
+V.capRivals(capInput);
+ok(capInput.length === 13, '不修改入参（调用方还要拿它跟结果比长度，判「有没有挤掉人」）');
+// 契约要查「代码里还有没有这个写法」，而解释这段历史的注释本身会提到旧写法——先把注释剥掉再 grep，
+// 否则注释写得越清楚，闸门越红（[^:] 那个守卫是为了别把 https:// 当行注释）。
+const stripComments = (s) => String(s)
+  .replace(/\/\*[\s\S]*?\*\//g, '')
+  .replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+ok(stripComments(mainSrc).indexOf('slice(0, 12)') < 0 && mainSrc.indexOf('View.capRivals') >= 0,
+  '名录写盘必须过 View.capRivals（旧的 slice(0, 12) 切掉的是刚收下的那条，注释里提到不算）');
+const wxSrc = require('fs').readFileSync(require('path').join(__dirname, '..', 'js', 'wxwire.js'), 'utf8');
+ok(stripComments(wxSrc).indexOf('slice(0, 12)') < 0 && wxSrc.indexOf('capRivals') >= 0,
+  '微信好友榜那条写者与贴码共用同一份上限（不许第二份 12）');
+ok(mainSrc.indexOf('if (!saved.ok)') >= 0 && mainSrc.indexOf('if (!kept.ok)') >= 0,
+  '两条入口（贴码 / 落地收下）在存储失败时改口，不许说「进榜了」');
+
 // ---------- 结算：塔印与余烬（切边界第二刀） ----------
 // 这一屏的每句话都是算术：塔印档位、「下一枚还差什么」、「本局余烬 +N」。
 // 原先是 main.js 里的手写文案 + 手写判据，两边各写一遍就会漂——所以除了逐个档位验，

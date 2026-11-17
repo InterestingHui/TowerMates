@@ -897,6 +897,19 @@
       return u.toString();
     } catch (e) { return ''; }
   }
+  // ---------- 朋友名录：上限与「挤掉谁」 ----------
+  // 名录只留 12 条。这条上限原先在**两个写者**里各写了一遍（main.js 贴码 / wxwire.js 微信好友榜），
+  // 而 main.js 的写法是先 push 再 `slice(0, 12)` —— 满 12 条时被切掉的正是**刚收下的那一条**
+  // （新来的永远排在末尾），界面上却已经说过「收下了挑战·朋友」。玩家能看到的症状：
+  // 收到第 13 位朋友的链接，提示条说收下了，榜上一条也没有；而 PROGRESS 里写的口径是「挤掉最老那条」。
+  // 现在收拢成一处：名录按**收到时间从旧到新**排，上限从最旧那一端挤 —— 谁先来谁先让位。
+  const RIVAL_CAP = 12;
+  function capRivals(list, cap) {
+    const c = cap || RIVAL_CAP;
+    const arr = Array.isArray(list) ? list : [];
+    return arr.length > c ? arr.slice(arr.length - c) : arr.slice();
+  }
+
   // 落地后把参数冲掉（相对地址即可，交给 replaceState）：刷新不该再收一次、也不该重复弹提示
   function withoutRival(href) {
     try {
@@ -913,7 +926,7 @@
 
   return {
     boardModel, shopModel, codexModel, lossModel, CODEX_CHARS,
-    rivalLink, withoutRival, rivalFromSearch,
+    rivalLink, withoutRival, rivalFromSearch, RIVAL_CAP, capRivals,
     altarModel, echoModel, eventModel, shortfallText,
     endScoreModel, emberDetailModel, winBrief, deathBrief, briefModel,
     sealOf, nextSealHint, sealTarget, emberModel,

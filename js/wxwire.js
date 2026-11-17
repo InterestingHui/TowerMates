@@ -94,11 +94,16 @@
           vow: x.vow,
         }));
         const seen = new Set();
+        // 好友榜每次回的是「最新一批」，排在前面；本地名录是旧→新。去重时新的优先，
+        // 然后翻成「旧 → 新」交给 View.capRivals —— 上限从**最旧**那一端挤，
+        // 与贴码那条路同一份口径（此前两个写者各写一遍 12，且一边的切片方向是反的）。
         const all = rows.concat(mine).filter((x) => {
           if (seen.has(x.code)) return false;
           seen.add(x.code); return true;
         });
-        localStorage.setItem(KEY, JSON.stringify(all.slice(0, 12)));
+        const V = window.View;
+        if (!V || typeof V.capRivals !== 'function') return;
+        localStorage.setItem(KEY, JSON.stringify(V.capRivals(all.slice().reverse())));
       } catch (e) { /* 无存储权限时忽略 */ }
     });
   });

@@ -565,21 +565,31 @@ ok(ev.type === 'event' && !!ev.eventId, '踩到路遇点弹出事件');
 
 // ---------- 9i-2. 回血来源口径：除「本层首次踏足」外，其余回血都不许原地反复刷 ----------
 // ① 药水格踩过即清空：站上去再踩一次不会重复回血
+// **「药水四邻全是墙/怪/门」是随机布局的正常形态**：散落物每局换位，落点是原图本来就是 '.' 的格子，
+// 连通性一点没变，只是这个格子可能恰好一条空地邻边都没有。旧写法默认 `side` 一定存在，
+// 于是 `s.x = side.x` 在那种局面上直接 TypeError，把**整个套件**打断在第 583 行——
+// 这正是「闸门抖动」的真身：连跑两次，一次 635 项全绿，一次只剩 145 项就崩（2026-11-17 记的待办）。
+// 现在换局重找（最多 6 局）；6 局都找不到才算真缺陷，那时报一条失败的断言，而不是崩掉。
 E.newGame();
-s = E.state();
-const potPos = (() => {
-  const m = s.maps[0];
-  for (let y = 0; y < 11; y++) for (let x = 0; x < 11; x++) if (m[y][x] === 'p') return { x, y };
-  return null;
-})();
-ok(!!potPos, '第 1 层找得到红药水');
-if (potPos) {
-  // 首层散落物每局换位后，药水可能贴墙——先找一个站得住脚的相邻格，别假设它上方一定是地面。
+let potPos = null;
+let side = null;
+for (let potTry = 0; potTry < 6 && !side; potTry++) {
+  s = E.state();
+  potPos = (() => {
+    const m = s.maps[0];
+    for (let y = 0; y < 11; y++) for (let x = 0; x < 11; x++) if (m[y][x] === 'p') return { x, y };
+    return null;
+  })();
+  if (!potPos) break;
   // 注意方向：站在「药水 + 偏移」处，要踩上去得朝 -偏移 走。
-  const side = [[0, -1], [0, 1], [-1, 0], [1, 0]]
+  side = [[0, -1], [0, 1], [-1, 0], [1, 0]]
     .filter(([dx, dy]) => E.tile(potPos.x + dx, potPos.y + dy) === '.')
-    .map(([dx, dy]) => ({ x: potPos.x + dx, y: potPos.y + dy, dx: dx, dy: dy }))[0];
-  ok(!!side, '药水旁有可站立的格子（换位不会把它封死）');
+    .map(([dx, dy]) => ({ x: potPos.x + dx, y: potPos.y + dy, dx: dx, dy: dy }))[0] || null;
+  if (!side && potTry < 5) E.newGame();
+}
+ok(!!potPos, '第 1 层找得到红药水');
+ok(!!side, '药水旁有可站立的格子（六局内至少一局能找到）');
+if (potPos && side) {
   s.x = side.x; s.y = side.y; s.hp = 500;
   const hpBeforePot = s.hp;
   const potEv = E.tryMove(-side.dx, -side.dy);
@@ -1202,8 +1212,21 @@ const ringGold0 = s.gold;
 const picked = E.pickRing(ringOpts[0]);
 ok(picked.type === 'ring' && E.rings().length === 1, '选中的锁环写入存档');
 ok(E.pendingRing() === null, '选完锁环后待办清除');
-if (ringOpts[0] === 'coin') ok(s.gold === ringGold0 + 200, '铜币之环立即发 200 金');
-
+// 铜币之环「选到即发 200 金」：候选三枚是随机抽的，靠运气验等于有时验有时不验
+// ——旧写法是 `if (ringOpts[0] === 'coin') ok(...)`，于是同一套件有时 635 项、有时 636 项
+// （「闸门抖动」的另一半根因，2026-11-17 记的待办）。改成**把候选摆好再选**：恒定跑，不靠抽。
+E.newGame();
+s = E.state();
+const coinGold0 = s.gold;
+s.flags.ringPending_1 = true;
+s.flags.ringChoices_1 = ['coin', 'parry', 'zeal'];
+const coinPick = E.pickRing('coin');
+ok(coinPick.type === 'ring' && s.gold === coinGold0 + 200, '铜币之环：选到立刻发 200 金');
+ok(E.pendingRing() === null && E.rings().indexOf('coin') >= 0, '选完就清待办、锁环进袋（同一枚不重复发钱）');
+// 回到下面几段要的局面：第 2 层、袋里只有断刃之环（数值由各条自己摆）
+E.newGame();
+s = E.state();
+s.floor = 2;
 s.flags.rings = ['parry'];
 s.atk = 60; s.def = 30; s.hp = 5000; s.maxHp = 5000;
 ok(Math.abs(E.ringBlockScale() - 0.45) < 1e-9, '断刃之环把格挡比例再收 0.1（0.55→0.45）');

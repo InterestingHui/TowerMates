@@ -1754,7 +1754,14 @@
   function saveRival(code, rec) {
     const list = loadRivals().filter((x) => x.code !== code);
     list.push(Object.assign({ code, name: '挑战·朋友', rival: true }, rec));
-    try { localStorage.setItem('towermates_rivals', JSON.stringify(list.slice(0, 12))); } catch (e) {}
+    // 上限只有一处定义（View.RIVAL_CAP / capRivals）。旧的 `list.slice(0, 12)` 是「先 push 再从**头**切」——
+    // 新来的永远在末尾，满 12 条时被切掉的正是刚收下的那一条：提示条说「进榜了」，榜上一条也没有。
+    // 返回 { ok, evicted }：两条入口（贴码 / 落地收下）都要能对玩家说实话。
+    const capped = View.capRivals(list);
+    try {
+      localStorage.setItem('towermates_rivals', JSON.stringify(capped));
+      return { ok: true, evicted: capped.length < list.length };
+    } catch (e) { return { ok: false, evicted: false }; }
   }
   function loadBoard() {
     try { return JSON.parse(localStorage.getItem('towermates_board') || '[]'); } catch (e) { return []; }
@@ -1844,15 +1851,18 @@
     // 贴自己另一局（刚打完那局通常不是最好的那局）的码会被当成朋友进榜。规则在 view.js，单测在 code-test。
     if (View.isMine(rec, loadBoard())) { warn('这是你自己打的成绩'); return; }
     const dup = loadRivals().some((x) => x.code === code);
-    saveRival(code, rec);
+    const saved = saveRival(code, rec);
     input.value = '';
     // 带日签的码能判出「他走的是不是今天这座」，同塔的成绩才进得了「今日」档
     const sameDay = !!rec.daily && rec.daily === Daily.keyOf(Date.now());
     const dayTag = sameDay ? ' · 今天这座' : '';
-    if (hint) hint.textContent = dup
+    const evictTag = saved.evicted ? '（名录满，最早那条让位）' : '';
+    // 存不进去（隐私模式 / 配额满）时不许说「进榜了」——榜上根本没有这一行
+    if (!saved.ok) { warn('收到了，但存不进本地（浏览器存储被禁用）'); return; }
+    if (hint) hint.textContent = (dup
       ? `已更新「挑战·朋友」：第 ${rec.floor} 层 · 用时 ${fmtTime(rec.time)}${dayTag}`
-      : `「挑战·朋友」进榜：第 ${rec.floor} 层 · 用时 ${fmtTime(rec.time)}${dayTag}。爬得比他更高。`;
-    warn(dup ? '朋友的最新成绩已更新' : `挑战·朋友 第 ${rec.floor} 层，进榜了`);
+      : `「挑战·朋友」进榜：第 ${rec.floor} 层 · 用时 ${fmtTime(rec.time)}${dayTag}。爬得比他更高。`) + evictTag;
+    warn((dup ? '朋友的最新成绩已更新' : `挑战·朋友 第 ${rec.floor} 层，进榜了`) + evictTag);
     Sound.play('ach');
     boardFilter = 'all';
     openBoard();
@@ -4913,11 +4923,15 @@
       if (!rrec) warn('这个挑战链接读不出来，让朋友重新复制一次');
       else if (View.isMine(rrec, loadBoard())) warn('这是你自己那一局的链接');
       else {
-        saveRival(rivalCode, rrec);
+        const kept = saveRival(rivalCode, rrec);
         const sameDay = !!rrec.daily && rrec.daily === Daily.keyOf(Date.now());
-        warn(`收下了挑战·朋友：第 ${rrec.floor} 层 · 用时 ${fmtTime(rrec.time)}${sameDay ? ' · 今天这座' : ''}`);
-        // 塔友榜第 2 局起才露脸（首局摆榜单会挤占开屏预算）——老玩家就顺手把榜打开
-        if (!isFirstRun()) openBoard();
+        // 存不进去 / 名录满了把别人挤掉，都要在收下的那句话说清——那句提示是玩家唯一的信息来源
+        if (!kept.ok) warn('这个挑战收下了，但存不进本地（浏览器存储被禁用）');
+        else {
+          warn(`收下了挑战·朋友：第 ${rrec.floor} 层 · 用时 ${fmtTime(rrec.time)}${sameDay ? ' · 今天这座' : ''}${kept.evicted ? '（名录满，最早那条让位）' : ''}`);
+          // 塔友榜第 2 局起才露脸（首局摆榜单会挤占开屏预算）——老玩家就顺手把榜打开
+          if (!isFirstRun()) openBoard();
+        }
       }
       try { history.replaceState(null, '', View.withoutRival(location.href)); } catch (e) {}
     }

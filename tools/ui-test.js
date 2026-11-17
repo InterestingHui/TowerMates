@@ -110,6 +110,13 @@ const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-ui-'));
   ok(String(out.rivalLandParam).indexOf('rival=') < 0, `收下后地址栏里的 rival 参数被冲掉（实测「${out.rivalLandParam}」）`);
   ok(out.rivalStrip === '/?sharecode=AAA#demo=1,2,3',
     `冲参数只去 rival，sharecode 与 hash 一个不动（实测「${out.rivalStrip}」）`);
+  // 名录满 12 条时再收一位：挤掉的是最早那条，不是刚收下的这条（旧实现的切片方向是反的）
+  ok(out.rivalCapLen === 12 && out.rivalCapKept === true,
+    `满员时收下第 13 位，名录仍是 12 条且新那条在（实测 ${out.rivalCapLen} 条 / 新条在=${out.rivalCapKept}）`);
+  ok(out.rivalCapEvictedOldest === true,
+    `被挤掉的是最早那条（seed11 在 / seed0 不在 = ${out.rivalCapEvictedOldest}）`);
+  ok(String(out.rivalCapWarn).indexOf('名录满') >= 0,
+    `挤掉别人的时候当面说清（实测「${out.rivalCapWarn}」）`);
   ok(out.rivalNoCodeCopied === null && String(out.rivalNoCodePill).indexOf('先打完一局') >= 0 && out.rivalNoCodeBtn === true,
     `还没通关时不拼垃圾链接，提示条 + 按钮都说清原因（复制到「${out.rivalNoCodeCopied}」/ 提示「${out.rivalNoCodePill}」）`);
   // 结算页的分享出口：刚通关那一刻码就在屏幕上，搬不走等于没有

@@ -42,7 +42,10 @@ console.log((okSkip ? '✓' : '✗') + ` 避战流 S 档可达 ${skipPct ? skipP
 
 console.log('== 3/7 引擎单测 ==');
 const test = run(process.execPath, ['tools/engine-test.js']);
-const passed = (test.out.match(/^✓/gm) || []).length;
+// 计数只数「断言」，不数结尾那行 `✓ 全部通过`——它也是以 ✓ 开头，一直被算成第 636 条，
+// 于是同一个套件有时报 635（少读到最后一行）有时报 636，PROGRESS 里还留了句「实际是 635」的注。
+// 现在口径唯一：行数 = 断言数，且与文档里的基线同源。
+const passed = (test.out.match(/^✓ (?!全部通过)/gm) || []).length;
 const okTest = test.code === 0;
 console.log((okTest ? '✓' : '✗') + ` engine-test.js ${passed} 项`);
 
@@ -266,9 +269,14 @@ if (!process.argv.includes('--no-shot')) {
           return { pass, bits: bits ? bits[1] : '' };
         };
         let r = read();
-        if (!r.bits) r = read();
+        // 「7/9」这种「bits 读到了但没满」的形态，是虚拟时间预算被并发负载吃掉的典型结果
+        // （2026-11-17 连跑两次全量回归时命中过一次：同一台机器一次全绿、一次掉 2 位，单独跑又 9/9）。
+        // 与「完全没读到」同等对待：重跑一次；重跑才对的在行尾标出来，免得以后把假红当真相、把真红当抖动。
+        let introRetried = false;
+        if (!r.pass) { introRetried = true; r = read(); }
         okIntro = r.pass;
         introLine = r.bits ? `${(r.bits.match(/1/g) || []).length}/${r.bits.length} 项` : '读数失败';
+        if (introRetried) introLine += okIntro ? '（重跑一次才满）' : '（重跑仍未满）';
         console.log((okIntro ? '✓' : '✗') + ` 序章重播 ${introLine}`);
       }
       // 好友榜接线：H5 隐藏、注入 sharedCanvas 后能贴到榜单面板
