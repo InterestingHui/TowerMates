@@ -1,5 +1,9 @@
 # TowerMates 长期记忆
 
+## 序章分镜系统（2026-11-17，commit 4338040，已上线）
+- 开场序章四行旁白各有全屏 SVG 剪影场景（js/scenes.js）：王座厅→授帕→立誓→塔门，每幕单一暖光、渐变雾、零位图。新序章剧本若加行，`INTRO_SCENES` 数组按 idx 取幕（超界收尾幕）；非 intro 的对白永远无场景。
+- `tools/scene-check.html`：16 断言 + `?stay=N` 停幕截图；已挂 regress「序章分镜」节。headless 截图必须注入 `animation:none`（虚拟时间会把淡入冻在第一帧——真实浏览器无此问题）。
+
 ## Boss 地图标改锁匠剪影（2026-11-12，commit 315a50b）
 - 用户反馈「第 3 层拦路的是一本书，很奇怪」：砚的 emoji 📖 整格画出，跟可拾取道具一模一样。
 - render.js 新增 `drawBossFigure`：四位章节 Boss（砚紫/炬红/铎金/衡蓝）统一画成「坐姿剪影+双角+亮瞳+膝上锁物(小号 emoji)+脚下红色脉动威胁环」，光色与 portraits.js 同源；剪影勾 1px 光色亮边保证暗墙上可读。普通小怪仍走 emoji。
