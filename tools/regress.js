@@ -4,6 +4,7 @@ const { spawn, spawnSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
+const os = require('os');
 
 const ROOT = path.resolve(__dirname, '..');
 const OUT = path.join(__dirname, 'out');
@@ -15,7 +16,7 @@ const CHROME_CANDIDATES = [
   'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
   'C:/Program Files/Microsoft/Edge/Application/msedge.exe',
 ];
-const SCENES = ['start', 'play', 'bossintro', 'codexzoom', 'critters', 'dialog', 'hint', 'stuck', 'battle', 'battleblock', 'bossphase', 'bossyan', 'bossdef', 'probecard', 'altar', 'choice', 'end', 'board', 'codex', 'cfg', 'hud', 'tower', 'core', 'heart', 'stoneidle', 'vow', 'vowfirst', 'event', 'eventdeep', 'gate', 'echo', 'goal', 'flow', 'showcase', 'death', 'death1', 'collection', 'adsdeath', 'adsend', 'sword', 'daily', 'dailyboard', 'dailyend', 'floor2', 'floor3', 'shop', 'echo2', 'battletwice', 'zeal', 'final', 'tanglebattle', 'guardbattle', 'threatbattle', 'hudmax'];
+const SCENES = ['start', 'play', 'bossintro', 'codexzoom', 'critters', 'minions', 'dialog', 'hint', 'stuck', 'battle', 'battleblock', 'bossphase', 'bossyan', 'bossdef', 'probecard', 'altar', 'choice', 'end', 'board', 'codex', 'cfg', 'hud', 'tower', 'core', 'heart', 'stoneidle', 'vow', 'vowfirst', 'event', 'eventdeep', 'gate', 'echo', 'goal', 'flow', 'showcase', 'death', 'death1', 'collection', 'adsdeath', 'adsend', 'sword', 'daily', 'dailyboard', 'dailyend', 'floor2', 'floor3', 'shop', 'echo2', 'battletwice', 'zeal', 'final', 'tanglebattle', 'guardbattle', 'threatbattle', 'hudmax'];
 
 function run(cmd, args) {
   const r = spawnSync(cmd, args, { cwd: ROOT, encoding: 'utf8' });
@@ -164,6 +165,39 @@ if (!process.argv.includes('--no-shot')) {
         const good = r.status === 0 && size > 8000;
         if (!good) bad++;
         console.log((good ? '✓' : '✗') + ` opendata ${cs} ${(size / 1024).toFixed(0)}KB`);
+      }
+      // 序章分镜四幕：16 项断言（幕在播/幕序/暖光/清场/非序章无场景）+ 四幕截图
+      console.log('== 附加 · 序章分镜 ==');
+      {
+        const readScene = () => {
+          const p = spawnSync(chrome, [
+            '--headless=new', '--disable-gpu', '--no-sandbox', '--no-first-run', '--disable-extensions',
+            '--user-data-dir=' + path.join(os.tmpdir(), 'tm-scene-' + process.pid),
+            '--virtual-time-budget=20000', '--dump-dom',
+            `http://127.0.0.1:${PORT}/tools/scene-check.html`,
+          ], { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+          const m = /<pre id="out">([\s\S]*?)<\/pre>/.exec(p.stdout || '');
+          return m ? m[1] : '';
+        };
+        let scOut = readScene();
+        if (!scOut.includes('ALL PASS') && !scOut.includes('HAS FAIL')) scOut = readScene(); // 偶发空 DOM 重试
+        const okScene = scOut.includes('ALL PASS');
+        const n = (scOut.match(/✓/g) || []).length;
+        console.log((okScene ? '✓' : '✗') + ` scene-check ${n} 项` + (okScene ? '' : '\n' + scOut.slice(0, 400)));
+        if (!okScene) bad++;
+        for (let i = 0; i < 4; i++) {
+          const file = path.join(OUT, 'scene-act' + i + '.png');
+          spawnSync(chrome, [
+            '--headless=new', '--disable-gpu', '--hide-scrollbars',
+            '--window-size=430,900', '--virtual-time-budget=9000',
+            '--screenshot=' + file,
+            `http://127.0.0.1:${PORT}/tools/scene-check.html?stay=${i}`,
+          ], { encoding: 'utf8' });
+          const size = fs.existsSync(file) ? fs.statSync(file).size : 0;
+          const good = size > 20000;   // 场景铺满全屏的画面远大于纯面板截图
+          if (!good) bad++;
+          console.log((good ? '✓' : '✗') + ` scene-act${i} ${(size / 1024).toFixed(0)}KB`);
+        }
       }
       // 手感探针：跳过必须当场生效（曾经点一下要白等 528ms / Boss 过场 950ms）
       console.log('== 附加 · 手感探针（战斗跳过延迟）==');

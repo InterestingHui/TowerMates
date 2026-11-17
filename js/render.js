@@ -562,6 +562,459 @@
     ctx.fillText(text, px + TILE - w / 2 - 2, py + 2 + h / 2 + 0.5);
   }
 
+  // ---------- 小怪剪影库 v2（美术管线介入，2026-11-17）----------
+  // 旧版整格 emoji（🦇🦠💀…）与全局 Noir Silhouette 画风严重打架——彩色系统贴纸
+  // 贴在暗色剪影世界里，观感廉价。新版按风格圣经 §3（三层结构 + 单焦点）逐只手工造型：
+  //   ① 剪影层：近黑形状，远看一整块；② 亮边：kind 族色（兽=琥珀/亡=霜蓝/构=石灰/异=苔绿）
+  //   右上 45° 勾边；③ 焦点层：1–2 粒亮瞳或单点发光部件。
+  // 形状语言对齐 portraits.js 八角色（圆=亲和/方=稳固/三角=危险），48px 下必须两两可辨。
+  // ghost 烛（G）同属此库。未被收录的怪字符走 emoji 兜底（测试注入的怪不炸渲染）。
+  const MINION_INK = '#0a0d14';
+  const MINION_KIND_COLOR = {
+    '兽': ['#ffb06e', 'rgba(255,176,110,'],   // 琥珀
+    '亡': ['#8cc8ff', 'rgba(140,200,255,'],   // 霜蓝
+    '构': ['#b0b8c8', 'rgba(176,184,200,'],   // 石灰
+    '异': ['#96dc96', 'rgba(150,220,150,'],   // 苔绿
+    '魂': ['#9fd8ff', 'rgba(159,216,255,'],   // 魂蓝（烛）
+  };
+  // 造型约定：f(ctx, s, light) 以格中心为原点、s=TILE/48 缩放；y 向下为正，
+  // 身体大致落在 y∈[-14,12]。每只一个「一眼特征」，禁堆零件。
+  // noRim: true 的造型以描边为主（rim 底版会重影），由 drawMinion 跳过亮边层。
+  const MINION_ART = {
+    A: { c: '兽', f: batShape },          // 蝙蝠：双翼三角
+    B: { c: '异', f: slimeShape },        // 史莱姆：半圆水滴
+    C: { c: '亡', f: skullShape },        // 骷髅兵：圆颅
+    D: { c: '亡', f: zombieShape },       // 僵尸：方肩歪头
+    E: { c: '构', f: gargoyleShape },     // 石像鬼：蹲兽方翼
+    W: { c: '亡', f: wraithShape },       // 怨灵：波浪下摆
+    F: { c: '兽', f: wolfShape },         // 狼人：立耳尖吻
+    H: { c: '亡', f: captainShape },      // 骷髅队长：颅+盔缨
+    V: { c: '亡', f: vampireShape },      // 吸血鬼：立领披风
+    I: { c: '兽', f: houndShape },        // 锈犬：低身猎犬
+    R: { c: '亡', f: lanternMonkShape },  // 提灯僧：灯钩僧身
+    '1': { c: '构', f: shieldShape },     // 空甲：立盾
+    '2': { c: '异', f: wormShape, noRim: true },      // 锁虫：环节弓身
+    '3': { c: '魂', f: facelessShape },   // 无面者：垂纱直影
+    '4': { c: '亡', f: priestShape },     // 灰烬祭司：尖帽长袍
+    '5': { c: '兽', f: rustKingShape },   // 锈王：宽体 + 王冠
+    '6': { c: '构', f: wardenShape },     // 守名人：巨碑方身
+    G: { c: '魂', f: candleShape },       // 烛：烛台光焰（ghost 不画瞳）
+  };
+  function batShape(c, s, L) {
+    c.beginPath();
+    c.moveTo(0, 2);                       // 身体中缝
+    c.quadraticCurveTo(-2 * s, -2 * s, -4 * s, -6 * s);
+    c.quadraticCurveTo(-11 * s, -9 * s, -15 * s, -4 * s);   // 左翼上缘
+    c.quadraticCurveTo(-12 * s, -1 * s, -13 * s, 3 * s);
+    c.quadraticCurveTo(-10 * s, 5 * s, -7.5 * s, 2.5 * s);  // 左翼破口
+    c.quadraticCurveTo(-5 * s, 6 * s, -2.5 * s, 5 * s);
+    c.quadraticCurveTo(0, 7 * s, 2.5 * s, 5 * s);           // 下缘波浪
+    c.quadraticCurveTo(5 * s, 6 * s, 7.5 * s, 2.5 * s);
+    c.quadraticCurveTo(10 * s, 5 * s, 13 * s, 3 * s);
+    c.quadraticCurveTo(12 * s, -1 * s, 15 * s, -4 * s);     // 右翼上缘
+    c.quadraticCurveTo(11 * s, -9 * s, 4 * s, -6 * s);
+    c.quadraticCurveTo(2 * s, -2 * s, 0, 2);
+    c.closePath(); c.fill();
+    eyes(c, -2.6, 2.6, -3.4, 1.35, L);
+    // 左耳尖（非对称锚点）
+    c.strokeStyle = L[1] + '0.7)';
+    c.lineWidth = 1;
+    c.beginPath(); c.moveTo(-1.5 * s, -6.5 * s); c.lineTo(-3 * s, -10 * s); c.stroke();
+  }
+  function slimeShape(c, s, L) {
+    blob(c, s, L, 11, 8.5);
+    // 内核一点绿光（单焦点）
+    c.fillStyle = L[1] + '0.95)';
+    c.beginPath(); c.arc(0, 1.5 * s, 2 * s, 0, Math.PI * 2); c.fill();
+    c.fillStyle = 'rgba(255,255,255,0.75)';
+    c.beginPath(); c.arc(-0.7 * s, 0.7 * s, 0.7 * s, 0, Math.PI * 2); c.fill();
+  }
+  function skullShape(c, s, L) {
+    c.beginPath();
+    c.arc(0, -2.5 * s, 8 * s, Math.PI * 0.95, Math.PI * 0.05, false);  // 颅顶
+    c.quadraticCurveTo(8.6 * s, 2.5 * s, 5 * s, 4 * s);                // 右颊
+    c.lineTo(4.2 * s, 8 * s); c.lineTo(1.8 * s, 8 * s); c.lineTo(1.8 * s, 5.5 * s);
+    c.lineTo(-1.8 * s, 5.5 * s); c.lineTo(-1.8 * s, 8 * s); c.lineTo(-4.2 * s, 8 * s); // 齿列
+    c.lineTo(-5 * s, 4 * s);
+    c.quadraticCurveTo(-8.6 * s, 2.5 * s, -8 * s, -2.5 * s);
+    c.closePath(); c.fill();
+    eyeSocket(c, s, -3.6, -2.5, 2.5, 2.9, L);
+    eyeSocket(c, s, 3.6, -2.5, 2.5, 2.9, L);
+    noseDot(c, s, L);
+  }
+  function zombieShape(c, s, L) {
+    // 歪头 + 一侧下垂的腐袖（非对称锚点）
+    c.save(); c.rotate(-0.13);
+    c.fillRect(-8.5 * s, -3 * s, 17 * s, 14 * s);   // 方肩躯干
+    c.restore();
+    roundBlob(c, s, -3.4 * s, -9.5 * s, 5.4 * s, 5 * s, -0.13);
+    // 右臂前伸
+    c.save(); c.rotate(0.18);
+    c.fillRect(6 * s, -3 * s, 9 * s, 3.2 * s);
+    c.restore();
+    // 眼窝：长在歪头（头心 -3.4,-9.5）上，挖洞再点光
+    eyeSocket(c, s, -5.2, -10, 1.4, 1.6, L);
+    eyeSocket(c, s, -1.4, -9.2, 1.4, 1.6, L);
+  }
+  function gargoyleShape(c, s, L) {
+    // 蹲姿：宽方底座 + 小头 + 折角翼
+    c.fillRect(-11 * s, 2 * s, 22 * s, 9 * s);
+    c.beginPath();
+    c.moveTo(-11 * s, 3 * s);
+    c.lineTo(-15 * s, -7 * s); c.lineTo(-7 * s, -2 * s);   // 左折翼
+    c.lineTo(0, -6 * s);
+    c.lineTo(7 * s, -2 * s);
+    c.lineTo(15 * s, -7 * s); c.lineTo(11 * s, 3 * s);     // 右折翼
+    c.closePath(); c.fill();
+    roundBlob(c, s, 0, -8.5 * s, 4.6 * s, 3.6 * s, 0);
+    // 单角
+    c.beginPath(); c.moveTo(0, -12 * s); c.lineTo(2.2 * s, -16 * s); c.lineTo(3.4 * s, -11.5 * s); c.closePath(); c.fill();
+    eyes(c, -1.7, 1.7, -9, 1.1, L);
+  }
+  function wraithShape(c, s, L) {
+    c.beginPath();
+    c.moveTo(-8 * s, 10 * s);
+    c.quadraticCurveTo(-9.5 * s, -2 * s, -6 * s, -9 * s);
+    c.arc(0, -9 * s, 6 * s, Math.PI, 0, false);
+    c.quadraticCurveTo(9.5 * s, -2 * s, 8 * s, 10 * s);
+    c.quadraticCurveTo(5.5 * s, 7 * s, 3.5 * s, 10.5 * s);   // 波浪下摆
+    c.quadraticCurveTo(1.5 * s, 7 * s, 0, 10.5 * s);
+    c.quadraticCurveTo(-1.5 * s, 7 * s, -3.5 * s, 10.5 * s);
+    c.quadraticCurveTo(-5.5 * s, 7 * s, -8 * s, 10 * s);
+    c.closePath(); c.fill();
+    eyes(c, -2.1, 2.1, -9.5, 1.2, L);
+  }
+  function wolfShape(c, s, L) {
+    // 正面立耳狼头
+    c.beginPath();
+    c.moveTo(-7 * s, 8 * s);
+    c.lineTo(-8.5 * s, -2 * s);
+    c.lineTo(-9.5 * s, -13 * s); c.lineTo(-4 * s, -7.5 * s);   // 左立耳
+    c.quadraticCurveTo(0, -9.5 * s, 4 * s, -7.5 * s);
+    c.lineTo(9.5 * s, -13 * s); c.lineTo(8.5 * s, -2 * s);     // 右立耳
+    c.lineTo(7 * s, 8 * s);
+    c.closePath(); c.fill();
+    eyes(c, -3.2, 3.2, -4.5, 1.3, L);
+    noseDot(c, s, L);
+  }
+  function captainShape(c, s, L) {
+    skullCap(c, s, L);
+    // 盔缨：顶部一撮亮毛（唯一区别骷髅兵的地方，单焦点之一）
+    c.fillStyle = L[1] + '0.85)';
+    c.beginPath();
+    c.moveTo(0, -11 * s);
+    c.quadraticCurveTo(-3.5 * s, -13 * s, -4.5 * s, -16.5 * s);
+    c.quadraticCurveTo(-1.5 * s, -15 * s, 0, -16.8 * s);
+    c.quadraticCurveTo(1.5 * s, -15 * s, 4.5 * s, -16.5 * s);
+    c.quadraticCurveTo(3.5 * s, -13 * s, 0, -11 * s);
+    c.closePath(); c.fill();
+    eyeSocket(c, s, -3.4, -2.5, 2.2, 2.6, L);
+    eyeSocket(c, s, 3.4, -2.5, 2.2, 2.6, L);
+  }
+  function vampireShape(c, s, L) {
+    // 高立领披风剪影：领尖高过头，人脸凹在领口中
+    c.beginPath();
+    c.moveTo(-13.5 * s, 11 * s);
+    c.quadraticCurveTo(-13 * s, -4 * s, -10.5 * s, -12 * s);
+    c.lineTo(-7 * s, -14.5 * s);                                // 左领尖
+    c.quadraticCurveTo(-5 * s, -10 * s, -3.5 * s, -8.5 * s);
+    c.quadraticCurveTo(0, -11.5 * s, 3.5 * s, -8.5 * s);
+    c.lineTo(7 * s, -14.5 * s);                                 // 右领尖
+    c.quadraticCurveTo(10.5 * s, -12 * s, 13.5 * s, -4 * s);
+    c.lineTo(13.5 * s, 11 * s);
+    c.closePath(); c.fill();
+    eyes(c, -2.4, 2.4, -6.5, 1.2, L);
+  }
+  function houndShape(c, s, L) {
+    // 低身猎犬：横长体 + 立耳 + 前探吻
+    c.save(); c.rotate(-0.06);
+    c.beginPath();
+    c.ellipse(0, 1.5 * s, 12 * s, 6.5 * s, 0, 0, Math.PI * 2); c.fill();
+    c.restore();
+    roundBlob(c, s, -6.5 * s, -5.5 * s, 5 * s, 4.2 * s, 0);     // 头
+    c.beginPath(); c.moveTo(-10.5 * s, -6 * s); c.lineTo(-14.5 * s, -9 * s); c.lineTo(-10.5 * s, -10.5 * s); c.closePath(); c.fill(); // 吻
+    c.beginPath(); c.moveTo(-4.5 * s, -8 * s); c.lineTo(-3 * s, -12.5 * s); c.lineTo(-0.5 * s, -8.5 * s); c.closePath(); c.fill();   // 耳
+    eyes(c, -8.4, -4.6, -6.4, 1.05, L);
+  }
+  function lanternMonkShape(c, s, L) {
+    // 僧袍 + 提灯：袍身与 Boss 同构（宽摆），灯挂在身侧（非对称锚点）
+    c.beginPath();
+    c.moveTo(-8 * s, 11 * s);
+    c.quadraticCurveTo(-9 * s, -4 * s, -5.5 * s, -11 * s);
+    c.arc(0, -11 * s, 5.5 * s, Math.PI, 0, false);
+    c.quadraticCurveTo(9 * s, -4 * s, 8 * s, 11 * s);
+    c.closePath(); c.fill();
+    // 灯：钩线 + 发光小灯体
+    c.strokeStyle = L[1] + '0.75)';
+    c.lineWidth = 1.1;
+    c.beginPath(); c.moveTo(7 * s, -8 * s); c.quadraticCurveTo(11 * s, -5 * s, 11 * s, -1 * s); c.stroke();
+    c.fillStyle = L[1] + '0.95)';
+    roundRectPath(c, 8.8 * s, -1 * s, 4.4 * s, 5.4 * s, 1.4 * s); c.fill();
+    c.fillStyle = 'rgba(255,240,200,0.95)';
+    c.fillRect(9.7 * s, 0.2 * s, 2.6 * s, 3 * s);
+    eyes(c, -2, 2, -12, 1.05, L);
+  }
+  function shieldShape(c, s, L) {
+    // 立起的塔盾：盾面一道竖亮缝（眼睛位），盾缘亮边
+    c.beginPath();
+    c.moveTo(-9 * s, -12 * s);
+    c.lineTo(9 * s, -12 * s);
+    c.quadraticCurveTo(11.5 * s, 2 * s, 0, 13 * s);
+    c.quadraticCurveTo(-11.5 * s, 2 * s, -9 * s, -12 * s);
+    c.closePath(); c.fill();
+    // 横箍两道（结构，不算装饰零件——这是盾的语言）
+    c.strokeStyle = L[1] + '0.5)';
+    c.lineWidth = 1;
+    c.beginPath();
+    c.moveTo(-8.2 * s, -4 * s); c.lineTo(8.2 * s, -4 * s);
+    c.moveTo(-6.5 * s, 3 * s); c.lineTo(6.5 * s, 3 * s);
+    c.stroke();
+    // 竖缝亮瞳
+    c.fillStyle = L[1] + '1)';
+    roundRectPath(c, -1.1 * s, -8 * s, 2.2 * s, 7 * s, 1.1 * s); c.fill();
+  }
+  function wormShape(c, s, L) {
+    // 弓身环节虫：三段弧体，头端一点绿光
+    c.lineCap = 'round';
+    c.strokeStyle = MINION_INK;
+    c.lineWidth = 7.5 * s;
+    c.beginPath();
+    c.moveTo(-11 * s, 7 * s);
+    c.quadraticCurveTo(-4 * s, -9 * s, 3 * s, -3 * s);
+    c.quadraticCurveTo(8 * s, 1 * s, 12 * s, -4 * s);
+    c.stroke();
+    // 环节亮边：沿背脊三条短弧
+    c.strokeStyle = L[1] + '0.65)';
+    c.lineWidth = 1;
+    for (let i = 0; i < 3; i++) {
+      c.beginPath();
+      c.arc((-5 + i * 5.5) * s, (1.5 - i * 3.2) * s, 4.5 * s, Math.PI * 1.15, Math.PI * 1.75);
+      c.stroke();
+    }
+    // 头部亮点
+    c.fillStyle = L[1] + '1)';
+    c.beginPath(); c.arc(12 * s, -4 * s, 2 * s, 0, Math.PI * 2); c.fill();
+  }
+  function facelessShape(c, s, L) {
+    // 无面者：细长直影 + 垂纱白纹（脸的位置一道竖缝，不画瞳）
+    c.beginPath();
+    c.moveTo(-7 * s, 12 * s);
+    c.quadraticCurveTo(-7.5 * s, -6 * s, -4 * s, -12 * s);
+    c.arc(0, -12 * s, 4 * s, Math.PI, 0, false);
+    c.quadraticCurveTo(7.5 * s, -6 * s, 7 * s, 12 * s);
+    c.closePath(); c.fill();
+    c.strokeStyle = L[1] + '0.85)';
+    c.lineWidth = 1.3;
+    c.beginPath(); c.moveTo(0, -9 * s); c.lineTo(0, -2 * s); c.stroke();
+    // 垂纱两道浅纹
+    c.strokeStyle = L[1] + '0.3)';
+    c.lineWidth = 0.8;
+    c.beginPath(); c.moveTo(-3.2 * s, -7 * s); c.lineTo(-3.2 * s, 4 * s);
+    c.moveTo(3.2 * s, -7 * s); c.lineTo(3.2 * s, 4 * s);
+    c.stroke();
+  }
+  function priestShape(c, s, L) {
+    // 尖帽长袍祭司：帽尖微弯（非对称），胸前一点余烬光
+    c.beginPath();
+    c.moveTo(-8.5 * s, 11 * s);
+    c.quadraticCurveTo(-9 * s, -2 * s, -5.5 * s, -8.5 * s);
+    c.lineTo(-5.5 * s, -11.5 * s);
+    c.quadraticCurveTo(-2 * s, -14 * s, 1.5 * s, -17.5 * s);   // 帽尖右弯
+    c.lineTo(2.5 * s, -13.5 * s);
+    c.lineTo(5.5 * s, -11.5 * s);
+    c.lineTo(5.5 * s, -8.5 * s);
+    c.quadraticCurveTo(9 * s, -2 * s, 8.5 * s, 11 * s);
+    c.closePath(); c.fill();
+    // 帽檐亮边
+    c.strokeStyle = L[1] + '0.6)';
+    c.lineWidth = 1;
+    c.beginPath(); c.moveTo(-6.2 * s, -11.2 * s); c.lineTo(6.2 * s, -11.2 * s); c.stroke();
+    // 胸前余烬（单焦点）
+    c.fillStyle = L[1] + '0.95)';
+    c.beginPath(); c.arc(0, -1 * s, 1.7 * s, 0, Math.PI * 2); c.fill();
+  }
+  function rustKingShape(c, s, L) {
+    // 宽体王：矮胖身形 + 三尖锈冠（光色实心，冠是唯一亮部 + 眼）
+    c.beginPath();
+    c.moveTo(-11 * s, 11 * s);
+    c.quadraticCurveTo(-12.5 * s, -6 * s, -7 * s, -11 * s);
+    c.quadraticCurveTo(0, -14 * s, 7 * s, -11 * s);
+    c.quadraticCurveTo(12.5 * s, -6 * s, 11 * s, 11 * s);
+    c.closePath(); c.fill();
+    crown(c, s, L, 5.5, -12, -15.5);
+    eyes(c, -3, 3, -7.5, 1.3, L);
+  }
+  function wardenShape(c, s, L) {
+    // 巨碑守卫：整块方碑 + 顶部两粒横距很宽的亮瞳 + 碑面裂纹
+    c.fillRect(-10 * s, -13 * s, 20 * s, 24 * s);
+    // 顶部削角
+    c.beginPath();
+    c.moveTo(-10 * s, -13 * s); c.lineTo(-6.5 * s, -16.5 * s); c.lineTo(6.5 * s, -16.5 * s); c.lineTo(10 * s, -13 * s);
+    c.closePath(); c.fill();
+    // 碑面裂纹（暗缝，让石头有岁数）
+    c.strokeStyle = 'rgba(0,0,0,0.55)';
+    c.lineWidth = 1;
+    c.beginPath();
+    c.moveTo(-4 * s, -8 * s); c.lineTo(-1.5 * s, -3 * s); c.lineTo(-3.5 * s, 2 * s);
+    c.stroke();
+    eyes(c, -3.8, 3.8, -10.5, 1.3, L);
+  }
+  function candleShape(c, s, L) {
+    // 烛（ghost，NPC）：细烛台 + 摇曳焰。不画瞳，光就是它的脸
+    c.fillRect(-2.2 * s, -1 * s, 4.4 * s, 12 * s);            // 烛身
+    c.fillRect(-6 * s, 9.5 * s, 12 * s, 2.6 * s);            // 托盘
+    // 焰：双层光焰，随时间轻摆
+    const sway = Math.sin(simT / 260) * 1.6 * s;
+    c.fillStyle = L[1] + '0.55)';
+    c.beginPath();
+    c.moveTo(0, -3 * s);
+    c.quadraticCurveTo(-4.2 * s + sway, -8 * s, sway, -14 * s);
+    c.quadraticCurveTo(4.2 * s + sway, -8 * s, 0, -3 * s);
+    c.closePath(); c.fill();
+    c.fillStyle = 'rgba(255,240,200,0.95)';
+    c.beginPath();
+    c.moveTo(0, -4 * s);
+    c.quadraticCurveTo(-2 * s + sway * 0.6, -7.5 * s, sway * 0.6, -11 * s);
+    c.quadraticCurveTo(2 * s + sway * 0.6, -7.5 * s, 0, -4 * s);
+    c.closePath(); c.fill();
+  }
+
+  // ---- 剪影基元 ----
+  // 圆亮瞳两粒（x1/x2 各自定位，支持不对称布局），满亮 + 白芯
+  function eyes(c, x1, x2, y, r, L) {
+    c.fillStyle = L[1] + '1)';
+    c.beginPath();
+    c.arc(x1, y, r, 0, Math.PI * 2);
+    c.arc(x2, y, r, 0, Math.PI * 2);
+    c.fill();
+    c.fillStyle = 'rgba(255,255,255,0.6)';
+    c.beginPath();
+    c.arc(x1, y - r * 0.3, r * 0.34, 0, Math.PI * 2);
+    c.arc(x2, y - r * 0.3, r * 0.34, 0, Math.PI * 2);
+    c.fill();
+  }
+  // 眼窝：先挖深洞再点光——骷髅族专用的「洞里有光」
+  function eyeSocket(c, s, x, y, rx, ry, L) {
+    c.fillStyle = '#04060b';
+    c.beginPath();
+    c.ellipse(x * s, y * s, rx * s, ry * s, 0, 0, Math.PI * 2);
+    c.fill();
+    c.fillStyle = L[1] + '0.95)';
+    c.beginPath();
+    c.arc(x * s, y * s, Math.min(rx, ry) * s * 0.52, 0, Math.PI * 2);
+    c.fill();
+  }
+  function noseDot(c, s, L) {
+    c.fillStyle = '#04060b';
+    c.beginPath();
+    c.moveTo(0, 0.5 * s); c.lineTo(1.1 * s, 3 * s); c.lineTo(-1.1 * s, 3 * s);
+    c.closePath(); c.fill();
+    c.fillStyle = L[1] + '0.5)';
+    c.beginPath();
+    c.moveTo(0, 1.2 * s); c.lineTo(0.6 * s, 2.6 * s); c.lineTo(-0.6 * s, 2.6 * s);
+    c.closePath(); c.fill();
+  }
+  // 圆润软体（史莱姆用）：扁半圆 + 亮边
+  function blob(c, s, L, rx, ry) {
+    c.beginPath();
+    c.moveTo(-rx * s, 8 * s);
+    c.quadraticCurveTo(-rx * 1.06 * s, -ry * 1.6 * s, 0, -ry * 1.7 * s);
+    c.quadraticCurveTo(rx * 1.06 * s, -ry * 1.6 * s, rx * s, 8 * s);
+    c.quadraticCurveTo(0, 10 * s, -rx * s, 8 * s);
+    c.closePath(); c.fill();
+  }
+  // 圆角方（歪头/圆颅部件）
+  function roundBlob(c, s, x, y, rx, ry, rot) {
+    c.save();
+    c.translate(x * s, y * s);
+    if (rot) c.rotate(rot);
+    c.beginPath();
+    c.ellipse(0, 0, rx * s, ry * s, 0, 0, Math.PI * 2);
+    c.fill();
+    c.restore();
+  }
+  function roundRectPath(c, x, y, w, h, r) {
+    c.beginPath();
+    c.moveTo(x + r, y);
+    c.arcTo(x + w, y, x + w, y + h, r);
+    c.arcTo(x + w, y + h, x, y + h, r);
+    c.arcTo(x, y + h, x, y, r);
+    c.arcTo(x, y, x + w, y, r);
+    c.closePath();
+  }
+  function crown(c, s, L, w, yTop, yTip) {
+    c.fillStyle = L[1] + '0.9)';
+    c.beginPath();
+    c.moveTo(-w * 0.8 * s, yTop * s);
+    c.lineTo(-w * 0.55 * s, yTip * 0.82 * s);
+    c.lineTo(-w * 0.28 * s, (yTop - 1) * s);
+    c.lineTo(0, yTip * s);
+    c.lineTo(w * 0.28 * s, (yTop - 1) * s);
+    c.lineTo(w * 0.55 * s, yTip * 0.82 * s);
+    c.lineTo(w * 0.8 * s, yTop * s);
+    c.closePath(); c.fill();
+  }
+  // 骷髅头基元（兵/队长共用造型，队长另加盔缨）
+  function skullCap(c, s, L) {
+    c.beginPath();
+    c.arc(0, -2.5 * s, 8 * s, Math.PI * 0.95, Math.PI * 0.05, false);
+    c.quadraticCurveTo(8.6 * s, 2.5 * s, 5 * s, 4 * s);
+    c.lineTo(4.2 * s, 8 * s); c.lineTo(1.8 * s, 8 * s); c.lineTo(1.8 * s, 5.5 * s);
+    c.lineTo(-1.8 * s, 5.5 * s); c.lineTo(-1.8 * s, 8 * s); c.lineTo(-4.2 * s, 8 * s);
+    c.lineTo(-5 * s, 4 * s);
+    c.quadraticCurveTo(-8.6 * s, 2.5 * s, -8 * s, -2.5 * s);
+    c.closePath(); c.fill();
+  }
+
+  // 小怪统一画法：族色底光（保留旧版「一眼分辨威胁类型」）→ 亮边底版 → 近黑剪影 → 焦点层
+  function drawMinion(ch, m, px, py, t) {
+    const art = MINION_ART[ch];
+    const L = MINION_KIND_COLOR[art.c] || MINION_KIND_COLOR['构'];
+    const cx = px + TILE / 2;
+    const cy = py + TILE / 2;
+    const s = TILE / 48;
+    const bob = Math.sin(t / 420 + px * 0.11) * TILE * 0.035;
+    const breathe = 1 + Math.sin(t / 560 + py * 0.09) * 0.02;
+
+    groundShadow(px, py, TILE * 0.3, 0.4);
+    // 族色底光（沿用旧 kindColor 语义：同族同色，威胁类型一眼分）
+    const kg = ctx.createRadialGradient(cx, py + TILE * 0.6, 1, cx, py + TILE * 0.6, TILE * 0.52);
+    kg.addColorStop(0, L[1] + '0.16)');
+    kg.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = kg;
+    ctx.beginPath();
+    ctx.arc(cx, py + TILE * 0.6, TILE * 0.52, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.save();
+    ctx.translate(cx, cy + bob);
+    ctx.scale(s * breathe, s * breathe);
+    if (m.ghost) ctx.globalAlpha = 0.92;   // 烛是灵体，微透明
+    // ① 亮边底版：同形状外扩 1.2px 画一遍族色，再盖近黑本体 → 右上 rim 的暗色等效实现
+    //    （描边为主的造型 noRim，避免重影）
+    if (!art.noRim) {
+      ctx.fillStyle = L[1] + '0.8)';
+      ctx.save();
+      ctx.translate(1.2, -1.2);
+      art.f(ctx, 1, L);
+      ctx.restore();
+    }
+    // ② 近黑剪影本体
+    ctx.fillStyle = MINION_INK;
+    art.f(ctx, 1, L);
+    ctx.restore();
+
+    // ghost 烛保留旧版呼吸光环（灵体语言）
+    if (m.ghost) {
+      const p = 0.5 + Math.sin(t / 300) * 0.5;
+      ctx.strokeStyle = 'rgba(159,216,255,' + (0.14 + p * 0.2).toFixed(2) + ')';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.arc(cx, cy, TILE * (0.34 + p * 0.05), 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+
   // 章节 Boss 地图标 identity：四位锁匠共用「炎魔」的剪影，只换光色（与 portraits.js 同源）
   const BOSS_LIGHT = {
     N: ['#b9a6ff', 'rgba(185,166,255,'], // 墨妖：紫
@@ -723,6 +1176,9 @@
   function drawMonster(ch, px, py, t) {
     const m = D.monsters[ch];
     if (m.boss) { drawBossFigure(m, ch, px, py, t); return; }
+    // v2 小怪剪影：库里有造型的走剪影（与 Boss 同一画风语言），
+    // 没收录的（测试注入的临时怪）保留 emoji 兜底，不让渲染炸裂。
+    if (MINION_ART[ch]) { drawMinion(ch, m, px, py, t); return; }
     const bob = Math.sin(t / 420 + px * 0.11) * TILE * 0.035;
     groundShadow(px, py, TILE * 0.3, 0.4);
     // 同族底光：兽=琥珀 / 亡=霜蓝 / 构=石灰 / 异=苔绿
@@ -755,6 +1211,9 @@
     drawEmoji(m.emoji, px, py + bob, 0.6);
   }
 
+  // 玩家 v2 剪影（2026-11-17 美术管线介入）：旧的 🧙 emoji 与剪影世界打架。
+  // 勇者 = 全塔唯一暖光源：烛金 rim + 兜帽尖角 + 侧挎短剑。形状与 Boss/小怪同一语言。
+  const PLAYER_LIGHT = ['#ffd778', 'rgba(255,215,120,'];
   function drawPlayer(px, py, t) {
     const bob = Math.sin(t / 380) * 1.6;
     const g = ctx.createRadialGradient(px + TILE / 2, py + TILE / 2, 1, px + TILE / 2, py + TILE / 2, TILE * 0.7);
@@ -769,13 +1228,75 @@
     const dy = Math.abs(disp.y - (disp._ty || disp.y));
     if (dx > 0.05) { sx = 1.08; sy = 0.94; }
     else if (dy > 0.05) { sx = 0.94; sy = 1.08; }
+    const s = TILE / 48;
+    const PL = PLAYER_LIGHT;
+    const ink = '#0b0e16';
     ctx.save();
     ctx.translate(px + TILE / 2, py + TILE / 2 + bob);
-    ctx.scale(sx * face, sy);
-    ctx.font = `${Math.floor(TILE * 0.62)}px ${EMOJI_FONT}`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('🧙', 0, 0);
+    ctx.scale(sx * face * s, sy * s);
+
+    // 斗篷： hem 有开衩（负空间，打破呆板对称）
+    const body = (gr) => {
+      ctx.beginPath();
+      ctx.moveTo(-9 - gr, 12);
+      ctx.quadraticCurveTo(-10.5 - gr, 0, -7 - gr, -7);
+      ctx.quadraticCurveTo(-5 - gr, -10.5, 0, -10.5);
+      ctx.quadraticCurveTo(5 + gr, -10.5, 7 + gr, -7);
+      ctx.quadraticCurveTo(10.5 + gr, 0, 9 + gr, 12);
+      ctx.lineTo(4 + gr, 12);
+      ctx.lineTo(2.5 + gr, 8.5);
+      ctx.lineTo(1 + gr, 12);
+      ctx.closePath();
+      ctx.fill();
+    };
+    // 兜帽：圆颅 + 歪向左的尖角（非对称锚点）
+    const hood = (gr) => {
+      ctx.beginPath();
+      ctx.ellipse(0, -14, 5.6 + gr, 5.2 + gr, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(-4.5 - gr, -17);
+      ctx.lineTo(-2.5 - gr, -22.5);
+      ctx.lineTo(0.5 + gr, -18);
+      ctx.closePath();
+      ctx.fill();
+    };
+    // ① 金 rim 底版（右上偏移 1.2px）② 近黑本体
+    ctx.fillStyle = PL[1] + '0.8)';
+    ctx.save(); ctx.translate(1.2, -1.2); body(0); hood(0); ctx.restore();
+    ctx.fillStyle = ink;
+    body(0); hood(0);
+
+    // 脸洞 + 金瞳
+    ctx.fillStyle = '#04060b';
+    ctx.beginPath();
+    ctx.ellipse(0, -14, 3.6, 3.4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = PL[1] + '1)';
+    ctx.beginPath();
+    ctx.arc(-1.6, -14.4, 1.15, 0, Math.PI * 2);
+    ctx.arc(1.6, -14.4, 1.15, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    ctx.beginPath();
+    ctx.arc(-1.6, -14.7, 0.4, 0, Math.PI * 2);
+    ctx.arc(1.6, -14.7, 0.4, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 侧挎短剑：金描一圈再盖墨（勾勒独立于斗篷的轮廓）
+    ctx.strokeStyle = PL[1] + '0.75)';
+    ctx.lineWidth = 3.2;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(6, 4); ctx.lineTo(12.5, -7);
+    ctx.moveTo(4.8, 1.2); ctx.lineTo(8.2, 3.2);
+    ctx.stroke();
+    ctx.strokeStyle = ink;
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    ctx.moveTo(6, 4); ctx.lineTo(12.5, -7);
+    ctx.moveTo(4.8, 1.2); ctx.lineTo(8.2, 3.2);
+    ctx.stroke();
     ctx.restore();
   }
 

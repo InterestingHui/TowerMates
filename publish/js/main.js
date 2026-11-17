@@ -1636,8 +1636,9 @@
           if (prevCb) prevCb();
         }
       : null;
-    typing = { lines, idx: 0, cb: chainedCb, cue: cue || '', variant: variant || null };
+    typing = { lines, idx: 0, cb: chainedCb, cue: cue || '', variant: variant || null, key: Array.isArray(key) ? null : key };
     el.dialogOverlay.classList.add('show');
+    if (window.Scenes) Scenes.sync(typing);
     renderLine();
   }
 
@@ -1653,6 +1654,7 @@
 
   function renderLine() {
     if (!typing) return;
+    if (window.Scenes) Scenes.sync(typing);
     const line = typing.lines[typing.idx];
     const isThink = line.mood === 'think';
     $('dlgWho').textContent = line.who;
@@ -1706,6 +1708,7 @@
     el.dialogOverlay.classList.remove('show', 'hint-mode');
     clearTimeout(hintAuto);
     hintAuto = null;
+    if (window.Scenes) Scenes.hide();
     const cb = typing && typing.cb;
     typing = null;
     $('dlgPortrait').innerHTML = '';

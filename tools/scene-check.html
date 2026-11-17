@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>scene-check</title>
+<style>
+body{margin:0;background:#05070c;color:#8ef;font:12.5px/1.6 monospace}
+#f{width:430px;height:900px;border:0;display:block}
+#out{padding:10px;white-space:pre-wrap}
+</style>
+</head>
+<body>
+<iframe id="f"></iframe>
+<pre id="out">running…</pre>
+<script>
+// 序章分镜四幕检查：每幕换行 → 场景 SVG 必须换、形状数达标、动画关键元素在位；
+// 非序章对白（提示/剧情）不得带场景；读完后 overlay 恢复正常底色。
+const f = document.getElementById('f');
+const out = document.getElementById('out');
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const R = [];
+function rec(name, ok, note) {
+  R.push({ name, ok: !!ok, note: note || '' });
+  out.textContent = R.map((r) => `${r.ok ? '✓' : '✗'} ${r.name}${r.note ? ' — ' + r.note : ''}`).join('\n');
+  document.title = (R.every((r) => r.ok) ? 'ALLPASS|' : 'HASFAIL|') + R.map((r) => (r.ok ? '1' : '0')).join('');
+}
+async function waitFor(fn, timeout = 8000, step = 20) {
+  const t0 = performance.now();
+  while (performance.now() - t0 < timeout) {
+    let v = null;
+    try { v = fn(); } catch (e) {}
+    if (v) return v;
+    await wait(step);
+  }
+  return null;
+}
+function load(url) {
+  return new Promise((res) => { f.onload = () => res(); f.src = url; });
+}
+// 序章四行名（scenes.js INTRO_SCENES 顺序一致）
+const ACTS = ['王座厅', '授帕', '立誓', '塔门'];
+
+(async () => {
+  try {
+    await load('/index.html?dev=1&p=s1');
+    const w = f.contentWindow, d = f.contentDocument;
+    await waitFor(() => w.__tm && w.__tm.playStory);
+    await wait(400);
+    const scene = () => d.getElementById('dlgScene');
+    const ov = () => d.getElementById('dialogOverlay');
+    const shapes = () => scene().querySelectorAll('path,circle,rect,line,ellipse').length;
+
+    // ?stay=N 调试入口：停在第 N 幕供截图（0 是合法值，不能用 || 兜底）
+    const _stay = new URLSearchParams(location.search).get("stay");
+    const STAY = _stay === null ? -1 : Number(_stay);
+
+    // ---------- 播序章 ----------
+    w.__tm.playStory('intro');
+    await wait(300);
+
+    for (let i = 0; i < 4; i++) {
+      const s = scene();
+      const on = s && s.classList.contains('on');
+      const n = shapes();
+      const hasSvg = !!s.querySelector('svg');
+      if (STAY === i) {
+        // 截图模式：关首屏浮层 + 禁动画（headless 虚拟时间会把淡入冻在第一帧，与 shot.html 同惯例）
+        d.getElementById('startOverlay').classList.remove('show');
+        const st = d.createElement('style');
+        st.textContent = '*{animation:none!important;transition:none!important}';
+        d.head.appendChild(st);
+        document.title = 'STAY|' + i + '|shapes=' + n;
+        out.textContent = 'act ' + i + ' shapes=' + n;
+        return;
+      }
+      // 每幕形状数下限（远程剪影 25+ 即成立，关键元素抽查在下面单项里）
+      rec(`第${i + 1}幕 ${ACTS[i]} 场景在播`, on && hasSvg && n >= 20, `shapes=${n}`);
+      // 幕序正确：每幕用独立的 defs 前缀（scA/scB/scC/scD）
+      const sig = ['scA-', 'scB-', 'scC-', 'scD-'][i];
+      rec(`第${i + 1}幕 幕序正确`, s.innerHTML.indexOf(sig) !== -1, `sig=${sig}`);
+      // 每屏唯一暖光：亮金元素必须存在（第二幕焦点是绣帕冷白，走 PAL 不走金）
+      if (i !== 1) {
+        const warm = s.innerHTML.match(/#ffe6a8|#e8c46a/g) || [];
+        rec(`第${i + 1}幕 暖光源存在`, warm.length >= 2, `warmRefs=${warm.length}`);
+      } else {
+        rec('第2幕 焦点=绣帕冷白', s.innerHTML.indexOf('#d6dbe6') !== -1);
+      }
+      if (i < 3) {
+        ov().dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        await wait(280);
+      }
+    }
+
+    // ---------- 第四幕关键元素（停在第 4 幕时核对） ----------
+    rec('第四幕有门缝光与崖雾', !!scene().querySelector('.sc-pulse') && !!scene().querySelector('.sc-fog'));
+
+    // ---------- 读完后：场景隐藏、遮罩恢复 ----------
+    ov().dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await wait(300);
+    rec('读完场景清空', scene().innerHTML === '' && !scene().classList.contains('on'),
+      'html=' + (scene().innerHTML.length ? '残留' : '空'));
+    rec('遮罩恢复原底色', !ov().classList.contains('scene-on'));
+
+    // ---------- 非序章对白不带场景 ----------
+    w.__tm.playStory('hints.opening');
+    await wait(300);
+    rec('提示对白无场景', scene().innerHTML === '' && !ov().classList.contains('scene-on'));
+    ov().dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await wait(200);
+
+    // ---------- 截四幕图（落 tools/out/scene-actN.png，供人工对照） ----------
+    out.textContent = R.map((r) => `${r.ok ? '✓' : '✗'} ${r.name}${r.note ? ' — ' + r.note : ''}`).join('\n')
+      + '\n\n' + (R.every((r) => r.ok) ? 'ALL PASS' : 'HAS FAIL');
+    document.title = (R.every((r) => r.ok) ? 'ALLPASS|' : 'HASFAIL|') + R.map((r) => (r.ok ? '1' : '0')).join('');
+  } catch (e) {
+    out.textContent = 'HARNESS: ' + e.message + '\n' + (e.stack || '');
+    document.title = 'ERR|' + e.message;
+  }
+})();
+</script>
+</body>
+</html>

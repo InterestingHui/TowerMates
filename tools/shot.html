@@ -1001,6 +1001,34 @@
         }
         T.refreshHud();
         await wait(500);
+      } else if (scene === 'minions') {
+        // 怪廊：把 19 只小怪（18 普通 + ghost 烛）按行列铺满 11x11 画布中部，
+        // 逐只验证剪影造型在真实 48px 格位下的可辨性（美术管线回归靶）
+        d.getElementById('btnNew').click();
+        await wait(200);
+        const _vcm = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
+        if (_vcm) _vcm.click();
+        await wait(260);
+        const dlM = d.getElementById('dialogOverlay');
+        for (let i = 0; i < 8; i++) { dlM.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
+        const sM = E.state();
+        sM.atk = 999; sM.def = 99; sM.hp = 9999; sM.maxHp = 9999;   // 镜徽记无干扰（全绿「无伤」会盖怪——关掉窥探镜）
+        sM.flags = sM.flags || {}; sM.flags.codex = false;
+        const ROWS = ['ABCDWEFGHI', 'R123456G'];
+        const oy = 2;
+        for (let r = 0; r < ROWS.length; r++) {
+          const row = sM.maps[sM.floor][oy + r];
+          const off = Math.floor((11 - ROWS[r].length) / 2);
+          for (let x = 0; x < 11; x++) row[x] = (x >= off && x - off < ROWS[r].length) ? ROWS[r][x - off] : '.';
+        }
+        // 玩家挪到怪廊下方空地（找到 '.' 放置），不挡任何一只
+        outerM: for (let y = 10; y > 0; y--) {
+          for (let x = 0; x < 11; x++) {
+            if (sM.maps[sM.floor][y][x] === '.') { sM.x = x; sM.y = y; break outerM; }
+          }
+        }
+        T.refreshHud();
+        await wait(500);
       } else if (scene === 'bossdef') {
         // 窥探之镜对「破不了防的 Boss」也要有话说的验证：攻击压到防线以下
         d.getElementById('btnNew').click();
