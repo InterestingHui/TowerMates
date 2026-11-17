@@ -302,6 +302,34 @@ if (!process.argv.includes('--no-shot')) {
         wxbLine = r.bits ? `${(r.bits.match(/1/g) || []).length}/${r.bits.length} 项` : '读数失败';
         console.log((okWxb ? '✓' : '✗') + ` 好友榜接线 ${wxbLine}`);
       }
+      // 小怪缩略可辨：风格圣经 §3.2 的硬门槛以前只对 8 个有名角色量过，18 只小怪是 Canvas 画的、零度量。
+      // 这里按真实图标绘制路径（Renderer.paintIcon）在 32/48/96 三档出图，二值化取近黑本体，
+      // 归一化（保长宽比）后两两算 IoU：同族 ≤0.80/0.86、跨族 ≤0.86/0.90。
+      console.log('== 附加 · 小怪缩略可辨 ==');
+      let okMinion = true, minionLine = '';
+      {
+        const os = require('os');
+        const args = [
+          '--headless=new', '--disable-gpu', '--no-sandbox', '--no-first-run', '--disable-extensions',
+          '--user-data-dir=' + path.join(os.tmpdir(), 'tm-minion-' + process.pid),
+          '--virtual-time-budget=30000',
+          '--dump-dom', `http://127.0.0.1:${PORT}/tools/minion-check.html`,
+        ];
+        const read = () => {
+          const p = spawnSync(chrome, args, { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+          const t = p.stdout || '';
+          const m = /<pre id="out">([\s\S]*?)<\/pre>/.exec(t);
+          const body = m ? m[1] : '';
+          const hitLines = body.split('\n').filter((l) => /^✓|^✗/.test(l.trim()));
+          return { pass: /ALL PASS/.test(body), lines: hitLines };
+        };
+        let r = read();
+        if (!r.lines.length) r = read();      // 偶发空 DOM（并发负载下 boot 慢）
+        okMinion = r.pass;
+        minionLine = r.lines.length ? `${r.lines.filter((l) => l.trim().startsWith('✓')).length}/${r.lines.length} 项` : '读数失败';
+        console.log((okMinion ? '✓' : '✗') + ` 小怪 18 只三档可辨 ${minionLine}`
+          + (okMinion ? '' : '\n' + r.lines.map((l) => '   ' + l.trim()).join('\n')));
+      }
       // 焦点 D · 新玩家可理解性：新内容只靠游戏内信息能否自解释（成就墙入口/折戟行等）
       console.log('== 附加 · 新玩家可理解性自检 ==');
       let okNew = true, newLine = '';

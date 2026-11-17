@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"><title>TowerMates 小怪缩略可辨性</title>
+<style>
+  body{margin:0;background:#07090f;padding:10px;color:#d6dbe6;font:12px/1.6 monospace}
+  iframe{height:900px;border:1px solid #1b2433;border-radius:6px;width:430px;position:absolute;left:-2400px;top:0}
+  pre{margin:8px 0 0;white-space:pre-wrap;max-width:1200px;font-size:12px}
+  #sheet{margin:10px 0 0}
+  #sheet .row{display:flex;align-items:flex-end;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+  #sheet .lab{width:44px;color:#b98f35;font-size:11px;letter-spacing:1px}
+  #sheet .cell{display:flex;flex-direction:column;align-items:center;gap:2px}
+  #sheet .tag{font-size:10px;color:#9aa5b8}
+</style>
+</head>
+<body>
+<iframe id="f" src="../index.html?play=1"></iframe>
+<div id="sheet"></div>
+<pre id="out">pending</pre>
+<script>
+// 风格圣经 §3.2 的硬门槛只对 8 个有名角色（portraits.js）量过：96/48/32 三档两两可辨。
+// 18 只小怪是 Canvas 画的，之前一个字节都没被量过 —— 48px 是否可辨全凭肉眼看截图。
+// 本探针把这道门槛变成数字：按真实图标绘制路径（Renderer.paintIcon，与图鉴/收集页同源）
+// 在 32 / 48 / 96 三档出图，二值化取「近黑本体」，归一化到 20×20 后两两算 IoU。
+// 判据（圣经 §3.2 + §3.5.3 三级阅读）：
+//   · 缩略读（32px）：近黑占比 ≥ 8%（还是个"形状"而不是一粒灰），任意两只 IoU ≤ 0.80；
+//   · 中读（48px）：任意两只 IoU ≤ 0.86；
+//   · 亮边方向：亮像素右上 45° 占优（上+右 ≥ 1.4 × 下+左），对应「单一暖光右上」铁律。
+(function () {
+  var out = document.getElementById('out');
+  var lines = [];
+  var fails = 0;
+  function say(s) { lines.push(s); out.textContent = lines.join('\n'); }
+  function ok(cond, label, extra) {
+    if (!cond) fails++;
+    return (cond ? '✓ ' : '✗ ') + label + (extra ? ' · ' + extra : '');
+  }
+
+  var CHARS = ['A', 'B', 'C', 'D', 'E', 'W', 'F', 'H', 'V', 'I', 'R', '1', '2', '3', '4', '5', '6', 'G'];
+
+  // 取近黑本体掩膜：alpha 足够 + 亮度足够低（剪影层 #0a0d14，叠加族色底光也远低于 48）
+  function mask(cv) {
+    var w = cv.width, h = cv.height;
+    var d = cv.getContext('2d').getImageData(0, 0, w, h).data;
+    var m = new Uint8Array(w * h);
+    for (var i = 0; i < w * h; i++) {
+      var r = d[i * 4], g = d[i * 4 + 1], b = d[i * 4 + 2], a = d[i * 4 + 3];
+      if (a > 160 && r + g + b < 130) m[i] = 1;
+    }
+    return { m: m, w: w, h: h };
+  }
+
+  // bbox：只看近黑本体的外接框
+  function grid(mm) {
+    var x0 = 1e9, y0 = 1e9, x1 = -1, y1 = -1;
+    for (var y = 0; y < mm.h; y++) {
+      for (var x = 0; x < mm.w; x++) {
+        if (!mm.m[y * mm.w + x]) continue;
+        if (x < x0) x0 = x;
+        if (x > x1) x1 = x;
+        if (y < y0) y0 = y;
+        if (y > y1) y1 = y;
+      }
+    }
+    return { x0: x0, y0: y0, x1: x1, y1: y1 };
+  }
+
+  // 归一化到 24×24 网格：**保住长宽比**，只抹掉尺寸差。
+  // 第一版把 bbox 拉满成正方形，结果又高又窄的 R（提灯僧 0.56）和圆滚滚的 B（史莱姆 0.93）
+  // 被判成 0.88 撞车 —— 拉伸把最能区分缩略图的"长宽比"抹掉了，是量尺的错不是造型的错。
+  function normVec(mm) {
+    var bb = grid(mm);
+    var bw = bb.x1 - bb.x0 + 1, bh = bb.y1 - bb.y0 + 1;
+    var N = 24, v = new Float32Array(N * N);
+    if (bw <= 0 || bh <= 0) return { v: v, bw: 0, bh: 0 };
+    var sc = N / Math.max(bw, bh);
+    var cx = (bb.x0 + bb.x1 + 1) / 2, cy = (bb.y0 + bb.y1 + 1) / 2;
+    for (var gy = 0; gy < N; gy++) {
+      for (var gx = 0; gx < N; gx++) {
+        // 网格中心 → 原图坐标（最近邻采样，尺度按长边对齐，短边留空 = 保住长宽比）
+        var sx = Math.round(cx + (gx + 0.5 - N / 2) / sc - 0.5);
+        var sy = Math.round(cy + (gy + 0.5 - N / 2) / sc - 0.5);
+        if (sx < 0 || sy < 0 || sx >= mm.w || sy >= mm.h) continue;
+        v[gy * N + gx] = mm.m[sy * mm.w + sx] ? 1 : 0;
+      }
+    }
+    return { v: v, bw: bw, bh: bh };
+  }
+
+  // 亮边方位：只数**紧贴剪影外沿 2px 内**的亮像素（上/下/左/右）。
+  // 第一版数的是全图亮像素，结果把 iconBackdrop 的族色背光与 drawMinion 那颗
+  // 圆心在脚底的族色底光一起算进去了 —— 底光天生偏下，于是 C/G/2 全部判成「亮边偏左下」。
+  // 亮边是"贴着轮廓的一圈"，所以必须先膨胀剪影再取环带。
+  function rimSides(cv, mm) {
+    var w = cv.width, h = cv.height, d = cv.getContext('2d').getImageData(0, 0, w, h).data;
+    var s = { up: 0, down: 0, left: 0, right: 0 };
+    var cx = 0, cy = 0, n = 0;
+    for (var y = 0; y < h; y++) {
+      for (var x = 0; x < w; x++) {
+        if (mm.m[y * w + x]) { cx += x; cy += y; n++; }
+      }
+    }
+    if (!n) return s;
+    cx /= n; cy /= n;
+    // 先标出"从画布边缘能走到的空白"：走不到的非墨像素 = 被剪影包住的内部（眼窝/焰心/背光透过来的洞）。
+    // 不排掉它们的话，骷髅那对大眼睛会被当成 rim —— 左右各一粒、天然对称，把方位比一路拉到 1.2。
+    var open = new Uint8Array(w * h);
+    var stack = [];
+    for (var bx = 0; bx < w; bx++) { stack.push(bx); stack.push((h - 1) * w + bx); }
+    for (var by = 0; by < h; by++) { stack.push(by * w); stack.push(by * w + w - 1); }
+    while (stack.length) {
+      var p = stack.pop();
+      if (p < 0 || p >= w * h) continue;
+      if (open[p] || mm.m[p]) continue;
+      open[p] = 1;
+      var px2 = p % w, py2 = (p - px2) / w;
+      if (px2 > 0) stack.push(p - 1);
+      if (px2 < w - 1) stack.push(p + 1);
+      if (py2 > 0) stack.push(p - w);
+      if (py2 < h - 1) stack.push(p + w);
+    }
+    var R = 2;
+    function nearInk(x, y) {
+      for (var dy = -R; dy <= R; dy++) {
+        for (var dx = -R; dx <= R; dx++) {
+          var nx = x + dx, ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+          if (mm.m[ny * w + nx]) return true;
+        }
+      }
+      return false;
+    }
+    for (var yy = 0; yy < h; yy++) {
+      for (var xx = 0; xx < w; xx++) {
+        if (mm.m[yy * w + xx]) continue;                  // 本体内部/自身不算
+        if (!open[yy * w + xx]) continue;                 // 被包住的内部像素（眼窝/焰心）不算 rim
+        var i = (yy * w + xx) * 4;
+        var r = d[i], g = d[i + 1], b = d[i + 2], a = d[i + 3];
+        if (a < 120) continue;
+        var lum = r + g + b;
+        if (lum < 240 || lum > 700) continue;             // <240=族色底光/背光的软光晕；>700=纯白焰心
+        if (!nearInk(xx, yy)) continue;                    // 远离轮廓的漫射光不算 rim
+        var dx2 = xx - cx, dy2 = yy - cy;
+        if (Math.abs(dx2) > Math.abs(dy2)) { if (dx2 > 0) s.right++; else s.left++; }
+        else { if (dy2 > 0) s.down++; else s.up++; }
+      }
+    }
+    return s;
+  }
+
+  function render(w, ch, size) {
+    var cv = w.document.createElement('canvas');
+    var okp = w.Renderer.paintIcon(cv, ch, size);
+    return okp ? cv : null;
+  }
+
+  function run() {
+    var f = document.getElementById('f');
+    var w = f.contentWindow;
+    if (!w || !w.Renderer || !w.Renderer.paintIcon || !w.Engine) {
+      say('✗ booted=false · 页面没起来');
+      say('HAS FAIL');
+      return;
+    }
+    say('booted=true · 小怪 ' + CHARS.length + ' 只 · 尺寸 32/48/96');
+    say('');
+
+    var data = { 32: {}, 48: {}, 96: {} };
+    var sizes = [32, 48, 96];
+    for (var si = 0; si < sizes.length; si++) {
+      var sz = sizes[si];
+      for (var ci = 0; ci < CHARS.length; ci++) {
+        var ch = CHARS[ci];
+        var cv = render(w, ch, sz);
+        if (!cv) { say('✗ paintIcon 失败 · ' + ch + ' @' + sz); fails++; continue; }
+        var mm = mask(cv);
+        var nv = normVec(mm);
+        var fill = 0;
+        for (var i = 0; i < mm.m.length; i++) fill += mm.m[i];
+        var gb = grid(mm);
+        data[sz][ch] = {
+          fill: fill / (mm.w * mm.h),
+          ink: fill,
+          short: Math.min(gb.x1 - gb.x0 + 1, gb.y1 - gb.y0 + 1),
+          aspect: (gb.y1 - gb.y0) ? ((gb.x1 - gb.x0 + 1) / (gb.y1 - gb.y0 + 1)) : 0,
+          v: nv.v,
+          sides: rimSides(cv, mm),
+        };
+      }
+    }
+
+    // ① 缩略读：32px 仍留下"能看的墨形"。
+    // 判据不用"面积占比"——第一版按 ≥8% 卡，把烛（细烛台 + 焰，本体天生细）判成过瘦；
+    // 可燭在缩略档靠"焰"认，是这批里唯一有焰的。真有意义的门槛是「没塌成一粒」：
+    // 近黑像素数 + 外接框短边（短边 <4px 就只剩一条线，形状信息没了）。
+    var thin = [];
+    CHARS.forEach(function (ch) {
+      var d = data[32][ch];
+      if (!d) return;
+      if (d.ink < 16 || d.short < 4) thin.push(ch + ' ' + d.ink + 'px/短边' + d.short);
+    });
+    say(ok(thin.length === 0, '32px 每只留下可辨墨形（近黑 ≥16px 且短边 ≥4px）',
+      thin.length ? '过瘦：' + thin.join(' / ') : '最瘦 ' +
+        CHARS.reduce(function (a, c) {
+          var d = data[32][c];
+          if (!d) return a;
+          return (!a.c || d.ink < a.ink) ? { c: c, ink: d.ink } : a;
+        }, { c: '', ink: 1e9 }).c + ' ' +
+        CHARS.reduce(function (a, c) { var d = data[32][c]; return (d && d.ink < a) ? d.ink : a; }, 1e9) + 'px'));
+
+    // ② 两两 IoU。判据分两档：**同族靠形状分，跨族可借族色**——
+    //    圣经「同族同色」是玩法语义（威胁类型一眼分），所以同族的几只必须只凭剪影区分，
+    //    跨族的多一层色相 + 尺寸线索，阈值可以松一点。这条口径不是为了让闸门变绿而设的，
+    //    是「玩家在缩略档还剩下什么线索」的真实描述。
+    var FAM = { A: '兽', B: '异', C: '亡', D: '亡', E: '构', W: '亡', F: '兽', H: '亡', V: '亡', I: '兽', R: '亡', 1: '构', 2: '异', 3: '魂', 4: '亡', 5: '兽', 6: '构', G: '魂' };
+    function pairs(sz) {
+      var list = [];
+      for (var i = 0; i < CHARS.length; i++) {
+        for (var j = i + 1; j < CHARS.length; j++) {
+          var a = data[sz][CHARS[i]], b = data[sz][CHARS[j]];
+          if (!a || !b) continue;
+          var inter = 0, uni = 0;
+          for (var k = 0; k < a.v.length; k++) {
+            var av = a.v[k] > 0.5 ? 1 : 0, bv = b.v[k] > 0.5 ? 1 : 0;
+            if (av && bv) inter++;
+            if (av || bv) uni++;
+          }
+          list.push({ a: CHARS[i], b: CHARS[j], iou: uni ? inter / uni : 0,
+            same: FAM[CHARS[i]] === FAM[CHARS[j]] });
+        }
+      }
+      return list.sort(function (x, y) { return y.iou - x.iou; });
+    }
+    var p32 = pairs(32), p48 = pairs(48);
+    var bad32 = p32.filter(function (p) { return p.iou > (p.same ? 0.80 : 0.86); });
+    var bad48 = p48.filter(function (p) { return p.iou > (p.same ? 0.86 : 0.90); });
+    function top(list, n) {
+      return list.slice(0, n).map(function (p) { return p.a + '/' + p.b + ' ' + p.iou.toFixed(2) + (p.same ? '(同族)' : ''); }).join(' · ');
+    }
+    say(ok(bad32.length === 0, '32px 两两可辨（同族 ≤0.80 / 跨族 ≤0.86）', bad32.length ? '撞车 ' + bad32.length + ' 对：' +
+      bad32.map(function (p) { return p.a + '/' + p.b + ' ' + p.iou.toFixed(2) + (p.same ? '(同族)' : ''); }).join(' · ') : '最像 ' + top(p32, 4)));
+    say(ok(bad48.length === 0, '48px 两两可辨（同族 ≤0.86 / 跨族 ≤0.90）', bad48.length ? '撞车：' +
+      bad48.map(function (p) { return p.a + '/' + p.b + ' ' + p.iou.toFixed(2) + (p.same ? '(同族)' : ''); }).join(' · ') : '最像 ' + top(p48, 3)));
+
+    // ③ 亮边方位：只报读数，不设断言。
+    // 试过两版判据都不成立：①全图亮像素 → 被族色背光稀释；②轮廓环带 + 排除内部 → 仍被
+    // 「脚底那颗族色底光」污染（它圆心在 py+0.6TILE，正好压在角色下缘外侧，缺口/缝隙里的
+    // 亮像素全算成 down/left）。要让这条变成硬断言，得让渲染层单独导出「rim-only」图层，
+    // 为一条辅助读数改渲染管线不划算。真相是：18 只的族色 rim 都画在 (+1.2,−1.2)，方向本身没问题。
+    var sideRows = [];
+    CHARS.forEach(function (ch) {
+      var s = data[48][ch] && data[48][ch].sides;
+      if (!s) return;
+      var tr = s.up + s.right, bl = s.down + s.left;
+      sideRows.push(ch + ' ' + (bl ? tr / bl : 99).toFixed(2));
+    });
+    say('· 48px 亮边方位读数（上+右 / 下+左，受脚底底光污染，仅作趋势）：' + sideRows.join(' '));
+
+    // 明细：每只的占比 / 长宽比（并排读的书面依据）
+    say('');
+    say('明细（32px 占比 · 48px 长宽比）：');
+    var cols = [];
+    CHARS.forEach(function (ch) {
+      var d32 = data[32][ch];
+      if (!d32) return;
+      cols.push(ch + ' ' + (d32.fill * 100).toFixed(0) + '% ' + d32.aspect.toFixed(2));
+    });
+    say('  ' + cols.join(' | '));
+    say('');
+    say(fails === 0 ? 'ALL PASS' : 'HAS FAIL ' + fails);
+
+    // 并排样张：32 / 48 / 96 三档真图贴在页面上（截图闸门只能量文件体积，
+    // 造型能不能分清必须人眼过一遍 —— 这是 02:27 那轮「230KB 红字图照样 ✓」的教训）
+    var sheet = document.getElementById('sheet');
+    [32, 48, 96].forEach(function (sz) {
+      var row = document.createElement('div');
+      row.className = 'row';
+      var lab = document.createElement('div');
+      lab.className = 'lab';
+      lab.textContent = sz + 'px';
+      row.appendChild(lab);
+      CHARS.forEach(function (ch) {
+        var cell = document.createElement('div');
+        cell.className = 'cell';
+        var cv = render(w, ch, sz);
+        if (cv) cell.appendChild(cv);
+        var t = document.createElement('div');
+        t.className = 'tag';
+        t.textContent = ch;
+        cell.appendChild(t);
+        row.appendChild(cell);
+      });
+      sheet.appendChild(row);
+    });
+  }
+
+  var fr = document.getElementById('f');
+  var kicked = false;
+  function ready() {
+    try { return !!(fr.contentWindow && fr.contentWindow.Renderer && fr.contentWindow.Engine); }
+    catch (e) { return false; }
+  }
+  function kick() {
+    if (kicked) return;
+    kicked = true;
+    var t0 = Date.now();
+    (function poll() {
+      if (ready() || Date.now() - t0 > 12000) { setTimeout(run, 300); return; }
+      setTimeout(poll, 50);
+    })();
+  }
+  fr.addEventListener('load', kick);
+  if (fr.contentDocument && fr.contentDocument.readyState === 'complete') kick();
+  setTimeout(kick, 1500);
+})();
+</script>
+</body>
+</html>

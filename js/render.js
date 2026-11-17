@@ -702,14 +702,28 @@
   }
   function captainShape(c, s, L) {
     skullCap(c, s, L);
-    // 盔缨：顶部一撮亮毛（唯一区别骷髅兵的地方，单焦点之一）
-    c.fillStyle = L[1] + '0.85)';
+    // 盔冠 + 肩甲（v3）：原来是"族色小撮毛"，画在剪影之外、又不是墨色 ——
+    // 32px 下骷髅兵与队长近黑剪影 IoU **0.95**、48px 0.99：两者数值完全不同（队长是精英），
+    // 玩家在图鉴格与棋盘上却分不出。圣经 §1「任何角色先过纯黑形状测试」、
+    // §3.5「每处细节必须改变轮廓才算数」——族色毛不算数。改成两处**轮廓级**差异：
+    // 墨色三尖羽冠（头顶变高变破）+ 方肩甲（体宽出一圈），32px 也读得出"这只更壮"。
+    c.fillStyle = MINION_INK;                    // eyeSocket 会把 fillStyle 改成亮色，这里必须显式压回墨色
     c.beginPath();
-    c.moveTo(0, -11 * s);
-    c.quadraticCurveTo(-3.5 * s, -13 * s, -4.5 * s, -16.5 * s);
-    c.quadraticCurveTo(-1.5 * s, -15 * s, 0, -16.8 * s);
-    c.quadraticCurveTo(1.5 * s, -15 * s, 4.5 * s, -16.5 * s);
-    c.quadraticCurveTo(3.5 * s, -13 * s, 0, -11 * s);
+    c.moveTo(-4.6 * s, -8.4 * s);
+    c.lineTo(-5.6 * s, -14.2 * s);               // 左羽尖
+    c.lineTo(-2.2 * s, -12.4 * s);
+    c.lineTo(0, -17.8 * s);                      // 中羽尖（最高，仍在格里）
+    c.lineTo(2.2 * s, -12.4 * s);
+    c.lineTo(5.6 * s, -14.2 * s);                // 右羽尖
+    c.lineTo(4.6 * s, -8.4 * s);
+    c.closePath(); c.fill();
+    c.beginPath();                                // 左肩甲
+    c.moveTo(-11.2 * s, 3.2 * s); c.lineTo(-11.2 * s, 7.4 * s);
+    c.lineTo(-4.6 * s, 7.4 * s); c.lineTo(-4.6 * s, 3.2 * s);
+    c.closePath(); c.fill();
+    c.beginPath();                                // 右肩甲
+    c.moveTo(11.2 * s, 3.2 * s); c.lineTo(11.2 * s, 7.4 * s);
+    c.lineTo(4.6 * s, 7.4 * s); c.lineTo(4.6 * s, 3.2 * s);
     c.closePath(); c.fill();
     eyeSocket(c, s, -3.4, -2.5, 2.2, 2.6, L);
     eyeSocket(c, s, 3.4, -2.5, 2.2, 2.6, L);
