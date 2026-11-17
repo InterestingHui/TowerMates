@@ -87,8 +87,12 @@ const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-ui-'));
   ok(out.allRowsAfterVowTabs >= 4, `「全部」档仍列全部行（实测 ${out.allRowsAfterVowTabs} 行）`);
   // 自己贴自己的码：这条判据原先按「重编码比字符串」写（誓约写死成 none），誓约不是 none 时会漏
   ok(out.selfWarn.indexOf('自己') >= 0, `贴自己的码 → 明说这是自己的成绩（实测「${out.selfWarn}」）`);
-  ok(out.selfBoardRows === 1 && out.selfRivalRows === 0,
-    `自己的成绩不会变成「挑战·朋友」行（名录行 ${out.selfBoardRows} / 幽灵行 ${out.selfRivalRows}）`);
+  // 存档里两局自己（12 层 + 11 层），榜上只该有一个「你」：旧实现把自己的历史全倒进榜，
+  // 打到十几局后前十行全是「你」，朋友与影子一个都看不见（社交榜退化成成绩单）
+  ok(out.mineRows === 1 && String(out.mineRowFloor).indexOf('12') >= 0,
+    `榜单上自己只占一行、且是最好那局（实测 ${out.mineRows} 行 / ${out.mineRowFloor}）`);
+  ok(out.selfBoardRows === 0 && out.selfRivalRows === 0,
+    `贴自己的码既不新增行也不生成「挑战·朋友」行（命中 ${out.selfBoardRows} 行 / 幽灵 ${out.selfRivalRows}）`);
   ok(out.dailyCodeDay === true && out.dailyCodeLen <= 80, '今日一塔的码带日签（v5）且仍在输入框上限内');
   ok(out.dailyRows === 1 && out.dailyRival === true, '朋友贴的今日码进「今日」档（同塔才可比）');
   ok(out.plainDay === true && out.dailyRowsAfterPlain === 1, '没有日签的普通码进不了「今日」档');

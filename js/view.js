@@ -50,6 +50,14 @@
   const NOTE_DAILY = '这一座塔每天零点换一次：同一天走进来的人遇到的是同一座，所以「今天谁走得远」是能比的。贴进来的朋友码只要也是今天这座，就会进这一档。';
   const NOTE_CRUSHED = '影子勇者都停在前五层。你已经走到他们没到过的地方。';
   const EMPTY_OTHER = '这一档还没有人。去立一条誓约，回来占第一位。';
+  // 名录里那个人怎么称呼。微信好友榜带回的是**昵称**（wxbridge.normalize 已滤过引号尖括号、截 16 字），
+  // 贴码那条路码里只有成绩没有名字 → 退回「挑战·朋友」。旧实现一律写死这五个字，于是贴三位朋友
+  // 就是三行同名：知道谁爬得高，不知道超过的是谁——异步竞争（E-11）的前提正是「知道超过了谁」。
+  // 昵称来自存档与平台回传、渲染层又是拼标签，所以这里再洗一遍尖括号引号，并按码点截断。
+  const NAME_FALLBACK = '挑战·朋友';
+  const plainName = (v, n) => Array.from(
+    String(v == null ? '' : v).replace(/[<>&"'`]/g, '').replace(/\s+/g, ' ').trim()
+  ).slice(0, n || 10).join('').trim();
   const dailyEmpty = (label) => `今天还没走完一局今日一塔。<br>${label} 这座塔零点就换掉了。`;
 
   // 榜单模型
@@ -70,21 +78,42 @@
     const rows = filter === 'daily'
       ? all.filter((r) => r.daily === o.todayKey)
       : filter === 'all' ? all : all.filter((r) => (r.vow || 'none') === filter);
+    // 榜单是「人」的榜，不是「局」的榜：同一个人只占一行，取这一档里他最好那局。
+    // 旧实现把 loadBoard() 存的 30 条历史全倒进来（都是 mine），打到十几局以后前十行全是「你」，
+    // 影子勇者与贴码朋友一个都看不见——社交榜退化成自己的成绩单。去重放在**筛选之后**：
+    // 「今日」档要的是今天我最好那局，不是全局最好那局被筛掉。
+    const people = [];
+    let mineTaken = false;
+    rows.forEach((r) => {
+      if (r.mine) {
+        if (mineTaken) return;
+        mineTaken = true;
+      }
+      people.push(r);
+    });
     // 「你已经走到他们没到过的地方」说的是**影子勇者**（那句话自己点了名），所以只跟影子比：
     // 按「榜首是谁」判的话，我一超过影子就排到自己头上、这句话永远出不来（原实现就是这么死掉的）
     const myFloor = mine.length ? Math.max.apply(null, mine.map((x) => x.floor || 0)) : 0;
     const shadowFloors = (o.shadows || []).map((x) => x.floor || 0);
     const shadowBest = shadowFloors.length ? Math.max.apply(null, shadowFloors) : -1;
     const crushed = myFloor > 0 && shadowBest >= 0 && myFloor > shadowBest;
+    // 自己被前十截掉时要当面说清：榜单第一件事是找自己，找不到又没解释，读起来就是「榜上没有我」。
+    // 这种情况要十个比你深的人才凑得出（影子只有三位、都在前五层），真出现时值得一行字。
+    const myIdx = people.findIndex((r) => r.mine);
+    const myRank = myIdx >= 0 ? myIdx + 1 : 0;
+    const offBoard = myRank > cap
+      ? `你在第 ${myRank} 名（共 ${people.length} 人）——这一屏只画前十。`
+      : '';
     const note = filter === 'daily'
       ? NOTE_DAILY + (o.dayVowName ? `<br>今日之约：${o.dayVowName}——同一天走进塔的人守的都是这一条。` : '')
-      : (crushed && filter === 'all' ? NOTE_CRUSHED : '');
-    const out = rows.slice(0, cap).map((r, i) => {
+        + (offBoard ? `<br>${offBoard}` : '')
+      : (offBoard || (crushed ? NOTE_CRUSHED : ''));
+    const out = people.slice(0, cap).map((r, i) => {
       const v = vows[r.vow] || vows.none || { name: '不立誓', tag: '' };
       return {
         rank: i + 1,
         // 幽灵行不再把楼层写进名字里：同一行的「N层」列就是那个数，写两遍只是噪音
-        name: r.mine ? '你' : r.rival ? '挑战·朋友' : r.name,
+        name: r.mine ? '你' : (plainName(r.name) || NAME_FALLBACK),
         note: (!r.mine && !r.rival && notes[r.name]) || '',
         vowTag: v.name === '不立誓' ? '' : (v.tag || '').charAt(0),
         mine: !!r.mine,
@@ -103,7 +132,7 @@
       note,
       empty: rows.length ? '' : (filter === 'daily' ? dailyEmpty(o.dayLabel || '') : EMPTY_OTHER),
       rows: out,
-      total: rows.length,
+      total: people.length,
     };
   }
 

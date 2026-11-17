@@ -323,6 +323,9 @@ async function run() {
     var allTabX = d.querySelector('#boardTabs .btab[data-f="all"]');
     if (allTabX) allTabX.click();
     await new Promise(function (r) { setTimeout(r, 100); });
+    // 一人一行：存档里两局自己（12 层 + 11 层），榜上只该出现一个「你」（取好那局）
+    out.mineRows = d.querySelectorAll('#boardList .bd-row.mine').length;
+    out.mineRowFloor = (d.querySelector('#boardList .bd-row.mine .bd-floor') || {}).textContent || '';
     var inp4 = d.getElementById('pasteCode');
     inp4.value = selfCode;
     d.getElementById('btnPasteCode').click();

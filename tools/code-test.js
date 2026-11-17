@@ -124,22 +124,79 @@ ok(crushed.rows[0].vowTag === '轻', '誓约徽记取 tag 首字');
 ok(crushed.rows[2].vowTag === '' || crushed.rows[2].vowTag, '不立誓行不挂徽记（影子强制 none）');
 
 // 排序口径：同层先看结局，再看决战余裕，最后才是用时
+// 用 rivals 而不是 mine 来测：榜单上一人一行（见「同一个人只占一行」那条），
+// 三条 mine 会被折叠成一行——排序口径就只能拿三位朋友来验了。
 const tie = V.boardModel({
-  mine: [
-    { floor: 5, ending: 'plain', margin: 'C', time: 100, steps: 10 },
-    { floor: 5, ending: 'true', margin: 'C', time: 900, steps: 20 },
-    { floor: 5, ending: 'plain', margin: 'A', time: 500, steps: 30 },
-  ], rivals: [], shadows: [], filter: 'all', todayKey: '2026-11-16', vows: VOWS,
+  mine: [],
+  rivals: [
+    { code: 'c1', rival: true, floor: 5, ending: 'plain', margin: 'C', time: 100, steps: 10 },
+    { code: 'c2', rival: true, floor: 5, ending: 'true', margin: 'C', time: 900, steps: 20 },
+    { code: 'c3', rival: true, floor: 5, ending: 'plain', margin: 'A', time: 500, steps: 30 },
+  ], shadows: [], filter: 'all', todayKey: '2026-11-16', vows: VOWS,
 });
 ok(tie.rows[0].ended === true, '同层时真结局排在前面（哪怕用时更久）');
 ok(tie.rows[1].margin === 'A' && tie.rows[2].margin === 'C', '结局相同再比决战余裕');
 ok(tie.rows[2].time === '1分40秒', '用时 100 秒渲染成 1分40秒');
 
-// 10 行上限：总条数要如实报出来，页面上只画前 10 行
+// 10 行上限：总条数要如实报出来，页面上只画前 10 行（用朋友行测，自己只会占一行）
 const many = [];
-for (let i = 0; i < 12; i++) many.push({ floor: 12 - i, steps: i, time: 60 + i });
-const capped = V.boardModel({ mine: many, rivals: [], shadows: [], filter: 'all', todayKey: '2026-11-16', vows: VOWS });
+for (let i = 0; i < 12; i++) many.push({ code: 'f' + i, rival: true, floor: 12 - i, steps: i, time: 60 + i });
+const capped = V.boardModel({ mine: [], rivals: many, shadows: [], filter: 'all', todayKey: '2026-11-16', vows: VOWS });
 ok(capped.rows.length === 10 && capped.total === 12, '榜单只画 10 行但总数照实报');
+
+// 榜单是「人」的榜：自己的 12 局历史只占一行（旧实现全倒进榜，前十行全是「你」）
+const mineMany = [];
+for (let i = 0; i < 12; i++) mineMany.push({ ending: 'true', floor: 12, level: 18, steps: 500, time: 900 + i });
+const selfOnce = V.boardModel({
+  mine: mineMany,
+  rivals: [{ code: 'wx:林小满:8:600', name: '林小满', rival: true, floor: 8, time: 600, steps: 200 }],
+  shadows, filter: 'all', todayKey: '2026-11-16', vows: VOWS,
+});
+ok(selfOnce.rows.filter((r) => r.mine).length === 1, '自己的历史 12 局在榜上只占一行');
+ok(selfOnce.rows.length === 4 && selfOnce.total === 4, '朋友与影子不会被自己的旧局挤掉（4 人 = 你 + 林小满 + 两位影子）');
+ok(selfOnce.rows[0].time === '15分0秒', '留下的那一行是自己最好那局（用时最短的 900 秒）');
+// 「今日」档要去重的是今天最好那局，不是全局那局——先筛后排，不能拿一个月前的最好成绩顶掉今天的
+const selfToday = V.boardModel({
+  mine: [{ floor: 12, daily: '2026-11-10', time: 100 }, { floor: 4, daily: '2026-11-16', time: 200 }],
+  rivals: [], shadows, filter: 'daily', todayKey: '2026-11-16', vows: VOWS,
+});
+ok(selfToday.rows.length === 1 && selfToday.rows[0].floor === 4, '今日档留的是今天那局（不是全局最好那局）');
+
+// 微信好友昵称：wxwire 明明把 name 带回来了，旧渲染一律写「挑战·朋友」——三位朋友三行同名
+const named = V.boardModel({
+  mine: [], filter: 'all', todayKey: '2026-11-16', vows: VOWS, shadows: [],
+  rivals: [
+    { code: 'wx:林小满:8:600', name: '林小满', rival: true, floor: 8, time: 600 },
+    { code: 'wx:阿杳:6:500', name: '阿杳', rival: true, floor: 6, time: 500 },
+    { code: 'TM5.abc', name: '挑战·朋友', rival: true, floor: 7, time: 400 },
+  ],
+});
+ok(named.rows.map((r) => r.name).join(',') === '林小满,挑战·朋友,阿杳', '好友昵称照原样显示，贴码行才退回「挑战·朋友」');
+// 昵称来自 localStorage / 平台回传，渲染层是 innerHTML：尖括号引号必须洗掉，长度按码点截
+const dirty = V.boardModel({
+  mine: [], filter: 'all', todayKey: '2026-11-16', vows: VOWS, shadows: [],
+  rivals: [{ code: 'wx:x', name: '<img src=x onerror=alert(1)>', rival: true, floor: 9, time: 500 },
+    { code: 'wx:y', name: '一二三四五六七八九十十一', rival: true, floor: 8, time: 500 }],
+});
+ok(dirty.rows.find((r) => r.floor === 9).name.indexOf('<') < 0, '昵称里的尖括号洗掉（渲染层是 innerHTML）');
+ok(dirty.rows.find((r) => r.floor === 9).name === 'img src=x', '昵称里的尖括号洗掉（渲染层是拼标签）');
+ok(Array.from(dirty.rows.find((r) => r.floor === 8).name).length === 10, '长昵称按码点截到 10 个字');
+
+// 自己被前十截掉：榜上没有「你」，脚注必须说清第几名——否则读起来就是「榜上没有我」
+const deep = [];
+for (let i = 0; i < 10; i++) deep.push({ code: 'd' + i, rival: true, floor: 9, steps: i, time: 100 + i });
+const buried = V.boardModel({
+  mine: [{ floor: 1, steps: 5, time: 60 }], rivals: deep, shadows: [],
+  filter: 'all', todayKey: '2026-11-16', vows: VOWS,
+});
+ok(buried.rows.length === 10 && !buried.rows.some((r) => r.mine), '十个人都比自己深时自己不在前十里（数据上就这样）');
+ok(buried.note.indexOf('你在第 11 名') >= 0, `被截掉时脚注报出名次（实测「${buried.note}」）`);
+const buriedDaily = V.boardModel({
+  mine: [{ floor: 1, daily: '2026-11-16' }], rivals: deep.map((d) => Object.assign({ daily: '2026-11-16' }, d)),
+  shadows: [], filter: 'daily', todayKey: '2026-11-16', dayLabel: '11月16日', vows: VOWS,
+});
+ok(buriedDaily.note.indexOf('你在第 11 名') >= 0 && buriedDaily.note.indexOf(V.NOTE_DAILY) === 0,
+  '今日档同样报名次，且不挤掉原来的零点换塔那句');
 
 // 誓约档：只筛该誓约的局；「不立誓」那一档必须没有徽记（自报名字就是「不立誓」）
 const byVow = V.boardModel({
