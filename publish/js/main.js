@@ -1872,7 +1872,7 @@
     const card = document.createElement('div');
     card.className = 'probe-card';
     card.innerHTML = `
-      <div class="pb-head"><span class="pb-emoji">${m.emoji}</span>
+      <div class="pb-head"><span class="pb-emoji"><canvas class="pb-icon" data-ch="${ch}"></canvas></span>
         <b>${m.name}</b>${bossTag}<i class="cx-tag">${m.kind}</i>${traitTag}</div>
       <div class="pb-stats">HP <b>${m.hp}</b> · 攻 <b>${m.atk}</b> · 防 <b>${m.def}</b></div>
       ${TR ? `<div class="pb-trait">${TR.icon} ${TR.tip}</div>` : ''}
@@ -1883,6 +1883,9 @@
     const dismiss = () => { card.remove(); document.removeEventListener('click', dismiss, true); };
     setTimeout(() => document.addEventListener('click', dismiss, true), 0);
     el.stage.appendChild(card);
+    // 卡头那只怪用棋盘同款剪影（emoji 在这里既丑又与地图上的造型对不上）
+    const probeIcon = card.querySelector('canvas.pb-icon');
+    if (probeIcon && !Renderer.paintIcon(probeIcon, ch, 30)) probeIcon.remove();
     // 定位：贴着怪物格下方（棋盘在 stage 里居中，需要算出棋盘起点），屏幕边缘时往回缩
     const T = Renderer.getTile ? Renderer.getTile() : 48;
     const board = T * 11;
@@ -1941,7 +1944,7 @@
           : '暂时打不过，先攒属性'}</span>`
         : '';
       return `<div class="cx-row${r.hasTrait ? ' has-trait' : ''}">
-        <span class="cx-emoji">${r.emoji}</span>
+        <span class="cx-emoji"><canvas class="cx-icon" data-ch="${r.ch}"></canvas></span>
         <span class="cx-name">${r.name}${r.boss ? `<i class="cx-tag boss">${r.chapter}章</i>` : ''}<i class="cx-tag">${r.kind}</i></span>
         <span class="cx-stat">${r.stat}</span>
         <span class="cx-loss ${r.lossCls}">${r.loss}</span>
@@ -1949,6 +1952,10 @@
         ${mgRow}
       </div>`;
     }).join('');
+    // 图鉴里的怪改用棋盘同款剪影（原来贴的是整格 emoji：同一只怪在两屏里两种长相）
+    $('codexList').querySelectorAll('canvas.cx-icon').forEach((cv) => {
+      if (!Renderer.paintIcon(cv, cv.dataset.ch, 30)) cv.remove();
+    });
     $('codexList').querySelectorAll('.cx-char:not(.off)').forEach((b) => {
       b.addEventListener('click', () => {
         openPortraitZoom(b.dataset.who, b.dataset.cap);
@@ -1994,8 +2001,9 @@
     const bg = Renderer.snapshot();
     if (bg) el.battleScene.style.setProperty('--bg', `url(${bg})`);
 
-    el.bsHero.textContent = '🧙';
-    el.bsFoe.textContent = m.emoji;
+    // 双方形象与棋盘同源：emoji 头像（🧙 / 🦇）在剪影化的塔里像另一个游戏
+    Renderer.paintHeroIcon(el.bsHero, 48);
+    Renderer.paintIcon(el.bsFoe, info.ch, 48);
     // 章末 Boss 带「第 N 章」标记，玩家能看出自己在塔里的位置
     const bTrait = D.TRAITS && m.trait ? D.TRAITS[m.trait] : null;
     el.bsName.innerHTML = View.foeName(m, bTrait);
@@ -2736,9 +2744,16 @@
       return;
     }
 
-    // Boss 开战名号横幅：每次都报一遍「谁在拦你」——地图形象是剪影，名字必须由战斗开口说
-    if (m.boss && m.title) {
-      Tips.banner('bossIntro', { name: m.name, title: m.title }, { text: `🗡️ **{name}** · {title} 拦在路上` });
+    // Boss 亮相卡：点击它这一刻才出（每场战斗先亮相，读完确认才开打）。
+    // 战前对白先行——先听它说话，再看全屏立绘，顺序才顺；首次见面对离线补登记。
+    // 旗标防「确认 → 重入 resolveBattle → 再亮卡」的死循环；键名不能用旧的
+    // boss_intro_（老存档在进层时就把它置了位，会误跳首场亮相）。
+    if (m.boss && !s.flags['boss_meet_' + ch]) {
+      s.flags['boss_meet_' + ch] = true;
+      Engine.save();
+      if (window.Portraits && Portraits.has(m.name)) Meta.metChar(m.name);
+      showBossIntro(m, s.floor, () => resolveBattle(dx, dy));
+      return;
     }
 
     clearStuck();
@@ -2750,7 +2765,7 @@
     // 缠斗：第 5 层起才出现（与架盾分开一层，每屏只多一个决定）
     const dmgTangle = s.floor >= 4 ? Engine.tangleInfo(ch) : null;
     playBattleScene({
-      monster: m, pred, dmgBase, dmgBlock, dmgGuard, dmgTangle,
+      ch, monster: m, pred, dmgBase, dmgBlock, dmgGuard, dmgTangle,
       phases: m.boss ? Engine.bossPhases(ch) : null,
       skip: { x: tx, y: ty },     // 本层威胁读数要排除的格子（正在打的这只）
     }, (opt) => {
@@ -3441,7 +3456,7 @@
   }
 
   // ---------- 楼层卡片 ----------
-  // ---------- Boss 出场卡（进 Boss 层：320px 位图 + 名字条，1.2 秒） ----------
+  // ---------- Boss 出场卡（点击 Boss 这一刻亮相：位图 + 名字条，读完点击确认才开打） ----------
   let bossIntroTimer = null;
   let bossIntroCb = null;
   const CN_NUM = ['一', '二', '三', '四', '五', '六'];
@@ -3454,9 +3469,9 @@
     bossIntroCb = cb || null;
     el.bossIntroOverlay.classList.add('show');
     Sound.play('boss');
-    clearTimeout(bossIntroTimer);
-    // 1.2 秒自动过：它只负责「谁在拦你」，不接管任何流程
-    bossIntroTimer = hold ? null : setTimeout(closeBossIntro, Settings.fast ? 700 : 1200);
+    vibrate([16, 40, 16]);
+    // 亮相即接管流程，不再自动过：玩家点击（或按任意键）确认才关——
+    // 以前 1.2 秒自动收，第一眼还没读完名字就没了；真想快，点一下就是快。
   }
   function closeBossIntro() {
     clearTimeout(bossIntroTimer);
@@ -3680,14 +3695,8 @@
   function enterFloor(first) {
     const s = Engine.state();
     const f = D.floors[s.floor];
-    const bm = floorBossAlive(s);
-    if (!first && bm && bm.boss && !s.flags['boss_intro_' + f.boss]) {
-      s.flags['boss_intro_' + f.boss] = true;
-      Engine.save();
-      if (window.Portraits && Portraits.has(bm.name)) Meta.metChar(bm.name);
-      showBossIntro(bm, s.floor, () => enterFloor(first));
-      return;
-    }
+    // Boss 出场卡不再进层自动弹（2026-11-17）：一上楼就闪 1.2 秒，等于抢在遭遇前剧透、
+    // 又什么都没看清。挪到 resolveBattle——点击 Boss 这一刻才亮相，读完才开打。
     clearStuck();
     Renderer.fade(first ? 420 : 320);
     Renderer.setAmbient(s.floor);

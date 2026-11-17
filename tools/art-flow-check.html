@@ -12,12 +12,21 @@
 <pre id="out">pending</pre>
 <script>
 // 验收两个新展示位的真实行为：
-// ① Boss 出场卡：进 Boss 层自动出现 → 1.2s 自动过 → 可点击跳过 → 不吞掉同层的章节对白
+// ① Boss 出场卡（2026-11-17 改版）：进层不再自动弹 → 点击 Boss 开战那一刻才亮 →
+//    不自动关（等多久都行）→ 点击确认才关并接着开打
 // ② 图鉴大图：点人物卡 → 320px 位图 + CAP → ESC 关闭
 const wait = (ms) => new Promise(r => setTimeout(r, ms));
 const out = document.getElementById('out');
 const rows = [];
 const log = (k, v) => { rows.push(k + '=' + v); };
+const dlgClick = (d) => d.getElementById('dialogOverlay').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+async function drainDialog(d, n) {
+  for (let i = 0; i < (n || 20); i++) {
+    if (!d.getElementById('dialogOverlay').classList.contains('show')) break;
+    dlgClick(d);
+    await wait(80);
+  }
+}
 (async () => {
   const f = document.getElementById('f');
   await new Promise(r => { f.onload = r; });
@@ -29,16 +38,28 @@ const log = (k, v) => { rows.push(k + '=' + v); };
   const vc = d.querySelector('#vowCards .vow-card[data-vow="none"]');
   if (vc) vc.click();
   await wait(300);
-  for (let i = 0; i < 12; i++) { d.getElementById('dialogOverlay').dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(60); }
+  for (let i = 0; i < 12; i++) { dlgClick(d); await wait(60); }
   await wait(300);
 
-  // ① 第 6 层（第三章入口 + 魔王 Z）：Boss 卡必须先于章节对白
+  // ① 进层不弹卡：把人摆到第 6 层（魔王 Z 的 Boss 层）再走 enterFloor
   const s = E.state();
   s.floor = 5; s.hp = 3000; s.maxHp = 3000; s.atk = 60; s.def = 30;
-  s.flags.boss_intro_Z = false; s.flags.ch3 = false;
+  s.flags.ch3 = false;
   T.enterFloor(false);
-  await wait(700);   // 等入场动画（440ms）结束再量，否则拿到的是缩放中的尺寸
+  await wait(700);   // 等入场动画（440ms）结束再量
   const ov = d.getElementById('bossIntroOverlay');
+  log('floor_no_autocard', !ov.classList.contains('show'));
+  log('floor_card_shown', d.getElementById('floorCard').classList.contains('show') || s.floor === 5);
+  await drainDialog(d);
+  await wait(200);
+
+  // ② 点击 Boss 开战（act 真实入口）→ 战前对白 → 出场卡 → 不自动关 → 确认 → 开打
+  s.x = 5; s.y = 6;   // 王座层 Boss 在 (5,5)，站在它下方；首次撞上就该亮卡
+  T.refreshHud();
+  T.act(0, -1);
+  await wait(500);
+  await drainDialog(d);          // 战前 story（首次撞 Boss 必播）
+  await wait(300);
   const shown = ov.classList.contains('show');
   const pr = d.querySelector('#biPortrait .pt');
   const img = d.querySelector('#biPortrait img.pt-img');
@@ -47,25 +68,22 @@ const log = (k, v) => { rows.push(k + '=' + v); };
   log('boss_card_size', pr ? pr.offsetWidth + 'x' + pr.offsetHeight : 'none');
   log('boss_img', img ? (img.complete && img.naturalWidth) + 'x' + img.naturalHeight : 'none');
   log('boss_name', d.getElementById('biName').textContent);
-  // 自动过：1.2s。先在半途确认还开着，再确认关掉且楼层流程继续
-  await wait(300);
-  log('boss_still_at_1s', ov.classList.contains('show'));
-  await wait(320);
-  log('boss_autoclose', !ov.classList.contains('show'));
-  log('floor_continued', d.getElementById('floorCard').classList.contains('show') || s.floor === 5);
-  // 关掉章节对白，重置后测「点击跳过」延迟
-  for (let i = 0; i < 14; i++) { d.getElementById('dialogOverlay').dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(60); }
-  await wait(240);
-  s.flags.boss_intro_Z = false; s.flags.ch3 = true;
-  T.enterFloor(false);
-  await wait(160);
+  // 不自动关：等 1.6s（比旧版 1.2s 自动过更长）必须仍然开着
+  await wait(1600);
+  log('boss_no_autoclose', ov.classList.contains('show'));
+  // 点击确认 → 立刻关 → 战斗面板接上（确认后才开打）
   const t0 = performance.now();
   ov.dispatchEvent(new MouseEvent('click', { bubbles: true }));
   const dt = performance.now() - t0;
-  log('boss_skip_ms', Math.round(dt));
-  log('boss_skip_closed', !ov.classList.contains('show'));
+  await wait(600);
+  log('boss_confirm_ms', Math.round(dt));
+  log('boss_confirm_closed', !ov.classList.contains('show'));
+  log('battle_after_confirm', d.getElementById('battleScene').classList.contains('show'));
+  // 收尾：关掉战斗面板，别把状态带给图鉴段
+  const bs = d.getElementById('battleScene');
+  if (bs.classList.contains('show')) { bs.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(400); }
 
-  // ② 图鉴大图：点亮角色 → 点卡 → 320px 位图 → ESC 关闭
+  // ③ 图鉴大图：点亮角色 → 点卡 → 320px 位图 → ESC 关闭
   s.flags.codex = true;
   ['烛', '薇拉', '秤', '墨妖'].forEach((x) => T.Meta.metChar(x));
   T.openCodex();

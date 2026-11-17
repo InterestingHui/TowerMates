@@ -164,7 +164,7 @@
   </div>
 </div>
 
-<!-- Boss 出场卡：进 Boss 层时 320px 位图 + 名字条，1.2 秒，点击/ESC 可跳过 -->
+<!-- Boss 出场卡：点击 Boss 开战前亮相（320px 位图 + 名字条），确认后才开打 -->
 <div class="overlay boss-intro" id="bossIntroOverlay">
   <div class="bi-stage">
     <div class="bi-kicker" id="biKicker">第 三 章 · 第 九 层</div>
@@ -175,7 +175,7 @@
       <span class="bi-rule"></span>
     </div>
     <div class="bi-title" id="biTitle"></div>
-    <div class="bi-hint">点击 / ESC 跳过</div>
+    <div class="bi-hint">点击 · 确认开战</div>
   </div>
 </div>
 
@@ -254,13 +254,13 @@
     </div>
     <div class="bs-stage">
       <div class="bs-side">
-        <div class="bs-avatar" id="bsHero">🧙</div>
+        <canvas class="bs-avatar" id="bsHero"></canvas>
         <div class="bs-bar"><i id="bsHeroBar"></i></div>
         <div class="bs-num" id="bsHeroHp">1000</div>
       </div>
       <div class="bs-vs"><span>🗡️</span></div>
       <div class="bs-side">
-        <div class="bs-avatar" id="bsFoe">🦇</div>
+        <canvas class="bs-avatar" id="bsFoe"></canvas>
         <div class="bs-bar foe"><i id="bsFoeBar"></i></div>
         <div class="bs-num" id="bsFoeHp">30</div>
       </div>

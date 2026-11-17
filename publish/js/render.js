@@ -2184,9 +2184,62 @@
     ctx.restore();
   }
 
+  // ---------- 图标：把棋盘上的同一套剪影画进任意 canvas ----------
+  // 为什么要有这条出口：11-17 起棋盘上的怪与勇者都是手绘剪影，而图鉴 / 怪物速查卡 / 战斗演出
+  // 三处仍是整格 emoji —— 同一只怪在两屏里长成两种东西，正是「格子上的 emoji 太丑」那条反馈的残留。
+  // 做法：临时把模块级 ctx/TILE 指向目标画布（同步调用、单线程，画完立刻换回），
+  // 复用 drawMonster / drawPlayer 本体——绝不复制第二份造型，否则下次改造型又要改两处。
+  function paintInto(cv, size, drawer) {
+    if (!cv || typeof cv.getContext !== 'function') return false;
+    const ss = Math.max(16, Math.round(size || 40));
+    const d = Math.min(2, window.devicePixelRatio || 1);
+    cv.width = Math.round(ss * d);
+    cv.height = Math.round(ss * d);
+    cv.style.width = ss + 'px';
+    cv.style.height = ss + 'px';
+    const c2 = cv.getContext('2d');
+    c2.setTransform(d, 0, 0, d, 0, 0);
+    c2.clearRect(0, 0, ss, ss);
+    const oldCtx = ctx, oldTile = TILE, oldFace = face;
+    ctx = c2; TILE = ss; face = 1; // 图标一律朝右：棋盘上的转身状态不该漏进静态卡片
+    try { drawer(ss); } finally { ctx = oldCtx; TILE = oldTile; face = oldFace; }
+    return true;
+  }
+
+  // 卡片没有地板：纯近黑剪影摆在深色面板上会糊成一团（实测 30px 只剩一个黑块），
+  // 所以先铺一层族色（Boss 用锁匠光色）柔光当"灯位"——顺带保住「同族同色」这条语义。
+  function iconBackdrop(ss, light) {
+    const g = ctx.createRadialGradient(ss / 2, ss * 0.58, 1, ss / 2, ss * 0.58, ss * 0.6);
+    g.addColorStop(0, light + '0.30)');
+    g.addColorStop(0.62, light + '0.10)');
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, ss, ss);
+  }
+
+  // 怪物图标：小怪走剪影、Boss 走站姿锁匠、未收录的字符仍由 drawMonster 自己兜 emoji
+  function paintIcon(cv, ch, size) {
+    const m = D.monsters && D.monsters[ch];
+    if (!m) return false;
+    const light = m.boss
+      ? (BOSS_LIGHT[ch] || BOSS_LIGHT.Z)[1]
+      : (MINION_KIND_COLOR[(MINION_ART[ch] || {}).c] || MINION_KIND_COLOR['构'])[1];
+    return paintInto(cv, size, (ss) => {
+      iconBackdrop(ss, light);
+      drawMonster(ch, 0, 0, simT);
+    });
+  }
+
+  function paintHeroIcon(cv, size) {
+    return paintInto(cv, size, (ss) => {
+      iconBackdrop(ss, PLAYER_LIGHT[1]);
+      drawPlayer(0, 0, simT);
+    });
+  }
+
   window.Renderer = {
     onScare(fn) { scareCb = typeof fn === 'function' ? fn : null; },
-    init, layout, ensureLayout, draw, snapshot,
+    init, layout, ensureLayout, draw, snapshot, paintIcon, paintHeroIcon,
     addFloat, shake, fade, freeze, pulse, flashTile, ring, ringPx, burst, relicBeamFx,
     setAmbient, setTarget, setRoutePreview,
     needsDraw: () => dirty,
