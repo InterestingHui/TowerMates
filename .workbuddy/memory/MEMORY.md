@@ -1,5 +1,11 @@
 # TowerMates 长期记忆
 
+## 小怪+勇者剪影化（2026-11-17，push 6bd651a，已上线）
+- 18 只普通怪从整格 emoji 改为手工 Canvas 剪影（render.js `MINION_ART` 库 + `drawMinion`）：近黑剪影 + kind 族色亮边（兽=琥珀/亡=霜蓝/构=石灰/异=苔绿）+ 亮瞳/单焦点；ghost 烛=烛台火焰。勇者同步剪影化（烛金 rim+歪尖兜帽+侧挎短剑，全塔唯一暖光源）。与 Boss `drawBossFigure` 同一画风语言。
+- 未收录怪字符保留 emoji 兜底（防测试注入炸渲染）；描边造型（锁虫）noRim 跳过 rim 层防重影。
+- 验证场景 `tools/shot.html?scene=minions`（18 只分行铺列怪廊），regress SCENES 55 张。目检口径：2x/4x device-scale-factor 截图逐只核对。
+- 坑：并行会话 `git add -A` 会把别人工作区的新改动卷进自己的提交（4338040 捎带了本次 render.js）——多会话并行时改完尽快小步提交。
+
 ## 序章分镜系统（2026-11-17，commit 4338040，已上线）
 - 开场序章四行旁白各有全屏 SVG 剪影场景（js/scenes.js）：王座厅→授帕→立誓→塔门，每幕单一暖光、渐变雾、零位图。新序章剧本若加行，`INTRO_SCENES` 数组按 idx 取幕（超界收尾幕）；非 intro 的对白永远无场景。
 - `tools/scene-check.html`：16 断言 + `?stay=N` 停幕截图；已挂 regress「序章分镜」节。headless 截图必须注入 `animation:none`（虚拟时间会把淡入冻在第一帧——真实浏览器无此问题）。
