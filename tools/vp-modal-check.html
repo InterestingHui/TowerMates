@@ -138,6 +138,32 @@ function measurePanel(frame, sel) {
           check(tag + ' 面板不横向溢出', !m.overflowX);
           check(tag + ' 关闭按钮不滚就看得见', !!close && close.top >= -1 && close.bottom <= c.h + 1,
             close ? close.top + '–' + close.bottom + ' / ' + c.h : '缺按钮');
+          // 挑战码折行必须均衡（2026-11-17 美术焦点B 实测）：一枚真码是 42~56 个字符，
+          // 而码的可用宽度随视口走。标签与码同排时 430 宽只剩 250px，末尾 1~2 个字符
+          // 被折到第二行 —— 截图里 `...yy4xhy` 下面孤零零一个 `4u`，读起来像码错了。
+          // 这里塞一枚 56 字符样本，逐字符量 top 统计每行字数，末行不许少于平均行的一半。
+          const codeEl = d.getElementById('myCode');
+          let codeMsg = '无 #myCode';
+          if (codeEl) {
+            const orig = codeEl.textContent;
+            codeEl.textContent = 'TM5.' + 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'.repeat(2).slice(0, 52);
+            const tn = codeEl.firstChild;
+            const len = codeEl.textContent.length;
+            const rows = [];
+            const rg = d.createRange();
+            for (let i = 0; i < len; i++) {
+              rg.setStart(tn, i); rg.setEnd(tn, i + 1);
+              const top = Math.round(rg.getBoundingClientRect().top);
+              const hit = rows.find((r2) => r2.top === top);
+              if (hit) hit.n++; else rows.push({ top: top, n: 1 });
+            }
+            const per = len / rows.length;
+            codeMsg = rows.length + ' 行 / ' + rows.map((r2) => r2.n).join('+');
+            // 阈值 0.75：实测无 balance 的分布是 37+19（56 字符）/ 40+2（42 字符），
+            // 有 balance 是 28+28 或 18+19+19 —— 0.5 的松阈值会放过 37+19。
+            check(tag + ' 挑战码折行均衡', rows.length <= 3 && Math.min.apply(null, rows.map((r2) => r2.n)) >= Math.ceil(per * 0.75), codeMsg);
+            codeEl.textContent = orig;
+          } else check(tag + ' 挑战码折行均衡', false, codeMsg);
         }
         try { d.getElementById('boardClose').click(); } catch (e) {}
         await wait(120);

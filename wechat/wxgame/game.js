@@ -7,11 +7,15 @@
 // 所以这个入口目前只做一件事：证明工程结构对（能起 canvas、能拉起子域），
 // 并把「下一步要写什么」写在屏幕上，避免有人以为它已经能玩。
 //
-// 要走 A 路线，依次需要：
-//   1. 把 index.html 里的 HUD/面板改成 canvas 自绘（这是 3–5 天的大头）
-//   2. 把 main.js 的交互层与 render.js 的绘制层再切一刀（现在耦合在 DOM 事件上）
+// 要走 A 路线，依次需要（成本已量，见 ../docs/wechat-port-plan.md §七）：
+//   1. 把 index.html 里的 HUD/面板改成 canvas 自绘（这是 ≈18–28 人日的大头；21 屏 × 0.7–1.2 人日）
+//   2. 把 main.js 的交互层与 render.js 的绘制层再切一刀（view.js 纯函数层已抽出七刀，
+//      剩下的只有「DOM 事件 → wx.onTouchStart 坐标命中」这一层）
 //   3. 用 wx.createCanvas 建主画布，用 wx.getOpenDataContext() 拉起子域好友榜
 //   4. 音频换 wx.createInnerAudioContext，存档换 wx.setStorageSync
+//
+// **注意**：2026-11-16 已自主拍板「路线 B（小程序 web-view）优先，A 降级为备案期预备」——
+// 本目录现在不是主线，别在没有真人留存数据的前提下开工。
 const canvas = wx.createCanvas();
 const ctx = canvas.getContext('2d');
 const W = canvas.width;
