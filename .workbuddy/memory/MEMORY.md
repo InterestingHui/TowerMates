@@ -1,5 +1,10 @@
 # TowerMates 长期记忆
 
+## 「开新局」ReferenceError 修复（2026-11-17，修复随并行会话 f748cc6 上库，探针 b8bcf17）
+- 用户报障：隔了段时间再玩，点「新开一局」报错且重开失败。根因：`doResetRun` 误留在 `bindInput()` 作用域内，而 `btnNewRun` 绑定在 `boot()` 里——兄弟作用域不可见，有存档的老玩家点击必抛 ReferenceError（64fdf13 埋雷）。
+- 修复：`doResetRun` 提升到模块层。回归探针 `tools/again-probe.html`（headless 复刻用户路径）留存。
+- 坑①：并行会话提交时把工作区里别人的修复一并卷进自己的 commit（f748cc6 卷了本次修复）——多会话并行时改完**立即小步提交**。坑②：headless 探针 `f.src` 重载会再次触发 `f.onload`，probe 脚本要防重跑，否则出假报错。
+
 ## 小怪+勇者剪影化（2026-11-17，push 6bd651a，已上线）
 - 18 只普通怪从整格 emoji 改为手工 Canvas 剪影（render.js `MINION_ART` 库 + `drawMinion`）：近黑剪影 + kind 族色亮边（兽=琥珀/亡=霜蓝/构=石灰/异=苔绿）+ 亮瞳/单焦点；ghost 烛=烛台火焰。勇者同步剪影化（烛金 rim+歪尖兜帽+侧挎短剑，全塔唯一暖光源）。与 Boss `drawBossFigure` 同一画风语言。
 - 未收录怪字符保留 emoji 兜底（防测试注入炸渲染）；描边造型（锁虫）noRim 跳过 rim 层防重影。
