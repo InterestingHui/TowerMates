@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>final-probe</title>
+<style>body{margin:0;background:#05070c;overflow:hidden}#err{position:fixed;left:0;top:0;width:800px;color:#00ff88;font:13px/1.3 monospace;background:#000;padding:8px;z-index:99;white-space:pre-wrap;max-height:95vh}#err:empty{display:none}</style>
+</head>
+<body>
+<iframe id="f" style="width:430px;height:900px;border:0;display:block"></iframe>
+<pre id="err"></pre>
+<script>
+  const f = document.getElementById('f');
+  const errBox = document.getElementById('err');
+  const errs = [];
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  let phase = 1;   // 1 = 造存档, 2 = 隔天重开验证
+  f.onload = async () => {
+    const w = f.contentWindow, d = f.contentDocument;
+    if (!w || !w.Engine) return;
+    w.addEventListener('error', (e) => errs.push('JS(p' + phase + '): ' + e.message + ' @' + String(e.filename||'').split('/').pop() + ':' + e.lineno + '\n  ' + String(e.error && e.error.stack || '').split('\n')[1]));
+    if (phase === 1) {
+      phase = 2;
+      // 造一份中局存档
+      await wait(600);
+      const st = d.createElement('style');
+      st.textContent = '*{animation:none!important;transition:none!important}';
+      d.head.appendChild(st);
+      const E = w.Engine, T = w.__tm;
+      const dl = d.getElementById('dialogOverlay');
+      d.getElementById('btnNew').click();
+      await wait(200);
+      const vc = d.querySelector('#vowCards .vow-card[data-vow="none"]');
+      if (vc) vc.click();
+      await wait(260);
+      for (let i = 0; i < 10; i++) {
+        if (!dl.classList.contains('show')) break;
+        dl.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        await wait(60);
+      }
+      const s1 = E.state();
+      s1.floor = 4; s1.x = 2; s1.y = 8;
+      E.save();
+      // 模拟隔天：meta.runs 推大，让立誓页出全量卡
+      const meta = JSON.parse(w.localStorage.getItem('towermates_meta') || '{}');
+      meta.memory = meta.memory || {};
+      meta.memory.runs = 3;
+      meta.memory.deepest = 9;
+      meta.memory.endings = { plain: 2 };
+      w.localStorage.setItem('towermates_meta', JSON.stringify(meta));
+      f.src = '/index.html';
+      return;
+    }
+    // phase 2：页面已刷新 = 用户隔天回来
+    await wait(900);
+    const st = d.createElement('style');
+    st.textContent = '*{animation:none!important;transition:none!important}';
+    d.head.appendChild(st);
+    const E = w.Engine, T = w.__tm;
+    const out = [];
+    out.push('p2: hasSave=' + E.hasSave()
+      + ' newRunRow=' + d.getElementById('newRunRow').style.display
+      + ' btnContinue=' + d.getElementById('btnContinue').style.display);
+    // —— 用户操作：点「开新局 · 放弃当前进度」
+    d.getElementById('btnNewRun').click();
+    await wait(300);
+    out.push('confirm=' + d.getElementById('resetConfirmOverlay').classList.contains('show'));
+    // —— 确认重置
+    d.getElementById('resetConfirm').click();
+    await wait(600);
+    const vowShown = d.getElementById('vowOverlay').classList.contains('show');
+    const cards = d.querySelectorAll('#vowCards .vow-card');
+    out.push('vowOverlay=' + vowShown + ' cards=' + cards.length);
+    // —— 立誓页点一张卡（全量卡里有 mercy）
+    const mc = d.querySelector('#vowCards .vow-card[data-vow="mercy"]');
+    if (mc) mc.click();
+    // 等引擎出状态
+    let tries = 0;
+    while ((!E.state() || d.getElementById('vowOverlay').classList.contains('show')) && tries < 40) { await wait(100); tries++; }
+    const s2 = E.state();
+    out.push('newRun=' + (s2 ? 'floor' + (s2.floor + 1) + ' vow=' + s2.flags.vow + ' hp=' + s2.hp : 'NULL')
+      + ' vowOverlayStill=' + d.getElementById('vowOverlay').classList.contains('show'));
+    await wait(1500);
+    out.push('settle: state=' + (E.state() ? 'floor' + (E.state().floor + 1) : 'NULL'));
+    const ferr = (T.funnel() || []).filter((x) => x.ev === 'err');
+    out.push('funnelErr=' + (ferr.length ? ferr.length + '条:' + ferr[0].msg : 'none'));
+    errBox.textContent = out.join('\n') + '\nerr=' + (errs.length ? errs.join('\n') : 'none');
+  };
+  f.src = '/index.html';
+</script>
+</body>
+</html>
