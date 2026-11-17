@@ -189,6 +189,21 @@ Object.keys(D.relics).forEach((id) => {
 });
 // 商店里带 relic 的商品，必须真的在购买时落 flags（buy() 里读 item.relic）；
 // 反过来，指着 codex 的商品若忘了挂 relic，就是「花钱买了却不算收集」——这条是上面那条的兜底。
+// 说明书写「会标在地图上」这类位置承诺时，必须有对应的绘制代码，否则就是卖了个不存在的东西。
+// 2026-11-18 抓到：无名之镜的 desc 与秤的对白都写「预计伤害标在地图上」，而 render.js 里
+// 一个伤害数字都不画——真实能力是解锁怪物图鉴面板。买了 100 金的东西，说明书在骗人。
+// 口径：带「地图」二字的说明书，必须能在渲染层找到画它的证据（这里只守已知的这一件，
+// 将来真做了地图标注，把这条连同「镜子点开图鉴」一起重写）。
+if (D.relics.scout) {
+  const d = D.relics.scout.desc || '';
+  if (d.indexOf('图鉴') < 0) err(`无名之镜的说明里没提图鉴——它真实的能力就是解锁图鉴（desc: ${d}）`);
+  if (d.indexOf('地图') >= 0) err(`无名之镜的说明又写「地图」了——地图上不画伤害（render.js 无绘制），这是假话`);
+}
+if (global.STORY && global.STORY.keyHints && global.STORY.keyHints.codex) {
+  const line = global.STORY.keyHints.codex.map((l) => (Array.isArray(l) ? l[1] : l)).join('');
+  if (line.indexOf('地图') >= 0) err('秤的窥探之镜对白仍写着「地图」——玩家会去图上找，什么也找不到');
+  if (line.indexOf('图鉴') < 0 && line.indexOf('镜子') < 0) err('秤的对白没说清图鉴在哪，玩家买了不会用');
+}
 if (global.STORY && global.STORY.relicLore) {
   D.altarPool.forEach((id) => {
     if (!global.STORY.relicLore[id]) err(`祭坛池遗物 ${id} 没有小传——三选一里会有一格拿到手是哑的`);

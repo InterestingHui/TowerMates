@@ -1120,6 +1120,18 @@ async function run() {
           // 背光的几何契约（外圆不出画布）交给 code-test 量参数——像素法在这里不可靠：
           // 剪影本体常顶到画布边，半透明渗色与描边抗锯齿会混在一起（实测 10 vs 46，阈值太脆）。
           d.getElementById('codexOverlay').classList.remove('show');
+          // 无名之镜「点它就翻图鉴」（2026-11-18 焦点D）：这颗 chip 的自带面板是图鉴，
+          // 点下去必须把图鉴翻开——只念一句「解锁怪物图鉴」等于让玩家自己去找顶栏那颗 🔮。
+          sC.flags.relic_scout = true;
+          w.__tm.refreshHud();
+          var scoutChip = d.querySelector('#relicRow .relic[data-relic="scout"]');
+          out.scoutChip = !!scoutChip;
+          if (scoutChip) scoutChip.click();
+          out.scoutOpensCodex = d.getElementById('codexOverlay').classList.contains('show');
+          d.getElementById('codexOverlay').classList.remove('show');
+          delete sC.flags.relic_scout;
+          w.__tm.refreshHud();
+          out.scoutChipGone = !d.querySelector('#relicRow .relic[data-relic="scout"]');
         })();
         // 渲染异常探针：整轮 UI 自检跑下来一次都不许有
         out.renderErrors = (w.__tmRenderErrors || []).length;

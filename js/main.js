@@ -1037,10 +1037,17 @@
     }).join('');
     const gateChip = el.relicRow.querySelector('.relic[data-relic="gate"]');
     if (gateChip) gateChip.addEventListener('click', openGate);
-    // 触屏没有 hover：点一下就念出这件遗物的说明（gate 有自己的面板，不参与）
+    // 无名之镜跟 gate 一样自带面板：它「就是」怪物图鉴，点它应当把图鉴翻开，
+    // 而不是念一句「解锁怪物图鉴」（念了等于让玩家自己去找顶栏那颗 🔮）。
+    const scoutChip = el.relicRow.querySelector('.relic[data-relic="scout"]');
+    if (scoutChip) {
+      scoutChip.title = '无名之镜：点开怪物图鉴';
+      scoutChip.addEventListener('click', openCodex);
+    }
+    // 触屏没有 hover：点一下就念出这件遗物的说明（有自己面板的两件不参与）
     el.relicRow.querySelectorAll('.relic[data-relic]').forEach((chip) => {
       const id = chip.dataset.relic;
-      if (id === 'gate') return;
+      if (id === 'gate' || id === 'scout') return;
       chip.addEventListener('click', () => {
         const r = D.relics[id];
         if (r) warn(`${r.emoji} **${r.name}**：${r.desc}`);

@@ -207,6 +207,9 @@ const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-ui-'));
     `图鉴每一行都有剪影图标（行 ${out.codexRows} / 图标 ${out.codexIcons}——少一块就是 paintIcon 没画出来）`);
   ok(Array.isArray(out.codexDark) && out.codexDark.length === out.codexRows && out.codexDark.every((p) => p >= 8 && p <= 92),
     `每格剪影本体真的画在画布上（近黑占比 ${(out.codexDark || []).slice(0, 6).join('% / ')}%…，全 ${(out.codexDark || []).length} 格都在 8–92%）`);
+  // 无名之镜点开图鉴（2026-11-18 焦点D）：它自带面板，chip 点下去要翻开图鉴而不是念说明书
+  ok(out.scoutChip === true && out.scoutOpensCodex === true, '点顶栏的无名之镜会直接翻开怪物图鉴');
+  ok(out.scoutChipGone === true, '（探针自检）撤掉 relic_scout 后 chip 真的消失，说明上一条测的是它');
   // 激励视频（IAA 红线）：默认关闭是硬要求——线上不允许出现任何广告按钮
   ok(out.adDefaultOff === true, '激励视频接口默认恒不可用（提审前不接 SDK）');
   ok(Array.isArray(out.adSlots) && out.adSlots.length === 2 && out.adSlots.indexOf('revive') >= 0 && out.adSlots.indexOf('ember') >= 0, '只留两个卡点槽位（复活 / 余烬翻倍），不做插屏横幅');
