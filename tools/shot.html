@@ -1014,7 +1014,7 @@
         const sM = E.state();
         sM.atk = 999; sM.def = 99; sM.hp = 9999; sM.maxHp = 9999;   // 镜徽记无干扰（全绿「无伤」会盖怪——关掉窥探镜）
         sM.flags = sM.flags || {}; sM.flags.codex = false;
-        const ROWS = ['ABCDWEFGHI', 'R123456G'];
+        const ROWS = ['ABCDWEFHVI', 'R123456G'];   // 18 只全收录：烛 G 收尾在下排末位
         const oy = 2;
         for (let r = 0; r < ROWS.length; r++) {
           const row = sM.maps[sM.floor][oy + r];
