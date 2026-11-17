@@ -362,6 +362,9 @@
     if (!isFiniteNum(f.clean_kills)) f.clean_kills = 0;
     if (!isFiniteNum(f.rngSeed)) f.rngSeed = null;
     if (!isFiniteNum(f.rngN)) f.rngN = 0;
+    // 窥探之镜 2026-11-18 起同时是遗物「无名之镜」。老档里已经买过镜子的（f.codex 为真）
+    // 却没记 relic_scout——图鉴那一格不该因为存档的早晚而空着。纯粹补齐，镜子本来就不加数值。
+    if (f.codex && !f.relic_scout) f.relic_scout = true;
     // 钥匙：老档的 b（蓝）并进 r；负数/非数夹回 0（手改出负钥匙＝免费开门）
     if (p.keys && typeof p.keys === 'object' && p.keys.b !== undefined) {
       p.keys.r = (p.keys.r || 0) + (p.keys.b || 0);
@@ -1761,7 +1764,7 @@
     const item = D.shop.find((x) => x.id === id);
     if (!item) return { type: 'refuse', msg: '商品不存在' };
     if (item.codex && s.flags.codex) return { type: 'refuse', msg: '已经拥有窥探之镜' };
-    if (item.relic && hasRelic(item.relic)) return { type: 'refuse', msg: '这条灯芯已经在你胸口了' };
+    if (item.relic && hasRelic(item.relic)) return { type: 'refuse', msg: '这件东西已经在你身上了' };
     if (item.block && s.flags.hasBlock) return { type: 'refuse', msg: '你已经学过格挡了' };
     if (item.block && vowForbidsBlock()) return { type: 'refuse', msg: '这条誓约不能格挡，买它没用' };
     if (item.heartShard && s.flags.heartShard) return { type: 'refuse', msg: '塔心碎片一枚就够——它认主' };
@@ -1785,7 +1788,7 @@
     s.flags.shopCount = (s.flags.shopCount || 0) + 1;
     save();
     const msg = item.codex
-      ? '获得「窥探之镜」：怪物情报已解锁'
+      ? '获得遗物「无名之镜」：怪物情报已解锁，图鉴记下这一件'
       : item.relic
         ? `获得遗物「${item.name}」· ${D.relics[item.relic].desc}`
         : item.block

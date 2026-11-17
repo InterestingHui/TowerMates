@@ -180,7 +180,11 @@ window.GAME_DATA = (function () {
     steel: { name: '鸦的铁腕', emoji: '🦾', short: '腕', desc: '攻击 +3、防御 +3', from: '行李堆三选一（第 3 / 5 / 8 层随机）' },
     thrift: { name: '川的账本', emoji: '📒', short: '账', desc: '商店价格 −25%', from: '行李堆三选一（第 3 / 5 / 8 层随机）' },
     vigor: { name: '岩的灯油', emoji: '🏺', short: '油', desc: '每次升级额外 +80 生命', from: '行李堆三选一（第 3 / 5 / 8 层随机）' },
-    scout: { name: '无名之镜', emoji: '🔍', short: '镜', desc: '直接获得窥探之镜', from: '行李堆三选一（第 3 / 5 / 8 层随机）' },
+    // desc 说的必须是「拿到之后你多了什么」——旧的「直接获得窥探之镜」在玩家手里已经是镜子时
+    // 读起来是个循环（它就是那面镜子）。效果与 flags.codex 一致：地图上标出每只怪的预计伤害。
+    // 长度守商店货架副标题的单行预算（98px @360）：这行字直接进 .si-tip，
+    // 写长一点就会被省略号吃掉——「每只怪的」四个字 2026-11-18 实测把这条断言顶红。
+    scout: { name: '无名之镜', emoji: '🔍', short: '镜', desc: '地图上标出预计伤害', from: '秤的货摊 · 100 金' },
     heart: { name: '塔心石', emoji: '💗', short: '心', desc: '生命上限 +300（带走时结算）', from: '第 13 层锁芯 · 三盏灯中央' },
     gate: { name: '层阶之钥', emoji: '🗝️', short: '钥', desc: '在走过的楼层间跳；头一次还能往前开一层，代价是那层两件最好的东西被封住', from: '第 4 层密道 · 长柄旧钥匙' },
     cross: { name: '旧十字架', emoji: '✝️', short: '架', desc: '对亡灵类（骷髅、僵尸、怨灵、吸血鬼…）伤害 ×1.5', from: '行李堆三选一（第 3 / 5 / 8 层随机）' },
@@ -788,7 +792,10 @@ window.GAME_DATA = (function () {
     { id: 'def', name: '护甲强化', emoji: '🛡️', price: 60, step: 20, def: 2 },
     { id: 'blockbook', name: '半部盾谱', emoji: '📖', price: 150, block: true, once: true },
     { id: 'ember', name: '余烬灯芯', emoji: '🔥', price: 120, relic: 'ember', once: true },
-    { id: 'codex', name: '窥探之镜', emoji: '🔮', price: 100, codex: true, once: true },
+    // 窥探之镜：既是道具也是遗物（relic: 'scout'）——2026-11-17 把它从祭坛池里摘掉时留了话
+    // 「仍可在秤那里买到」，但只挂了 codex 没挂 relic，于是图鉴第 11 格永远是 ○（分母算它、途径不存在）。
+    // 现在买它就是「拿到无名之镜」这一件遗物：图鉴可达、顶栏有 chip，数值仍只有情报一项。
+    { id: 'codex', name: '窥探之镜', emoji: '🔮', price: 100, codex: true, relic: 'scout', once: true },
     { id: 'bigpotion', name: '蓝药水', emoji: '💧', price: 70, step: 10, hp: 420, minFloor: 8 },
     { id: 'holywater', name: '圣水', emoji: '🍶', price: 150, step: 20, hp: 900, minFloor: 11 },
     { id: 'heartshard', name: '塔心碎片', emoji: '🩷', price: 260, heartShard: true, once: true, minFloor: 13 },
