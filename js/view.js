@@ -853,7 +853,6 @@
       const mg = margin(ch);
       return {
         ch,
-        emoji: m.emoji || '',
         name: m.name || '',
         kind: m.kind || '',
         boss: !!m.boss,

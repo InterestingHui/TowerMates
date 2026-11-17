@@ -24,6 +24,9 @@
   const disp = { x: 1, y: 1 };
   let lastFloor = -1;
   let face = 1;
+  // 图标模式（图鉴 / 速查卡 / 战斗头像）：画布就是整格，Boss 的「左上角名字小签」在这里
+  // 只有 8px 且与卡片上的名字重复 ⇒ 一团糊，索性不画。
+  let iconMode = false;
 
   let ambient = { mode: 'torch', critters: [], spawnAcc: 0 };
   let torchList = [];
@@ -1152,7 +1155,8 @@
     ctx.restore();
 
     // 名字小签：挂在格子**左上角**，绝不遮住脸；彻底杜绝「这是道具」的误读
-    const tag = m.name || '';
+    // （图标模式下不画：画布只有 30–48px，签会缩到 8px 并和卡片上的名字重复）
+    const tag = iconMode ? '' : (m.name || '');
     if (tag) {
       ctx.font = `700 ${Math.max(8, Math.floor(TILE * 0.16))}px "Microsoft YaHei",sans-serif`;
       ctx.textAlign = 'left';
@@ -2200,18 +2204,30 @@
     const c2 = cv.getContext('2d');
     c2.setTransform(d, 0, 0, d, 0, 0);
     c2.clearRect(0, 0, ss, ss);
-    const oldCtx = ctx, oldTile = TILE, oldFace = face;
-    ctx = c2; TILE = ss; face = 1; // 图标一律朝右：棋盘上的转身状态不该漏进静态卡片
-    try { drawer(ss); } finally { ctx = oldCtx; TILE = oldTile; face = oldFace; }
+    const oldCtx = ctx, oldTile = TILE, oldFace = face, oldIcon = iconMode;
+    ctx = c2; TILE = ss; face = 1; iconMode = true; // 图标一律朝右：棋盘上的转身状态不该漏进静态卡片
+    try { drawer(ss); } finally { ctx = oldCtx; TILE = oldTile; face = oldFace; iconMode = oldIcon; }
+    // 收边：画布四周 8% 用 alpha 淡出，把「背光尾巴 + 剪影自身的光晕」在出画布之前收干净。
+    // 不这样做的话，玩家与怪自己的暖色光晕（全塔唯一光源）会一路顶到画布边被硬切一刀，
+    // 图标底下就多出一块有直边的方牌——这正是「格子上像垫了灰牌」的观感来源。
+    c2.globalCompositeOperation = 'destination-in';
+    const rim = c2.createRadialGradient(ss / 2, ss / 2, ss * 0.42, ss / 2, ss / 2, ss * 0.5);
+    rim.addColorStop(0, 'rgba(0,0,0,1)');
+    rim.addColorStop(1, 'rgba(0,0,0,0)');
+    c2.fillStyle = rim;
+    c2.fillRect(0, 0, ss, ss);
+    c2.globalCompositeOperation = 'source-over';
     return true;
   }
 
   // 卡片没有地板：纯近黑剪影摆在深色面板上会糊成一团（实测 30px 只剩一个黑块），
   // 所以先铺一层族色（Boss 用锁匠光色）柔光当"灯位"——顺带保住「同族同色」这条语义。
+  // 半径与圆心必须落在画布半宽（ss/2）之内——超出去渐变在四边就不是 0，
+  // 背光会被裁成一块硬边亮方块（48px 上看像给图标垫了块灰牌）。
   function iconBackdrop(ss, light) {
-    const g = ctx.createRadialGradient(ss / 2, ss * 0.58, 1, ss / 2, ss * 0.58, ss * 0.6);
+    const g = ctx.createRadialGradient(ss / 2, ss / 2, 1, ss / 2, ss / 2, ss * 0.5);
     g.addColorStop(0, light + '0.30)');
-    g.addColorStop(0.62, light + '0.10)');
+    g.addColorStop(0.6, light + '0.10)');
     g.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, ss, ss);

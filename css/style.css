@@ -1045,8 +1045,6 @@ html, body {
 .bs-avatar {
   width: 50px;
   height: 50px;
-  font-size: 50px;
-  line-height: 1.12;
   filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.6));
   will-change: transform;
 }
@@ -1799,7 +1797,6 @@ body.at-start #bottom { visibility: hidden; }
 }
 .probe-card.show { opacity: 1; transform: translateY(0) scale(1); }
 .probe-card .pb-head { display: flex; align-items: center; gap: 6px; font-size: var(--fs-aux); }
-.probe-card .pb-emoji { font-size: var(--fs-title); }
 .probe-card .pb-icon { display: block; width: 30px; height: 30px; }
 .probe-card .pb-head b { letter-spacing: 0.5px; }
 .probe-card .pb-stats { margin-top: 4px; color: var(--muted); font-variant-numeric: tabular-nums; }
@@ -3064,7 +3061,6 @@ body.at-start #bottom { visibility: hidden; }
    只能在极矮横屏压缩视觉分量：10 块加起来 324px，在 320 高的横屏里上下各被切 2px。 */
 @media (orientation: landscape) and (max-height: 400px) {
   .bs-panel { padding: 9px 15px 7px; max-height: 100dvh; }
-  .bs-avatar { font-size: 36px; }
   .bs-head { margin-bottom: 5px; }
   .bs-stage { padding: 0 0 3px; }
   .bs-block { margin-top: 6px; }

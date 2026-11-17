@@ -992,5 +992,38 @@ ok(mainSrc.indexOf("searchParams.set('rival'") < 0, 'main.js 不许自己拼链�
   ok(/\$\('endBrief'\)\.addEventListener\('click'/.test(mainSrc), '点击出口挂在 #endBrief 上（摘要重渲不必重绑）');
 }
 
+// 图鉴/速查卡/战斗头像的「灯位」背光：径向渐变必须整个落在画布内。
+// 半径或圆心一旦超出画布半宽，渐变在四边就不是 0 → 背光被裁成一块硬边亮方块
+// （48px 战斗头像上肉眼可见，像给图标垫了块灰牌；11-17 收敛轮就是靠像素采样抓到 x428→429 跳 21 级）。
+// 像素判据在 UI 层不好使：剪影本体常常顶到画布边，会把「半透明渗到边上」和「描边抗锯齿」混在一起，
+// 所以这条用几何契约守——把三个参数按 ss=100 求值，验证外圆不出界。
+{
+  const renderSrc = require('fs').readFileSync(require('path').join(__dirname, '..', 'js', 'render.js'), 'utf8');
+  const fn = renderSrc.match(/function iconBackdrop\(ss, light\)\s*\{([\s\S]*?)\n  \}/);
+  ok(!!fn, 'render.js 里找得到 iconBackdrop');
+  const call = fn ? fn[1].match(/createRadialGradient\(([^)]*)\)/) : null;
+  ok(!!call, 'iconBackdrop 用 createRadialGradient 铺背光');
+  if (call) {
+    const args = call[1].split(',').map((s) => s.trim());
+    ok(args.length === 6, `createRadialGradient 六个参数齐全（实得 ${args.length}：${call[1]}）`);
+    let v = [];
+    try { v = args.map((a) => new Function('ss', 'return (' + a + ');')(100)); } catch (e) { v = []; }
+    ok(v.length === 6 && v.every((n) => typeof n === 'number' && isFinite(n)),
+      `三个渐变参数都是纯 ss 表达式（${call[1]}）`);
+    if (v.length === 6) {
+      const [x0, y0, r0, x1, y1, r1] = v;
+      ok(x1 - r1 >= -0.01 && y1 - r1 >= -0.01 && x1 + r1 <= 100.01 && y1 + r1 <= 100.01,
+        `背光外圆不出画布（圆心 ${x1},${y1} 半径 ${r1}，画布 100×100——出界即硬边方块）`);
+      ok(x0 === x1 && y0 === y1, `内外圆同心（${x0},${y0} vs ${x1},${y1}）`);
+      ok(r1 > 0 && r1 >= r0, `外半径大于内半径（${r0} → ${r1}）`);
+    }
+  }
+  // 收边：画布四周用 destination-in 淡出。玩家与怪自己的暖光晕（全塔唯一光源）会一路顶到画布边，
+  // 没有这层收边就会被硬切一刀，图标底下多出一块有直边的方牌。实测：有收边时 20 只小怪边缘 alpha=0。
+  const into = renderSrc.match(/function paintInto\(cv, size, drawer\)\s*\{([\s\S]*?)\n  \}/);
+  ok(!!into && /globalCompositeOperation = 'destination-in'/.test(into[1]), 'paintInto 用 destination-in 给图标收边');
+  ok(!!into && /rim\.addColorStop\(1, 'rgba\(0,0,0,0\)'\)/.test(into[1]), '收边是渐变到全透明（不是硬裁）');
+}
+
 console.log(`挑战码 / 触控 / 桥接 / 视图模型单测：${pass} 项通过${bad ? `，${bad} 项失败` : ''}`);
 process.exit(bad ? 1 : 0);

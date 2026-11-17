@@ -183,6 +183,11 @@ const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-ui-'));
   ok(out.ringStat === true, '锁环使用统计：选中与通关各记一笔');
   ok(out.ringStatCard === true, '图鉴卡片上显示「选过几次」');
   ok(out.statBoard === true, '构筑档案：共选次数 / 最常用 / 胜率最高都在');
+  // 图鉴剪影（11-17 收敛轮抓到的闸门盲点：paintIcon 失败会把 canvas remove，整列留白却全绿）
+  ok(out.codexRows > 20 && out.codexIcons === out.codexRows,
+    `图鉴每一行都有剪影图标（行 ${out.codexRows} / 图标 ${out.codexIcons}——少一块就是 paintIcon 没画出来）`);
+  ok(Array.isArray(out.codexDark) && out.codexDark.length === out.codexRows && out.codexDark.every((p) => p >= 8 && p <= 92),
+    `每格剪影本体真的画在画布上（近黑占比 ${(out.codexDark || []).slice(0, 6).join('% / ')}%…，全 ${(out.codexDark || []).length} 格都在 8–92%）`);
   // 激励视频（IAA 红线）：默认关闭是硬要求——线上不允许出现任何广告按钮
   ok(out.adDefaultOff === true, '激励视频接口默认恒不可用（提审前不接 SDK）');
   ok(Array.isArray(out.adSlots) && out.adSlots.length === 2 && out.adSlots.indexOf('revive') >= 0 && out.adSlots.indexOf('ember') >= 0, '只留两个卡点槽位（复活 / 余烬翻倍），不做插屏横幅');

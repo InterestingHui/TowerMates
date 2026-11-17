@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>share card</title>
+<!--
+  分享卡（og:image 源）：1200×1200 正方，微信/朋友圈链接卡按 1:1 居中裁切不会丢字。
+  用法：chrome --headless=new --screenshot=assets/share-card.png --window-size=1200,1200
+        --force-device-scale-factor=1 tools/sharecard.html
+  依赖：tools/sharecard-qr.png（由根目录「towermates-二维码.png」临时复制，生成后即可删）。
+  为什么自己做一张而不是直接拿「扫码即玩-分享图.png」：那张是 3:4 竖图，
+  按 1:1 居中裁会切掉标题上半（魔塔二字），且底部 CTA 全丢。
+-->
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1200px; height: 1200px; overflow: hidden; }
+  body {
+    background: #07090f;
+    font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", sans-serif;
+    color: #e8ecf5;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+  }
+  /* 一层极淡的塔砖网格：跟游戏里地板同一语言，不做花 */
+  body::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(120, 140, 180, 0.055) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(120, 140, 180, 0.055) 1px, transparent 1px);
+    background-size: 60px 60px;
+  }
+  /* 单一暖光：从正上方压下来，塔门缝里那道光 */
+  body::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(60% 42% at 50% 6%, rgba(255, 206, 120, 0.16), rgba(0, 0, 0, 0) 70%);
+  }
+  .wrap { position: relative; z-index: 1; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding-bottom: 18px; }
+  .brand {
+    font-size: 30px;
+    letter-spacing: 15px;
+    color: #b9a06a;
+    text-indent: 15px;
+  }
+  .title {
+    margin-top: 22px;
+    font-size: 132px;
+    font-weight: 700;
+    letter-spacing: 20px;
+    text-indent: 20px;
+    color: #ffd98a;
+    text-shadow: 0 0 42px rgba(255, 190, 90, 0.34);
+    line-height: 1.08;
+  }
+  .sub {
+    margin-top: 18px;
+    font-size: 40px;
+    color: #dfe6f2;
+    letter-spacing: 3px;
+  }
+  .sub2 {
+    margin-top: 12px;
+    font-size: 28px;
+    color: #8f9bb0;
+    letter-spacing: 2px;
+  }
+  .qrbox {
+    margin-top: 46px;
+    width: 360px;
+    height: 360px;
+    background: #f4f1e8;
+    border-radius: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.62);
+  }
+  .qrbox img { width: 300px; height: 300px; display: block; image-rendering: pixelated; }
+  .cta {
+    margin-top: 40px;
+    padding: 18px 52px;
+    border-radius: 999px;
+    background: #f2c96b;
+    color: #191307;
+    font-size: 36px;
+    font-weight: 700;
+    letter-spacing: 5px;
+  }
+  .foot {
+    margin-top: 22px;
+    font-size: 24px;
+    color: #6d7789;
+    letter-spacing: 2px;
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="brand">TOWERMATES</div>
+    <div class="title">魔塔</div>
+    <div class="sub">第九位勇者，从今夜开始</div>
+    <div class="sub2">十三层塔 · 四章剧情 · 一枚塔心石</div>
+    <div class="qrbox"><img src="sharecard-qr.png" alt=""></div>
+    <div class="cta">扫码即玩</div>
+    <div class="foot">手机直接打开 · 无需下载</div>
+  </div>
+</body>
+</html>

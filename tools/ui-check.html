@@ -919,6 +919,35 @@ async function run() {
           d.getElementById('hintBookOverlay').classList.remove('show');
           return r;
         })();
+        // 图鉴剪影闸门（11-17 收敛轮抓到的盲点：cx-icon / pb-icon / paintIcon 在 tools/ 下零引用，
+        // 图标画不出来时 paintIcon 返回 false 会把 canvas 直接 remove，整列留白，55 张截图与全部断言都不红）。
+        // 两条判据分开量：①数量（画不出就少一块）②像素（画了但画空白／糊成全黑也不行）。
+        (function () {
+          d.querySelectorAll('.overlay.show').forEach(function (o) { o.classList.remove('show'); });
+          var sC = E.state();
+          sC.flags.codex = true;
+          w.__tm.openCodex();
+          var rows = d.querySelectorAll('#codexList .cx-row');
+          var cvs = d.querySelectorAll('#codexList canvas.cx-icon');
+          out.codexRows = rows.length;
+          out.codexIcons = cvs.length;
+          var dark = [];
+          cvs.forEach(function (cv) {
+            try {
+              var px = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data;
+              var tot = cv.width * cv.height, n = 0;
+              for (var i = 0; i < px.length; i += 4) {
+                if (px[i + 3] > 30 && (px[i] * 0.299 + px[i + 1] * 0.587 + px[i + 2] * 0.114) < 45) n++;
+              }
+              dark.push(Math.round(n / tot * 100));
+            } catch (e) { dark.push(-1); }
+          });
+          // 每格近黑剪影占画布百分比：背光本身是低 alpha 的族色，不参与计数，量的就是「剪影本体」
+          out.codexDark = dark;
+          // 背光的几何契约（外圆不出画布）交给 code-test 量参数——像素法在这里不可靠：
+          // 剪影本体常顶到画布边，半透明渗色与描边抗锯齿会混在一起（实测 10 vs 46，阈值太脆）。
+          d.getElementById('codexOverlay').classList.remove('show');
+        })();
         // 渲染异常探针：整轮 UI 自检跑下来一次都不许有
         out.renderErrors = (w.__tmRenderErrors || []).length;
         out.renderErrorSample = (w.__tmRenderErrors || []).slice(0, 2);

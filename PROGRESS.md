@@ -28,7 +28,7 @@
 ═══ 并行占用表（多会话必读 · 见手册【多会话并行协议】）═══
 | 会话 | 认领事项 | 时间 | 涉及文件 |
 |---|---|---|---|
-| 自动@14:40 | [执行中] 怪物剪影收口：图鉴/速查卡/战斗演出的 emoji 换剪影 | 14:40 | js/render.js、js/main.js、index.html、css/style.css、tools/ui-check.html |
+| 自动@18:42 | [执行中] 接手 14:40 批的收尾四项（硬边背光/分享卡/死值/闸门盲点） | 18:42 | js/render.js、js/view.js、index.html、css/style.css、tools/ui-check.html |
 
 挑活前先读本表：**已认领的事项不碰** → 挑定后加一行（会话ID = 当前工作目录末段）→ 做完删行 →
 跨多轮的长任务保留行并更新时间当心跳。跑 e2e / 部署前也在此登记，防互相清 temp 与并发上线。
@@ -79,23 +79,24 @@
 
 ### 半成品收尾
 
-#### 剪影收口批（2026-11-17 14:40 认领，仍 `[执行中]`；16:2x 只读复核，源码一字未动）
-- **状态**：工作树挂着 5 个改动（render.js +55 / main.js +18 / index.html 4 / css 9 / PROGRESS 1）。在当前工作树上跑**全套闸门全绿**
-  （check ✓ / engine 635 / code 372 / sim 18,745·68.4% 未漂移 / regress **55 图** + 全套自检 / ui-test ✓），目视核对图鉴 30px、
-  速查卡 30px、战斗面板 48px 三处剪影与棋盘同款 → **技术上可提交，只差 commit + `sync-publish` + deploy**（publish/ 镜像未同步）。
-- [ ] **真缺陷 1（美术 · 硬边方块）**：`render.js` `iconBackdrop()` 径向渐变半径写 `ss*0.6`、圆心 `ss*0.58`，都超出画布半宽（`ss*0.5`），
-  渐变在画布四边**不是 0**，于是背光被裁成硬边亮方块。像素证据（`tools/out/icon4x-battle.png`，x=428→429）：`(16,21,30) → (37,37,38)`，
-  1px 跳 21 级；48px 战斗头像与 30px 图鉴都能看见，小尺寸下像给图标垫了块灰牌。修法：半径改 `ss*0.5`、圆心回 `ss/2`
-  （`0 → .30 / .6 → .10 / 1 → 0`），或画在 1.2 倍离屏再缩回；断言用像素采样「画布边缘与面板底 ΔL < 4」。
-- [ ] **真缺陷 2（社交 · 分享无卡片）**：`index.html` 只有 `<title>`，**无 `og:title` / `og:description` / `og:image` / `description`**。
-  挑战链接（`?rival=`）是全作唯一传播路径，粘进微信就是一条裸链接 + 灰占位图——点开前看不出是什么。修法：补 4 条 meta
-  （图用根目录 `扫码即玩-分享图.png`，搬进 assets 后给绝对地址）。
-- [ ] **死值 3 处（减法）**：`.bs-avatar` 还留着 emoji 时代的 `font-size:50px; line-height:1.12`（元素已是 canvas；同批新加的
-  `width/height:50px` 又被 `paintInto` 内联的 48px 覆盖，CSS 那两行是死值）；`.pb-emoji` 的 `font-size:var(--fs-title)` 现在只包一个
-  canvas，无效；`view.js` `codexModel` 的 `rows[].emoji` 图鉴与速查卡都不再消费（main.js 无 `r.emoji`、code-test 无断言）→ 三处可删。
-- [ ] **闸门盲点 4**：`cx-icon` / `pb-icon` / `paintIcon` 在 `tools/` 下**零引用**（`shot.html` 只量血条与头像容器）→ 图标画不出来时
-  （`paintIcon` 返回 false，canvas 被 `remove()`，整列留白）55 张截图与全部断言都不会红。补一条「图鉴首行 canvas 非空（非透明像素 > 30%）」，
-  落在 ui-check.html（属该批认领文件，本轮不碰）。
+#### 剪影收口批（2026-11-17 14:40 认领 → **18:4x 接手收尾，四项全部闭环**）
+- **状态**：主批（render.js 剪影出口 + 三处 emoji 替换）已随 `da65171` / `f748cc6` 上库；本节四项残留于 18:4x 一次改完。
+- [x] **真缺陷 1（美术 · 硬边方块）**：两处都在，改法比原方案多一层——`iconBackdrop()` 半径改 `ss*0.5`、圆心回 `ss/2`（渐变本体不再出界），
+  但量下来画布边缘还有 alpha 10–19：**玩家与怪自己的暖光晕**（全塔唯一光源）会一路顶到画布边被硬切。故 `paintInto()` 末尾加一层
+  `destination-in` 收边（0.42→0.50 渐变到全透明）。结果：20 只小怪 + 勇者边缘 alpha = **0**，四只 Boss = 7/255（其躯体本就铺满整格，可忽略）。
+  闸门两层：`code-test` 量几何契约（把三个渐变参数按 ss=100 求值，外圆不得出界）＋ `ui-test` 量「每格近黑剪影占比 8–92%」。
+  顺手抓到的第三处：Boss 名字小签在 30px 图标里缩成 8px 一团糊，且与卡片上的名字重复 → `drawBossFigure` 增加 `iconMode` 判据不画签。
+- [x] **真缺陷 2（社交 · 分享无卡片）**：补 `og:title` / `og:description` / `og:image`(+宽高) / `og:url` / `og:type` / `og:site_name` /
+  `twitter:card` / `description`，八条都带 sharecode（裸路径在本站 403，爬虫也得走同一门槛）。图不是直接搬那张 3:4 竖图——
+  按 1:1 居中裁会切掉标题上半，改用 `tools/sharecard.html`（无头 Chrome 渲 1200×1200）生成 `assets/share-card.png`，
+  版面沿用游戏的黄铜 + 单一暖光 + 塔砖网格。
+- [x] **死值 3 处（减法）**：`.bs-avatar` 的 `font-size:50px; line-height:1.12`（含横屏覆盖里的 `font-size:36px`）、`.probe-card .pb-emoji`
+  整条、`view.js` `codexModel.rows[].emoji` 三处删掉；`width/height:50px` 保留（paintInto 内联 48px 之前的那一帧还需要它占位）。
+- [x] **闸门盲点 4**：`ui-check.html` 新增图鉴块（开面板 → 数 canvas 个数 → 量每格近黑剪影占比），`ui-test` 加 2 条断言。
+  变异验证：让 `paintIcon` 对 30px 直接 `return false` → 「行 21 / 图标 0」当场红。
+- **像素判据的教训**：想用「边框半透明像素数」直接量硬边，实测有收边 10 个 vs 无收边 46 个——**剪影本体常顶到画布边，
+  渗色与描边抗锯齿混在一起，阈值太脆**，所以几何契约留在 code-test，像素只量「画了没」。
+
 
 ### 新功能
 - [ ] **微信版：路线已定 B，只剩「切边界（半天，可做）」+「备案域名（等用户启动）」两件事 —— 2026-11-16 变体 2 校准改造**。
