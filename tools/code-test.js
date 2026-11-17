@@ -1025,5 +1025,22 @@ ok(mainSrc.indexOf("searchParams.set('rival'") < 0, 'main.js 不许自己拼链�
   ok(!!into && /rim\.addColorStop\(1, 'rgba\(0,0,0,0\)'\)/.test(into[1]), '收边是渐变到全透明（不是硬裁）');
 }
 
+// 图鉴详情条的进场动效（2026-11-17 焦点C）：点卡片换内容是「插入一块可读的东西」，
+// 零过渡就是硬切——而全站其它面板都有 popIn/fadeIn。且同一帧里对已有 .show 的元素再 add
+// 不会重启 CSS 动画，连点两张卡时第二张会退化成硬切，故必须有「remove → 回流 → add」的重播。
+{
+  const cssSrc = require('fs').readFileSync(require('path').join(__dirname, '..', 'css', 'style.css'), 'utf8');
+  const rule = cssSrc.match(/\.col-detail\.show\s*\{([^}]*)\}/);
+  ok(!!rule, 'css 里找得到 .col-detail.show 规则');
+  ok(!!rule && /animation:\s*popIn\s+0\.16s/.test(rule[1]),
+    `详情条有进场动画（此前是裸 display:flex，零过渡）：${rule ? rule[1].trim() : '—'}`);
+  const rp = mainSrc.match(/function replayColDetail\(box\)\s*\{([\s\S]*?)\n  \}/);
+  ok(!!rp, 'main.js 有 replayColDetail');
+  ok(!!rp && /classList\.remove\('show'\)/.test(rp[1]) && /void box\.offsetWidth/.test(rp[1])
+    && /classList\.add\('show'\)/.test(rp[1]), '重播是 remove → 强制回流 → add（同帧直接 add 不会重启动画）');
+  const calls = (mainSrc.match(/replayColDetail\(box\)/g) || []).length;
+  ok(calls >= 2, `藏品卡与成就卡两条路径都走重播（实得 ${calls} 处）`);
+}
+
 console.log(`挑战码 / 触控 / 桥接 / 视图模型单测：${pass} 项通过${bad ? `，${bad} 项失败` : ''}`);
 process.exit(bad ? 1 : 0);

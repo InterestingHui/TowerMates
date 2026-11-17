@@ -1212,6 +1212,14 @@
     return out;
   }
 
+  // 详情条的进场每次换内容都要重播：同一帧里对已有 .show 的元素再 add 不会重启 CSS 动画，
+  // 连点两张卡时第二张就变成硬切（中间读一次 offsetWidth 强制回流才会重新起播）。
+  function replayColDetail(box) {
+    box.classList.remove('show');
+    void box.offsetWidth;
+    box.classList.add('show');
+  }
+
   // 点卡片看详情：拿到过的给完整规则 + 来源；没拿到的给「去哪儿找」的线索
   function showColDetail(kind, id) {
     const box = $('colDetail');
@@ -1229,7 +1237,7 @@
       <span class="cd-from">${from}</span>`;
     // 描述走富文本：以后有人在 desc 里写 **重点** 也不会把星号原样漏出来
     renderRich(box.querySelector('.cd-desc'), on ? r.desc : '还没拿到过——先照着下面的线索去试试。');
-    box.classList.add('show');
+    replayColDetail(box);
     // 同一张卡再点一次收起；点别处也收起
     box._id = kind + ':' + id;
   }
@@ -1314,7 +1322,7 @@
           <div class="cd-main"><b>${def.name}${on ? '' : ' · 未解锁'}</b><span class="cd-desc"></span></div>
           <span class="cd-from">成就</span>`;
         renderRich(box.querySelector('.cd-desc'), on ? def.desc : '还没解锁——' + def.desc);
-        box.classList.add('show');
+        replayColDetail(box);
         box._id = key;
         Sound.play('talk');
       });

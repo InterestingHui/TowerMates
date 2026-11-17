@@ -870,6 +870,9 @@ async function run() {
         var cd = d.getElementById('colDetail');
         out.colDetail = cd.classList.contains('show') && cd.textContent.length > 6;
         out.colDetailHasFrom = cd.textContent.indexOf('来自') >= 0 || cd.textContent.indexOf('第') >= 0;
+        // 进场动效（焦点C）：详情条此前是裸 display:flex —— 一块可读内容硬切出来，全站唯一零过渡的面板
+        var cdCs = w.getComputedStyle(cd);
+        out.colDetailAnim = cdCs.animationName + ' ' + cdCs.animationDuration;
         var offCard = d.querySelector('#colBody .col-card.off');
         if (offCard) offCard.click();
         out.colDetailOff = cd.textContent.indexOf('未获得') >= 0;

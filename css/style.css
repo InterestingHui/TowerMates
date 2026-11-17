@@ -2668,7 +2668,9 @@ body.at-start #bottom { visibility: hidden; }
   border-radius: 9px;
   background: rgba(255, 255, 255, 0.035);
 }
-.col-detail.show { display: flex; }
+/* 点卡片换内容时要重播一次进场（main.js replayColDetail：remove → 读 offsetWidth → add），
+   同一帧里直接 add 不会重启 CSS 动画——连点两张卡时第二张会「硬切」。 */
+.col-detail.show { display: flex; animation: popIn 0.16s ease-out; }
 .col-detail .cd-emoji { font-size: var(--fs-title); line-height: 1.3; }
 .col-detail .cd-main { flex: 1; display: flex; flex-direction: column; gap: 2px; }
 .col-detail .cd-main b { font-size: var(--fs-aux); color: var(--text); letter-spacing: 0.3px; }
