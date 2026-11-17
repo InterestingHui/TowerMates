@@ -968,5 +968,29 @@ ok(mainSrc.indexOf("searchParams.set('rival'") < 0, 'main.js 不许自己拼链�
   ok(storySrc.indexOf('烛（第六位工匠') > 0, '注释里烛是第六位工匠（与「第六个名字」同一个位置）');
 }
 
+// 「说明书让人做手机上做不到的动作」（2026-11-17 加练 · 游戏性 焦点 B）：
+// 触屏没有 hover。tips / hints 里原来有「悬停能看到效果」——手指按住不放只会弹浏览器菜单；
+// 而锁环 / 遗物 chip 早在 11-16 就补了「点一下把效果念出来」的出口，剩下说明书没跟上。
+// 另：「顶部三个格子会亮起来」是旧口径——遗物栏按实际持有件数排（一局最多能拿到 7 件），
+// 固定说「三个」会让拿到第 4 件的人以为界面出 bug。两条都按源码守，别靠写的人记性。
+{
+  const fs = require('fs'), p = require('path');
+  const storySrc = fs.readFileSync(p.join(__dirname, '..', 'js', 'story.js'), 'utf8');
+  ok(storySrc.indexOf('悬停') < 0, '文案里不再出现「悬停」（触屏没有 hover，「够不着的手势」＝假说明书）');
+  ok(storySrc.indexOf('三个格子') < 0, '文案里不再写死「三个格子」（遗物栏按实际件数排，最多 7 件）');
+  ok(storySrc.indexOf('点一下能看到效果') > 0, '锁环提示改口径为「点一下能看到效果」');
+  ok(storySrc.indexOf('点一下能看到它做什么') > 0, '遗物提示改口径为「点一下能看到它做什么」');
+}
+
+// 结算摘要里两处 ⓘ 的整句只存在于 title：桌面上悬停可读，触屏上永远打不开。
+// 其中「上 S 有两条路」正是决定「再来一局怎么打」的那句话，等于把最有用的一条建议锁进了手机看不见的地方。
+// 契约分两头：view.js 得把整句带在 title 上（有内容可念），main.js 得有一次点击出口（点得到）。
+{
+  const tips = viewSrc.match(/class="brief-tip" title="\$\{[^}]+\}"/g) || [];
+  ok(tips.length === 2, `两处 ⓘ 都带着 title 整句（实得 ${tips.length} 处）`);
+  ok(mainSrc.indexOf("closest('.brief-tip')") > 0, 'main.js 有 ⓘ 的点击出口（委托到摘要容器）');
+  ok(/\$\('endBrief'\)\.addEventListener\('click'/.test(mainSrc), '点击出口挂在 #endBrief 上（摘要重渲不必重绑）');
+}
+
 console.log(`挑战码 / 触控 / 桥接 / 视图模型单测：${pass} 项通过${bad ? `，${bad} 项失败` : ''}`);
 process.exit(bad ? 1 : 0);

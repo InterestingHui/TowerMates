@@ -120,6 +120,12 @@ const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-ui-'));
     '复制出去的是**屏幕上这串码**拼的链接（不是榜单里「历史最好一局」那份），按钮就地换字');
   ok(out.endActsDeadHidden === true && out.endDeadNoCopy === null,
     '死亡局没有码：整块藏起来，也不拼垃圾链接');
+  // 摘要里的 ⓘ：整句不能只活在 title 里（触屏没有 hover，等于把那两句话锁了）
+  ok(out.briefTipCount === 2 && out.briefTipHasTitle === true,
+    `摘要里两处 ⓘ 都带着整句（实得 ${out.briefTipCount} 处）`);
+  ok(out.briefTipSaid === true && out.briefTipFull === true,
+    `点 ⓘ 弹提示条并念出整句（实测「${out.briefTipText}」）`);
+  ok(out.briefTipHit >= 30, `ⓘ 的命中区高度 ≥30（实测 ${out.briefTipHit}px——行内竖直内边距不改行高，只撑命中区）`);
   ok(out.clickTarget !== null && out.clickDist >= 2, '找到一只不相邻的怪物作点击目标');
   ok(out.clickKills === 1, '只点一次怪物就自动走到跟前并完成战斗');
   ok(out.clickCleared === true && out.clickOnTile === true, '战斗后怪物消失、人物站上它的格子');

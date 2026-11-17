@@ -4163,7 +4163,17 @@
     // 想复制还得先进榜单，而榜单那颗复制的是「历史最好一局」，未必是眼前这串。
     // 只放一颗、只做「发链接」：50 多个字符的码靠手贴没人干得下去，链接点开就收下；
     // 多摆一颗「复制码」等于把终点屏的可点元素从 3 推到 5，而终点屏预算是 4。
-    $('btnEndShare').addEventListener('click', () => copyLinkOf($('endCode'), $('btnEndShare')));    $('btnCfg').addEventListener('click', openCfg);
+    $('btnEndShare').addEventListener('click', () => copyLinkOf($('endCode'), $('btnEndShare')));
+    // 结算摘要里两处 ⓘ 的整句原来只放在 title 里：桌面悬停能看到，触屏**永远弹不出来**
+    // （「决战余裕上 S 的两条路」正是决定「再来一局怎么打」的那句话）。与遗物/锁环 chip 同一条规矩——
+    // 触屏没有 hover，就点一下把整句念出来。用委托：摘要会随局重渲，不必每次重绑。
+    $('endBrief').addEventListener('click', (e) => {
+      const t = e.target && e.target.closest ? e.target.closest('.brief-tip') : null;
+      if (!t) return;
+      const txt = t.getAttribute('title');
+      if (txt) warn(txt, 6000);
+    });
+    $('btnCfg').addEventListener('click', openCfg);
     $('cfgClose').addEventListener('click', closeCfg);
     $('btnHelp').addEventListener('click', () => { openCfg(); });
     $('cfgClearSave').addEventListener('click', () => {

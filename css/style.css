@@ -1662,7 +1662,10 @@ body.at-start #bottom { visibility: hidden; }
   font-family: inherit;
 }
 .end-brief .brief-toggle:hover { background: rgba(232, 196, 106, 0.18); }
-.end-brief .brief-tip { font-style: normal; color: #d9bd7d; cursor: help; }
+/* 摘要里的 ⓘ：整句在 title 里，桌面悬停可读、触屏不行——所以要能点（main.js 委托）。
+   行内元素加竖直内边距**不改行高**（不重排结算页），但会把命中区撑到 30px 以上；
+   横向用负外边距抵消内边距，视觉位置一字不动。 */
+.end-brief .brief-tip { font-style: normal; color: #d9bd7d; cursor: pointer; padding: 7px 3px; margin: 0 -3px; }
 
 /* 塔的记忆：跨局履历 + 下一局目标 */
 .end-memory {

@@ -202,6 +202,45 @@ async function run() {
       endCodeEl.textContent = '——';
     }
 
+    // 结算摘要里的 ⓘ（2026-11-17 加练 游戏性 焦点 B）：那两句整句原来只放在 title 属性里——
+    // 桌面上悬停能读，**手机上没有 hover，永远打不开**，而其中一句正是「决战余裕上 S 的两条路」，
+    // 等于把最有用的一条建议锁进了看不见的地方。这里用 View 的真模型造一份摘要（不手写 HTML），
+    // 点最后一处 ⓘ，看提示条是否把整句念出来；顺带量它的命中区（触控口径：短边 ≥30）。
+    var briefEl = d.getElementById('endBrief');
+    if (briefEl && w.View) {
+      // 量命中区必须在结算页真的开着时量（上一段结尾把浮层收掉了，隐藏元素的 rect 恒 0）
+      var briefWas = endOv ? endOv.className.replace(/\bshow\b/g, '').trim() : '';
+      if (endOv) { endOv.classList.add('show'); endOv.classList.remove('death-mode'); }
+      var bLines = w.View.winBrief({
+        relicCount: 3, kills: 21, retries: 0, relicEdge: true, emberGain: 8,
+        margin: { grade: 'A', label: '还留着一些', pct: 24 },
+        fx: { zealFull: function () { return 33; } },
+      });
+      var bModel = w.View.briefModel(bLines);
+      briefEl.innerHTML = bModel.items.map(function (it) {
+        return '<div class="brief-li' + (it.extra ? ' extra' : '') + '">' + it.html + '</div>';
+      }).join('');
+      var btips = briefEl.querySelectorAll('.brief-tip');
+      out.briefTipCount = btips.length;
+      out.briefTipHasTitle = btips.length > 0 && Array.prototype.every.call(btips, function (x) {
+        return String(x.getAttribute('title') || '').length > 8;
+      });
+      if (btips.length) {
+        var bRect = btips[0].getBoundingClientRect();
+        out.briefTipHit = Math.round(bRect.height);
+        var pillB = d.getElementById('warnPill');
+        var beforeB = pillB ? pillB.textContent : '';
+        btips[btips.length - 1].click();
+        await new Promise(function (r) { setTimeout(r, 30); });
+        var afterB = pillB ? pillB.textContent : '';
+        out.briefTipSaid = afterB !== beforeB;
+        out.briefTipText = String(afterB).slice(0, 60);
+        out.briefTipFull = String(afterB).indexOf('两条路都能上 S') >= 0;
+      }
+      briefEl.innerHTML = '';
+      if (endOv) endOv.className = briefWas;
+    }
+
     // 落地链路真跑一遍：另起一个 iframe 带着 ?rival=<码> 开门，看它会不会自己收下、
     // 以及会不会把参数留在地址栏（留着的话刷新一次就重复收一次、提示也重复弹）。
     var landCode = w.Challenge.encode({
