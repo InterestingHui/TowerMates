@@ -221,6 +221,37 @@ if (global.STORY && global.STORY.relicLore) {
   });
 }
 
+// ---------- 剧情碎片的可达性与自洽（叙事面的两条硬口径） ----------
+// ① 每条 story 引用都必须指向真存在的一段：键名拼错时 playStory 静默什么都不播，
+//    玩家拿到的是「一件没有来路的东西」，而闸门全绿——这类哑火只能用数据契约守。
+// ② 地图遗物 = 玩家一定会拿到的那几件剧情物，不能只有一行数值 toast。
+//    2026-11-18 抓到 ward（守誓之盾）是八件剧情遗物里唯一一件拿到手一句话都没有的；
+//    它的名字里有「誓」，与开局立誓、锁环「旧誓之环」同一个词根，却恰好是全塔唯一不提「誓」的一件。
+//    口径：名字带「誓」的遗物，它的叙事里必须出现「誓」（和 NAMED 的人名锚点同一手法）。
+const storyText = (id) => {
+  const sc = (global.STORY && global.STORY[id]) || [];
+  return sc.map((l) => (Array.isArray(l) ? l[1] : l)).join('');
+};
+if (global.STORY) {
+  Object.keys(D.items).forEach((ch) => {
+    const it = D.items[ch];
+    if (it.story && !global.STORY[it.story]) {
+      err(`道具 ${ch}（${it.name}）指向不存在的剧情 ${it.story}——playStory 会静默什么都不播`);
+    }
+  });
+  Object.keys(D.items).forEach((ch) => {
+    const it = D.items[ch];
+    if (it.type !== 'relic') return;
+    const lore = (global.STORY.relicLore || {})[it.relic] || [];
+    const text = storyText(it.story) + lore.map((l) => (Array.isArray(l) ? l[1] : l)).join('');
+    const name = (D.relics[it.relic] || {}).name || it.name;
+    if (!text) err(`地图遗物「${name}」（${ch}）拿到手没有任何叙事——只有一行数值 toast`);
+    if (name.indexOf('誓') >= 0 && text.indexOf('誓') < 0) {
+      err(`遗物「${name}」的名字里有「誓」，叙事里却一次都没提到它——词根断了`);
+    }
+  });
+}
+
 // ---------- 跨局余烬经济：解锁线不能掐断循环 ----------
 // 一局常规通关约 16 余烬（基础 5 + 击杀/回响/结局/路遇），最贵的解锁应在 3 局内够得着。
 // 老分数制时代留的 60/120 要 7~20 局，PROGRESS P-1 记过这个断头问题。

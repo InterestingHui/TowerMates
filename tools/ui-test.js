@@ -214,6 +214,15 @@ const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-ui-'));
   // 无名之镜点开图鉴（2026-11-18 焦点D）：它自带面板，chip 点下去要翻开图鉴而不是念说明书
   ok(out.scoutChip === true && out.scoutOpensCodex === true, '点顶栏的无名之镜会直接翻开怪物图鉴');
   ok(out.scoutChipGone === true, '（探针自检）撤掉 relic_scout 后 chip 真的消失，说明上一条测的是它');
+  // 守誓之盾（2026-11-18 叙事体检）：密道最里侧那面盾是八件剧情遗物里唯一一件哑的——
+  // 名字里有「誓」，与开局立誓同词根，拿到手却只有一行数值 toast。这里守的是「玩家真走上去会对白」。
+  ok(out.wardGot === true && out.wardStepped === true, '走到密道那面盾上真的拿到守誓之盾');
+  ok(out.wardDialog === true, '拿盾的同时对白自己开（不是只弹一行数值 toast）');
+  const wardText = (out.wardSnaps || []).join(' ');
+  ok(wardText.indexOf('誓') >= 0, `对白里写出了这个名字的词根「誓」（快照 ${(out.wardSnaps || []).length} 张）`);
+  ok((out.wardSnaps || []).filter((t, i, a) => t && t !== a[i - 1]).length >= 2,
+    `至少两句不同的话（只有一句就成了标语，不是碎片）——实得「${(out.wardSnaps || []).filter(Boolean).slice(-1)[0] || ''}」`);
+  ok(out.wardClosed === true, '跳过之后对白真的收起（别把玩家按在这一屏）');
   // 激励视频（IAA 红线）：默认关闭是硬要求——线上不允许出现任何广告按钮
   ok(out.adDefaultOff === true, '激励视频接口默认恒不可用（提审前不接 SDK）');
   ok(Array.isArray(out.adSlots) && out.adSlots.length === 2 && out.adSlots.indexOf('revive') >= 0 && out.adSlots.indexOf('ember') >= 0, '只留两个卡点槽位（复活 / 余烬翻倍），不做插屏横幅');

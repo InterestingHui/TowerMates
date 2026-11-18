@@ -1135,6 +1135,32 @@ async function run() {
           delete sC.flags.relic_scout;
           w.__tm.refreshHud();
           out.scoutChipGone = !d.querySelector('#relicRow .relic[data-relic="scout"]');
+          // 守誓之盾：密道最里侧那面盾必须开口（2026-11-18 叙事体检：八件剧情遗物里唯一一件哑的）。
+          // 判据不是「数据里有 story 字段」（那是 check.js 的契约），而是**玩家真走上去以后对白会开**。
+          E.newGame();
+          var sW = E.state();
+          sW.floor = 3;              // 密道 = floors[3]，首行 #n....Q..O#
+          sW.x = 8; sW.y = 1;
+          w.__tm.refreshHud();
+          var dlgW = d.getElementById('dialogOverlay');
+          dlgW.classList.remove('show');
+          w.__tm.act(1, 0);
+          out.wardGot = sW.flags.relic_ward === true;
+          out.wardStepped = sW.x === 9 && sW.y === 1;
+          out.wardDialog = dlgW.classList.contains('show');
+          // 打字机是按字往 dlgText 里写的，同一时刻读到的可能是半句：
+          // 每一步点一下（补全 / 进下一句）各存一份快照，断言只看「所有快照里出现过什么」，
+          // 不赌某一次点击落在哪一拍的语义上（首次实测就是在这里读串了一句）。
+          var dlgTextEl = d.getElementById('dlgText');
+          var snaps = [(dlgTextEl.textContent || '').trim()];
+          for (var wi = 0; wi < 4; wi++) {
+            dlgW.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            snaps.push((dlgTextEl.textContent || '').trim());
+            if (!dlgW.classList.contains('show')) break;
+          }
+          out.wardSnaps = snaps;
+          d.getElementById('dlgSkip').click();
+          out.wardClosed = !dlgW.classList.contains('show');
         })();
         // 渲染异常探针：整轮 UI 自检跑下来一次都不许有
         out.renderErrors = (w.__tmRenderErrors || []).length;

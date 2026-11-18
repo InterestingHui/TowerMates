@@ -1016,6 +1016,9 @@
   }
 
   // ---------- HUD ----------
+  // 卡片里那张小剪影的边长：怪物探针卡与图鉴格子共用（此前两处各写一个 30，改一处另一处就错位）。
+  // 24 太小认不出族色，36 会把图鉴两列挤成一行——30 是 360 宽下两列都能塞下的上限。
+  const ICON_CARD = 30;
   // 遗物全表顺序 = 顶栏 chip / 设置页列表 / 收藏图鉴共用一份。
   // cross 与 coin 曾漏在这张表外——玩家拿了旧十字架/幸运金币，顶栏根本不显示 chip（已修）。
   const RELIC_ORDER = ['ward', 'edge', 'ember', 'steel', 'thrift', 'vigor', 'scout', 'gate', 'heart', 'cross', 'coin'];
@@ -1910,7 +1913,7 @@
     el.stage.appendChild(card);
     // 卡头那只怪用棋盘同款剪影（emoji 在这里既丑又与地图上的造型对不上）
     const probeIcon = card.querySelector('canvas.pb-icon');
-    if (probeIcon && !Renderer.paintIcon(probeIcon, ch, 30)) probeIcon.remove();
+    if (probeIcon && !Renderer.paintIcon(probeIcon, ch, ICON_CARD)) probeIcon.remove();
     // 定位：贴着怪物格下方（棋盘在 stage 里居中，需要算出棋盘起点），屏幕边缘时往回缩
     const T = Renderer.getTile ? Renderer.getTile() : 48;
     const board = T * 11;
@@ -1979,7 +1982,7 @@
     }).join('');
     // 图鉴里的怪改用棋盘同款剪影（原来贴的是整格 emoji：同一只怪在两屏里两种长相）
     $('codexList').querySelectorAll('canvas.cx-icon').forEach((cv) => {
-      if (!Renderer.paintIcon(cv, cv.dataset.ch, 30)) cv.remove();
+      if (!Renderer.paintIcon(cv, cv.dataset.ch, ICON_CARD)) cv.remove();
     });
     $('codexList').querySelectorAll('.cx-char:not(.off)').forEach((b) => {
       b.addEventListener('click', () => {

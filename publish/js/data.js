@@ -161,7 +161,7 @@ window.GAME_DATA = (function () {
     L: { name: '红钥匙', emoji: '🗝️', type: 'key', key: 'r' },
     J: { name: '工匠手记', emoji: '📜', type: 'story', flag: 'journal', story: 'journal' },
     // 遗物：一次性、永久生效，构成每局的取舍
-    O: { name: '守誓之盾', emoji: '🛡️', type: 'relic', relic: 'ward' },
+    O: { name: '守誓之盾', emoji: '🛡️', type: 'relic', relic: 'ward', story: 'wardLore' },
     S: { name: '断裂佩剑', emoji: '🗡️', type: 'relic', relic: 'edge', story: 'eighthSword' },
     K: { name: '塔心石', emoji: '💗', type: 'heart' },
     Q: { name: '层阶之钥', emoji: '🗝️', type: 'relic', relic: 'gate', story: 'gateLore' },
