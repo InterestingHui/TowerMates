@@ -674,7 +674,7 @@ if (poorIdx >= 0) ok(E.resolveEvent(ev2.eventId, poorIdx).type === 'refuse', '�
 else ok(true, '（该事件没有花钱选项）');
 
 // ---------- 9h. 开局三誓 ----------
-// 2026-11-16 起前 3 层会「支路开合」：下面几段踩的是固定坐标，必须用种子 0 要回原版墙面
+// 用种子 0 锁定原版布局（连拾取物都原位）：下面几段踩的是固定坐标，不许被随机换位碰
 E.newGame(null, { seed: 0 });
 ok(E.vow() === 'none', '默认不立誓');
 
@@ -1716,7 +1716,7 @@ const floorSpots = (seed, fi) => {
 };
 // 骨架判据（定义见下）：
 // 骨架 = 除「墙 / 空地 / 拾取物 / 起点」以外的所有格（怪 / 门 / 钥匙 / 楼梯 / 商店 / 祭坛 / 路遇 / 石座）。
-// 2026-11-16 起「支路开合」每层会动墙与空地各一格，墙与空地不再属于骨架，判据一并去掉。
+// 2026-11-18 支路开合已回退，墙与空地重新恒定；判据保留（抹平墙/空地的口径不碍事）。
 const skeleton = (seed, fi) => E.newGame(null, { seed: seed }).maps[fi]
   .map((row) => row.map((c) => ('#.p$@'.indexOf(c) >= 0 ? '.' : c)).join('|')).join('/');
 
@@ -1745,123 +1745,50 @@ const sameLayout = (a, b) => a.p.map(String).sort().join() === b.p.map(String).s
 ok(!(sameLayout(f2a, f3a) && f2a.p.length === f3a.p.length && f2a.$.length === f3a.$.length)
   || f2a.$.length !== f3a.$.length, '第 2/3 层各用派生子种子（不共用同一份洗牌结果）');
 
-// ---------- 9z-2. 支路开合：每层开一条短路 + 封一条冗余通道（P-A4 / 打 S-D1 的另一半「第 2 局要想什么」）----------
-// 结构层诊断量到的账：前 3 层 363 格里每局只变 9 格（2.5%）且全是拾取物，怪/门/钥匙/楼梯逐格不动，
-// 于是第二局头 8 分钟的「往哪走」与上一局完全一致。这里只动 '#' ↔ '.'，并带两条守卫：
-// ①开只增可走格（必定不会困人）；②封之前做全图可达性比对，少一格就退回。
-const baseMaps = [0, 1, 2].map((fi) => D.floors[fi].map.map((r) => r.split('')));
-const mapCopy = (fi) => baseMaps[fi].map((r) => r.slice());
-const wallCellsChanged = (a, b) => {
-  const out = { opened: [], closed: [] };
-  for (let y = 0; y < 11; y++) for (let x = 0; x < 11; x++) {
-    if (a[y][x] === '#' && b[y][x] === '.') out.opened.push(x + ',' + y);
-    if (a[y][x] === '.' && b[y][x] === '#') out.closed.push(x + ',' + y);
-  }
-  return out;
-};
-const specialCells = (m) => {
-  const out = [];
-  for (let y = 0; y < 11; y++) for (let x = 0; x < 11; x++) {
-    if ('#.p$@'.indexOf(m[y][x]) < 0) out.push(x + ',' + y + m[y][x]);
-  }
-  return out.join(' ');
-};
-// 直接喂 altRoutes：同一颗种子逐层跑一遍，检查「开 / 封」各至多一格且只碰墙与空地
-let altBad = [];
-let altSealed = 0;
-for (const seed of [1, 2, 3, 42, 424242, 20261116, 987654321]) {
-  for (let fi = 0; fi < 3; fi++) {
-    const m = mapCopy(fi);
-    const before = E.reachSet(m, E.entryOf(m));
-    const special0 = specialCells(m);
-    const r = E.altRoutes(m, seed);
-    const d = wallCellsChanged(baseMaps[fi], m);
-    if (!r || !r.open) altBad.push(`seed ${seed} f${fi + 1} 没开出支路`);
-    if (d.opened.length !== 1) altBad.push(`seed ${seed} f${fi + 1} 开了 ${d.opened.length} 格`);
-    if (d.closed.length > 1) altBad.push(`seed ${seed} f${fi + 1} 封了 ${d.closed.length} 格`);
-    if (r && r.close && d.closed.length !== 1) altBad.push(`seed ${seed} f${fi + 1} 报了封但没封`);
-    if (r && r.close) altSealed++;
-    if (specialCells(m) !== special0) altBad.push(`seed ${seed} f${fi + 1} 特殊格被改动`);
-    // 连通性：除了被封掉的那一格，原本能到的格必须都还能到
-    const after = E.reachSet(m, E.entryOf(m));
-    const sealed = r && r.close ? r.close.x + ',' + r.close.y : null;
-    let lost = 0;
-    for (const k of before) if (k !== sealed && !after.has(k)) lost++;
-    if (lost) altBad.push(`seed ${seed} f${fi + 1} 封完之后丢了 ${lost} 格可达`);
-  }
-}
-ok(altBad.length === 0, `支路开合 21 组：每层开 1 格 / 封 ≤1 格、特殊格不动、连通性不丢${altBad.length ? '：' + altBad.slice(0, 3).join('；') : ''}`);
-const altZero = mapCopy(0); E.altRoutes(altZero, 0);
-ok(altZero.join('|') === baseMaps[0].join('|'), '种子 0 不碰支路（原版布局仍可复现）');
-ok(E.altRoutes(null, 5) === null && E.altRoutes([[]], 0) === null, 'altRoutes 边界：空图 / 种子 0 返回 null 且不改图');
-const altRep = (seed) => { const m = mapCopy(0); E.altRoutes(m, seed); return m.join('|'); };
-ok(altRep(424242) === altRep(424242), '同一颗种子开合结果完全一致（今日一塔 / 挑战码可复现）');
-ok(altRep(424242) !== altRep(424243), '换一颗种子支路就不同');
-// 一局里三层都真的被开过路：原图上每层「开」必成功（21/21），「封」只封冗余路（原图上 21 组都找得到，
-// 玩家局里个别种子挑不到就退回——宁可这一层只开不封，也不许把人拦在外面）。
-const altInGame = E.newGame(null, { seed: 909 });
-const altPerFloor = [];
-for (let fi = 0; fi < 3; fi++) {
-  const d = wallCellsChanged(baseMaps[fi], altInGame.maps[fi]);
-  altPerFloor.push(d.opened.length + '/' + d.closed.length);
-}
-ok(altPerFloor.every((s) => s.split('/')[0] === '1' && Number(s.split('/')[1]) <= 1),
-  `一局开局三层各开 1 格、至多封 1 格（实测 ${altPerFloor.join(' · ')}）`);
-ok(altPerFloor.filter((s) => s.endsWith('/1')).length >= 1, '封的时候真的封上了（不是只报不改）');
-ok(altSealed === 21, `原图上 21 组全都找得到冗余路可封（实测 ${altSealed}/21）`);
-// 开出来的支路必须真的「多一条路」：新格的左右或上下两侧都可走
-const openedCell = (() => {
-  for (let y = 0; y < 11; y++) for (let x = 0; x < 11; x++) {
-    if (baseMaps[0][y][x] === '#' && altInGame.maps[0][y][x] === '.') return { x: x, y: y };
-  }
-  return null;
-})();
-ok(!!openedCell, '第 1 层确实开出了一格支路');
-if (openedCell) {
-  const px = openedCell.x, py = openedCell.y;
-  const walk = (x, y) => x >= 0 && y >= 0 && x < 11 && y < 11 && altInGame.maps[0][y][x] !== '#';
-  ok((walk(px - 1, py) && walk(px + 1, py)) || (walk(px, py - 1) && walk(px, py + 1)),
-    '开出来的那一格两侧都通（是真短路，不是死胡同）');
-}
-// 全塔可清：一局开局后所有特殊格（怪 / 门 / 钥匙 / 商店 / 祭坛 / 路遇 / 楼梯）都还走得到
-let unreachable = [];
-for (const seed of [7, 77, 777]) {
-  const st = E.newGame(null, { seed: seed });
-  for (let fi = 0; fi < 3; fi++) {
-    const m = st.maps[fi];
-    const seen = E.reachSet(m, E.entryOf(m));
-    for (let y = 0; y < 11; y++) for (let x = 0; x < 11; x++) {
-      const ch = m[y][x];
-      if ('#.p$'.indexOf(ch) >= 0) continue;
-      if (!seen.has(x + ',' + y)) unreachable.push(`seed ${seed} f${fi + 1} ${ch}@${x},${y}`);
+// ---------- 9z-2. 支路开合回退守卫（2026-11-18，玩家报障「地图被破坏」后整体回退 P-A4）----------
+// P-A4 曾在每局随机凿开/封死前 3 层墙格各一格：实测 200 颗种子里 43% 凿穿章末 Boss 封锁行、
+// 42% 可绕过 Boss 直达上楼，门嵌墙、贯通长廊被玩家当成渲染事故——随机动墙的收益配不上代价。
+// 口径钉死：前 3 层除「散落拾取物换位」外，任何种子都不许改变任何一格；Boss 层整图逐字恒定。
+{
+  const base3 = [0, 1, 2].map((fi) => D.floors[fi].map.map((r) => r.split('')));
+  const drift = [];
+  for (const seed of [1, 4, 11, 42, 20261116, 909, 31337, 8642]) {
+    const st = E.newGame(null, { seed: seed });
+    for (let fi = 0; fi < 3; fi++) {
+      const m = st.maps[fi];
+      for (let y = 0; y < 11; y++) {
+        for (let x = 0; x < 11; x++) {
+          const c = m[y][x], b0 = base3[fi][y][x];
+          if (c === b0) continue;
+          // 允许的合法改动只有三种：起点被踩掉、拾取物换进/换出空地
+          const startStepped = b0 === '@' && c === '.';
+          const pickupIn = b0 === '.' && (c === 'p' || c === '$');
+          const pickupOut = c === '.' && (b0 === 'p' || b0 === '$');
+          if (!startStepped && !pickupIn && !pickupOut) drift.push(`seed ${seed} 第${fi + 1}层 (${x},${y}) ${b0}→${c}`);
+        }
+      }
     }
   }
+  ok(drift.length === 0, `前 3 层任意种子只挪拾取物，墙/门/怪/楼梯零改动${drift.length ? '：' + drift.slice(0, 3).join('；') : ''}`);
+  // Boss 层（3/6/9/12）整张图必须逐字等于数据表——Boss 横在上楼唯一通路是本作核心塔规
+  const st4 = E.newGame(null, { seed: 4 });
+  const badBossFloor = [];
+  st4.maps.forEach((m, fi) => {
+    if (!D.floors[fi].boss) return;
+    for (let y = 0; y < 11; y++) {
+      for (let x = 0; x < 11; x++) {
+        const b0 = D.floors[fi].map[y][x];
+        const c = m[y][x];
+        if (c === b0) continue;
+        // 结构格（墙/门/Boss/楼梯/商店/祭坛等）一格都不许动；拾取物换位与起点踩掉不属结构
+        const benign = (b0 === '.' && (c === 'p' || c === '$')) || (c === '.' && (b0 === 'p' || b0 === '$')) || (b0 === '@' && c === '.');
+        if (!benign) badBossFloor.push(`第${fi + 1}层 (${x},${y}) ${b0}→${c}`);
+      }
+    }
+  });
+  ok(badBossFloor.length === 0, `Boss 层结构格逐格恒定（含曾凿穿第 3 层 Boss 行的种子 4）${badBossFloor.length ? '：' + badBossFloor.slice(0, 3).join('；') : ''}`);
 }
-ok(unreachable.length === 0, `开合之后所有怪 / 门 / 钥匙 / 商店 / 祭坛 / 路遇仍可达${unreachable.length ? '：' + unreachable.slice(0, 3).join('；') : ''}`);
 
-// 真正的验收口径：**上楼那条路本身变了**——不是「多了一个没人走的洞口」。
-// 只随机开路时实测 12 颗种子的最短路全是 11 步 / 路上 1 只怪（一模一样），所以判据必须盯路线。
-const routeOf = (seed, fi) => {
-  const st = E.newGame(null, { seed: seed });
-  const m = st.maps[fi];
-  const from = fi === 0 ? { x: st.x, y: st.y } : E.entryOf(m);
-  const exits = [];
-  for (let y = 0; y < 11; y++) for (let x = 0; x < 11; x++) {
-    if (m[y][x] === 'u' || m[y][x] === 'n') if (!from || from.x !== x || from.y !== y) exits.push({ x: x, y: y });
-  }
-  const p = E.bfsPath(m, from, exits[0]);
-  if (!p) return null;
-  const foes = p.filter((c) => '.#p$@un'.indexOf(m[c.y][c.x]) < 0).length;
-  return { len: p.length, foes: foes, sig: p.map((c) => c.x + ',' + c.y).join(' ') };
-};
-const r0 = routeOf(0, 0);
-const rSeeds = [1, 2, 3, 7, 42, 424242].map((k) => routeOf(k, 0));
-ok(rSeeds.every((r) => r && r.sig !== r0.sig), `第 1 层上楼路线每颗种子都不一样（种子 0 = ${r0.len} 步 ${r0.foes} 怪）`);
-ok(rSeeds.some((r) => r.len !== r0.len) && rSeeds.some((r) => r.foes !== r0.foes),
-  `路线差异是实质的：步数 ${[r0].concat(rSeeds).map((r) => r.len).join('/')} · 拦路怪 ${[r0].concat(rSeeds).map((r) => r.foes).join('/')}`);
-const r2a = routeOf(11, 1), r2b = routeOf(12, 1);
-ok(r2a && r2b && r2a.sig !== r2b.sig, '第 2 层同样每局重算路线');
-// 但「变了」不等于「变难到过不去」：每颗种子的路线都真的走得通（可达性已在上一条断言里守住）
 // 只动前 3 层：第 4 层起逐格与数据表一致（那是「完整一局」的平衡基准，不许跟着抖）
 E.newGame(null, { seed: 8642 });
 let deeperChanged = 0;
@@ -1875,7 +1802,7 @@ let deeperChanged = 0;
   }
 }
 ok(deeperChanged === 0, `第 4 层起地图逐格不动（实测改动 ${deeperChanged} 格）`);
-// 支路是「开局一次性烤进地图」的：存档 → 读档必须一字不动，不重摇
+// 开局烤进地图的布局（拾取物换位）存档 → 读档必须一字不动，不重摇
 E.newGame(null, { seed: 31337 });
 const altBaked = [0, 1, 2].map((fi) => E.state().maps[fi].join('|'));
 E.save();
