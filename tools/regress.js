@@ -202,6 +202,28 @@ if (!process.argv.includes('--no-shot')) {
           console.log((good ? '✓' : '✗') + ` scene-act${i} ${(size / 1024).toFixed(0)}KB`);
         }
       }
+      // 「打不过」预警归属：撞墨妖（打不过）时，说话人必须是引导者（烛/秤），
+      // 不许 Boss 自己开口，也不许战前剧本串场（2026-11-20 用户反馈：逻辑要严谨）
+      console.log('== 附加 · 打不过预警归属 ==');
+      {
+        const os = require('os');
+        const readStuck = () => {
+          const p = spawnSync(chrome, [
+            '--headless=new', '--disable-gpu', '--no-sandbox', '--no-first-run', '--disable-extensions',
+            '--user-data-dir=' + path.join(os.tmpdir(), 'tm-stuck-' + process.pid),
+            '--virtual-time-budget=40000', '--dump-dom',
+            `http://127.0.0.1:${PORT}/tools/stuck-check.html`,
+          ], { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+          const m = /<pre id="out">([\s\S]*?)<\/pre>/.exec(p.stdout || '');
+          return m ? m[1] : '';
+        };
+        let skOut = readStuck();
+        if (!skOut.includes('ALL PASS') && !skOut.includes('HAS FAIL')) skOut = readStuck();
+        const okStuck = skOut.includes('ALL PASS');
+        const skN = (skOut.match(/✓/g) || []).length;
+        console.log((okStuck ? '✓' : '✗') + ` stuck-check ${skN} 项` + (okStuck ? '' : '\n' + skOut.slice(0, 400)));
+        if (!okStuck) bad++;
+      }
       // 手感探针：跳过必须当场生效（曾经点一下要白等 528ms / Boss 过场 950ms）
       console.log('== 附加 · 手感探针（战斗跳过延迟）==');
       let okProbe = true, probeA3 = -1;

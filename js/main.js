@@ -1392,9 +1392,11 @@
     const key = defBreak ? 'stuckDef' : 'stuckHp';
     // 还没学格挡时，把「学格挡」作为第三个解法一起给出——尤其血量型卡关
     const blockTip = !s.flags.hasBlock && !Engine.vowForbidsBlock() && s.floor <= 4;
+    // 卡关条也要有说话人：无主语的「卡在墨妖这儿？」会被读成怪自己开口（2026-11-20 用户反馈）。
+    // 诊断数字归秤（他是管账的），与点开后的 stuckDef/stuckHp 对白同一口径。
     renderRich(el.stuckText, defBreak
-      ? `卡在${m.name}这儿？攻击还差 **${gap}** 点（要 ≥ **${need}**）`
-      : `这一战预计掉 **${vars.dmg}** 血，你只有 **${vars.hp}**${defNeed ? ` · 防御再加 **${defNeed.to - defNeed.from}** 就能扛住` : ''}${blockTip ? ' · 学了**格挡**能省下三成血' : ''}`);
+      ? `秤 · 卡在${m.name}这儿？攻击还差 **${gap}** 点（要 ≥ **${need}**）`
+      : `秤 · 这一战预计掉 **${vars.dmg}** 血，你只有 **${vars.hp}**${defNeed ? ` · 防御再加 **${defNeed.to - defNeed.from}** 就能扛住` : ''}${blockTip ? ' · 学了**格挡**能省下三成血' : ''}`);
     el.stuckBar.hidden = false;
     stuckInfo = { key, vars, floor: s.floor, monster: m.name, blockTip };
     const now = Date.now();
@@ -2786,13 +2788,14 @@
           warn(`**碑魔** · 你没有格挡，要 **${fd ? fd.damage : '?'}** 点血才接得下`);
           sayHint('tooStrongBossGuard', { n: shop, need: fd ? fd.damage + 1 : '?' });
         } else if (Tips.mark('toostrong')) sayHint('tooStrongBoss', { n: shop });
-        else warn(`打不过 · **回第 ${shop} 层找秤**`);
-        log(`${m.name}太强了。塔里还有没清完的怪，或者回第 ${shop} 层找秤。`, 'warn');
+        else warn(`烛：打不过，**回第 ${shop} 层找秤**`);
+        log(`打不过${m.name}——塔里还有没清完的怪，或者回第 ${shop} 层找秤。`, 'warn');
       } else {
         const shop2 = nearestShopFloor(s.floor);
         if (Tips.mark('toostrong')) sayHint('tooStrong', { n: shop2 });
-        else warn(pred.reason === '攻击力不足，无法破防' ? '**攻击力不足，无法破防**' : '这一战会要你的命，**先变强吧**');
-        log(`无法战胜${m.name}：${pred.reason}`, 'warn');
+        // 系统提示也带上引导者归属：无主语的「打不过」会被读成怪自己开口（2026-11-20 用户反馈）
+        else warn(pred.reason === '攻击力不足，无法破防' ? '烛：**攻击力不足，无法破防**' : '烛：这一战会要你的命，**先变强吧**');
+        log(`打不过${m.name}：${pred.reason}`, 'warn');
       }
       // 破不了防时给出可操作的数字：还差几点攻击、去哪儿补
       if (pred.reason === '攻击力不足，无法破防') {
@@ -2858,7 +2861,7 @@
           // 单一口径——面板怎么摆、引擎怎么结算、账本怎么记，三处不许各算各的
           logBattlePick(s, res.pick);
           applyFightResult(res, tx, ty);
-        } else { warn(res.msg || '战斗中断'); refreshHud(); }
+        } else { warn('烛：' + (res.msg || '战斗中断')); refreshHud(); }
       });
     } catch (e) {
       abandonBattle(e);

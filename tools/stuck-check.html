@@ -86,7 +86,9 @@ f.onload = async () => {
     rec('预警由引导者开口（烛/秤）', whoNow === '烛' || whoNow === '秤', `who="${whoNow}" text="${textNow.slice(0, 40)}"`);
     rec('Boss 出场卡未在打不过路径弹出', !biShown);
     rec('卡关条挂出', !stuckHidden, stuckText.slice(0, 50));
+    rec('卡关条有说话人（秤）', /^秤\s·|秤：/.test(stuckText), stuckText.slice(0, 12));
     rec('warn 药丸不冒充墨妖', !/墨妖/.test(warnPill), warnPill.slice(0, 40));
+    rec('warn 药丸带引导者归属', !warnPill || /烛/.test(warnPill), warnPill.slice(0, 24));
 
     // 点掉对白后：Boss 站前对白（bossYan 剧本）也不许接续弹出
     await clickDlg(10);

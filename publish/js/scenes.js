@@ -4,14 +4,21 @@
 //   1 palace 国王授帕（王宫大厅，帕子是唯一亮色）
 //   2 vow    灯下立誓（「我说：那我就做第一个」，烛光暖光）
 //   3 door   天没亮推开塔门（海崖黑塔外观，门缝暖光）
-// 风格约束见 assets/style-bibles/TowerMates.md §1/§4：
+// 风格约束见 assets/style-bibles/TowerMates.md §1/§3.5/§4：
 //   剪影优先 / 每屏一个暖光源 / 雾用径向+线性渐变（禁 blur）/ 无位图。
+// 2026-11-20 全量重绘（用户裁定旧版「太丑」）——按圣经 §3.5 四层加法施工：
+//   ① 形内 4 阶近黑分块（#05070c→#1a2230，硬边不渐变）；
+//   ② 轮廓破口/撕边 6–10 处（上部密、腰腹疏、下摆密）；
+//   ③ 双色 rim（暖金主、冷蓝补 ≤30%）；④ AO 接触阴影 + 近读彩蛋。
+// 角色口径（用户 2026-11-20 拍板）：魔王要威风伶俐、公主漂亮端庄但显得可怜、
+//   国王恳求动人、勇者上路的背影要帅气。
 // 动画只用 transform/opacity（GPU 合成层），prefers-reduced-motion 下全部静止。
 (function () {
   // ---- 共用色板（与圣经 §2 一致） ----
-  const INK = '#05070c';    // 最暗剪影
-  const INK2 = '#0a0d14';   // 次暗剪影
-  const EDGE = '#1c2434';   // 剪影受光窄边
+  const INK = '#05070c';    // 最暗剪影（躯干核心）
+  const INK2 = '#0a0d14';   // 主形
+  const LIT = '#111722';    // 受光面（右上）
+  const EDGE = '#1a2230';   // 边缘高光面 / 结构亮一阶
   const WARM = '#e8c46a';   // 亮黄铜
   const WARM_HI = '#ffe6a8'; // 高光金（被照亮的东西）
   const PAL = '#d6dbe6';    // 主文白（绣帕/星）
@@ -21,9 +28,11 @@
   // 底部 ~y>700 是对白框区域，只放雾和地面，不放关键内容。
 
   // ---------- 第一幕：王座厅（抓走） ----------
-  // 2026-11-17 重绘：原先王座与魔王同色（INK），两条路径叠成一团黑斑，角小得读不出。
-  // 现在按圣经 §3 分层：王座亮一阶（INK2 系渐变）当背板，魔王压最暗一阶浮出来，
-  // 右缘一条 EDGE 受光边勾轮廓；薇拉是拢在臂弯里的光滑小剪影（小而完整，不再是一块悬空的浅色）。
+  // 2026-11-20 重绘 v3：v2 的魔王还是一团黑斑、薇拉是悬空浅块。v3 按 §3.5 施工——
+  // 魔王立姿（威风）：弯月双角外扬可读、宽肩披风大轮廓带撕口、单手前伸拎着薇拉（力量感）；
+  // 薇拉（漂亮端庄+可怜）：完整小人形——垂发、束腰长裙、裙摆撕边、双手拢在胸前，
+  //   被拎离地面（脚尖离地 + 裙摆下垂坠感），发间一圈微光当「王女」的身份符码；
+  // 王座压亮一阶当背板，火盆仍是本幕唯一暖光。
   const abduct = `
 <svg viewBox="0 0 430 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
   <defs>
@@ -31,75 +40,129 @@
       <stop offset="0" stop-color="#18202e"/><stop offset=".62" stop-color="#10151f"/><stop offset="1" stop-color="#0a0e15"/>
     </linearGradient>
     <linearGradient id="scA-thr" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#121a28"/><stop offset="1" stop-color="#0a0e16"/>
+      <stop offset="0" stop-color="#141c2a"/><stop offset="1" stop-color="#0a0e16"/>
     </linearGradient>
     <radialGradient id="scA-glow" cx=".5" cy=".5" r=".5">
-      <stop offset="0" stop-color="${WARM_HI}" stop-opacity=".5"/><stop offset=".45" stop-color="${WARM}" stop-opacity=".16"/><stop offset="1" stop-color="${WARM}" stop-opacity="0"/>
+      <stop offset="0" stop-color="${WARM_HI}" stop-opacity=".55"/><stop offset=".45" stop-color="${WARM}" stop-opacity=".16"/><stop offset="1" stop-color="${WARM}" stop-opacity="0"/>
     </radialGradient>
     <radialGradient id="scA-vig" cx=".5" cy=".42" r=".75">
       <stop offset=".55" stop-color="#04060a" stop-opacity="0"/><stop offset="1" stop-color="#04060a" stop-opacity=".6"/>
     </radialGradient>
     <linearGradient id="scA-shaft" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="${COLD}" stop-opacity=".10"/><stop offset="1" stop-color="${COLD}" stop-opacity="0"/>
+      <stop offset="0" stop-color="${COLD}" stop-opacity=".11"/><stop offset="1" stop-color="${COLD}" stop-opacity="0"/>
     </linearGradient>
   </defs>
   <g class="sc-zoom">
   <rect width="430" height="900" fill="url(#scA-sky)"/>
-  <!-- 高窗与冷光柱 -->
-  <path d="M64 90 h34 v250 l-17 34 -17 -34 z" fill="#0c1220"/>
-  <path d="M70 98 h22 v236 l-11 24 -11 -24 z" fill="url(#scA-shaft)"/>
-  <path d="M332 120 h30 v220 l-15 30 -15 -30 z" fill="#0c1220"/>
-  <path d="M338 128 h18 v206 l-9 22 -9 -22 z" fill="url(#scA-shaft)"/>
-  <!-- 后墙暗层 -->
+  <!-- 高窗与冷光柱（左右两扇，第三扇只露半个——殿堂的进深） -->
+  <path d="M56 86 h36 v256 l-18 36 -18 -36 z" fill="#0c1220"/>
+  <path d="M63 96 h22 v238 l-11 24 -11 -24 z" fill="url(#scA-shaft)"/>
+  <path d="M336 112 h32 v228 l-16 32 -16 -32 z" fill="#0c1220"/>
+  <path d="M343 122 h18 v210 l-9 22 -9 -22 z" fill="url(#scA-shaft)"/>
+  <path d="M150 60 h26 v180 l-13 26 -13 -26 z" fill="#0b1120"/>
+  <!-- 后墙暗层与侧柱 -->
   <rect x="0" y="330" width="430" height="410" fill="#0d1320" opacity=".5"/>
+  <rect x="118" y="360" width="14" height="378" fill="#0b101b"/>
+  <rect x="300" y="352" width="12" height="386" fill="#0b101b"/>
   <!-- 地面 -->
   <rect x="0" y="738" width="430" height="162" fill="#06080f"/>
   <rect x="0" y="736" width="430" height="3" fill="${EDGE}" opacity=".35"/>
-  <!-- 王座：高背 + 中冠 + 双尖饰 + 外伸扶手（亮一阶，和魔王的剪影分开读） -->
-  <path d="M150 738 V342 q0 -14 14 -14 h102 q14 0 14 14 V738 z" fill="url(#scA-thr)"/>
-  <path d="M150 342 q0 -14 14 -14 h102 q14 0 14 14" fill="none" stroke="${EDGE}" stroke-width="1.4" opacity=".45"/>
-  <path d="M196 330 l19 -26 19 26 z" fill="#10151f"/>
-  <path d="M150 342 l9 -22 9 22 z" fill="#10151f"/>
-  <path d="M262 342 l9 -22 9 22 z" fill="#10151f"/>
-  <rect x="126" y="466" width="38" height="14" rx="5" fill="#0e1420"/>
-  <rect x="266" y="466" width="38" height="14" rx="5" fill="#0e1420"/>
-  <rect x="131" y="480" width="9" height="258" fill="#0a0e16"/>
-  <rect x="290" y="480" width="9" height="258" fill="#0a0e16"/>
-  <!-- 魔王：双角 / 宽肩 / 搭扶手的手（最暗一阶，压在亮背板上轮廓才立得住） -->
+  <!-- 王座：高背 + 三尖中冠 + 双侧尖饰 + 外伸扶手 + 台阶（亮一阶背板，让魔王的黑浮出来） -->
+  <path d="M142 738 V338 q0 -16 15 -16 h116 q15 0 15 16 V738 z" fill="url(#scA-thr)"/>
+  <path d="M142 338 q0 -16 15 -16 h116 q15 0 15 16" fill="none" stroke="${EDGE}" stroke-width="1.4" opacity=".5"/>
+  <path d="M192 322 l23 -32 23 32 z" fill="#10151f"/>
+  <path d="M142 338 l10 -26 10 26 z" fill="#10151f"/>
+  <path d="M268 338 l10 -26 10 26 z" fill="#10151f"/>
+  <rect x="112" y="470" width="42" height="15" rx="6" fill="#0e1420"/>
+  <rect x="276" y="470" width="42" height="15" rx="6" fill="#0e1420"/>
+  <rect x="117" y="485" width="10" height="253" fill="#0a0e16"/>
+  <rect x="303" y="485" width="10" height="253" fill="#0a0e16"/>
+  <!-- 王座台阶三级 -->
+  <rect x="106" y="712" width="218" height="10" fill="#0b101a"/>
+  <rect x="96" y="722" width="238" height="10" fill="#090e17"/>
+  <rect x="86" y="732" width="258" height="8" fill="#070b12"/>
+  <!-- 魔王 v3（威风）：占格更高的立姿——弯月双角 / 兜帽下亮瞳 / 宽肩披风撕口 / 前伸手拎薇拉 -->
   <g fill="${INK}">
-    <path d="M211 254 C196 249 181 236 174 214 C172 207 176 203 181 207 C189 226 199 241 213 248 Z"/>
-    <path d="M219 254 C234 249 249 236 256 214 C258 207 254 203 249 207 C241 226 231 241 217 248 Z"/>
-    <path d="M200 292 Q200 264 215 262 Q230 264 230 292 L230 302 L200 302 Z"/>
-    <path d="M163 336 Q170 306 202 300 L228 300 Q260 306 267 336 L272 410 Q274 462 268 520 L262 566 L168 566 L162 520 Q156 462 158 410 Z"/>
-    <path d="M165 334 Q150 380 147 436 Q146 458 150 474 L170 478 Q165 434 168 392 Q170 360 178 338 Z"/>
-    <path d="M265 334 Q280 380 283 436 Q284 458 280 474 L260 478 Q265 434 262 392 Q260 360 252 338 Z"/>
-    <path d="M146 470 h28 v15 q-15 6 -28 0 z"/>
-    <path d="M256 470 h28 v15 q-15 6 -28 0 z"/>
+    <!-- 冠饰定稿：与游戏内 Boss 地图标（render.js drawBossFigure）同款「三尖冠」——
+         场景/立绘/棋盘三层同一形状基因，不再自创。三尖竖冠+两侧短角刺，威严且绝不误读。 -->
+    <path d="M188 262 L192 236 L200 254 L215 222 L230 254 L238 236 L242 262 Z"/>
+    <path d="M184 262 q31 -12 62 0 l-2 8 q-29 -10 -58 0 z"/>
+    <path d="M176 258 l-10 -22 12 6 z"/>
+    <path d="M254 258 l10 -22 -12 6 z"/>
+    <!-- 角根环箍 -->
+    <path d="M200 258 q15 -8 30 0 l-2 8 q-13 -6 -26 0 z"/>
+    <!-- 兜帽头：上圆下宽，比脸大一圈 -->
+    <path d="M188 300 q-4 -44 27 -46 q31 2 27 46 l-3 12 h-48 z"/>
+    <!-- 躯干+宽肩披风：右肩单侧尖角肩甲（非对称第二锚点） -->
+    <path d="M170 348 q10 -34 45 -36 q35 2 45 36 l6 74 q2 52 -4 108 l-6 40 -92 0 -6 -40 q-6 -56 -4 -108 z"/>
+    <!-- 右肩甲尖 -->
+    <path d="M246 318 l22 -10 -6 26 -18 6 z"/>
+    <!-- 披风主体垂到地，侧缘撕口 -->
+    <path d="M162 560 q-16 78 -12 178 h130 q4 -100 -12 -178 q-53 -14 -106 0 z"/>
+    <!-- 披风下摆撕边（5 个不等长三角缺口） -->
+    <path d="M150 738 l12 -26 10 26 z M186 738 l14 -20 12 20 z M226 738 l10 -30 14 30 z M262 738 l8 -18 10 18 z"/>
+    <!-- 垂褶近读 -->
+    <path d="M186 600 q-6 54 -4 96 M215 592 v112 M244 600 q6 54 4 96" fill="none" stroke="#0e1520" stroke-width="2"/>
   </g>
-  <!-- 魔王亮瞳（焦点层）+ 右缘受光边 + 火光在披风上的一线暖反光 -->
-  <circle cx="207" cy="279" r="1.6" fill="${WARM_HI}" opacity=".85"/>
-  <circle cx="223" cy="279" r="1.6" fill="${WARM_HI}" opacity=".85"/>
-  <path d="M267 336 Q275 380 277 434" fill="none" stroke="${EDGE}" stroke-width="1.6" opacity=".55"/>
-  <path d="M219 254 C234 249 248 237 255 217" fill="none" stroke="${EDGE}" stroke-width="1.1" opacity=".5"/>
-  <path d="M262 600 Q271 660 269 722" fill="none" stroke="${WARM}" stroke-width="2" opacity=".14"/>
-  <!-- 薇拉：拢在左臂弯里的小小剪影（光滑小形对着父亲的尖角） -->
-  <circle cx="193" cy="424" r="9" fill="#0e1420"/>
-  <path d="M193 433 Q179 437 177 458 L175 486 H211 L209 458 Q207 437 193 433 Z" fill="#0e1420"/>
-  <path d="M186 417 q-5 9 -4 20" fill="none" stroke="${PAL}" stroke-width="1.1" opacity=".4"/>
-  <path d="M205 439 Q209 452 210 468" fill="none" stroke="${EDGE}" stroke-width="1" opacity=".5"/>
-  <!-- 披风铺地（侧缘撕口 + 垂褶近读彩蛋） -->
-  <path d="M170 566 Q152 646 156 738 H274 Q278 646 260 566 Q215 552 170 566 Z" fill="${INK}"/>
-  <path d="M158 642 l16 8 -14 12 z" fill="#0d1320"/>
-  <path d="M272 668 l-16 8 14 12 z" fill="#0d1320"/>
-  <path d="M188 612 q-6 50 -4 94 M215 602 v106 M242 612 q6 50 4 94" fill="none" stroke="#0e1520" stroke-width="2" opacity=".8"/>
+  <!-- 魔王受光层：右缘 LIT 一阶 + 胸甲分块（4 阶近黑，硬边） -->
+  <path d="M258 348 q10 34 8 84 l-4 66 h-10 l4 -66 q2 -50 -6 -80 z" fill="${LIT}"/>
+  <path d="M196 360 q19 -10 38 0 l-4 44 q-15 -8 -30 0 z" fill="${LIT}"/>
+  <path d="M199 366 q16 -8 32 0 l-3 32 q-13 -6 -26 0 z" fill="${EDGE}" opacity=".8"/>
+  <!-- 双色 rim：暖金右缘（主）+ 冷补左下（≤30% 强度） -->
+  <path d="M260 350 q9 36 8 86 l-4 62" fill="none" stroke="${WARM}" stroke-width="1.8" opacity=".5"/>
+  <path d="M224 252 C232 233 244 221 262 213" fill="none" stroke="${EDGE}" stroke-width="1.2" opacity=".55"/>
+  <path d="M164 570 q-14 74 -11 164" fill="none" stroke="${COLD}" stroke-width="1.2" opacity=".16"/>
+  <!-- 亮瞳（焦点层，两粒）+ 瞳内白点 -->
+  <circle cx="206" cy="282" r="2.1" fill="${WARM_HI}"/>
+  <circle cx="224" cy="282" r="2.1" fill="${WARM_HI}"/>
+  <circle cx="206.7" cy="281.3" r=".7" fill="#fff" opacity=".8"/>
+  <circle cx="224.7" cy="281.3" r=".7" fill="#fff" opacity=".8"/>
+  <!-- 薇拉 v3（漂亮端庄 · 可怜）：完整小人形，被拎在魔王左手外侧的空中、脚尖离地。
+       剪影世界里「同色叠同色」读不出来，所以她整体走「背光透」的处理：
+       身体近黑、四周一圈 PAL 轮廓光（1.2px 实描），发间微光环是王女符码。
+       构图上她悬在魔王左臂外（x≈170），与魔王黑披风错位，轮廓光贴着暗天空读得清。 -->
+  <g>
+    <g class="sc-sway">
+      <!-- 垂发：两侧分缕，末端收尖 -->
+      <path d="M162 420 q-8 16 -7 34 l2 14 3 -2 -1 -14 q-1 -16 5 -30 z" fill="#141c2a"/>
+      <path d="M176 420 q8 16 7 34 l-2 14 -3 -2 1 -14 q1 -16 -5 -30 z" fill="#141c2a"/>
+      <!-- 头：圆脸庞 -->
+      <circle cx="169" cy="413" r="8.5" fill="#141c2a"/>
+      <!-- 发间微光环 -->
+      <circle cx="169" cy="403" r="2" fill="${PAL}" opacity=".65"/>
+      <circle cx="169" cy="403" r="3.8" fill="none" stroke="${PAL}" stroke-width=".7" opacity=".28"/>
+      <!-- 上身：束腰（双手拢在胸前——可怜：缩着） -->
+      <path d="M169 422 q-9 2 -10 13 l-2 12 h24 l-2 -12 q-1 -11 -10 -13 z" fill="#141c2a"/>
+      <path d="M160 432 q-5 2 -6 8 l6 3 2 -7 z" fill="#141c2a"/>
+      <path d="M178 432 q5 2 6 8 l-6 3 -2 -7 z" fill="#141c2a"/>
+      <!-- 长裙：A 字铺开 + 下摆撕边（裙摆垂坠不整齐） -->
+      <path d="M157 447 q-9 23 -11 46 q11 6 23 6 q12 0 23 -6 q-2 -23 -11 -46 q-12 -5 -24 0 z" fill="#141c2a"/>
+      <path d="M146 493 l6 -10 5 10 6 -8 5 8 6 -10 6 10 q-11 5 -14 5 q-3 0 -14 -5 z" fill="#141c2a"/>
+      <!-- 薇拉受光层：右缘 LIT 一阶 -->
+      <path d="M177 450 q8 21 9 43 l-4 0 q-2 -22 -9 -41 z" fill="${LIT}"/>
+      <!-- 全身 PAL 轮廓光：贴形一圈 1.2px（近黑身体在暗天空上靠它读形） -->
+      <circle cx="169" cy="413" r="8.5" fill="none" stroke="${PAL}" stroke-width="1.1" opacity=".5"/>
+      <path d="M159 424 q-9 2 -10 13 l-2 12 h3 l2 -11 q1 -10 8 -12 z" fill="${PAL}" opacity=".38"/>
+      <path d="M157 448 q-9 23 -11 45 q11 6 11 6 q-8 -20 -3 -50 z" fill="${PAL}" opacity=".3"/>
+      <path d="M181 450 q9 22 10 43" fill="none" stroke="${PAL}" stroke-width="1.1" opacity=".45"/>
+      <path d="M176 406 q3 3 3 7" fill="none" stroke="${PAL}" stroke-width="1" opacity=".5"/>
+    </g>
+    <!-- 魔王拎着她的那只手：从魔王左肩垂下的手臂 + 收拢的手（抓着薇拉的发/领） -->
+    <path d="M176 352 q-10 16 -8 40 q1 10 8 14 l6 -6 q-5 -22 2 -42 z" fill="${INK}"/>
+    <path d="M172 404 q8 -6 18 -2 l4 6 q-4 8 -13 8 q-9 0 -11 -12 z" fill="${INK}"/>
+  </g>
   <!-- 火盆（本幕唯一暖光） -->
   <g>
-    <ellipse cx="330" cy="690" rx="86" ry="86" fill="url(#scA-glow)"/>
-    <path d="M318 706 l24 0 6 26 q-18 8 -36 0 z" fill="${INK}"/>
+    <ellipse cx="334" cy="688" rx="92" ry="90" fill="url(#scA-glow)"/>
+    <path d="M320 706 l28 0 7 28 q-21 9 -42 0 z" fill="${INK}"/>
+    <path d="M318 704 h32" stroke="${EDGE}" stroke-width="1.2" opacity=".5"/>
     <g class="sc-flick">
-      <path d="M330 660 q-10 14 -4 26 q4 8 4 14 q10 -4 8 -16 q8 2 6 14 q10 -12 0 -28 q-6 -10 -14 -10 z" fill="${WARM}"/>
-      <path d="M330 672 q-4 8 -1 14 q2 5 2 8 q5 -3 4 -9 q4 1 3 8 q5 -7 0 -15 q-4 -6 -8 -6 z" fill="${WARM_HI}"/>
+      <path d="M334 656 q-11 15 -4 28 q4 8 4 14 q11 -4 9 -17 q9 2 6 15 q11 -13 0 -30 q-6 -10 -15 -10 z" fill="${WARM}"/>
+      <path d="M334 668 q-4 9 -1 15 q2 5 2 9 q6 -3 4 -10 q4 1 3 9 q6 -8 0 -16 q-4 -7 -8 -7 z" fill="${WARM_HI}"/>
     </g>
+    <!-- 火星两粒（近读彩蛋） -->
+    <circle class="sc-tw" cx="352" cy="640" r="1.1" fill="${WARM_HI}" opacity=".5"/>
+    <circle cx="322" cy="630" r=".8" fill="${WARM}" opacity=".35"/>
   </g>
   <!-- 雾两层（渐变，禁 blur） -->
   <ellipse class="sc-fog" cx="110" cy="700" rx="240" ry="60" fill="#151c2b" opacity=".5"/>
@@ -109,6 +172,10 @@
 </svg>`;
 
   // ---------- 第二幕：王宫授帕 ----------
+  // 2026-11-20 重绘 v3：v2 的国王是一坨、勇者是团、帕子小得像图标。v3——
+  // 国王（恳求动人）：大幅前倾弯腰、双手捧帕递出、冠冕三尖可读、披风拖地、头低垂；
+  // 勇者（接帕）：单膝点地低头双手接——「受命」的郑重感；背剑轮廓在背后可读；
+  // 绣帕放大到 44px（全屏唯一亮焦点），帕上绣纹近读可辨（塔形一针）。
   const palace = `
 <svg viewBox="0 0 430 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
   <defs>
@@ -116,56 +183,100 @@
       <stop offset="0" stop-color="#151c29"/><stop offset=".6" stop-color="#0f141e"/><stop offset="1" stop-color="#0a0e15"/>
     </linearGradient>
     <radialGradient id="scB-glow" cx=".5" cy=".5" r=".5">
-      <stop offset="0" stop-color="${PAL}" stop-opacity=".30"/><stop offset=".5" stop-color="${PAL}" stop-opacity=".10"/><stop offset="1" stop-color="${PAL}" stop-opacity="0"/>
+      <stop offset="0" stop-color="${PAL}" stop-opacity=".38"/><stop offset=".5" stop-color="${PAL}" stop-opacity=".12"/><stop offset="1" stop-color="${PAL}" stop-opacity="0"/>
     </radialGradient>
     <radialGradient id="scB-vig" cx=".5" cy=".42" r=".75">
       <stop offset=".55" stop-color="#04060a" stop-opacity="0"/><stop offset="1" stop-color="#04060a" stop-opacity=".6"/>
     </radialGradient>
     <linearGradient id="scB-shaft" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="${COLD}" stop-opacity=".09"/><stop offset="1" stop-color="${COLD}" stop-opacity="0"/>
+      <stop offset="0" stop-color="${COLD}" stop-opacity=".10"/><stop offset="1" stop-color="${COLD}" stop-opacity="0"/>
     </linearGradient>
   </defs>
   <g class="sc-zoom">
   <rect width="430" height="900" fill="url(#scB-sky)"/>
-  <!-- 大厅立柱 -->
-  <rect x="18" y="60" width="34" height="700" fill="#0b101b"/>
-  <rect x="50" y="60" width="4" height="700" fill="${EDGE}" opacity=".4"/>
-  <rect x="378" y="60" width="34" height="700" fill="#0b101b"/>
-  <rect x="374" y="60" width="4" height="700" fill="${EDGE}" opacity=".4"/>
-  <!-- 残旧挂毯（缺角） -->
-  <path d="M120 96 h74 v230 l-16 22 -12 -14 -14 18 -14 -16 -18 14 z" fill="#0c1120"/>
-  <path d="M132 108 h50 v200" fill="none" stroke="${EDGE}" stroke-width="1" opacity=".35"/>
+  <!-- 大厅立柱三根（第三根只在远端，进深） -->
+  <rect x="14" y="56" width="36" height="706" fill="#0b101b"/>
+  <rect x="46" y="56" width="4" height="706" fill="${EDGE}" opacity=".4"/>
+  <rect x="380" y="56" width="36" height="706" fill="#0b101b"/>
+  <rect x="378" y="56" width="4" height="706" fill="${EDGE}" opacity=".4"/>
+  <rect x="210" y="120" width="16" height="300" fill="#0b111d" opacity=".8"/>
+  <!-- 柱头 -->
+  <rect x="8" y="48" width="48" height="12" rx="3" fill="#0d1320"/>
+  <rect x="374" y="48" width="48" height="12" rx="3" fill="#0d1320"/>
+  <!-- 残旧挂毯（缺角 + 绣纹近读） -->
+  <path d="M120 92 h80 v234 l-17 24 -13 -15 -14 19 -15 -17 -21 15 z" fill="#0c1120"/>
+  <path d="M133 105 h54 v204" fill="none" stroke="${EDGE}" stroke-width="1" opacity=".35"/>
+  <path d="M146 150 l18 -22 18 22 M146 200 h36" fill="none" stroke="#131a28" stroke-width="2" opacity=".9"/>
   <!-- 高窗冷光斜柱 -->
-  <path d="M300 40 L430 40 L360 420 L260 420 z" fill="url(#scB-shaft)"/>
+  <path d="M300 36 L430 36 L360 420 L256 420 z" fill="url(#scB-shaft)"/>
+  <!-- 王座台阶残影（国王从王座走下来了——台阶空着） -->
+  <rect x="150" y="700" width="130" height="10" fill="#0b101a"/>
+  <rect x="140" y="710" width="150" height="10" fill="#090e17"/>
   <!-- 地面 -->
   <rect x="0" y="748" width="430" height="152" fill="#070a12"/>
   <rect x="0" y="746" width="430" height="3" fill="${EDGE}" opacity=".35"/>
-  <!-- 国王：宽袍 + 锯齿冠，递帕的手臂伸向右侧 -->
+  <!-- 国王 v3（恳求动人）：从王座走下、大幅前倾弯腰、双手捧帕递向右侧、头低垂 -->
   <g fill="${INK}">
-    <path d="M150 470 l-9 -30 7 4 6 -14 7 12 8 -16 7 14 7 -12 6 14 7 -4 -9 32 z" transform="translate(-8 12)"/>
-    <path d="M148 500 q-4 -22 20 -26 q26 -4 30 22 q4 26 -4 44 q30 10 44 30 l-8 12 q-22 -16 -40 -20 l-2 10 q24 8 40 26 l-6 10 q-24 -16 -44 -22 q-18 -6 -30 -2 q-20 8 -26 30 l-12 -4 q6 -30 24 -44 q-10 -30 6 -66 z"/>
-    <path d="M130 596 q-20 40 -24 152 h96 q-2 -110 -22 -150 q-14 -18 -28 -16 q-14 2 -22 14 z"/>
+    <!-- 冠冕三尖（压在头上，随弯腰前倾） -->
+    <path d="M148 498 l-10 -26 8 4 6 -13 8 11 8 -15 8 13 6 -12 8 5 6 13 -10 26 z"/>
+    <!-- 头：低垂（前倾 30°，冠后仰） -->
+    <path d="M150 528 q2 -24 24 -26 q22 2 24 24 l-2 14 q-22 10 -44 0 z"/>
+    <!-- 躯干：弯腰前倾，背部拱起 -->
+    <path d="M128 560 q10 -26 44 -28 q34 2 44 28 l10 40 -14 6 -12 -30 q-26 -10 -54 0 l-10 30 -12 -6 z"/>
+    <!-- 双臂前伸捧帕（两只手都伸向右前方的帕） -->
+    <path d="M204 552 q28 6 44 24 l-8 12 q-16 -14 -40 -20 z"/>
+    <path d="M196 574 q30 6 48 22 l-7 12 q-20 -14 -44 -18 z"/>
+    <!-- 大袍+拖地披风：下摆撕边 -->
+    <path d="M118 600 q-14 60 -10 148 h104 q4 -88 -10 -148 q-40 -16 -84 0 z"/>
+    <path d="M108 748 l10 -22 9 22 z M140 748 l11 -16 10 16 z M176 748 l9 -24 12 24 z M204 748 l7 -14 9 14 z"/>
+    <path d="M138 620 q-4 52 -3 96 M168 612 v106 M196 622 q4 50 3 92" fill="none" stroke="#0e1520" stroke-width="2"/>
   </g>
-  <path d="M196 536 q30 8 44 26" fill="none" stroke="${EDGE}" stroke-width="1.5" opacity=".6"/>
-  <!-- 绣帕（全屏唯一亮色焦点） -->
+  <!-- 国王受光层：拱背右缘 + 冠亮一阶 -->
+  <path d="M216 534 q6 10 8 26 l-6 2 q-2 -14 -6 -24 z" fill="${LIT}"/>
+  <path d="M186 480 l6 8 -2 8 -8 -8 z" fill="${LIT}" opacity=".8"/>
+  <path d="M216 560 q28 8 42 24" fill="none" stroke="${EDGE}" stroke-width="1.6" opacity=".6"/>
+  <path d="M150 522 q4 -18 20 -22" fill="none" stroke="${WARM}" stroke-width="1.4" opacity=".3"/>
+  <!-- 绣帕 v3（全屏唯一亮焦点）：放大 + 绣塔纹 + 光晕 -->
   <g class="sc-sway">
-    <circle cx="242" cy="524" r="34" fill="url(#scB-glow)"/>
-    <path d="M242 506 l16 18 -16 18 -16 -18 z" fill="${PAL}"/>
-    <path d="M242 512 l10 12 -10 12 -10 -12 z" fill="#eef1f7" opacity=".8"/>
+    <circle cx="266" cy="546" r="44" fill="url(#scB-glow)"/>
+    <path d="M266 520 l24 26 -24 26 -24 -26 z" fill="${PAL}"/>
+    <path d="M266 528 l15 18 -15 18 -15 -18 z fill="#eef1f7" opacity=".85"/>
+    <path d="M266 528 l15 18 -15 18 -15 -18 z" fill="#eef1f7" opacity=".85"/>
+    <!-- 帕上绣纹：小塔一针（近读彩蛋） -->
+    <path d="M266 538 l5 8 h-10 z M264 546 h4 v6 h-4 z" fill="#8a92a6" opacity=".7"/>
+    <!-- 帕角流苏两根 -->
+    <path d="M244 546 l-5 3 M288 546 l5 3" stroke="${PAL}" stroke-width="1.4" opacity=".6"/>
   </g>
-  <!-- 勇者：小个、低头、单手前伸接帕，背剑 -->
+  <!-- 国王捧帕的手（压在帕下沿） -->
+  <path d="M244 566 q10 2 16 8 l-4 8 q-8 -4 -14 -6 z" fill="${INK}"/>
+  <!-- 勇者 v3：单膝点地、低头、双手接帕，背后铁剑+木盾轮廓可读 -->
   <g fill="${INK2}">
-    <path d="M282 560 q-2 -16 14 -20 q16 -4 20 12 q4 16 -4 30 q16 8 24 24 l-10 8 q-14 -14 -26 -18 l-2 8 q14 6 22 18 l-8 8 q-16 -12 -30 -16 q-14 -4 -22 0 l-4 -10 q10 -6 20 -6 q-8 -16 6 -30 z"/>
-    <path d="M272 622 q-14 34 -16 126 h72 q0 -90 -14 -124 q-10 -16 -21 -16 q-11 0 -21 14 z"/>
-    <path d="M300 596 l16 -74 5 1 -12 76 z"/>
+    <!-- 头低垂 -->
+    <path d="M300 584 q0 -18 16 -21 q17 3 17 21 l-2 10 q-15 8 -29 0 z"/>
+    <!-- 躯干：微躬 -->
+    <path d="M288 612 q6 -18 28 -20 q22 2 28 20 l4 30 -10 3 -6 -24 q-16 -8 -32 0 l-6 24 -10 -3 z"/>
+    <!-- 双臂前伸接帕 -->
+    <path d="M300 600 q-14 6 -20 20 l8 6 q6 -12 16 -16 z"/>
+    <!-- 前腿弓、后腿膝点地 -->
+    <path d="M296 642 q-12 30 -14 106 h20 q0 -72 8 -100 z"/>
+    <path d="M330 642 q14 10 18 34 l14 30 q-8 6 -14 2 l-14 -26 q-6 -22 -10 -30 z"/>
+    <!-- 后膝与脚 -->
+    <path d="M356 700 q10 2 12 10 l-2 8 h-16 z"/>
   </g>
-  <path d="M296 566 q10 2 16 10" fill="none" stroke="${EDGE}" stroke-width="1.2" opacity=".5"/>
+  <!-- 背后铁剑（剑柄露在肩上）与木盾（背后圆盾露一弧） -->
+  <path d="M338 540 l14 -66 5 1 -11 68 z" fill="${INK2}"/>
+  <path d="M350 546 l9 4 -3 10 -9 -4 z" fill="${INK2}"/>
+  <path d="M290 600 a26 26 0 0 1 8 -14" fill="none" stroke="${INK2}" stroke-width="5"/>
+  <!-- 勇者受光层 -->
+  <path d="M318 566 q6 8 8 24 l-5 2 q-2 -14 -6 -22 z" fill="${LIT}"/>
+  <path d="M312 590 q8 4 12 12" fill="none" stroke="${EDGE}" stroke-width="1.2" opacity=".5"/>
   <!-- 尘埃缓浮 -->
   <g fill="${PAL}" opacity=".14">
     <circle class="sc-fog" cx="150" cy="420" r="1.6"/>
     <circle cx="210" cy="360" r="1.2"/>
     <circle class="sc-fog2" cx="290" cy="470" r="1.5"/>
     <circle cx="250" cy="300" r="1"/>
+    <circle cx="330" cy="380" r="1.1"/>
   </g>
   <ellipse class="sc-fog" cx="120" cy="720" rx="240" ry="56" fill="#151c2b" opacity=".45"/>
   <ellipse class="sc-fog2" cx="320" cy="780" rx="220" ry="46" fill="#100e1a" opacity=".4"/>
@@ -174,6 +285,10 @@
 </svg>`;
 
   // ---------- 第三幕：灯下立誓 ----------
+  // 2026-11-20 重绘 v3：v2 人形太散、烛太弱。v3——
+  // 勇者（帅气）：站姿挺拔侧影、一手举帕对烛光端详、一手按在剑柄上（即将上路的不回头）；
+  //   肩线/腰线/腿部分块（4 阶近黑），轮廓破口在披风与下摆；
+  // 烛台换成黄铜烛台（有足有碟），光晕更聚焦；桌上多一把短匕与绣帕的针线卷（近读彩蛋）。
   const vow = `
 <svg viewBox="0 0 430 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
   <defs>
@@ -181,7 +296,7 @@
       <stop offset="0" stop-color="#121824"/><stop offset=".6" stop-color="#0d1119"/><stop offset="1" stop-color="#090c13"/>
     </linearGradient>
     <radialGradient id="scC-glow" cx=".5" cy=".5" r=".5">
-      <stop offset="0" stop-color="${WARM_HI}" stop-opacity=".55"/><stop offset=".45" stop-color="${WARM}" stop-opacity=".18"/><stop offset="1" stop-color="${WARM}" stop-opacity="0"/>
+      <stop offset="0" stop-color="${WARM_HI}" stop-opacity=".6"/><stop offset=".45" stop-color="${WARM}" stop-opacity=".18"/><stop offset="1" stop-color="${WARM}" stop-opacity="0"/>
     </radialGradient>
     <radialGradient id="scC-vig" cx=".5" cy=".42" r=".78">
       <stop offset=".5" stop-color="#04060a" stop-opacity="0"/><stop offset="1" stop-color="#04060a" stop-opacity=".62"/>
@@ -194,45 +309,89 @@
   <rect x="84" y="80" width="6" height="180" fill="${INK}"/>
   <rect x="40" y="166" width="96" height="6" fill="${INK}"/>
   <rect x="40" y="80" width="96" height="180" fill="none" stroke="#141c2c" stroke-width="3"/>
-  <!-- 墙上圆盾（安静的 70%） -->
-  <circle cx="290" cy="300" r="30" fill="#0a0e16"/>
-  <circle cx="290" cy="300" r="30" fill="none" stroke="#141a26" stroke-width="3"/>
-  <circle cx="290" cy="300" r="8" fill="#10151f"/>
-  <!-- 桌与桌上物 -->
-  <rect x="66" y="648" width="190" height="14" rx="3" fill="${INK}"/>
-  <rect x="84" y="662" width="12" height="76" fill="${INK}"/>
-  <rect x="224" y="662" width="12" height="76" fill="${INK}"/>
-  <!-- 铁剑靠桌 -->
-  <path d="M96 646 l26 -96 6 2 -22 96 z" fill="${INK2}"/>
-  <path d="M116 570 l10 3 -3 9 -10 -3 z" fill="${INK}"/>
-  <!-- 蜡烛（本幕唯一暖光） -->
+  <!-- 窗外残星一粒（呼应第四幕的黎明前） -->
+  <circle class="sc-tw" cx="66" cy="120" r="1.2" fill="${PAL}" opacity=".4"/>
+  <!-- 墙上圆盾 + 挂钩（安静的 70%） -->
+  <circle cx="290" cy="296" r="32" fill="#0a0e16"/>
+  <circle cx="290" cy="296" r="32" fill="none" stroke="#141a26" stroke-width="3"/>
+  <circle cx="290" cy="296" r="8" fill="#10151f"/>
+  <path d="M290 264 l3 8 h-6 z" fill="#141a26"/>
+  <!-- 桌与桌腿 -->
+  <rect x="60" y="648" width="196" height="15" rx="3" fill="${INK}"/>
+  <rect x="80" y="663" width="12" height="75" fill="${INK}"/>
+  <rect x="226" y="663" width="12" height="75" fill="${INK}"/>
+  <!-- 桌沿受光线（烛光近侧） -->
+  <rect x="60" y="648" width="70" height="2.4" fill="${WARM}" opacity=".28"/>
+  <!-- 铁剑靠桌（即将带走的剑） -->
+  <path d="M94 646 l26 -98 6 2 -22 98 z" fill="${INK2}"/>
+  <path d="M114 568 l10 3 -3 9 -10 -3 z" fill="${INK}"/>
+  <!-- 桌上近读彩蛋：短匕 + 针线卷（绣帕是妹妹辈的人缝的） -->
+  <path d="M196 640 l18 -12 3 4 -18 12 z" fill="${INK2}"/>
+  <rect x="216" y="636" width="14" height="8" rx="3" fill="${INK2}"/>
+  <!-- 黄铜烛台 v3（有足有碟）+ 蜡烛（本幕唯一暖光） -->
   <g>
-    <ellipse cx="150" cy="620" rx="88" ry="88" fill="url(#scC-glow)"/>
-    <rect x="144" y="626" width="12" height="24" rx="2" fill="${INK}"/>
+    <ellipse cx="146" cy="616" rx="92" ry="92" fill="url(#scC-glow)"/>
+    <ellipse cx="146" cy="648" rx="20" ry="5" fill="${INK}"/>
+    <path d="M138 648 l3 -14 h10 l3 14 z" fill="${INK}"/>
+    <ellipse cx="146" cy="633" rx="12" ry="3.4" fill="${EDGE}"/>
+    <rect x="141" y="606" width="10" height="26" rx="2" fill="${EDGE}"/>
     <g class="sc-flick">
-      <path d="M150 596 q-8 12 -3 22 q3 7 3 12 q9 -4 7 -14 q7 2 5 12 q9 -11 0 -25 q-5 -9 -12 -7 z" fill="${WARM}"/>
-      <path d="M150 606 q-3 7 -1 12 q1 4 1 7 q4 -3 3 -8 q3 1 2 7 q4 -6 0 -13 q-3 -5 -5 -5 z" fill="${WARM_HI}"/>
+      <path d="M146 578 q-9 13 -3 24 q3 7 3 12 q10 -4 8 -15 q8 2 5 13 q10 -12 0 -27 q-5 -10 -13 -7 z" fill="${WARM}"/>
+      <path d="M146 590 q-4 8 -1 13 q1 4 1 7 q5 -3 3 -8 q4 1 2 7 q5 -7 0 -14 q-3 -5 -5 -5 z" fill="${WARM_HI}"/>
     </g>
+    <!-- 烛泪一道（近读） -->
+    <path d="M141 612 q-2 8 0 14" fill="none" stroke="${WARM_HI}" stroke-width="1" opacity=".4"/>
   </g>
-  <!-- 勇者：立姿侧影，举帕对着烛光看 -->
-  <g fill="${INK2}">
-    <path d="M262 448 q-2 -18 15 -23 q18 -5 23 13 q5 18 -4 33 q4 4 6 10 l14 42 -10 5 -14 -38 q-10 -6 -20 -4 q-14 3 -20 16 l-11 -4 q7 -18 19 -26 q-6 -14 2 -24 z"/>
-    <path d="M284 520 l-18 60 4 60 8 108 h14 l-2 -104 10 -58 14 56 10 -4 -16 -66 q-6 -22 -24 -20 z"/>
-    <path d="M256 640 q-10 60 -6 108 h12 q-2 -50 6 -104 z"/>
+  <!-- 勇者 v4（帅气）：站在桌右，侧身对烛，把帕举到烛光边端详——一手举帕、一手按剑柄。
+       他的左缘迎着烛光（暖 rim 1.6px），所以从暗底里读得出轮廓；身体走 LIT/INK 分块，
+       不再用 INK2 整块（v3 在暗背景上几乎不可见）。 -->
+  <g>
+    <!-- 头：侧影朝向左侧烛光，鼻梁一道、发尾一缕 -->
+    <path d="M258 464 q-2 -24 18 -28 q20 3 22 26 l-2 16 q-16 9 -34 1 z" fill="${INK}"/>
+    <path d="M258 454 q-4 6 -3 14 l4 2 q-1 -8 1 -14 z" fill="${INK}"/>
+    <path d="M276 440 q10 -4 15 2 q-5 7 -13 8 z" fill="${INK}"/>
+    <!-- 躯干：肩宽腰收 + 长外套下摆（撕口 3 处） -->
+    <path d="M252 500 q6 -18 22 -20 q18 2 24 20 l3 38 q2 24 -2 50 l-4 32 -40 0 -5 -32 q-4 -26 -2 -50 z" fill="${INK}"/>
+    <path d="M248 614 l8 -14 6 14 z M266 614 l7 -10 7 10 z M284 614 l6 -16 8 16 z" fill="${INK}"/>
+    <!-- 左臂：从肩伸向烛焰上沿，手托着帕（袖子比手臂宽）——帕要落在光里 -->
+    <path d="M252 502 q-16 -2 -30 -8 l-5 20 q16 8 32 8 z" fill="${INK}"/>
+    <path d="M222 494 q-8 -3 -13 -8 l6 -8 q7 5 11 7 z" fill="${INK}"/>
+    <!-- 右臂：垂到腰侧按剑柄 -->
+    <path d="M298 502 q8 12 9 28 l-9 3 q-2 -14 -8 -24 z" fill="${INK}"/>
+    <!-- 双腿：站姿开立，前脚略出（腿长收短、加深色靴，避免高跷感） -->
+    <path d="M254 616 q-8 44 -6 88 l-2 14 h20 l-1 -14 q-4 -44 2 -88 z" fill="${INK}"/>
+    <path d="M282 616 q8 46 10 88 l1 14 h20 l-3 -14 q-5 -46 -12 -88 z" fill="${INK}"/>
+    <!-- 左缘受光（烛光侧）：LIT 面 + 暖 rim -->
+    <path d="M256 468 q-6 10 -6 26 l4 0 q1 -14 6 -22 z" fill="${LIT}"/>
+    <path d="M252 502 q-16 -6 -30 -14" fill="none" stroke="${WARM}" stroke-width="1.7" opacity=".55"/>
+    <path d="M258 470 q-6 12 -6 30 l-4 34 q-3 26 0 52" fill="none" stroke="${WARM}" stroke-width="1.5" opacity=".4"/>
+    <path d="M264 620 q-5 40 -4 92" fill="none" stroke="${COLD}" stroke-width="1.1" opacity=".16"/>
+    <!-- 腰间剑：柄朝上、首圆扣，鞘垂到腿侧 -->
+    <path d="M302 540 l-5 20 -9 -3 5 -20 z" fill="${INK}"/>
+    <circle cx="295" cy="562" r="3.6" fill="${INK}"/>
+    <path d="M293 566 q-3 36 -6 62" fill="none" stroke="${INK}" stroke-width="5" opacity=".95"/>
   </g>
-  <!-- 举起的绣帕（近烛，带暖边） -->
+  <!-- 举起的绣帕：正在烛焰上方——托在左手，帕角朝下垂（被举着看的样子），帕面吃满烛光 -->
   <g class="sc-sway">
-    <path d="M248 486 l13 14 -13 14 -13 -14 z" fill="${PAL}"/>
-    <path d="M248 490 l8 10 -8 10 -8 -10 z" fill="#f4ecd8" opacity=".9"/>
-    <path d="M236 498 h-6 M260 498 h6" stroke="${WARM_HI}" stroke-width="1.4" opacity=".6"/>
+    <circle cx="198" cy="492" r="30" fill="url(#scC-glow)" opacity=".6"/>
+    <path d="M198 476 l16 16 -16 17 -16 -17 z" fill="${PAL}"/>
+    <path d="M198 481 l10 11 -10 12 -10 -12 z" fill="#f4ecd8" opacity=".94"/>
+    <!-- 帕上绣塔一针（近读） -->
+    <path d="M198 485 l4 6 h-8 z" fill="#8a92a6" opacity=".7"/>
+    <path d="M183 493 h-6 M213 493 h6" stroke="${WARM_HI}" stroke-width="1.6" opacity=".75"/>
   </g>
-  <path d="M272 470 q8 2 12 10" fill="none" stroke="${EDGE}" stroke-width="1.3" opacity=".55"/>
+  <!-- 脚下接触影（AO） -->
+  <ellipse cx="276" cy="734" rx="36" ry="6" fill="#000" opacity=".5"/>
   <ellipse class="sc-fog2" cx="140" cy="800" rx="260" ry="52" fill="#100e1a" opacity=".42"/>
   <rect width="430" height="900" fill="url(#scC-vig)"/>
   </g>
 </svg>`;
 
   // ---------- 第四幕：海崖塔门（黎明的第一道门缝光） ----------
+  // 2026-11-20 重绘 v3：v2 的塔是一条抽象黑柱、勇者小到看不出。v3——
+  // 黑塔（威压感）：真塔身——收分轮廓、垛口齿、两层亮窗点、砖缝近读；塔基占画面右半；
+  // 勇者（帅气背影）：推门姿势加大——前腿弓后腿蹬、披风被海风掀起、剑悬腰侧、盾挂背；
+  // 门缝光更强（本幕唯一暖光），光洒在门前的石台上拉出长影。
   const door = `
 <svg viewBox="0 0 430 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
   <defs>
@@ -240,14 +399,17 @@
       <stop offset="0" stop-color="#1d2636"/><stop offset=".55" stop-color="#141b28"/><stop offset=".8" stop-color="#10151f"/><stop offset="1" stop-color="#0a0e15"/>
     </linearGradient>
     <linearGradient id="scD-hor" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#2e3a4e" stop-opacity="0"/><stop offset=".5" stop-color="#2e3a4e" stop-opacity=".38"/><stop offset="1" stop-color="#2e3a4e" stop-opacity="0"/>
+      <stop offset="0" stop-color="#2e3a4e" stop-opacity="0"/><stop offset=".5" stop-color="#2e3a4e" stop-opacity=".4"/><stop offset="1" stop-color="#2e3a4e" stop-opacity="0"/>
     </linearGradient>
     <radialGradient id="scD-glow" cx=".5" cy=".5" r=".5">
-      <stop offset="0" stop-color="${WARM_HI}" stop-opacity=".6"/><stop offset=".4" stop-color="${WARM}" stop-opacity=".2"/><stop offset="1" stop-color="${WARM}" stop-opacity="0"/>
+      <stop offset="0" stop-color="${WARM_HI}" stop-opacity=".65"/><stop offset=".4" stop-color="${WARM}" stop-opacity=".22"/><stop offset="1" stop-color="${WARM}" stop-opacity="0"/>
     </radialGradient>
     <radialGradient id="scD-vig" cx=".5" cy=".4" r=".8">
       <stop offset=".55" stop-color="#04060a" stop-opacity="0"/><stop offset="1" stop-color="#04060a" stop-opacity=".58"/>
     </radialGradient>
+    <linearGradient id="scD-tower" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#0d1420"/><stop offset=".7" stop-color="#070a12"/><stop offset="1" stop-color="#04060a"/>
+    </linearGradient>
   </defs>
   <g class="sc-zoom">
   <rect width="430" height="900" fill="url(#scD-sky)"/>
@@ -267,26 +429,64 @@
   <rect x="0" y="672" width="430" height="228" fill="#070b12"/>
   <path d="M0 690 q60 -6 120 0 t120 0 t120 0 t70 0" fill="none" stroke="${EDGE}" stroke-width="1.2" opacity=".3"/>
   <path d="M0 726 q80 -5 150 0 t150 0 t130 0" fill="none" stroke="${EDGE}" stroke-width="1" opacity=".2"/>
+  <path d="M40 762 q50 -4 90 0" fill="none" stroke="${EDGE}" stroke-width=".8" opacity=".14"/>
   <!-- 海崖平台 -->
-  <path d="M0 900 v-120 q90 -18 150 -12 l60 8 v-46 h226 v170 z" fill="${INK}"/>
-  <!-- 黑塔（出顶格，压住画面右半） -->
-  <path d="M196 730 v-560 q0 -170 20 -170 h6 q-14 60 -14 170 v560 z" fill="${EDGE}" opacity=".35"/>
-  <path d="M200 900 v-560 q0 -340 8 -340 h120 q10 0 10 60 v840 z" fill="${INK}"/>
-  <!-- 塔身砖缝（极少，近读彩蛋） -->
-  <path d="M214 300 h116 M218 420 h112 M222 540 h108" stroke="#0d1420" stroke-width="2" opacity=".8"/>
-  <path d="M330 200 v520 M338 340 v380" stroke="#0d1420" stroke-width="2" opacity=".6"/>
+  <path d="M0 900 v-118 q92 -18 152 -12 l58 8 v-44 h226 v166 z" fill="${INK}"/>
+  <!-- 黑塔 v6：经典城塔结构——直斜收分塔身（底 174–340 → 肩 212–302）+ 直颈 + 外挑垛口檐。
+       三段各是硬边多边形，拼接严丝合缝；轮廓不再出现圆弧「潜艇头」。 -->
+  <path d="M174 900 V420 L212 330 H302 L340 420 V900 Z" fill="url(#scD-tower)"/>
+  <rect x="212" y="286" width="90" height="46" fill="url(#scD-tower)"/>
+  <!-- 垛口檐（外挑 8px，5 齿一体成型） -->
+  <path d="M204 286 V272 h6 v-14 h12 v14 h10 v-14 h12 v14 h10 v-14 h12 v14 h10 v-14 h12 v14 h10 v-14 h12 v14 h6 v14 z" fill="#0b111d"/>
+  <rect x="204" y="284" width="112" height="4" fill="#060a12" opacity=".9"/>
+  <!-- 塔身左缘受光线（黎明冷光侧） -->
+  <path d="M178 900 V420 L214 334" fill="none" stroke="${EDGE}" stroke-width="1.6" opacity=".4"/>
+  <!-- 两层亮窗（微光点：塔里有人？） -->
+  <rect x="240" y="400" width="12" height="20" rx="4" fill="#0c1422"/>
+  <rect x="243" y="404" width="6" height="12" rx="2" fill="${WARM}" opacity=".22"/>
+  <rect x="284" y="500" width="12" height="20" rx="4" fill="#0c1422"/>
+  <rect x="287" y="504" width="6" height="12" rx="2" fill="${WARM}" opacity=".14"/>
+  <!-- 砖缝近读（极少） -->
+  <path d="M210 450 h100 M214 560 h92 M218 670 h84" stroke="#0d1420" stroke-width="2" opacity=".8"/>
+  <path d="M306 380 v500 M314 480 v400" stroke="#0d1420" stroke-width="2" opacity=".6"/>
   <!-- 塔门（拱门 + 中缝暖光：全屏唯一暖光、唯一焦点） -->
-  <path d="M228 730 v-116 q0 -34 29 -34 q29 0 29 34 v116 z" fill="#04060a"/>
-  <ellipse class="sc-pulse" cx="257" cy="660" rx="96" ry="86" fill="url(#scD-glow)"/>
-  <line class="sc-pulse" x1="257" y1="586" x2="257" y2="728" stroke="${WARM_HI}" stroke-width="2.6"/>
-  <path d="M257 586 q-9 40 -7 88 q1 32 5 54 h6 q4 -24 5 -56 q2 -46 -9 -86 z" fill="${WARM_HI}" opacity=".85"/>
-  <!-- 门内暖光洒在平台上 -->
-  <path d="M228 730 l58 0 34 40 h-124 z" fill="${WARM}" opacity=".10"/>
-  <!-- 勇者：小小剪影抵门 -->
-  <g fill="${INK2}">
-    <path d="M204 646 q-3 -14 11 -18 q15 -4 19 10 q3 13 -3 24 l16 4 -2 9 -18 -3 -4 8 6 60 h-10 l-5 -52 -6 0 -2 52 h-10 l3 -60 -6 -14 q-3 -10 1 -20 z" transform="rotate(-6 216 660)"/>
-    <path d="M226 610 q8 -10 18 -6 q-6 10 -14 12 z"/>
+  <path d="M228 732 v-118 q0 -36 30 -36 q30 0 30 36 v118 z" fill="#04060a"/>
+  <ellipse class="sc-pulse" cx="258" cy="658" rx="102" ry="92" fill="url(#scD-glow)"/>
+  <line class="sc-pulse" x1="258" y1="582" x2="258" y2="730" stroke="${WARM_HI}" stroke-width="3"/>
+  <path d="M258 582 q-10 42 -8 92 q1 34 6 56 h7 q5 -26 6 -58 q2 -48 -11 -90 z" fill="${WARM_HI}" opacity=".88"/>
+  <!-- 门内暖光洒在石台上，拉出朝向观者的长影 -->
+  <path d="M228 732 l60 0 44 52 h-148 z" fill="${WARM}" opacity=".12"/>
+  <path d="M258 732 l8 0 60 66 h-20 z" fill="${WARM}" opacity=".07"/>
+  <!-- 勇者 v5（帅气背影，形状块面化）：侧身抵门——前倾、双臂撑在门缝边、前腿弓后腿蹬。
+       所有部件用大块连贯形状（不再用细碎小路径），远读剪影干净。 -->
+  <g fill="${INK}">
+    <!-- 头（低头抵风）：圆颅 + 束发短髻贴在后脑（不伸出轮廓） -->
+    <path d="M206 618 q-3 -17 14 -20 q17 2 18 20 l-2 11 q-14 8 -28 0 z"/>
+    <!-- 躯干：前倾的整块（肩往门的方向压） -->
+    <path d="M188 646 q7 -16 26 -17 q20 1 26 17 l6 30 -8 30 -44 0 -9 -30 z"/>
+    <!-- 前臂（近侧）：从肩直撑到门边，粗前臂 + 拳 -->
+    <path d="M232 642 q16 2 24 9 l-3 12 q-11 -7 -23 -7 z"/>
+    <!-- 后臂（远侧）：略低，也撑在门边 -->
+    <path d="M214 652 q16 4 26 12 l-4 11 q-10 -8 -24 -11 z"/>
+    <!-- 前腿：弓步（膝朝门） -->
+    <path d="M212 686 q10 10 14 24 l2 22 h-15 l-1 -20 q-2 -14 -8 -20 z"/>
+    <!-- 后腿：蹬直向后（脚跟抬起） -->
+    <path d="M196 686 q-14 14 -20 34 l-4 14 h14 l3 -12 q5 -18 15 -28 z"/>
+    <!-- 披风：被海风掀向左后方，整块大三角 + 下摆两处撕口 -->
+    <path d="M190 644 q-30 4 -48 28 q-9 12 -11 26 l10 3 q4 -13 13 -22 q16 -16 38 -21 z"/>
+    <path d="M134 694 l9 -5 2 9 z M150 706 l8 -4 2 8 z"/>
   </g>
+  <!-- 背上木盾：贴在左肩后（半藏进躯干，只露一弧 + 盾心） -->
+  <path d="M186 646 a14 14 0 1 0 2 26" fill="none" stroke="${INK}" stroke-width="9"/>
+  <circle cx="184" cy="659" r="2.2" fill="${EDGE}" opacity=".7"/>
+  <!-- 腰侧剑（鞘斜垂） -->
+  <path d="M212 676 l10 30 -8 3 -9 -30 z" fill="${INK}"/>
+  <!-- 逆光 rim：门缝暖光打在他右缘（靠门那侧） -->
+  <path d="M238 622 q7 10 8 26 l-5 2 q-2 -14 -7 -22 z" fill="${LIT}"/>
+  <path d="M236 646 q14 3 20 9" fill="none" stroke="${WARM}" stroke-width="1.6" opacity=".5"/>
+  <path d="M192 648 q-26 6 -42 24" fill="none" stroke="${WARM}" stroke-width="1.2" opacity=".26"/>
+  <!-- 脚下接触影 -->
+  <ellipse cx="206" cy="734" rx="30" ry="5" fill="#000" opacity=".45"/>
   <!-- 崖边雾带（两层对漂） -->
   <ellipse class="sc-fog" cx="90" cy="680" rx="230" ry="42" fill="#151c2b" opacity=".55"/>
   <ellipse class="sc-fog2" cx="330" cy="720" rx="220" ry="40" fill="#100e1a" opacity=".5"/>
