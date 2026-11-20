@@ -240,7 +240,6 @@
   <g class="sc-sway">
     <circle cx="266" cy="546" r="44" fill="url(#scB-glow)"/>
     <path d="M266 520 l24 26 -24 26 -24 -26 z" fill="${PAL}"/>
-    <path d="M266 528 l15 18 -15 18 -15 -18 z fill="#eef1f7" opacity=".85"/>
     <path d="M266 528 l15 18 -15 18 -15 -18 z" fill="#eef1f7" opacity=".85"/>
     <!-- 帕上绣纹：小塔一针（近读彩蛋） -->
     <path d="M266 538 l5 8 h-10 z M264 546 h4 v6 h-4 z" fill="#8a92a6" opacity=".7"/>

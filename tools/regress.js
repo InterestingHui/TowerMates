@@ -169,7 +169,7 @@ if (!process.argv.includes('--no-shot')) {
         if (!good) bad++;
         console.log((good ? '✓' : '✗') + ` opendata ${cs} ${(size / 1024).toFixed(0)}KB`);
       }
-      // 序章分镜四幕：16 项断言（幕在播/幕序/暖光/清场/非序章无场景）+ 四幕截图
+      // 序章分镜四幕：21 项断言（幕在播/幕序/路径属性无粘连/帕心唯一/暖光/清场/非序章无场景）+ 四幕截图
       console.log('== 附加 · 序章分镜 ==');
       {
         const readScene = () => {

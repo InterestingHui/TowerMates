@@ -76,6 +76,16 @@ const ACTS = ['王座厅', '授帕', '立誓', '塔门'];
       // 幕序正确：每幕用独立的 defs 前缀（scA/scB/scC/scD）
       const sig = ['scA-', 'scB-', 'scC-', 'scD-'][i];
       rec(`第${i + 1}幕 幕序正确`, s.innerHTML.indexOf(sig) !== -1, `sig=${sig}`);
+      // 2026-11-20 焦点A：`d` 里混进属性（`... z fill="#..."`）会让该 path 丢掉 fill → 整块画成黑色，
+      // 而 SVG 不报错、截图体积也不变。第二幕的绣帕就吃过这一刀（中心比边缘暗 12 级）。
+      const jam = Array.prototype.some.call(s.querySelectorAll('path'),
+        (p) => (p.getAttribute('d') || '').indexOf('fill=') !== -1);
+      rec(`第${i + 1}幕 路径属性无粘连`, !jam);
+      // 第二幕绣帕是「全屏唯一亮焦点」：内层亮片只许有一份，多一份叠在下面就把焦点压暗
+      if (i === 1) {
+        const inner = s.innerHTML.match(/#eef1f7/g) || [];
+        rec('第2幕 帕心内层唯一', inner.length === 1, `count=${inner.length}`);
+      }
       // 每屏唯一暖光：亮金元素必须存在（第二幕焦点是绣帕冷白，走 PAL 不走金）
       if (i !== 1) {
         const warm = s.innerHTML.match(/#ffe6a8|#e8c46a/g) || [];
