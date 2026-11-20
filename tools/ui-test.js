@@ -158,6 +158,13 @@ const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-ui-'));
   ok(ab.doneClosed === true, '结算本体抛错：战斗层收掉后锁没有再留着（否则空屏点不动）');
   ok(ab.doneKills === 0 && ab.doneMonster === true, `结算失败的怪留在原地、没算打赢（实测击杀 +${ab.doneKills}）`);
   ok(ab.doneMoved === true, '结算抛错后输入立刻解锁：再走一格真的动了');
+  // 战斗面板右上「共 N 回合」（2026-11-20 加练游戏性焦点A）：那是强度预告，不是进度条。
+  // 旧写法「回合 i / N」的分子是演出刀数（压到 5），分母是真实回合数 ⇒ 13 回合的怪停在「5 / 13」。
+  const br = out.bsRounds || {};
+  ok(br.panelUp === true, '造出「真实回合 > 演出刀数」的一场（史莱姆 13 回合 > 5 刀），面板确实开了出来');
+  ok(br.fmt === true, `右上角写法是「共 N 回合」（实测「${br.text}」）`);
+  ok(br.same === true, `N 与引擎 pred.rounds 同源（实测 ${br.rounds}）`);
+  ok(br.stable === true, `演出走到中途这个数不变（中途实测「${br.mid}」——变了就是又退回进度条写法）`);
   ok(out.f3Walkable === true && out.f3ReachLedge === true, '第 3 层打墨妖的立足格可直达');
   ok(Array.isArray(out.shopChain) && out.shopChain.length === 3, '三层商人（8/11/13）都跑过单击流程');
   ok(out.shopChain.every((r) => r.hasM && r.hasStart), '每层商人与可走到的起点都找得到');

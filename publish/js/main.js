@@ -2044,7 +2044,12 @@
       Engine.save();
       log(`【${bTrait.name}】${bTrait.tip}`, 'warn');
     }
-    el.bsRounds.textContent = `回合 1 / ${pred.rounds}`;
+    // 强度预告，全文只有一个读者需求：「这一战要打几回合」。
+    // 旧写法 `回合 1 / ${rounds}` 把预告写成了进度条的形状，而演出的刀数 K 是另一个人数
+    // （普通压 5 刀 / Boss 压 8 刀，见下方 K = min(rounds, ...)），于是计数会停在第 5 刀、
+    // 而分母还写着 13 —— 面板关掉那一刻读作「回合 5 / 13，打着打着就结束了」。
+    // 现在这个位置只放预告、整场不动，进度交给血条与刀光（2026-11-20 加练游戏性焦点A）。
+    el.bsRounds.textContent = `共 ${pred.rounds} 回合`;
     el.bsHeroHp.textContent = Math.round(heroHp);
     el.bsFoeHp.textContent = Math.round(foeHp);
     el.bsHeroBar.style.width = '100%';
@@ -2286,7 +2291,9 @@
       };
 
       for (let i = 0; i < K && !skipped; i++) {
-        el.bsRounds.textContent = `回合 ${Math.min(i + 1, pred.rounds)} / ${pred.rounds}`;
+        // 这里原来每刀刷一次 `回合 i / pred.rounds`：演出只有 K 刀，K < pred.rounds 时
+        // 计数永远停在 K，与分母一起读就是「5 / 13 打完了」。预告已在开面板时一次写定，
+        // 这行不再动它——进度由血条与刀光承担（2026-11-20 加练游戏性焦点A）。
         el.bsHero.classList.add('lunge-r');
         await wait(130);
         el.bsHero.classList.remove('lunge-r');

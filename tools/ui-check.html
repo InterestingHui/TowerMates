@@ -460,6 +460,66 @@ async function run() {
     w.__battleSpeed = 1;
     d.querySelectorAll('.overlay.show').forEach(function (o) { o.classList.remove('show'); });
 
+    // 战斗面板右上「共 N 回合」：那个位置只放**强度预告**（这一战要打几回合），整场演出不许改它。
+    // 旧写法 `回合 i / N`——演出刀数 K 被压到 5（普通）/ 8（Boss），rounds > K 的怪计数会停在
+    // 「回合 5 / 13」然后面板就关了，玩家读成「打着打着就结束了」。这里用初始攻 10 下的史莱姆
+    // （13 回合 > 5 刀）当场景，量三件：写法是「共 N 回合」/ N 与引擎 pred.rounds 同源 / 演出中途不变。
+    out.bsRounds = {};
+    E.newGame();
+    var sr = E.state();
+    sr.atk = 10; sr.hp = 9999; sr.maxHp = 9999;
+    var rp = null;
+    for (var ry = 1; ry < 10 && !rp; ry++) {
+      for (var rx = 1; rx < 10 && !rp; rx++) {
+        var chR = sr.maps[0][ry][rx];
+        var moR = w.GAME_DATA.monsters[chR];
+        if (!moR || moR.ghost || moR.boss) continue;
+        var pr = E.predict(chR);
+        if (!pr || !pr.rounds || pr.rounds <= 5) continue;   // 要的是「真实回合 > 演出刀数」那一档
+        [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (o) {
+          if (rp) return;
+          var ax = rx + o[0], ay = ry + o[1];
+          if (ax < 1 || ax > 9 || ay < 1 || ay > 9) return;
+          if (sr.maps[0][ay][ax] !== '.') return;
+          rp = { x: rx, y: ry, hx: ax, hy: ay, rounds: pr.rounds };
+        });
+      }
+    }
+    if (rp) {
+      sr.x = rp.hx; sr.y = rp.hy;
+      w.__tm.refreshHud();
+      await new Promise(function (r) { setTimeout(r, 60); });
+      w.__tm.clickMove(rp.x, rp.y);
+      var tr0 = Date.now(), upR = false;
+      while (Date.now() - tr0 < 2500) {
+        if (d.getElementById('battleScene').classList.contains('show')) { upR = true; break; }
+        await new Promise(function (r) { setTimeout(r, 40); });
+      }
+      out.bsRounds.panelUp = upR;
+      if (upR) {
+        var roundEl = d.getElementById('bsRounds');
+        var txt0 = roundEl.textContent || '';
+        // 演出走到中途再读一次：旧写法这时已经变成「回合 4 / 13」。
+        // 等 1200ms 而不是几百毫秒——每刀约 355ms，等太短只会读到第 1 刀（旧写法的 i=0 与初始同文，
+        // 断言会假过；实测 420ms 时退回旧写法仍然全绿，这是变异验证时抓到的）。
+        await new Promise(function (r) { setTimeout(r, 1200); });
+        var txt1 = roundEl.textContent || '';
+        out.bsRounds.text = txt0;
+        out.bsRounds.rounds = rp.rounds;
+        out.bsRounds.fmt = /^共 \d+ 回合$/.test(txt0);
+        out.bsRounds.same = txt0 === '共 ' + rp.rounds + ' 回合';
+        out.bsRounds.stable = txt0 === txt1;
+        out.bsRounds.mid = txt1;
+        d.getElementById('battleScene').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        var tr1 = Date.now();
+        while (Date.now() - tr1 < 2500 && d.getElementById('battleScene').classList.contains('show')) {
+          await new Promise(function (r) { setTimeout(r, 40); });
+        }
+        out.bsRounds.closed = !d.getElementById('battleScene').classList.contains('show');
+      }
+    }
+    d.querySelectorAll('.overlay.show').forEach(function (o) { o.classList.remove('show'); });
+
     // 演出抛错不许锁死输入（2026-11-17 自检）：演出链原来没有 catch，一抛错 done 永不调用、
     // battleBusy 恒 true —— 走格 / 点面板 / 再点怪全部静默失效，战斗层还赖在屏幕上（面板本身没有关闭按钮），
     // 玩家只能刷新、进度退回上次存档。两条路各试一次：同步装配段（画双方形象时抛）与
