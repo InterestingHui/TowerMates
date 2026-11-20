@@ -518,25 +518,12 @@
     const it = D.items[ch];
     const bob = Math.sin(t / 520 + px * 0.07 + py * 0.05) * TILE * 0.035;
     groundShadow(px, py, TILE * 0.24, 0.32);
-    let tint = 'rgba(150,220,255,0.3)';
-    if (ch === '$') tint = 'rgba(250,205,80,0.34)';
-    else if (ch === 'k' || ch === 'L') tint = ch === 'k' ? 'rgba(240,200,70,0.32)' : 'rgba(255,90,90,0.32)';
-    else if (it && it.type === 'hp') tint = 'rgba(255,110,110,0.34)';
-    else if (it && it.type === 'atk') tint = 'rgba(255,190,110,0.32)';
-    else if (it && it.type === 'def') tint = 'rgba(130,190,255,0.32)';
-    else if (it && it.type === 'both') tint = 'rgba(200,150,255,0.36)';
-    else if (it && (it.type === 'block' || it.type === 'block2')) tint = it.type === 'block2' ? 'rgba(255,120,120,0.42)' : 'rgba(159,216,255,0.4)';
-    else if (it && it.type === 'gold') tint = 'rgba(250,205,80,0.4)';
-    else if (it && it.type === 'relic') tint = 'rgba(255,225,150,0.4)';
-
-    glow(tint, TILE * 0.32);
-    ctx.fillStyle = tint;
-    ctx.beginPath();
-    ctx.arc(px + TILE / 2, py + TILE / 2 + bob, TILE * 0.25, 0, Math.PI * 2);
-    ctx.fill();
-    noGlow();
-    drawEmoji(ch === '$' ? '💰' : ch === 'k' ? '🔑' : ch === 'L' ? '🗝️' : it ? it.emoji : '❓', px, py + bob, it && it.type === 'relic' ? 0.62 : 0.56);
-    if (it && it.type === 'relic') {
+    // 2026-11-20：去掉道具格的底色圆盘（用户反馈「很多 buff 道具外有一圈，很丑」）——
+    // 原先 tint 实心圆 + shadowBlur 光晕把 emoji 框进一个色圈，剪影世界里像贴纸。
+    // 可读性交给接地阴影 + 上下浮动 + 遗物金环（仅遗物保留），够了。
+    const isRelic = it && it.type === 'relic';
+    drawEmoji(ch === '$' ? '💰' : ch === 'k' ? '🔑' : ch === 'L' ? '🗝️' : it ? it.emoji : '❓', px, py + bob, isRelic ? 0.62 : 0.56);
+    if (isRelic) {
       // 遗物：外圈金环，一眼可辨
       ctx.strokeStyle = 'rgba(255,225,150,0.5)';
       ctx.lineWidth = 1.2;
