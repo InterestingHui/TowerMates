@@ -510,6 +510,19 @@ ok(V.foeName({ name: '骸犬', chapter: 3 }, null) === '骸犬 · 第 3 章', '�
 ok(V.foeName({ name: '骸犬' }, null) === '骸犬', '普通怪只有名字（不乱加尾巴）');
 ok(V.foeName({ name: '骸犬', trait: 'thick' }, { icon: '🛡', name: '厚甲' }) === '骸犬 <i class="bs-trait">🛡厚甲</i>', '特性徽记挂在名字后面');
 
+// 首遇特性的规则行（2026-11-20 加练美术焦点B）：说话人固定烛，正文逐字复用 TRAITS[*].tip。
+// 原来这行只用 log() 投到 #log 最下缘，而战斗遮罩正盖在上面——规则投递到了被自己挡住的面。
+const TRAIT_FIRST = { icon: '⚡', name: '先攻', tip: '开打前它先打你一下，残血时不能碰' };
+ok(V.traitNote(TRAIT_FIRST) === '烛：开打前它先打你一下，残血时不能碰', '首遇规则由烛开口（不新造系统旁白）');
+ok(V.traitNote(TRAIT_FIRST).indexOf(TRAIT_FIRST.tip) > 0, '正文逐字取自特性表（两份文案必然漂）');
+ok(V.traitNote(null) === '' && V.traitNote({}) === '' && V.traitNote({ name: '先攻' }) === '', '没有特性 / 没有 tip 时不留空行');
+ok(mainSrc.indexOf('开打前它先打你') < 0, '规则正文不许在 main.js 里再写一份');
+ok(mainSrc.indexOf('View.traitNote') >= 0, '面板必须走 View.traitNote（不许自己拼「烛：」）');
+ok(V.foeName({ name: '蝙蝠' }, { icon: '⚡', name: '先攻' }, '烛：先手') === '蝙蝠 <i class="bs-trait">⚡先攻</i><em class="bs-why">烛：先手</em>', '规则行折在名字块里（不另开一块，面板块数已到顶）');
+ok(V.foeName({ name: '蝙蝠' }, { icon: '⚡', name: '先攻' }, '') === '蝙蝠 <i class="bs-trait">⚡先攻</i>', '没有规则时不渲染空 em（第二次遇见不留残影）');
+ok(mainSrc.indexOf("firstMeet ? View.traitNote(bTrait) : ''") >= 0, '只在首遇那一战把规则传进名字块');
+ok(!/bsTnote/.test(mainSrc) && !/bsTnote/.test(require('fs').readFileSync(require('path').join(__dirname, '..', 'index.html'), 'utf8')), '不许另开一块放规则（首章面板预算 5 块）');
+
 // 威胁读数：一只不剩 / 破不了防 / 最贵 / 已架盾
 ok(V.threatModel(null).show === false, '没有读数就不出现');
 ok(V.threatModel({ count: 0, worst: { name: '骸犬', damage: 20 } }).show === false, '一只不剩＝这层清完了，整行不出现');

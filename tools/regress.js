@@ -224,6 +224,29 @@ if (!process.argv.includes('--no-shot')) {
         console.log((okStuck ? '✓' : '✗') + ` stuck-check ${skN} 项` + (okStuck ? '' : '\n' + skOut.slice(0, 400)));
         if (!okStuck) bad++;
       }
+      // 首遇特性规则：怪名旁挂着「⚡先攻」，规则原来只用 log() 投到 #log 最下缘，
+      // 而那一刻战斗遮罩正盖在上面——规则投递到了被自己挡住的面（2026-11-20 加练美术焦点B）。
+      // 现在面板内念一遍（烛开口，正文逐字取自 TRAITS.tip），并且留够读完的时间。
+      console.log('== 附加 · 首遇特性规则归属 ==');
+      {
+        const os = require('os');
+        const readTrait = () => {
+          const p = spawnSync(chrome, [
+            '--headless=new', '--disable-gpu', '--no-sandbox', '--no-first-run', '--disable-extensions',
+            '--user-data-dir=' + path.join(os.tmpdir(), 'tm-trait-' + process.pid),
+            '--virtual-time-budget=60000', '--dump-dom',
+            `http://127.0.0.1:${PORT}/tools/trait-check.html`,
+          ], { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+          const m = /<pre id="out">([\s\S]*?)<\/pre>/.exec(p.stdout || '');
+          return m ? m[1] : '';
+        };
+        let trOut = readTrait();
+        if (!trOut.includes('ALL PASS') && !trOut.includes('HAS FAIL')) trOut = readTrait();
+        const okTrait = trOut.includes('ALL PASS');
+        const trN = (trOut.match(/✓/g) || []).length;
+        console.log((okTrait ? '✓' : '✗') + ` trait-check ${trN} 项` + (okTrait ? '' : '\n' + trOut.slice(0, 500)));
+        if (!okTrait) bad++;
+      }
       // 手感探针：跳过必须当场生效（曾经点一下要白等 528ms / Boss 过场 950ms）
       console.log('== 附加 · 手感探针（战斗跳过延迟）==');
       let okProbe = true, probeA3 = -1;

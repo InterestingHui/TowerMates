@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>trait-check</title>
+<style>
+body{margin:0;background:#05070c;color:#8ef;font:12.5px/1.6 monospace}
+#f{width:430px;height:900px;border:0;display:block}
+#out{padding:10px;white-space:pre-wrap}
+</style>
+</head>
+<body>
+<iframe id="f" src="/index.html?dev=1"></iframe>
+<pre id="out">running…</pre>
+<script>
+// 首遇特性规则探针（2026-11-20 加练美术焦点B）。
+// 病根：怪名旁挂着「⚡先攻」，但规则只用 log() 投到 #log 最下缘——那一刻战斗遮罩正盖在上面，
+// 等于把规则投递到「被自己挡住的那块面」。修法：面板内念一遍（烛开口，正文逐字取自特性表）。
+// 这里守四件：①首遇在面板内读得到全文 ②日志那行同时仍在（可回查） ③不可点（面板块数/按钮数不变）
+// ④换一种特性只念它自己的、无特性怪不留上一句残影。
+const f = document.getElementById('f');
+const out = document.getElementById('out');
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const R = [];
+const NOTE = [];
+function rec(name, ok, note) {
+  R.push({ name, ok: !!ok, note: note || '' });
+  out.textContent = R.map((r) => `${r.ok ? '✓' : '✗'} ${r.name}${r.note ? ' — ' + r.note : ''}`).join('\n');
+}
+function info(name, note) { NOTE.push(name + (note ? ' — ' + note : '')); }
+async function waitFor(fn, timeout = 8000, step = 20) {
+  const t0 = performance.now();
+  while (performance.now() - t0 < timeout) {
+    let v = null;
+    try { v = fn(); } catch (e) {}
+    if (v) return v;
+    await wait(step);
+  }
+  return null;
+}
+f.onload = async () => {
+  try {
+    const w = f.contentWindow, d = f.contentDocument;
+    await waitFor(() => w.__tm && w.__tm.act);
+    await wait(300);
+    const dlg = () => d.getElementById('dialogOverlay');
+    const clickDlg = async (n) => { for (let i = 0; i < n; i++) { dlg().dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); } };
+    const bs = () => d.getElementById('battleScene');
+    // 规则行折在名字块里（不另开一块）：.bs-name > em.bs-why
+    const noteEl = () => d.querySelector('#bsName .bs-why');
+    const logTxt = () => (d.getElementById('log').textContent || '').replace(/\s+/g, ' ');
+
+    d.getElementById('btnNew').click();
+    await wait(200);
+    const vc = d.querySelector('#vowCards .vow-card[data-vow="none"]');
+    if (vc) vc.click();
+    await wait(300);
+    await clickDlg(16);
+    await wait(300);
+
+    const s = w.Engine.state();
+    delete s.flags.traitSeen_first;
+    delete s.flags.traitSeen_magic;
+
+    // 找某一层里的某个字符，返回「下方可站立」的坐标
+    const findMob = (ch, floor) => {
+      s.floor = floor;
+      const map = s.maps[floor];
+      for (let y = 0; y < map.length; y++) {
+        for (let x = 0; x < map[y].length; x++) {
+          if (map[y][x] !== ch) continue;
+          if (map[y + 1] && map[y + 1][x] !== '#') return { x, y };
+        }
+      }
+      return null;
+    };
+    const engage = async (ch) => {
+      let floor = -1, spot = null;
+      for (let i = 0; i < s.maps.length; i++) {
+        const p = findMob(ch, i);
+        if (p) { floor = i; spot = p; break; }
+      }
+      if (!spot) return null;
+      s.floor = floor; s.x = spot.x; s.y = spot.y + 1;
+      w.__tm.refreshHud();
+      await wait(80);
+      w.__tm.act(0, -1);
+      const shown = await waitFor(() => bs().classList.contains('show'), 5000);
+      if (!shown) return null;
+      await wait(150);
+      return floor;
+    };
+    const settle = async () => {
+      bs().dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await waitFor(() => !bs().classList.contains('show'), 8000);
+      await wait(250);
+    };
+
+    // ---------- ① 首遇先攻（蝙蝠，全塔唯一一只，就在第 1 层） ----------
+    const t0 = performance.now();
+    const f1 = await engage('A');
+    rec('第 1 层找得到蝙蝠并开战', f1 === 0, `floor=${f1}`);
+    const n1 = noteEl();
+    const shown1 = !!n1 && w.getComputedStyle(n1).display !== 'none';
+    const txt1 = n1 ? (n1.textContent || '').trim() : '';
+    rec('首遇先攻：面板内出现规则行', shown1, shown1 ? txt1 : '名字块里没有 bs-why');
+    rec('规则由烛开口', shown1 && /^烛：/.test(txt1), txt1.slice(0, 12));
+    rec('规则正文含「残血时不能碰」', shown1 && txt1.indexOf('残血时不能碰') >= 0, txt1);
+
+    // 读数（不是断言）：那一刻日志那行到底看不看得见——它被战斗遮罩压着，
+    // 只能算「垫在下面、被压暗的最底一行」，不是「玩家眼前的那行字」
+    {
+      const lg = d.getElementById('log');
+      const last = lg && lg.lastElementChild;
+      if (last) {
+        const r = last.getBoundingClientRect();
+        const hit = d.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+        const under = !!(hit && hit.closest && hit.closest('#battleScene'));
+        info('日志那行的命中测试', under ? '被战斗遮罩压住（点它命中的是面板）' : '在最上层');
+      }
+    }
+
+    // ③ 面板块数不变：首章这一屏的预算是 5 块（regress 的「首章预算」盯着），
+    //    规则行必须折在名字块里、不许另开一块——这条就是那次红叉换来的
+    const pf = d.querySelector('.bs-panel');
+    const blocks = pf ? Array.from(pf.children).filter((k) => {
+      if (k.hidden) return false;
+      const c2 = w.getComputedStyle(k);
+      const r = k.getBoundingClientRect();
+      return c2.display !== 'none' && c2.visibility !== 'hidden' && r.width > 0 && r.height > 0;
+    }).length : -1;
+    rec('首章面板块数没涨（≤5）', blocks > 0 && blocks <= 5, blocks + ' 块');
+
+    // ② 同一行同时留在日志里（本局可回查的履历）
+    rec('日志里仍有【先攻】那一行', /【先攻】/.test(logTxt()), (logTxt().match(/【先攻】[^【]{0,24}/) || [''])[0]);
+
+    // ③ 规则行不是可点元素（面板预算 5 块 3 钮不变）
+    const cs = w.getComputedStyle(n1);
+    rec('规则行不可点', n1.tagName !== 'BUTTON' && !n1.onclick && cs.cursor !== 'pointer' && !n1.getAttribute('tabindex'),
+      `${n1.tagName} cursor=${cs.cursor}`);
+
+    // 读数：这一战面板**自然**停留多久（不点跳过）——25 字规则行要 ~3s，低于 2.6s 就回去重留一拍
+    const tOpen = performance.now();
+    await waitFor(() => !bs().classList.contains('show'), 12000);
+    const dur = Math.round(performance.now() - tOpen);
+    rec('首遇面板留够读完的时间', dur >= 2600, `${dur}ms（不点跳过）`);
+    await wait(250);
+
+    // ---------- ④ 换一种特性：只念它自己的 ----------
+    s.atk = 9999; s.def = 999; s.maxHp = 99999; s.hp = 99999;
+    const f2 = await engage('W');   // 怨灵 · 魔攻
+    rec('找得到第二种特性怪（怨灵·魔攻）', f2 !== null && f2 >= 0, `floor=${f2}`);
+    const n2 = noteEl();
+    const txt2 = n2 ? (n2.textContent || '').trim() : '';
+    rec('首遇魔攻：面板内念的是魔攻的规则', !!n2 && txt2.indexOf('无视你的防御') >= 0, txt2);
+    rec('不许留着上一句（先攻）残影', !!n2 && txt2.indexOf('残血时不能碰') < 0, txt2);
+    await settle();
+
+    // ---------- ⑤ 无特性怪：整行不出现（不留空行占位） ----------
+    const f3 = await engage('E');   // 石像鬼，无特性
+    rec('找得到无特性怪（石像鬼）', f3 !== null && f3 >= 0, `floor=${f3}`);
+    const n3 = noteEl();
+    rec('无特性怪不显示规则行', !n3, n3 ? '仍有规则行' : '名字块里没有 bs-why');
+
+    // ---------- ⑥ 窄屏（320）：25 字规则行要么整句在一行、要么老实折行，不许被裁成半句 ----------
+    {
+      const f2 = d.createElement('iframe');
+      f2.style.cssText = 'width:320px;height:900px;border:0;display:block';
+      f2.src = '/index.html?dev=1';
+      d.body.appendChild(f2);
+      await new Promise((res) => { f2.onload = res; });
+      await wait(600);
+      const w2 = f2.contentWindow, d2 = f2.contentDocument;
+      await waitFor(() => w2.__tm && w2.__tm.act, 8000);
+      const dl2 = () => d2.getElementById('dialogOverlay');
+      for (let i = 0; i < 4; i++) { dl2().dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(40); }
+      d2.getElementById('btnNew').click();
+      await wait(250);
+      const vc2 = d2.querySelector('#vowCards .vow-card[data-vow="none"]');
+      if (vc2) vc2.click();
+      await wait(250);
+      for (let i = 0; i < 16; i++) { dl2().dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(45); }
+      await wait(300);
+      const s2 = w2.Engine.state();
+      delete s2.flags.traitSeen_first;
+      s2.floor = 0;
+      const map2 = s2.maps[0];
+      let spot = null;
+      for (let y = 0; y < map2.length && !spot; y++) {
+        for (let x = 0; x < map2[y].length; x++) {
+          if (map2[y][x] === 'A' && map2[y + 1] && map2[y + 1][x] !== '#') { spot = { x, y }; break; }
+        }
+      }
+      if (spot) {
+        s2.x = spot.x; s2.y = spot.y + 1;
+        w2.__tm.refreshHud();
+        await wait(80);
+        w2.__tm.act(0, -1);
+        await waitFor(() => d2.getElementById('battleScene').classList.contains('show'), 5000);
+        await wait(150);
+        const why = d2.querySelector('#bsName .bs-why');
+        const nm = d2.getElementById('bsName');
+        const pnl = d2.querySelector('#battleScene .bs-panel');
+        const rw = why ? why.getBoundingClientRect() : null;
+        const rn = nm.getBoundingClientRect();
+        const rp = pnl.getBoundingClientRect();
+        rec('320 宽：规则行仍在（不会消失）', !!why, why ? '有' : '无');
+        if (why) {
+          rec('320 宽：整句不被裁（横向不溢出）', nm.scrollWidth <= nm.clientWidth + 1, nm.scrollWidth + ' / ' + nm.clientWidth);
+          rec('320 宽：规则行落在面板内', rw.left >= rp.left - 1 && rw.right <= rp.right + 1, Math.round(rw.left) + '–' + Math.round(rw.right) + ' / 面板 ' + Math.round(rp.left) + '–' + Math.round(rp.right));
+          rec('320 宽：规则行最多折两行', rw.height <= nm.getBoundingClientRect().height + 0.5 && rw.height <= 34, Math.round(rw.height) + 'px');
+        }
+      } else {
+        rec('320 宽：找得到蝙蝠', false);
+      }
+      f2.remove();
+    }
+
+    out.textContent = R.map((r) => `${r.ok ? '✓' : '✗'} ${r.name}${r.note ? ' — ' + r.note : ''}`).join('\n')
+      + (NOTE.length ? '\n\n' + NOTE.join('\n') : '')
+      + '\n\n' + (R.every((r) => r.ok) ? 'ALL PASS' : 'HAS FAIL');
+    document.title = (R.every((r) => r.ok) ? 'ALLPASS|' : 'HASFAIL|') + R.map((r) => (r.ok ? '1' : '0')).join('');
+  } catch (e) {
+    out.textContent = 'HARNESS: ' + e.message + '\n' + (e.stack || '');
+    document.title = 'ERR|' + e.message;
+  }
+};
+</script>
+</body>
+</html>

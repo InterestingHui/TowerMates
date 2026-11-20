@@ -1094,6 +1094,18 @@ html, body {
 }
 .bs-threat b { color: var(--text); font-weight: 700; }
 .bs-threat[hidden] { display: none; }
+/* 首遇特性：规则念在面板里（原来只用 log 投到被战斗遮罩盖住的日志底缘）。
+   折在名字那一块里，不新增一块——战斗面板块数已到顶（首章 5 块、第 5 层 8 块，
+   regress 的「首章预算 / 缠斗预算」两条断言盯着），加一块当场红。 */
+.bs-name .bs-why {
+  display: block;
+  font-style: normal;
+  font-size: var(--fs-tag);
+  color: #ffd27d;
+  letter-spacing: 0.2px;
+  margin-top: 3px;
+  line-height: 1.45;
+}
 .bs-numbers { position: fixed; inset: 0; pointer-events: none; transition: opacity 0.14s ease; }
 .bs-dmg {
   position: absolute;

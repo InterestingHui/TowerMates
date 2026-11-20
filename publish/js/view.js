@@ -402,12 +402,24 @@
   const HINT_AUTO = '自动战斗中 · 点击跳过';
   const hintPicked = (name) => `这一战按「${name}」打 · 点这里直接看结果`;
 
-  // 敌名：Boss 带「· 塔的主人」兜底，章怪带「· 第 N 章」，再挂特性徽记
-  function foeName(m, traitDef) {
+  // 敌名：Boss 带「· 塔的主人」兜底，章怪带「· 第 N 章」，再挂特性徽记；
+  // 首遇那一战在**同一块**里补一句规则（why）——面板块数已到顶，另开一块当场撞预算
+  function foeName(m, traitDef, why) {
     if (!m) return '';
     const tail = m.boss ? ' · ' + (m.title || '塔的主人') : (m.chapter ? ` · 第 ${m.chapter} 章` : '');
     const tag = traitDef ? ` <i class="bs-trait">${traitDef.icon}${traitDef.name}</i>` : '';
-    return m.name + tail + tag;
+    const note = why ? `<em class="bs-why">${why}</em>` : '';
+    return m.name + tail + tag + note;
+  }
+
+  // 首遇特性：把规则念在玩家正在看的那块面板里，而不是写进被它自己挡住的日志
+  // 2026-11-20 加练美术焦点B 实测：`log()` 把「开打前它先打你一下」投到 `#log` 最下缘，
+  // 而那一刻战斗遮罩正盖在上面 —— 规则投递到了被自己遮住的面，玩家只能打完之后低头找。
+  // 说话人固定是烛（引导角色），不新造系统旁白；文案原文取自 data.js TRAITS[*].tip，不另写一份。
+  const TRAIT_WHY = '烛：';
+  function traitNote(traitDef) {
+    if (!traitDef || !traitDef.tip) return '';
+    return TRAIT_WHY + traitDef.tip;
   }
 
   // 本层威胁读数（第 6 层起）：还剩几只、最贵的那只白打要掉多少血
@@ -961,7 +973,7 @@
     sealOf, nextSealHint, sealTarget, emberModel,
     cmpBoard, fmtTime, endName, marginRank, sameRun, isMine, RUN_KEYS,
     deathStatsModel, winStatsModel, memModel, floorNo, migrateFloors,
-    foeName, threatModel, blockModel, guardModel, tangleModel,
+    foeName, traitNote, threatModel, blockModel, guardModel, tangleModel,
     hintPicked, HINT_PICK, HINT_AUTO,
     BOARD_TABS, BOARD_CAP, SHOP_CORE, SEALS, CHAPTERS,
     NOTE_DAILY, NOTE_CRUSHED, EMPTY_OTHER, TIP_BLOCK, TIP_SHARD,

@@ -32,6 +32,9 @@
   const HINT_SPEED_NAME = { fast: '快', normal: '标准', slow: '慢' };
   // 战斗演出速度档：0.55 慢（看得清每一刀）/ 1 标准 / 1.9 快（刷层党）
   const BATTLE_SPEED = { slow: 1.55, normal: 1, fast: 0.55 };
+  // 首遇特性那一战收层前多留的一拍：25 字规则行实测停留 2.26s 读不完，加到 3.16s
+  // （随 BATTLE_SPEED 一起缩放，快速战斗下自动变短；点击跳过仍然立刻收层）
+  const TEACH_HOLD = 900;
   const BATTLE_SPEED_NAME = { slow: '慢', normal: '标准', fast: '快' };
   const Settings = (() => {
     let data = { fx: 'full', sfx: true, music: true, vib: true, fast: false, critters: true, dpad: false, hintSpeed: 'normal', battleSpeed: 'normal', fullRounds: false };
@@ -2039,13 +2042,18 @@
     Renderer.paintIcon(el.bsFoe, info.ch, 48);
     // 章末 Boss 带「第 N 章」标记，玩家能看出自己在塔里的位置
     const bTrait = D.TRAITS && m.trait ? D.TRAITS[m.trait] : null;
-    el.bsName.innerHTML = View.foeName(m, bTrait);
-    // 第一次碰到某种特性，把规则讲一次，之后不再打扰
-    if (bTrait && !s.flags['traitSeen_' + m.trait]) {
+    // 第一次碰到某种特性，把规则讲一次，之后不再打扰。
+    // 2026-11-20 加练美术焦点B：原来只 log() 一行——而战斗遮罩正盖在 #log 上，
+    // 规则等于投递到「被自己挡住的那块面」，玩家要等面板关掉再低头去底缘找。
+    // 现在同一个名字块里先念一遍（玩家正看着的地方），日志那行仍留作本局可回查的履历。
+    // 不另开一块：战斗面板块数已到顶（首章 5 块、第 5 层 8 块，regress 两条预算断言盯着）。
+    const firstMeet = !!(bTrait && !s.flags['traitSeen_' + m.trait]);
+    if (firstMeet) {
       s.flags['traitSeen_' + m.trait] = true;
       Engine.save();
       log(`【${bTrait.name}】${bTrait.tip}`, 'warn');
     }
+    el.bsName.innerHTML = View.foeName(m, bTrait, firstMeet ? View.traitNote(bTrait) : '');
     // 强度预告，全文只有一个读者需求：「这一战要打几回合」。
     // 旧写法 `回合 1 / ${rounds}` 把预告写成了进度条的形状，而演出的刀数 K 是另一个人数
     // （普通压 5 刀 / Boss 压 8 刀，见下方 K = min(rounds, ...)），于是计数会停在第 5 刀、
@@ -2347,7 +2355,9 @@
       el.bsFoe.classList.add('ko');
       el.battleScene.classList.add('hero-win');
       Sound.play(m.boss ? 'hitBig' : 'hit');
-      await wait(370);
+      // 首遇特性那一战：规则行只在这一场出现，收层前多留一拍给它读完
+      // （实测自然停留 2.26s，而 25 个汉字的规则行要 ~3s；点一下跳过仍立刻收层——wait() 认 skipped）
+      await wait(370 + (firstMeet ? TEACH_HOLD : 0));
       el.battleScene.classList.remove('show');
       el.battleScene.classList.remove('hero-win', 'phasing');
       el.bsFoe.classList.remove('ko', 'hit');
