@@ -1127,5 +1127,36 @@ ok(mainSrc.indexOf("searchParams.set('rival'") < 0, 'main.js 不许自己拼链�
   ok(calls >= 2, `藏品卡与成就卡两条路径都走重播（实得 ${calls} 处）`);
 }
 
+// 文案契约：格挡比例只许有一个来源（engine 的 BLOCK_BASE / BLOCK_BASE2）。
+// 2026-11-20 焦点B：设置面板「玩法」那段写的是「承伤降到 60%」，而真值早就是 55%（11-14 架盾轮改的
+// 0.55 / 0.42），玩家读到的说明书与战斗结算差 5 个百分点，零新增元素、纯说谎。
+// 这里按「写死的数字必须等于真值」守，别让下一次调比例又只改代码不改字。
+{
+  const engSrc = require('fs').readFileSync(require('path').join(__dirname, '..', 'js', 'engine.js'), 'utf8');
+  const htmlSrc = require('fs').readFileSync(require('path').join(__dirname, '..', 'index.html'), 'utf8');
+  const base = Number((/const BLOCK_BASE = ([\d.]+)/.exec(engSrc) || [])[1]);
+  const base2 = Number((/const BLOCK_BASE2 = ([\d.]+)/.exec(engSrc) || [])[1]);
+  ok(base > 0 && base > 0.1 && base < 1, '读得到 BLOCK_BASE（读不到下面两条就是假绿）');
+  ok(base2 > 0 && base2 < base, '读得到 BLOCK_BASE2，且比基础格挡更省（后半部盾谱是强化不是削弱）');
+  const want = [Math.round(base * 100), Math.round(base2 * 100)];
+  const lits = (src) => Array.from(src.matchAll(/承伤降到\s*\**\s*(\d+)%/g)).map((m) => Number(m[1]));
+  const badHtml = lits(htmlSrc).filter((n) => want.indexOf(n) < 0);
+  ok(lits(htmlSrc).length >= 1, '玩法说明里确实写明了格挡比例（整句被删掉就没得核对）');
+  ok(badHtml.length === 0, `index.html 写死的格挡比例必须是真值 ${want.join(' / ')}%（违规：${badHtml.join(' / ') || '无'}）`);
+  const badMain = lits(mainSrc).filter((n) => want.indexOf(n) < 0);
+  ok(badMain.length === 0, `main.js 写死的格挡比例必须是真值 ${want.join(' / ')}%（违规：${badMain.join(' / ') || '无'}）`);
+  // 同一件事还有另一种写法：「承伤 −N%」（N = 100−倍率）。战斗面板那颗按钮的静态标记里
+  // 一直写着 −40%（初版 0.6 时代的数），运行时被 blockModel 重写，所以没人看见——但只要哪次
+  // 重写没跑到（面板没开 / 脚本抛错），玩家读到的就是这句话。静态标记一起守。
+  const minus = (src) => Array.from(src.matchAll(/承伤\s*−\s*(\d+)%/g))
+    .filter((m) => src.slice(Math.max(0, m.index - 200), m.index).indexOf('格挡') >= 0)
+    .map((m) => Number(m[1]));
+  const wantMinus = [100 - Math.round(base * 100), 100 - Math.round(base2 * 100)];
+  const badMinus = minus(htmlSrc).concat(minus(mainSrc)).filter((n) => wantMinus.indexOf(n) < 0);
+  ok(minus(htmlSrc).length >= 1, '战斗面板的格挡按钮上确实写着「承伤 −N%」（这句被删掉就没得核对）');
+  ok(badMinus.length === 0,
+    `「承伤 −N%」也必须是真值 ${wantMinus.join(' / ')}%（违规：${badMinus.join(' / ') || '无'}）`);
+}
+
 console.log(`挑战码 / 触控 / 桥接 / 视图模型单测：${pass} 项通过${bad ? `，${bad} 项失败` : ''}`);
 process.exit(bad ? 1 : 0);
