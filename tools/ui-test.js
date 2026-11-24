@@ -266,6 +266,14 @@ const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-ui-'));
   ok(Array.isArray(bh.picks) && ['block', 'guard', 'tangle'].every((k) => bh.picks.indexOf(k) >= 0),
     `三把打法同屏可挑（实测 ${JSON.stringify(bh.picks)}）`);
   ok(bh.panelUp === true, '选完打法后战斗面板真的开了');
+  // 战前面板的键盘入口（2026-11-24 19:5x 加练·美术焦点B）：`pickPrepByKey` 收 1–9，面板却一个字没写——
+  // 同一作里立誓页写「或 ← → 切换、Enter 确认」、回响写「也可按 1 / 2 / 3」，只有最新这屏把键盘当暗能力。
+  // 上限还必须随卡片数走：三张卡却写「1–4」，那个键按下去没有任何反应（属教错，不是少写）。
+  ok(/或按 1–\d/.test(bh.prepHint || ''), `战前面板提示行写明键盘入口（实测：${bh.prepHint}）`);
+  ok((bh.prepHint || '').indexOf('或按 1–' + (bh.picks || []).length) >= 0,
+    `键位上限与卡片数同源（卡片 ${(bh.picks || []).length} 张 / 提示「${(bh.prepHint || '').match(/或按 1–\d/) || '缺'}」）`);
+  ok(bh.prepHintOver === 0,
+    `提示行不被横向裁掉（实测溢出 ${bh.prepHintOver}px / 行高 ${bh.prepHintH}px）`);
   // 战前面板 → 战斗层是同一种暗，中间不许闪一帧棋盘（2026-11-24 加练美术焦点C）。
   // 判据是「30ms 后遮幕的实测不透明度」：走通用 0.18s 淡入时只有 ~0.2，同帧就位是 1。
   ok(typeof bh.veilAlpha === 'number' && bh.veilAlpha >= 0.9,

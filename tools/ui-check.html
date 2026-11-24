@@ -688,6 +688,12 @@ async function run() {
       out.bsHint.picks = picks;
       var blkOpt = prepEl ? prepEl.querySelector('.prep-opt[data-pick="block"]') : null;
       out.bsHint.hasBlockOpt = !!blkOpt;
+      // 提示行（2026-11-24 19:5x 加练·美术焦点B）：键盘 1–N 一直是暗能力，提示行一个字没写。
+      // 量两件：写了什么（键位上限必须与卡片数同源）/ 有没有横向被裁（scrollWidth 超过 clientWidth 就是切字）。
+      var hintP = d.getElementById('prepHint');
+      out.bsHint.prepHint = hintP ? hintP.textContent.trim() : '';
+      out.bsHint.prepHintOver = hintP ? Math.max(0, hintP.scrollWidth - hintP.clientWidth) : -1;
+      out.bsHint.prepHintH = hintP ? Math.round(hintP.getBoundingClientRect().height) : 0;
       if (blkOpt) blkOpt.click();
       else if (prepEl && prepUp) { var anyOpt = prepEl.querySelector('.prep-opt'); if (anyOpt) anyOpt.click(); }
       // 战前面板 → 战斗层的交接（2026-11-24 加练美术焦点C）：两块都是暗的，中间不许插一帧棋盘。

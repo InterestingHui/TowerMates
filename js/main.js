@@ -2731,7 +2731,10 @@
         renderRich(hintEl, lastLine);
         hintEl.classList.add('has-last');
       } else {
-        hintEl.textContent = '选一种打法再开打 · 决定之后这一场不再改';
+        // 2026-11-24 19:5x 加练·美术焦点B：键盘 1–N 此前是暗能力（`pickPrepByKey` 收 1–9，面板一个字没写），
+        // 而立誓页写「或 ← → 切换、Enter 确认」、回响面板写「也可按 1 / 2 / 3」。键位上限随卡片数走——
+        // 写死「1–4」时只摆两张卡会教出一个按不出反应的键。
+        hintEl.textContent = `选一种打法再开打 · 或按 1–${opts.length} · 决定之后这一场不再改`;
         hintEl.classList.remove('has-last');
       }
     }
