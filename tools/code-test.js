@@ -355,6 +355,40 @@ ok(V.capRivals(rivalN(4), 2).map((x) => x.code).join(',') === 'c3,c4', '上限�
 const capInput = rivalN(13);
 V.capRivals(capInput);
 ok(capInput.length === 13, '不修改入参（调用方还要拿它跟结果比长度，判「有没有挤掉人」）');
+
+// ---------- 一位好友换一次成绩，就在榜上多占一行（2026-11-24 加练·社交） ----------
+// 微信好友榜每次回的是「这位好友的最新成绩」，同一个人换一次成绩就换一个 code（`wx:名字:层:时`），
+// 而名录与榜单原先只按 code 去重。于是：一位好友连爬三天 = 榜上三行同名，十行榜只装得下三个人。
+// 11-18 那轮把「同一个人只占一行」写进了榜单，但只对自己（mine）成立，好友那半截漏了——注释在说谎。
+const repeatRuns = [
+  { code: 'wx:阿岩:9:600', name: '阿岩', rival: true, floor: 9, time: 600, steps: 300 },
+  { code: 'wx:阿岩:7:700', name: '阿岩', rival: true, floor: 7, time: 700, steps: 320 },
+  { code: 'wx:阿岩:5:800', name: '阿岩', rival: true, floor: 5, time: 800, steps: 340 },
+];
+const onePerson = V.boardModel({ mine: [], rivals: repeatRuns, shadows: [], filter: 'all', todayKey: '2026-11-16', vows: VOWS });
+ok(onePerson.rows.length === 1 && onePerson.rows[0].floor === 9 && onePerson.total === 1,
+  '同一位好友的三次成绩在榜上只占一行，且留的是最好那局');
+const pastedTwo = V.boardModel({
+  mine: [], shadows: [], filter: 'all', todayKey: '2026-11-16', vows: VOWS,
+  rivals: [
+    { code: 'TM5.aa', name: '挑战·朋友', rival: true, floor: 8, time: 400 },
+    { code: 'TM5.bb', name: '挑战·朋友', rival: true, floor: 6, time: 500 },
+  ],
+});
+ok(pastedTwo.rows.length === 2, '两个不同的贴码朋友（都退回「挑战·朋友」）不被折成一行');
+const noId = V.boardModel({
+  mine: [], shadows: [], filter: 'all', todayKey: '2026-11-16', vows: VOWS,
+  rivals: [{ floor: 4, time: 100 }, { floor: 3, time: 100 }],
+});
+ok(noId.rows.length === 2, '既没名字也没码的行不折叠（判断不了是不是同一个人）');
+const cappedRepeat = V.capRivals(repeatRuns.concat([{ code: 'TM5.仅此一码', rival: true, floor: 6 }]));
+ok(cappedRepeat.length === 2 && cappedRepeat[0].floor === 5,
+  `名录里同一位好友只占一个位（12 个位置留给 12 个人），且留最新那条（实测 ${cappedRepeat.map((x) => x.floor).join(',')}）`);
+ok(V.personKey({ mine: true }) === '#me' && V.personKey(null) === '', '身份键：自己是固定键，空记录不参与折叠');
+ok(V.personKey({ name: '阿岩', code: 'wx:阿岩:5:1' }) === V.personKey({ name: '阿岩', code: 'wx:阿岩:9:2' }),
+  '身份键认名字不认码（好友换成绩，人还是那个人）');
+ok(V.personKey({ name: '挑战·朋友', code: 'TM5.x' }) !== V.personKey({ name: '挑战·朋友', code: 'TM5.y' }),
+  '贴码行没有名字，按码区分（两个朋友不许被折成一个）');
 // 契约要查「代码里还有没有这个写法」，而解释这段历史的注释本身会提到旧写法——先把注释剥掉再 grep，
 // 否则注释写得越清楚，闸门越红（[^:] 那个守卫是为了别把 https:// 当行注释）。
 const stripComments = (s) => String(s)

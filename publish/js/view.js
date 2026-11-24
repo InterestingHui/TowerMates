@@ -59,6 +59,18 @@
     String(v == null ? '' : v).replace(/[<>&"'`]/g, '').replace(/\s+/g, ' ').trim()
   ).slice(0, n || 10).join('').trim();
   const dailyEmpty = (label) => `今天还没走完一局今日一塔。<br>${label} 这座塔零点就换掉了。`;
+  // 一个人在这份名录里的身份键：自己 / 有名字的好友（微信昵称）/ 无名的贴码行（只能按码区分）。
+  // 为什么需要它：微信好友榜每次回的是「这位好友的最新成绩」，同一个人换一次成绩就换一个 code，
+  // 而名录与榜单原先只按 code 去重 —— 一位好友连爬三天就在榜上占三行，把别人挤到十名开外。
+  // 11-18 那轮把「同一个人只占一行」写进了榜单，但只对自己（mine）成立，好友那半截漏了。
+  function personKey(r) {
+    if (!r) return '';
+    if (r.mine) return '#me';
+    const nm = plainName(r.name, 16);
+    if (nm && nm !== NAME_FALLBACK) return 'n:' + nm;
+    const code = String(r.code == null ? '' : r.code);
+    return code ? 'c:' + code : ''; // 既没名字也没码：判断不了是不是同一个人，宁可不折叠
+  }
 
   // 榜单模型
   // input: { mine, rivals, shadows, filter, todayKey, dayLabel, vows, rivalNotes, cap }
@@ -78,16 +90,18 @@
     const rows = filter === 'daily'
       ? all.filter((r) => r.daily === o.todayKey)
       : filter === 'all' ? all : all.filter((r) => (r.vow || 'none') === filter);
-    // 榜单是「人」的榜，不是「局」的榜：同一个人只占一行，取这一档里他最好那局。
+    // 榜单是「人」的榜，不是「局」的榜：同一个人只占一行，取这一档里他最好那局（rows 已按 cmpBoard 排好）。
     // 旧实现把 loadBoard() 存的 30 条历史全倒进来（都是 mine），打到十几局以后前十行全是「你」，
     // 影子勇者与贴码朋友一个都看不见——社交榜退化成自己的成绩单。去重放在**筛选之后**：
     // 「今日」档要的是今天我最好那局，不是全局最好那局被筛掉。
+    // 11-24：折叠的口径从「只折自己」扩到 `personKey`——好友换一次成绩就多一行，同一个人爬三天占三行。
     const people = [];
-    let mineTaken = false;
+    const seenPerson = new Set();
     rows.forEach((r) => {
-      if (r.mine) {
-        if (mineTaken) return;
-        mineTaken = true;
+      const k = personKey(r);
+      if (k) {
+        if (seenPerson.has(k)) return;
+        seenPerson.add(k);
       }
       people.push(r);
     });
@@ -1007,10 +1021,28 @@
   // 收到第 13 位朋友的链接，提示条说收下了，榜上一条也没有；而 PROGRESS 里写的口径是「挤掉最老那条」。
   // 现在收拢成一处：名录按**收到时间从旧到新**排，上限从最旧那一端挤 —— 谁先来谁先让位。
   const RIVAL_CAP = 12;
+  // 名录写盘前按「人」收一遍：同一个昵称只留最后（最新）那条——与开放数据域「每位好友一条最新成绩」同口径，
+  // 也让 12 个位置留给 12 个人，而不是一个人的三次成绩。贴码行没有名字，按码区分，互不影响。
+  // 榜单（boardModel）那侧留的是「最好那局」：一屏要排序，排序就该拿这个人最好的成绩去排；
+  // 两个口径共用 personKey，谁都没有第二份「怎么算同一个人」的规则。
+  function dedupeRivals(list) {
+    const arr = Array.isArray(list) ? list : [];
+    const seen = new Set();
+    const out = [];
+    for (let i = arr.length - 1; i >= 0; i--) {
+      const k = personKey(arr[i]);
+      if (k) {
+        if (seen.has(k)) continue;
+        seen.add(k);
+      }
+      out.unshift(arr[i]);
+    }
+    return out;
+  }
   function capRivals(list, cap) {
     const c = cap || RIVAL_CAP;
-    const arr = Array.isArray(list) ? list : [];
-    return arr.length > c ? arr.slice(arr.length - c) : arr.slice();
+    const arr = dedupeRivals(list);
+    return arr.length > c ? arr.slice(arr.length - c) : arr;
   }
 
   // 落地后把参数冲掉（相对地址即可，交给 replaceState）：刷新不该再收一次、也不该重复弹提示
@@ -1029,7 +1061,7 @@
 
   return {
     boardModel, shopModel, codexModel, lossModel, CODEX_CHARS,
-    rivalLink, withoutRival, rivalFromSearch, RIVAL_CAP, capRivals,
+    rivalLink, withoutRival, rivalFromSearch, RIVAL_CAP, capRivals, dedupeRivals, personKey,
     altarModel, echoModel, eventModel, shortfallText,
     endScoreModel, emberDetailModel, winBrief, deathBrief, briefModel,
     sealOf, nextSealHint, sealTarget, emberModel,
