@@ -732,6 +732,7 @@
     toast: $('toast'), warnPill: $('warnPill'),
     battleScene: $('battleScene'),
     prepOverlay: $('prepOverlay'), prepOpts: $('prepOpts'), prepFoe: $('prepFoe'),
+    shopScene: $('shopScene'), altarScene: $('altarScene'), echoScene: $('echoScene'),
     bsHero: $('bsHero'), bsFoe: $('bsFoe'),
     bsHeroBar: $('bsHeroBar'), bsFoeBar: $('bsFoeBar'),
     bsHeroHp: $('bsHeroHp'), bsFoeHp: $('bsFoeHp'),
@@ -2601,6 +2602,7 @@
       owned: Engine.rings(),
       rings: D.rings,
     });
+    paintPanelScene(el.echoScene, ECHO_SCENE[Math.max(0, Math.min(3, echo.chapter - 1))] || 'namewall');
     el.echoKicker.textContent = m.kicker;
     el.echoLine.textContent = (S.echoLines && S.echoLines[echo.chapter - 1]) || '';
     el.echoReward.textContent = m.reward;
@@ -2710,6 +2712,18 @@
     $('prepRounds').textContent = `共 ${pred.rounds} 回合`;
     $('prepName').textContent = m.name + (m.boss ? ' · 锁匠' : '');
     $('prepInfo').textContent = `你 ${Math.round(s.hp)} 血 · 它 ${m.hp} 血 · 攻 ${s.atk} / 防 ${s.def}`;
+    // 打法记忆（本局内）：上一次打这只用了什么、掉了多少血。没有就退回通用提示行。
+    const lastLine = View.lastTacticLine(Engine.lastTactic(ch));
+    const hintEl = $('prepHint');
+    if (hintEl) {
+      if (lastLine) {
+        renderRich(hintEl, lastLine);
+        hintEl.classList.add('has-last');
+      } else {
+        hintEl.textContent = '选一种打法再开打 · 决定之后这一场不再改';
+        hintEl.classList.remove('has-last');
+      }
+    }
     if (window.Renderer) Renderer.paintIcon($('prepFoe'), ch, 112, 56);   // 2x 背板缩到 56：剪影才够清楚
     const choose = (id) => {
       if (!prepKeyPick) return;
@@ -2899,10 +2913,24 @@
     launch(null);
   }
 
+  // ---------- 面板场景：祭坛 / 商店 / 回响 ----------
+  // 复用 js/backdrops.js 的同层背景（不新增资产），换场景才重画，同场景二次打开零成本。
+  function paintPanelScene(box, key) {
+    if (!box || !window.Backdrops) return;
+    if ((box.dataset.scene || '') === key && box.firstChild) return;
+    box.dataset.scene = key;
+    box.innerHTML = key ? Backdrops.svg(key) : '';
+  }
+  // 章末回响落在该章最后一层的场景里（1 集市 / 2 王座 / 3 钟楼 / 4 名墙）
+  const ECHO_SCENE = ['market', 'throne', 'bell', 'namewall'];
+
   // ---------- 商店 ----------
   function openShop() {
     shopOpen = true;
     Engine.openShopAt();      // 摊主开口才报价：这一层的行情到此刻才落定（见 engine.dealOf）
+    // 摊子摆在集市/空廊里：背景跟着这一层走（第 3 层是集市，后面几层各有自己的场景）
+    const sf = Engine.state();
+    paintPanelScene(el.shopScene, (window.Backdrops && sf) ? Backdrops.pick({ key: null, floor: sf.floor }) : 'market');
     renderShop();
     el.shopOverlay.classList.add('show');
   }
@@ -3034,6 +3062,8 @@
       refreshHud();
       return;
     }
+    // 行李堆在墙角：背景用这一层的场景，跟玩家此刻站的地方对齐
+    paintPanelScene(el.altarScene, window.Backdrops ? Backdrops.pick({ key: null, floor: s.floor }) : '');
     document.querySelector('#altarOverlay .altar-desc').innerHTML = m.desc;
     el.altarCards.innerHTML = m.cards.map((r) => `<button class="altar-card" data-id="${r.id}">
         <span class="ac-emoji">${r.emoji}</span>

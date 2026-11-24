@@ -194,12 +194,24 @@
           await pickPrep('block');
           await wait(300);
         }
+        if (scene === 'core') {
+          // 锁芯：摆三枚锁环，验证「塔心石周围亮三道」的进度可视化
+          await wait(200);
+          const sc = E.state();
+          sc.flags.rings = ['parry', 'twice', 'compass'];
+          sc.flags.heartAt = [5, 5];
+          T.refreshHud();
+          await wait(200);
+        }
         if (scene === 'prep') {
           // 战前面板本尊：三把打法同屏（格挡 / 架盾 / 缠斗），每张都写清账
           await wait(200);
           const sP = E.state();
           sP.atk = 40; sP.def = 20; sP.hp = 800; sP.maxHp = 1000;
           sP.flags.hasBlock = true;
+          // 造一条「上次对这只用过格挡」的记忆，截图上能看到面板脚下那行
+          const above = E.tile(5, 4);
+          if (above) sP.flags['tac_' + above] = { p: 'b', d: 176 };
           T.refreshHud();
           w.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'ArrowUp' }));
           await wait(520);
@@ -740,7 +752,8 @@
         const dlA = d.getElementById('dialogOverlay');
         for (let i = 0; i < 8; i++) { dlA.dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(50); }
         const sA = E.state();
-        sA.floor = 2; sA.x = 8; sA.y = 8; sA.gold = 180;
+        // 2026-11-24 门禁修正后：第 3 层的行李 X 挪进右下宝库 (8,8)，站在 (9,8) 往左踩
+        sA.floor = 2; sA.x = 9; sA.y = 8; sA.gold = 180;
         T.refreshHud();
         T.act(-1, 0);
         await wait(600);

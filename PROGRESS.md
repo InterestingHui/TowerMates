@@ -898,6 +898,10 @@
   闸门：check ✓（门禁 2 条新断言）/ engine 627 / code 428 / fuzz 0 类 / sim 18,745·68.4% **与改动前逐字一致**（旧数据复跑对照过，地图改动没有动平衡）/ regress 57 图全绿 / ui-test ✓ / 新玩家 46/46 / 多视口 116/116 / 触控 80/80 / 音效 16/16。拍平：`tools/hero-check.html`（勇者立绘三档）、`tools/backdrop-check.html`（14 张背景并排 + `?only=` 全尺寸）。
   ｜加练：美术（背景 + 小怪 + 勇者立绘）｜变体：无（用户报障直修轮）｜薄弱层：表层（画面质量已补齐；结构缺口仍是真人数据）｜阻塞：无
 
+- 2026-11-24（下午）：**上一轮候选四项全做**——①**面板场景**：祭坛 / 商店 / 回响三块面板垫上同层背景（复用 `js/backdrops.js`，新增 `.panel-scene` + 暗幕；祭坛/回响面板本身半透，场景直接透出来；商店面板不透明，场景在四周留白处）。回响按章取景（1 集市 / 2 王座 / 3 钟楼 / 4 名墙）。②**锁芯进度可视化**：锁芯层塔心石四周画四道锁环（`render.js drawCoreRings`），已得的实心点亮 + 章色 + 呼吸，未得的只剩虚线底；对白背景 `Backdrops.svg('core', {lit})` 同步点亮（`scenes.js` 把 `flags.rings.length` 传进去）。③**战前打法记忆**：`Engine.fight` 记 `flags.tac_<怪> = {p, d}`，`Engine.lastTactic(ch)` 读回，`View.lastTacticLine()` 出文案，战前面板脚下写「上次对这只：**格挡** · 掉了 176 血」。**坑**：这行走 `renderRich`，返回 `<b>` 会被转义成字面量——必须用 `**强调**`。④**后半塔族色变体**：第 7 层起 8 只怪标 `deep:true`，`MINION_KIND_COLOR_DEEP` 同色相压明度提饱和 + 脚下一圈细环；族色仍是那一个色相（不是第六族色），玩法说明补了两句读数解释。
+  闸门：check ✓ / engine 629 / code 438 / sim 未动 / regress 57 图全绿 / 对比度 1001 节点 25 屏 0 处低于门槛 / 触控 80 / 多视口 116。附带修：`shot.html` 的 altar 场景坐标随第 3 层地图改动失效（X 挪进宝库），改从 (9,8) 往左踩。
+  ｜加练：美术（面板场景 + 锁芯环 + 族色变体）｜变体：无（候选清单执行轮）｜薄弱层：表层｜阻塞：无
+
 ## 七、上线后看板
 > 提审/上线后开始填。基准线：次留 25–35%（休闲）、时长 15min+、广告人均观看 3–6 次/日为健康（EXP-01 H-05b/H-01）。
 > 本机漏斗缓冲（2026-11-13）：`towermates_funnel` 记 `vow_open{first,full}` / `run_start{n,vow,gap,sinceLoad}` / `run_end{n,won,floor,seal,ending,time,dmg,sinceLoad}` / `page_hide{floor,run,playing}`（局数、胜负、层数、用时、承伤、距上局间隔、加载→开局耗时；上限 200 条，不含可识别信息）。接微信分析 SDK 时整批转发即可算「首局→二局」转化与难度分布。

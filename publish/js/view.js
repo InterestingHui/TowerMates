@@ -490,6 +490,18 @@
     tangle: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5l14 14M19 5L5 19"/><path d="M3 7l4-4M21 7l-4-4"/></svg>',
   };
 
+  // 「上次对这只用了什么」：战前面板脚下那行记忆。只说发生过的事（打法 + 实际掉血），
+  // 不给建议——建议会把这一屏从「自己算」变成「照做」。
+  const TAC_NAME = { n: '直接打', b: '格挡', g: '架盾', t: '缠斗', f: '自动挡' };
+  function lastTacticLine(last) {
+    if (!last || !last.p) return '';
+    const name = TAC_NAME[last.p] || '直接打';
+    const dmg = typeof last.d === 'number' ? ` · 掉了 ${last.d} 血` : '';
+    // 走 **强调** 而不是 <b>：这行由 renderRich 渲染（与全站文案同一条管线），
+    // 直接塞 HTML 标签会被转义成字面量「<b>格挡</b>」（2026-11-24 实测踩到）。
+    return `上次对这只：**${name}**${dmg}`;
+  }
+
   // ---------- 战前面板：三把打法摆成可挑的卡（2026-11-24） ----------
   // 为什么也要搬进来：这三张卡上的每个数字都是同一套算术（额度 / 比例 / 剩血 / 余场），
   // 和战斗面板里的那三块是同一笔账。文案与减法只许有一处，所以卡也走同一组模型。
@@ -1023,7 +1035,7 @@
     sealOf, nextSealHint, sealTarget, emberModel,
     cmpBoard, fmtTime, endName, marginRank, sameRun, isMine, RUN_KEYS,
     deathStatsModel, winStatsModel, memModel, floorNo, migrateFloors,
-    foeName, traitNote, threatModel, blockModel, guardModel, tangleModel, prepOptions,
+    foeName, traitNote, threatModel, blockModel, guardModel, tangleModel, prepOptions, lastTacticLine,
     hintPicked, HINT_PICK, HINT_AUTO,
     BOARD_TABS, BOARD_CAP, SHOP_CORE, SEALS, CHAPTERS,
     NOTE_DAILY, NOTE_CRUSHED, EMPTY_OTHER, TIP_BLOCK, TIP_SHARD,

@@ -1318,6 +1318,13 @@
     return vow() === 'guard' || vow() === 'ascetic' || vow() === 'nameless';
   }
 
+  // 战前面板用：上一次打这只怪的打法与承伤（没有就是 null）
+  function lastTactic(ch) {
+    if (!s || !ch) return null;
+    const v = s.flags['tac_' + ch];
+    return v && v.p ? v : null;
+  }
+
   function fight(dx, dy, opt) {
     if (!s || s.over || s.won) return { type: 'idle' };
     const nx = s.x + dx;
@@ -1435,6 +1442,9 @@
     // 次序＝结算优先级：架盾 > 单场格挡 > 自动挡 > 缠斗 > 直接打。
     const pick = !blocked ? (tangled ? 't' : 'n')
       : (mode === 'all' ? 'g' : (opt && opt.auto ? 'f' : 'b'));
+    // 战前面板的记忆：这一只上一次用了哪种打法、掉了多少血（本局内跨层保留）。
+    // 只记「实际发生的」，不记意图——面板上写错了比不写更糟。
+    s.flags['tac_' + ch] = { p: pick, d: dmg };
 
     return {
       type: 'fight', damage: dmg, raw: p.damage, blocked, tangled, rounds: p.rounds,
@@ -1910,7 +1920,7 @@
       const ch = tile(s.x + dx, s.y + dy);
       return D.monsters[ch] ? predict(ch) : null;
     },
-    tryMove, fight, canBlock, canGuard, blockLimit, blockLeft, blockUsedAt, grantBlock, vowForbidsBlock, blockSpreadAt, blockSpreadActive, blockSpreadScale, BLOCK_SPREAD, BLOCK_BASE, BLOCK_BASE2, buy, priceOf, shopStock, dealOf, openShopAt, floorMonsterCount, floorPickupCount, floorThreat, battleMargin, potionHeal, finish, altarChoices, pickRelic, pathTo, pathThrough, pathToNear, pathsTo,
+    tryMove, fight, lastTactic, canBlock, canGuard, blockLimit, blockLeft, blockUsedAt, grantBlock, vowForbidsBlock, blockSpreadAt, blockSpreadActive, blockSpreadScale, BLOCK_SPREAD, BLOCK_BASE, BLOCK_BASE2, buy, priceOf, shopStock, dealOf, openShopAt, floorMonsterCount, floorPickupCount, floorThreat, battleMargin, potionHeal, finish, altarChoices, pickRelic, pathTo, pathThrough, pathToNear, pathsTo,
     nextLevelExp, margin, keyName, summary, accrueActive, ACTIVE_CAP, hasRelic, ownedRelics, beginFloor, restoreFloor, revealCore, heartState, heartTake, heartLeave, vow, pickEvent, eventPool, eventCost, eventShortfall, resolveEvent, applyEffect, jumpTo, visitedMax, gateForth, sealPlan,
     rings, hasRing, ringBlockScale, zealScale, zealNext, zealNeed, finalLedger, cleanEmber, fightDamage, tangleInfo, bossPhases, settleChapter, ringChoices, pendingRing, pickRing,
   };

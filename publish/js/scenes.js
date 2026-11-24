@@ -547,8 +547,17 @@
     if (!window.Backdrops || typeof t.floor !== 'number') { hide(); return; }
     const bid = Backdrops.pick({ key: t.key, floor: t.floor });
     if (!bid) { hide(); return; }
+    // 锁芯场景多一个参数：已得几枚锁环就点亮几道（其余场景忽略）
+    let opt = null;
+    let idTail = '';
+    if (bid === 'core') {
+      const st = window.Engine && Engine.state ? Engine.state() : null;
+      const n = st && st.flags && st.flags.rings ? st.flags.rings.length : 0;
+      opt = { lit: n };
+      idTail = ':' + n;
+    }
     if (ov) ov.classList.add('scene-on');
-    if (cur !== 'bd:' + bid) paint('bd:' + bid, Backdrops.svg(bid));
+    if (cur !== 'bd:' + bid + idTail) paint('bd:' + bid + idTail, Backdrops.svg(bid, opt));
     else box.classList.add('on');
   }
 

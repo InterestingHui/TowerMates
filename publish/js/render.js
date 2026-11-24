@@ -567,6 +567,17 @@
     '异': ['#96dc96', 'rgba(150,220,150,'],   // 苔绿
     '魂': ['#9fd8ff', 'rgba(159,216,255,'],   // 魂蓝（烛）
   };
+  // 后半塔（第 7 层起）的「深色变体」：**同色相、压明度、提饱和**，不是第六族色。
+  // 为什么这么做（2026-11-24）：族色是威胁类型编码（兽/亡/构/异/魂），加新色相会把编码搅乱；
+  // 但后半塔的怪和前半塔同族同色时，玩家在棋盘上分不出「这只是第 3 层的骷髅，还是第 10 层的」。
+  // 只压明度＋脚下一圈双环，就多出一档「这一只更靠后」的读数，族色仍然是那一个色相。
+  const MINION_KIND_COLOR_DEEP = {
+    '兽': ['#e08a45', 'rgba(224,138,69,'],
+    '亡': ['#6fa6d8', 'rgba(111,166,216,'],
+    '构': ['#8e97a8', 'rgba(142,151,168,'],
+    '异': ['#6fbd78', 'rgba(111,189,120,'],
+    '魂': ['#7fb6d8', 'rgba(127,182,216,'],
+  };
   // 造型约定：f(ctx, s, light) 以格中心为原点、s=TILE/48 缩放；y 向下为正，
   // 身体大致落在 y∈[-14,12]。每只一个「一眼特征」，禁堆零件。
   // noRim: true 的造型以描边为主（rim 底版会重影），由 drawMinion 跳过亮边层。
@@ -999,7 +1010,8 @@
   // 小怪统一画法：族色底光（保留旧版「一眼分辨威胁类型」）→ 亮边底版 → 近黑剪影 → 焦点层
   function drawMinion(ch, m, px, py, t) {
     const art = MINION_ART[ch];
-    const L = MINION_KIND_COLOR[art.c] || MINION_KIND_COLOR['构'];
+    const pal = m.deep ? MINION_KIND_COLOR_DEEP : MINION_KIND_COLOR;
+    const L = pal[art.c] || pal['构'];
     const cx = px + TILE / 2;
     const cy = py + TILE / 2;
     const s = TILE / 48;
@@ -1015,6 +1027,14 @@
     ctx.beginPath();
     ctx.arc(cx, py + TILE * 0.6, TILE * 0.52, 0, Math.PI * 2);
     ctx.fill();
+    // 深色变体：脚下一圈细环（同族同色，只是多一道「更靠后」的读数）
+    if (m.deep) {
+      ctx.strokeStyle = L[1] + '0.55)';
+      ctx.lineWidth = 1.1;
+      ctx.beginPath();
+      ctx.arc(cx, py + TILE * 0.6, TILE * 0.44, 0, Math.PI * 2);
+      ctx.stroke();
+    }
 
     ctx.save();
     ctx.translate(cx, cy + bob);
@@ -1247,6 +1267,51 @@
       return;
     }
     drawEmoji(m.emoji, px, py + bob, 0.6);
+  }
+
+  // 锁芯的四道环：已得的环实心点亮、未得的只剩极淡的虚线底。
+  // 圆心取塔心石（带走后仍画在空石座上），不与任何格子重叠，只做氛围读数。
+  function drawCoreRings(state, map) {
+    let kx = 5;
+    let ky = 5;
+    let found = false;
+    for (let y = 0; y < SIZE && !found; y++) {
+      for (let x = 0; x < SIZE; x++) {
+        if (map[y][x] === 'K') { kx = x; ky = y; found = true; break; }
+      }
+    }
+    const hp = state.flags && state.flags.heartAt;
+    if (!found && hp) { kx = hp[0]; ky = hp[1]; }
+    const cx = kx * TILE + TILE / 2;
+    const cy = ky * TILE + TILE / 2;
+    const owned = (state.flags && state.flags.rings) || [];
+    const CH = ['#b9a6ff', '#ff7d7d', '#e8c46a', '#9fd8ff'];
+    for (let i = 0; i < 4; i++) {
+      const r = TILE * (0.74 + i * 0.17);
+      const a0 = -Math.PI / 2 + i * (Math.PI / 2) + 0.18;
+      const lit = i < owned.length;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, a0, a0 + 0.92, false);
+      ctx.lineWidth = lit ? 2 : 1;
+      ctx.strokeStyle = lit
+        ? CH[i]
+        : 'rgba(159,216,255,0.12)';
+      if (lit) {
+        ctx.shadowColor = CH[i];
+        ctx.shadowBlur = 6;
+        ctx.globalAlpha = 0.75 + Math.sin(simT / 700 + i) * 0.18;
+      }
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.globalAlpha = 1;
+      if (!lit) {
+        ctx.setLineDash([3, 5]);
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, a0, a0 + 0.92, false);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+    }
   }
 
   // 玩家 v2 剪影（2026-11-17 美术管线介入）：旧的 🧙 emoji 与剪影世界打架。
@@ -1918,6 +1983,9 @@
 
     // 实体层
     const map = state.maps[state.floor];
+    // 锁芯：塔心石四周的锁环按「已得几枚」点亮（2026-11-24）。
+    // 这是本层唯一的进度可视化——四个锁匠各一枚环，走到这里的人一眼能看出自己带了几道锁。
+    if (state.floor === D.floors.length - 1) drawCoreRings(state, map);
     for (let y = 0; y < SIZE; y++) {
       for (let x = 0; x < SIZE; x++) {
         const ch = map[y][x];
@@ -2274,9 +2342,10 @@
   function paintIcon(cv, ch, size, show) {
     const m = D.monsters && D.monsters[ch];
     if (!m) return false;
+    const pal = m.deep ? MINION_KIND_COLOR_DEEP : MINION_KIND_COLOR;
     const light = m.boss
       ? (BOSS_LIGHT[ch] || BOSS_LIGHT.Z)[1]
-      : (MINION_KIND_COLOR[(MINION_ART[ch] || {}).c] || MINION_KIND_COLOR['构'])[1];
+      : (pal[(MINION_ART[ch] || {}).c] || pal['构'])[1];
     return paintInto(cv, size, (ss) => {
       iconBackdrop(ss, light);
       drawMonster(ch, 0, 0, simT);

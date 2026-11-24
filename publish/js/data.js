@@ -50,14 +50,14 @@ window.GAME_DATA = (function () {
     H: { name: '骷髅队长', emoji: '🪖', hp: 340, atk: 77, def: 25, gold: 40, exp: 30, kind: '亡' },
     V: { name: '吸血鬼', emoji: '🧛', hp: 360, atk: 77, def: 21, gold: 45, exp: 34, kind: '亡' },
     // ---- 锁梁（第 7 层起）：被名字遗弃的东西 ----
-    I: { name: '锈犬', emoji: '🐕', hp: 360, atk: 72, def: 24, gold: 50, exp: 55, kind: '兽', trait: 'double' },
-    R: { name: '提灯僧', emoji: '🏮', hp: 480, atk: 100, def: 30, gold: 58, exp: 65, kind: '亡' },
-    1: { name: '空甲', emoji: '🛡️', hp: 560, atk: 96, def: 34, gold: 62, exp: 72, kind: '构' },
-    2: { name: '锁虫', emoji: '🪱', hp: 420, atk: 102, def: 26, gold: 55, exp: 60, kind: '异' },
-    3: { name: '无面者', emoji: '👤', hp: 520, atk: 64, def: 32, gold: 66, exp: 70, kind: '魂', trait: 'magic' },
-    4: { name: '灰烬祭司', emoji: '🧙', hp: 640, atk: 106, def: 36, gold: 72, exp: 80, kind: '亡' },
-    5: { name: '锈王', emoji: '👑', hp: 760, atk: 126, def: 42, gold: 90, exp: 95, kind: '兽' },
-    6: { name: '守名人', emoji: '🗿', hp: 820, atk: 120, def: 44, gold: 96, exp: 105, kind: '构' },
+    I: { name: '锈犬', emoji: '🐕', hp: 360, atk: 72, def: 24, gold: 50, exp: 55, kind: '兽', trait: 'double', deep: true },
+    R: { name: '提灯僧', emoji: '🏮', hp: 480, atk: 100, def: 30, gold: 58, exp: 65, kind: '亡', deep: true },
+    1: { name: '空甲', emoji: '🛡️', hp: 560, atk: 96, def: 34, gold: 62, exp: 72, kind: '构', deep: true },
+    2: { name: '锁虫', emoji: '🪱', hp: 420, atk: 102, def: 26, gold: 55, exp: 60, kind: '异', deep: true },
+    3: { name: '无面者', emoji: '👤', hp: 520, atk: 64, def: 32, gold: 66, exp: 70, kind: '魂', trait: 'magic', deep: true },
+    4: { name: '灰烬祭司', emoji: '🧙', hp: 640, atk: 106, def: 36, gold: 72, exp: 80, kind: '亡', deep: true },
+    5: { name: '锈王', emoji: '👑', hp: 760, atk: 126, def: 42, gold: 90, exp: 95, kind: '兽', deep: true },
+    6: { name: '守名人', emoji: '🗿', hp: 820, atk: 120, def: 44, gold: 96, exp: 105, kind: '构', deep: true },
     // ---- 章节 Boss：每位守一道锁，也守着上楼的唯一一条路 ----
     N: {
       name: '墨妖', emoji: '📖', hp: 300, atk: 42, def: 16, gold: 200, exp: 90, boss: true, kind: '锁',

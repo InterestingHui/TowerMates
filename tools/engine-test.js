@@ -33,6 +33,17 @@ let ev = E.tryMove(1, 0);
 ok(ev.type === 'open' && s.keys.y === 0, '黄门打开并消耗钥匙');
 ok(E.tile(8, 9) === '.', '门变成地面');
 
+// 战前面板的记忆：打完之后要能读到「上次对这只用了什么、掉了多少血」
+E.newGame();
+s = E.state();
+s.floor = 0; s.x = 3; s.y = 5;      // 第 1 层 (6,5) 是史莱姆 B
+const lf0 = E.lastTactic('B');
+s.x = 5; s.y = 5;                   // 贴到蝙蝠左边
+const fRes = E.fight(1, 0, {});
+const lf1 = E.lastTactic('B');
+ok(lf0 === null, '没打过这只时没有记忆');
+ok(!!lf1 && lf1.p === 'n' && lf1.d === fRes.damage, '打完记下打法与真实承伤');
+
 // ---------- 3. 无钥匙被锁 ----------
 s.floor = 3; s.x = 9; s.y = 3; s.keys.r = 0;
 const locked = E.tryMove(0, -1);

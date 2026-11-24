@@ -7,7 +7,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="build" content="aaec4a8c0c">
+<meta name="build" content="0e8d3776b3">
 <title>TowerMates · 魔塔</title>
 <!-- 分享卡：挑战链接（?rival=）是全作唯一传播路径，没有这几条时粘进微信是一条裸链接 + 灰占位图，
      点开前看不出是什么。图是 tools/sharecard.html 用无头 Chrome 渲的 1200×1200 正方卡（1:1 裁切不丢字）。
@@ -22,7 +22,7 @@
 <meta property="og:image:height" content="1200">
 <meta property="og:url" content="https://towermates.app.workbuddy.host/?sharecode=U7XMLC2NKJ">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="stylesheet" href="css/style.css?v=aaec4a8c0c">
+<link rel="stylesheet" href="css/style.css?v=0e8d3776b3">
 </head>
 <body>
 <div id="app">
@@ -215,6 +215,7 @@
 
 <!-- 商店 -->
 <div class="overlay" id="shopOverlay">
+  <div class="panel-scene" id="shopScene" aria-hidden="true"></div>
   <div class="panel shop-panel">
     <div class="shop-head">
       <div class="shop-title">🏪 流浪商人 · 秤</div>
@@ -354,7 +355,7 @@
     </div>
     <div class="cfg-help">
       <div class="cfg-help-title">玩法</div>
-      <p>方向键 / WASD 走一格，点远处自动寻路。触屏上也可以在地图上滑动走一格（连续滑动连走）；右下角的方向键可以点小箭头收起或展开。撞上怪物即战斗，打不过会被拦住。钥匙开对应的门，商人在第 3 层和第 8 层。塔共 12 层，分四章，每章三层、章末一位锁匠 Boss；四个锁匠全倒后，塔顶后面会露出一段窄梯通向隐藏层「锁芯」。每层有一次「格挡」，战斗中点一下能把这一场的承伤降到 55%（读到后半部盾谱再降到 42%）。开局可以立一条誓约改变整局规则，越难走的誓约通关留下的余烬越多。打完每章的锁匠，可以从三枚锁环里挑一枚，锁环改写的是整局规则。</p>
+      <p>方向键 / WASD 走一格，点远处自动寻路。触屏上也可以在地图上滑动走一格（连续滑动连走）；右下角的方向键可以点小箭头收起或展开。撞上怪物即战斗，打不过会被拦住。钥匙开对应的门，商人在第 3 层和第 8 层。塔共 12 层，分四章，每章三层、章末一位锁匠 Boss；四个锁匠全倒后，塔顶后面会露出一段窄梯通向隐藏层「锁芯」。每层有一次「格挡」，战斗中点一下能把这一场的承伤降到 55%（读到后半部盾谱再降到 42%）。开局可以立一条誓约改变整局规则，越难走的誓约通关留下的余烬越多。打完每章的锁匠，可以从三枚锁环里挑一枚，锁环改写的是整局规则。第 7 层起的怪是同族的深色变体，脚下一圈细环——威胁类型不变，只是更硬。走到锁芯时，塔心石周围会亮起你带下来的锁环。</p>
     </div>
     <div class="actions">
       <button class="btn" id="cfgRetry">↺ 重来本层</button>
@@ -431,6 +432,7 @@
 
 <!-- 祭坛：前八位勇者的行李 -->
 <div class="overlay" id="altarOverlay">
+  <div class="panel-scene" id="altarScene" aria-hidden="true"></div>
   <div class="altar-panel">
     <div class="altar-kicker">墙 角 的 行 李</div>
     <p class="altar-desc">八个人留下的东西堆在墙角：卷刃的剑、干粮、泡烂的账册。<br>你只能带走一件。</p>
@@ -441,6 +443,7 @@
 
 <!-- 章末回响：锁环三选一 -->
 <div class="overlay" id="echoOverlay">
+  <div class="panel-scene" id="echoScene" aria-hidden="true"></div>
   <div class="echo-panel">
     <div class="echo-kicker" id="echoKicker">章 末 回 响</div>
     <p class="echo-line" id="echoLine"></p>
@@ -571,24 +574,24 @@
   </div>
 </div>
 
-<script src="js/data.js?v=aaec4a8c0c"></script>
-<script src="js/vow-icons.js?v=aaec4a8c0c"></script>
-<script src="js/story.js?v=aaec4a8c0c"></script>
-<script src="js/portraits.js?v=aaec4a8c0c"></script>
-<script src="js/backdrops.js?v=aaec4a8c0c"></script>
-<script src="js/scenes.js?v=aaec4a8c0c"></script>
-<script src="js/achievements.js?v=aaec4a8c0c"></script>
-<script src="js/daily.js?v=aaec4a8c0c"></script>
-<script src="js/view.js?v=aaec4a8c0c"></script>
-<script src="js/engine.js?v=aaec4a8c0c"></script>
-<script src="js/render.js?v=aaec4a8c0c"></script>
-<script src="js/devgate.js?v=aaec4a8c0c"></script>
-<script src="js/ads.js?v=aaec4a8c0c"></script>
-<script src="js/main.js?v=aaec4a8c0c"></script>
-<script src="js/challenge.js?v=aaec4a8c0c"></script>
-<script src="js/wxbridge.js?v=aaec4a8c0c"></script>
-<script src="js/touch.js?v=aaec4a8c0c"></script>
-<script src="js/gate-forth.js?v=aaec4a8c0c"></script>
-<script src="js/wxwire.js?v=aaec4a8c0c"></script>
+<script src="js/data.js?v=0e8d3776b3"></script>
+<script src="js/vow-icons.js?v=0e8d3776b3"></script>
+<script src="js/story.js?v=0e8d3776b3"></script>
+<script src="js/portraits.js?v=0e8d3776b3"></script>
+<script src="js/backdrops.js?v=0e8d3776b3"></script>
+<script src="js/scenes.js?v=0e8d3776b3"></script>
+<script src="js/achievements.js?v=0e8d3776b3"></script>
+<script src="js/daily.js?v=0e8d3776b3"></script>
+<script src="js/view.js?v=0e8d3776b3"></script>
+<script src="js/engine.js?v=0e8d3776b3"></script>
+<script src="js/render.js?v=0e8d3776b3"></script>
+<script src="js/devgate.js?v=0e8d3776b3"></script>
+<script src="js/ads.js?v=0e8d3776b3"></script>
+<script src="js/main.js?v=0e8d3776b3"></script>
+<script src="js/challenge.js?v=0e8d3776b3"></script>
+<script src="js/wxbridge.js?v=0e8d3776b3"></script>
+<script src="js/touch.js?v=0e8d3776b3"></script>
+<script src="js/gate-forth.js?v=0e8d3776b3"></script>
+<script src="js/wxwire.js?v=0e8d3776b3"></script>
 </body>
 </html>

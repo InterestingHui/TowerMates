@@ -618,6 +618,11 @@ ok(prep[1].sub.indexOf('本层一次') >= 0 && prep[1].sub.indexOf('55%') >= 0, 
 ok(prep[2].sub.indexOf('此后 4 场') >= 0 && prep[2].sub.indexOf('−15%') >= 0, '架盾卡写清「此后 N 场」与比例');
 ok(prep[3].sub.indexOf('多挨一轮 +40 血') >= 0 && prep[3].sub.indexOf('经验 ×2') >= 0, '缠斗卡写清多挨多少与收益');
 ok(V.prepOptions(Object.assign({}, prepF, { hasBlock: false })).length === 3, '不会格挡时不摆格挡卡');
+// 战前面板的「上次对这只」：只说发生过的事（打法 + 实际掉血），没有就不出现
+ok(V.lastTacticLine(null) === '', '没有上次记录时不写记忆行');
+const lastB = V.lastTacticLine({ p: 'b', d: 176 });
+ok(lastB.indexOf('格挡') >= 0 && lastB.indexOf('176') >= 0, '记忆行写出上次的打法与掉血');
+ok(V.lastTacticLine({ p: 'n' }).indexOf('直接打') >= 0, '没有掉血数时只写打法');
 ok(V.prepOptions(Object.assign({}, prepF, { nonTrivial: false, floor: 0 })).length === 1, '杂兵小架只留「直接开打」');
 
 // ---------- 结算两页（败局 / 胜局）的标签与履历 ----------

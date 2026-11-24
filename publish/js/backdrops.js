@@ -639,12 +639,16 @@
     afterChoicePlain: 'dawn', afterChoiceTrue: 'dawn',
   };
 
-  let uid = 0;
   const cache = {};
-  function svg(key) {
+  // opt.lit：锁芯专用——已得几枚锁环就点亮几道（0~4）。
+  // 其余场景忽略 opt（同 key 复用同一份字符串，不重复生成）。
+  function svg(key, opt) {
     if (key === 'core') {
-      // 锁芯单独写：环形机关要按帧动（CSS 旋转），不能和静态场景混在一个模板里
-      return coreSvg();
+      // 锁芯单独写：环形机关要按帧动（CSS 旋转），且要点亮几道随锁环数变
+      const lit = Math.max(0, Math.min(4, (opt && opt.lit) | 0));
+      const ck = 'core:' + lit;
+      if (!cache[ck]) cache[ck] = coreSvg(lit);
+      return cache[ck];
     }
     const fn = SCENES[key];
     if (!fn) return '';
@@ -652,13 +656,23 @@
     return cache[key];
   }
 
-  // 锁芯：因为需要独立的动画层，单独拼一次
-  function coreSvg() {
+  // 锁芯：因为需要独立的动画层，单独拼一次。lit = 已得锁环数（0~4）。
+  // 四道主环按章节上色（与 render.js drawCoreRings / 锁环卡的章色同一套），
+  // 已得的实心点亮、未得的只剩一圈虚线底——玩家在锁芯抬头一看就知道自己带了几道锁。
+  const CORE_CH = ['#b9a6ff', '#ff7d7d', '#e8c46a', '#9fd8ff'];
+  function coreSvg(lit) {
     let rings = '';
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 4; i++) {
       const r = 90 + i * 46;
-      rings += `<circle cx="215" cy="470" r="${r}" stroke="${COLD}" stroke-width="${(1.6 - i * 0.2).toFixed(2)}" opacity="${(0.3 - i * 0.045).toFixed(2)}"/>`;
+      const on = i < (lit || 0);
+      rings += `<circle cx="215" cy="470" r="${r}" stroke="${on ? CORE_CH[i] : COLD}" stroke-width="${on ? 2 : 1.2}"`
+        + ` opacity="${on ? 0.9 : 0.16}"${on ? '' : ' stroke-dasharray="4 7"'}/>`;
+      if (on) {
+        rings += `<circle cx="215" cy="470" r="${r}" stroke="${CORE_CH[i]}" stroke-width="7" opacity=".10"/>`;
+      }
     }
+    // 最外一道装饰环（不参与进度）
+    rings += `<circle cx="215" cy="470" r="274" stroke="${COLD}" stroke-width="1" opacity=".10"/>`;
     let ticks = '';
     for (let i = 0; i < 24; i++) {
       const a = (i / 24) * Math.PI * 2;
