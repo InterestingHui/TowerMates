@@ -15,7 +15,12 @@
 //      项目自己的「弱文」档（--dim / .dim）按 ≥3:1 验收（style.css 已写明 3.4:1 的设计值）。
 const SCENES = ['start', 'vow', 'play', 'dialog', 'hint', 'battle', 'battleblock', 'altar', 'choice',
   'event', 'eventdeep', 'shop', 'echo', 'board', 'codex', 'cfg', 'tower', 'gate', 'end', 'death',
-  'collection', 'bossphase', 'heart', 'stoneidle', 'critters'];
+  'collection', 'bossphase', 'heart', 'stoneidle', 'critters',
+  // 2026-11-25 补测：此前 26 屏把「最常出现的那几屏」漏在外面——prep 是 11-24 起每场战斗必经的
+  // 决策屏，bossintro 每次章末必看，三种打法战斗与日榜/终局/满 HUD 也都是高频界面。
+  // 「量过的屏」和「玩家真正反复看的屏」必须是同一批，否则可读性只是抽样合格。
+  'prep', 'bossintro', 'tanglebattle', 'guardbattle', 'threatbattle', 'daily', 'dailyboard',
+  'final', 'hudmax', 'stuck', 'sword', 'zeal', 'echo2', 'death1', 'codexzoom'];
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const out = document.getElementById('out');
 const GATE = /[?&]gate=1/.test(location.search);
