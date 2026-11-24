@@ -1,5 +1,14 @@
 # TowerMates 长期记忆
 
+## 七连修：立誓/背景/身份/小怪/提示/门禁/战前打法（2026-11-24，commit 7abc506，build 38101415f2 已上线）
+- **立誓**：首局不再只有一张卡（用户报障「只有一个固定选项」）。`openVow` 去掉首局裁剪，一次摆 4 张可选 + 2 条锁定 chip；`vows[].accent` 六色 + 卡顶 3px 主色条；选完 `flashVow()` 亮 3.4s 回执。
+- **对白背景**：`js/backdrops.js` 14 张 430×900 SVG（塔门/回廊/集市/密道/狼厅/王座/塔脊/空廊/钟楼/名墙/刻名室/塔顶/锁芯/黎明），`scenes.js sync()` 只有 `key==='intro'` 走四幕分镜，其余全部按 `KEY_SCENE`→楼层取景。`playStory` 把 `floor` 带进 typing。背景墙比剪影亮一档（`url(#bWall)`）才读得出空间；每屏一盏暖光 + 一圈大弱光。
+- **身份**：顶栏原写「守灯人·烛」且 HUD 立绘是 `Portraits.render('烛')`——玩家一进塔变成 NPC，属 bug。改「勇者·第九位」+ 新增 `portraits.js BODY.hero`（歪尖兜帽/斜挎剑/金瞳）。
+- **小怪**：`GROW=1.24` + rim 1.7px + `eyes()` 瞳外柔光 + 重画史莱姆/僵尸/提灯僧/祭司；`paintInto(cv,size,drawer,show)` 支持 2x 背板缩显。**坑**：`eyes()` 收形状单位，别再乘 s。
+- **门禁**：第 2 层黄门移到 (1,2) 卡上楼唯一通道（钥匙 8,8、盾谱/金币在门后）；第 3 层无效黄门→(8,9) 真宝库；第 4 层 (8,1) 封墙让红门锁住守誓之盾、k→L 补钥匙。`tools/gate-audit.js` + `check.js` 断言：门可绕过且门后 0 收益 = 红；钥匙数 < 门数 = 红。
+- **战前打法**：`#prepOverlay` + `View.prepOptions`（复用 blockModel/guardModel/tangleModel），战斗面板三按钮隐藏、提示行只回显。杂兵小架不弹。
+- **测试钩子**：`window.__prepAuto` / `__tm.prepOpen()/prepPick(id)`——所有「撞怪→战斗面板」的 headless 探针都要先跳过战前面板，否则会集体红。指令契约随之改：code-test 的 battleCalls 换成 `View.prepOptions`、节奏预算立誓 1→≤6。
+
 ## 「开新局」ReferenceError 修复（2026-11-17，修复随并行会话 f748cc6 上库，探针 b8bcf17）
 - 用户报障：隔了段时间再玩，点「新开一局」报错且重开失败。根因：`doResetRun` 误留在 `bindInput()` 作用域内，而 `btnNewRun` 绑定在 `boot()` 里——兄弟作用域不可见，有存档的老玩家点击必抛 ReferenceError（64fdf13 埋雷）。
 - 修复：`doResetRun` 提升到模块层。回归探针 `tools/again-probe.html`（headless 复刻用户路径）留存。
