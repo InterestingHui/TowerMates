@@ -266,6 +266,10 @@ const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-ui-'));
   ok(Array.isArray(bh.picks) && ['block', 'guard', 'tangle'].every((k) => bh.picks.indexOf(k) >= 0),
     `三把打法同屏可挑（实测 ${JSON.stringify(bh.picks)}）`);
   ok(bh.panelUp === true, '选完打法后战斗面板真的开了');
+  // 战前面板 → 战斗层是同一种暗，中间不许闪一帧棋盘（2026-11-24 加练美术焦点C）。
+  // 判据是「30ms 后遮幕的实测不透明度」：走通用 0.18s 淡入时只有 ~0.2，同帧就位是 1。
+  ok(typeof bh.veilAlpha === 'number' && bh.veilAlpha >= 0.9,
+    `选完打法 30ms 时遮幕已就位，不闪棋盘（实测 opacity ${bh.veilAlpha}）`);
   ok(bh.liveAfter === 0, `战斗里不再留能点的打法按钮（实测 ${bh.liveAfter}）`);
   ok(/按「格挡」打/.test(bh.after || ''), `战斗提示行回显已选打法（实测：${bh.after}）`);
   ok(!/可点下面的打法/.test(bh.after || ''), '战斗中不再说「可点下面的打法」');

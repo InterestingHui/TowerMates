@@ -690,6 +690,12 @@ async function run() {
       out.bsHint.hasBlockOpt = !!blkOpt;
       if (blkOpt) blkOpt.click();
       else if (prepEl && prepUp) { var anyOpt = prepEl.querySelector('.prep-opt'); if (anyOpt) anyOpt.click(); }
+      // 战前面板 → 战斗层的交接（2026-11-24 加练美术焦点C）：两块都是暗的，中间不许插一帧棋盘。
+      // 判据取「点击后 30ms 遮幕的实测不透明度」——通用 .overlay.show 的 fadeIn 0.18s 在这时
+      // 只走到 0.2 上下，玩家看到的是「暗面板 → 亮棋盘 → 暗战斗」闪一下；遮幕同帧就位才是 1。
+      // 取实测值而不是读 class：写死 class 名的话，换成别的做法也会被误判成红。
+      await new Promise(function (r) { setTimeout(r, 30); });
+      out.bsHint.veilAlpha = parseFloat(w.getComputedStyle(d.getElementById('battleScene')).opacity);
       var tC = Date.now(), upB = false;
       while (Date.now() - tC < 2500) {
         if (d.getElementById('battleScene').classList.contains('show')) { upB = true; break; }

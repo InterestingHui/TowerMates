@@ -2098,6 +2098,11 @@
     el.bsHeroBar.style.width = '100%';
     el.bsFoeBar.style.width = '100%';
     el.bsNumbers.innerHTML = '';
+    // 战前面板刚收起（同一帧交接）：遮幕不许淡入，否则玩家会看到「暗面板 → 亮棋盘 → 暗战斗」。
+    // 标记一次性消费——下一场从棋盘直接开的战斗仍走常规淡入。
+    const fromPrep = prepHandoff;
+    prepHandoff = false;
+    el.battleScene.classList.toggle('nofade', fromPrep);
     el.battleScene.classList.add('show');
     el.battleScene.classList.remove('hero-win');
     el.bsPhase.classList.remove('show');
@@ -2304,6 +2309,7 @@
   // 进度退回上一次存档。所以「这一战没打成」必须有一条明确的出口：解锁、收层、怪留在原地。
   function abandonBattle(e) {
     battleBusy = false;
+    prepHandoff = false;   // 交接标记只对「下一次开战」有效：这一战没打起来就得清掉，别漏给后面
     el.battleScene.classList.remove('show', 'hero-win', 'phasing');
     el.battleScene.onclick = null;
     el.bsBlock.onclick = null;
@@ -2706,6 +2712,11 @@
   }
 
   let prepKeyPick = null;   // 战前面板开着时的选择函数（键盘 1–4 也走它，关掉即置空）
+  // 交接标记（2026-11-24 加练美术焦点C）：战前面板与战斗层是同一片暗场，中间不许插一帧棋盘。
+  // 面板收起是瞬时的，战斗层却走通用 .overlay.show 的 0.18s 淡入 ⇒ 「暗 → 亮 → 暗」闪一下，
+  // 而这道闪在 11-24 之前不存在（那时战斗直接从棋盘上开，淡入的起点本来就是亮的）。
+  // 置真后战斗层跳过淡入（遮幕同帧就位），面板本身仍 popIn，动感不少。
+  let prepHandoff = false;
   function openPrep(ctx, cb) {
     const s = Engine.state();
     const { m, pred, opts, ch } = ctx;
@@ -2729,6 +2740,7 @@
       if (!prepKeyPick) return;
       prepKeyPick = null;
       el.prepOverlay.classList.remove('show');
+      prepHandoff = true;   // 这一次开战是从战前面板接过去的（见下方战斗层的 nofade）
       Sound.play('choose');
       vibrate([8, 12, 6]);
       cb(id === 'block' ? { block: true } : id === 'guard' ? { block: 'all' } : id === 'tangle' ? { tangle: true } : null);
@@ -3618,7 +3630,6 @@
 
   // ---------- 楼层卡片 ----------
   // ---------- Boss 出场卡（点击 Boss 这一刻亮相：位图 + 名字条，读完点击确认才开打） ----------
-  let bossIntroTimer = null;
   let bossIntroCb = null;
   const CN_NUM = ['一', '二', '三', '四', '五', '六'];
   function showBossIntro(m, floor, cb, hold) {
@@ -3635,8 +3646,6 @@
     // 以前 1.2 秒自动收，第一眼还没读完名字就没了；真想快，点一下就是快。
   }
   function closeBossIntro() {
-    clearTimeout(bossIntroTimer);
-    bossIntroTimer = null;
     if (!el.bossIntroOverlay.classList.contains('show')) return;
     el.bossIntroOverlay.classList.remove('show');
     $('biPortrait').innerHTML = '';

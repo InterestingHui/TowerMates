@@ -1134,6 +1134,13 @@ html, body {
 
 /* ================= 战斗演出 ================= */
 .overlay.battle-scene { background: rgba(3, 5, 9, 0.84); padding: 0; overflow: hidden; }
+/* 战前面板 → 战斗层：两块都是暗场，中间不许闪一帧棋盘（2026-11-24 加练美术焦点C）。
+   面板收起是瞬时的，而通用 .overlay.show 的 0.18s 淡入会从「透明度 0」起步 ⇒
+   实测交接后 30ms 遮幕仍是 opacity 0，玩家看到「暗 → 亮 → 暗」闪一下。
+   这里只掐掉遮幕的淡入：暗场同帧就位，面板本身照旧 popIn（动感没少，少的是闪）。
+   退出仍走瞬时（fx-probe 的「点跳过 → 面板 10ms 内消失」手感契约不动）。 */
+.overlay.battle-scene.nofade.show { animation: none; }
+.overlay.battle-scene.nofade .bs-panel { animation: popIn var(--pop-in) ease-out; }
 .overlay.battle-scene::before {
   content: "";
   position: absolute;

@@ -388,6 +388,18 @@ const prepTry = /try\s*\{\s*openPrep\(/.test(stripComments(mainSrc));
 const prepCatch = /catch\s*\(e\)\s*\{[^}]*battleBusy = false/.test(stripComments(mainSrc));
 ok(prepTry && prepCatch, 'openPrep 装配段有 catch，且 catch 里一定先把 battleBusy 解开');
 
+// 战前面板 → 战斗层的交接（2026-11-24 加练美术焦点C）：两块都是暗场，中间不许闪一帧亮棋盘。
+// 面板收起是瞬时的，战斗层若还走通用 0.18s 淡入，会先露一帧棋盘再压暗（实测交接后 30ms 遮幕 opacity 0）。
+// 这条契约盯的是「两边都写了」：JS 打了 nofade、CSS 没人接（或规则被删）时，闪帧会静默回来。
+{
+  const cssPrep = require('fs').readFileSync(require('path').join(__dirname, '..', 'css', 'style.css'), 'utf8');
+  const jsHandoff = /classList\.toggle\('nofade', fromPrep\)/.test(stripComments(mainSrc))
+    && /prepHandoff = true/.test(stripComments(mainSrc));
+  const cssHandoff = /\.overlay\.battle-scene\.nofade\.show\s*\{[^}]*animation:\s*none/.test(cssPrep);
+  ok(jsHandoff, '战前面板收起时打了交接标记（战斗层据此跳过淡入）');
+  ok(cssHandoff, 'CSS 接了那边的标记：nofade 时遮幕同帧就位（否则又要闪一帧棋盘）');
+}
+
 // ---------- 结算：塔印与余烬（切边界第二刀） ----------
 // 这一屏的每句话都是算术：塔印档位、「下一枚还差什么」、「本局余烬 +N」。
 // 原先是 main.js 里的手写文案 + 手写判据，两边各写一遍就会漂——所以除了逐个档位验，
