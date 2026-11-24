@@ -1213,5 +1213,22 @@ ok(mainSrc.indexOf("searchParams.set('rival'") < 0, 'main.js 不许自己拼链�
     `「承伤 −N%」也必须是真值 ${wantMinus.join(' / ')}%（违规：${badMinus.join(' / ') || '无'}）`);
 }
 
+// 决策审计工具（tools/decision-audit.js）把「集中挡 / 摊平架盾」的账重算了一遍。
+// 它算的是「哪个按钮更划算」，一旦这几个常数跟引擎漂开，读数会静默反过来（正负号一错，
+// 结论就从「架盾更优」变成「架盾恒劣」），而工具本身不会报错。所以钉在引擎源码上。
+{
+  const engSrc = require('fs').readFileSync(require('path').join(__dirname, '..', 'js', 'engine.js'), 'utf8');
+  const auditSrc = require('fs').readFileSync(require('path').join(__dirname, 'decision-audit.js'), 'utf8');
+  const base = Number((/const BLOCK_BASE = ([\d.]+)/.exec(engSrc) || [])[1]);
+  const base2 = Number((/const BLOCK_BASE2 = ([\d.]+)/.exec(engSrc) || [])[1]);
+  const spread = Number((/const BLOCK_SPREAD = ([\d.]+)/.exec(engSrc) || [])[1]);
+  const m = /const BLOCK = ([\d.]+), BLOCK2 = ([\d.]+), SPREAD = ([\d.]+)/.exec(auditSrc);
+  ok(!!m, '读得到 decision-audit 的三个常数（读不到下面两条就是假绿）');
+  ok(!!m && Number(m[1]) === base && Number(m[2]) === base2,
+    `decision-audit 的格挡比例必须与引擎同源（${m ? m[1] + '/' + m[2] : '-'} vs ${base}/${base2}）`);
+  ok(!!m && Number(m[3]) === spread,
+    `decision-audit 的架盾摊平比例必须与引擎同源（${m ? m[3] : '-'} vs ${spread}）`);
+}
+
 console.log(`挑战码 / 触控 / 桥接 / 视图模型单测：${pass} 项通过${bad ? `，${bad} 项失败` : ''}`);
 process.exit(bad ? 1 : 0);
