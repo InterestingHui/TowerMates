@@ -33,7 +33,7 @@ const NAMED = [
   { sel: '.cfg-row', min: { w: 200, h: 38 }, tag: '设置行' },
   { sel: '#pasteCode', min: { w: 180, h: 28 }, tag: '贴码输入' },
   { sel: '#achCount', min: { w: 60, h: 30 }, tag: '成就入口' },
-  { sel: '.bs-block', min: { w: 200, h: 32 }, tag: '战斗打法' },
+  { sel: '.prep-opt', min: { w: 200, h: 30 }, tag: '战前打法' },
 ];
 
 function check(name, ok, extra) {
@@ -221,11 +221,16 @@ function audit(tag, doc, win) {
       s.atk = 40; s.def = 20; s.hp = 800; s.maxHp = 1000;
       s.flags.hasBlock = true; s.flags.rings = ['twice'];
       w.__tm.refreshHud();
-      w.__battleSpeed = 30;
+      // 2026-11-24：打法按钮在战前面板上——那一屏才是要量触控的屏
+      w.__prepAuto = false; w.__battleSpeed = 30;
       w.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'ArrowUp' }));
       await wait(420);
+      audit(c.tag + ' 战前面板', d, w);
+      if (w.__tm.prepPick) w.__tm.prepPick('none');
+      await wait(360);
       audit(c.tag + ' 战斗面板', d, w);
       d.getElementById('battleScene').classList.remove('show');
+      d.getElementById('prepOverlay').classList.remove('show');
       await wait(180);
     } catch (e) { check(c.tag + ' 战斗面板可测', false, e.message); }
 

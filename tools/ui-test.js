@@ -177,7 +177,8 @@ const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-ui-'));
   ok(out.shard && out.shard.richEnabled === true && out.shard.bought === true && out.shard.goldAfter === 40, '钱够可以买下碎片并扣 260（唯一）');
   ok(out.shard && out.shard.ownedDisabled === true && out.shard.emptyHint === true, '买完变「已拥有」置灰；清空层提示回下层找钱');
   ok(out.f3ShopOnPath === false, '通往墨妖的自动寻路不再踩到商店');
-  ok(out.f3UpPath === true, '墨妖倒下后入口到上楼有通路');
+  ok(out.f3UpPath === true, '带红钥匙时入口到上楼有通路（墨妖已倒）');
+  ok(out.f3NoKeyBlocked === true, '没有红钥匙时红门真的挡住上楼（门禁不再是摆设）');
   ok(out.firstWinBonus > 0 && out.firstWinBonus === Math.round(out.asceticEmber / 2), '解锁誓约首通额外 = 解锁成本一半（第二次不再给）');
   ok(out.avgEmber === 20 && out.avgFallback === 18, '余烬估算走近 3 局平均，无记录回退 18');
   ok(out.emberDetail === true, '结局页逐项展示本局余烬来源');
@@ -261,11 +262,13 @@ const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-ui-'));
   // 战斗面板提示行（三把打法互斥）：按下任一把之后，面板上不许再有任何能点的打法，
   // 提示行也不许再说「可点下面的打法」——那是叫人点一块已经点不动的东西
   const bh = out.bsHint || {};
-  ok(bh.panelUp === true, '提示行探针：第 5 层那一战的面板真的开了');
-  ok(bh.threeButtons === true, '三把打法同屏（格挡 / 架盾 / 缠斗，第 5 层起）');
-  ok(bh.liveAfter === 0, `按下一把之后面板上再没有能点的打法（实测 ${bh.liveAfter}）`);
-  ok(/按「格挡」打/.test(bh.after || ''), `按下格挡后提示行改口（实测：${bh.after}）`);
-  ok(!/可点下面的打法/.test(bh.after || ''), '选完不再说「可点下面的打法」');
+  ok(bh.prepUp === true, '战前面板探针：第 5 层那一战先弹战前面板');
+  ok(Array.isArray(bh.picks) && ['block', 'guard', 'tangle'].every((k) => bh.picks.indexOf(k) >= 0),
+    `三把打法同屏可挑（实测 ${JSON.stringify(bh.picks)}）`);
+  ok(bh.panelUp === true, '选完打法后战斗面板真的开了');
+  ok(bh.liveAfter === 0, `战斗里不再留能点的打法按钮（实测 ${bh.liveAfter}）`);
+  ok(/按「格挡」打/.test(bh.after || ''), `战斗提示行回显已选打法（实测：${bh.after}）`);
+  ok(!/可点下面的打法/.test(bh.after || ''), '战斗中不再说「可点下面的打法」');
   // 键盘面（2026-11-16 21:xx）：立誓页可键盘 / 浮层挡走人 / Esc 覆盖 / 输入框隔离
   const kb = out.kbd || {};
   ok(kb.cards >= 4, `立誓页出全量卡（实测 ${kb.cards} 张）`);

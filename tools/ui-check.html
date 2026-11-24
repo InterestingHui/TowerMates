@@ -403,7 +403,7 @@ async function run() {
     // 这里造出「白打必死、挡完能活」的真实一场，走完点击 → 面板 → 结算整条路，再读账本。
     // 判据：dec.f 记 1、dec.b 记 0（自动挡不许混进玩家的格挡率）。
     out.decAuto = {};
-    (function () { w.__battleSpeed = 14; })();     // 演出提速：只压动画，不改数值
+    (function () { w.__prepAuto = 'none'; w.__battleSpeed = 14; })();     // 演出提速：只压动画，不改数值
     d.querySelectorAll('.overlay.show').forEach(function (o) { o.classList.remove('show'); });
     E.newGame();
     var sf = E.state();
@@ -647,10 +647,9 @@ async function run() {
     w.__battleSpeed = 1;
     d.querySelectorAll('.overlay.show').forEach(function (o) { o.classList.remove('show'); });
 
-    // 战斗面板提示行改口（2026-11-15 20:5x）：三把打法互斥，按下任一把之后另外两把只是 disabled、
-    // onclick 仍挂在上面——旧判据于是继续说「可点下面的打法」，而面板上已经一个能点的都没有
-    // （点了没反应，是死按钮的另一种写法）。这里走真实链路：第 5 层那一战 → 按格挡 → 读提示行。
-    // 2026-11-15 21:5x：三把同屏的层从第 4 层后移到第 5 层（缠斗拆到第 5 层才出现），探针跟着下移。
+    // 战前打法面板（2026-11-24）：三把打法挪到开战前，战斗里只回显选择。
+    // 这里走真实链路：第 5 层那一战 → 战前面板 → 按格挡 → 战斗面板的提示行必须回显「打法 · 格挡」，
+    // 而且战斗里不再留任何能点的打法按钮（决策已经做完，留着只会被误读成还能改）。
     out.bsHint = {};
     d.querySelectorAll('.overlay.show').forEach(function (o) { o.classList.remove('show'); });
     E.newGame();
@@ -678,19 +677,28 @@ async function run() {
       w.__tm.refreshHud();
       await new Promise(function (r) { setTimeout(r, 60); });
       w.__tm.clickMove(bp.x, bp.y);
-      var tB = Date.now(), upB = false;
+      var tB = Date.now(), prepUp = false;
       while (Date.now() - tB < 2500) {
+        if (d.getElementById('prepOverlay').classList.contains('show')) { prepUp = true; break; }
+        await new Promise(function (r) { setTimeout(r, 40); });
+      }
+      out.bsHint.prepUp = prepUp;
+      var prepEl = d.getElementById('prepOverlay');
+      var picks = prepEl ? Array.prototype.slice.call(prepEl.querySelectorAll('.prep-opt')).map(function (x) { return x.dataset.pick; }) : [];
+      out.bsHint.picks = picks;
+      var blkOpt = prepEl ? prepEl.querySelector('.prep-opt[data-pick="block"]') : null;
+      out.bsHint.hasBlockOpt = !!blkOpt;
+      if (blkOpt) blkOpt.click();
+      else if (prepEl && prepUp) { var anyOpt = prepEl.querySelector('.prep-opt'); if (anyOpt) anyOpt.click(); }
+      var tC = Date.now(), upB = false;
+      while (Date.now() - tC < 2500) {
         if (d.getElementById('battleScene').classList.contains('show')) { upB = true; break; }
         await new Promise(function (r) { setTimeout(r, 40); });
       }
       out.bsHint.panelUp = upB;
       var hEl = d.getElementById('bsHint');
-      out.bsHint.before = hEl ? hEl.textContent.trim() : '';
-      var blkB = d.getElementById('bsBlock'), gdB = d.getElementById('bsGuard'), tgB = d.getElementById('bsTangle');
-      out.bsHint.threeButtons = !!(blkB && !blkB.hidden) && !!(gdB && !gdB.hidden) && !!(tgB && !tgB.hidden);
-      if (blkB && !blkB.hidden && !blkB.disabled) blkB.click();
-      await new Promise(function (r) { setTimeout(r, 120); });
       out.bsHint.after = hEl ? hEl.textContent.trim() : '';
+      var blkB = d.getElementById('bsBlock'), gdB = d.getElementById('bsGuard'), tgB = d.getElementById('bsTangle');
       out.bsHint.liveAfter = [blkB, gdB, tgB].filter(function (b) { return b && !b.hidden && !b.disabled; }).length;
       d.getElementById('battleScene').dispatchEvent(new MouseEvent('click', { bubbles: true }));
       await new Promise(function (r) { setTimeout(r, 600); });
@@ -835,7 +843,13 @@ async function run() {
       if (E.tile(qx, qy) === 'M') hitShop = true;
     });
     out.f3ShopOnPath = hitShop;
+    // 2026-11-24 门禁修正：第 3 层的黄门不再绕开红门（原来那条「支路」让红钥匙形同虚设）。
+    // 现在上楼的唯一正门是 (9,2) 的红门，所以这里必须带着红钥匙量通路——
+    // 否则量到的是「红门可绕过」这个 bug 本身。
+    s5.keys.r = Math.max(1, s5.keys.r || 0);
     out.f3UpPath = !!E.pathThrough(1, 1);
+    s5.keys.r = 0;
+    out.f3NoKeyBlocked = !E.pathThrough(1, 1);
 
     // 提示系统自检：加粗渲染、角色台词、挂够时间自己收起
     var probe = d.createElement('div');

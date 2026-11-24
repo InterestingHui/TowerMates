@@ -32,7 +32,18 @@ async function waitFor(fn, timeout = 8000, step = 25) {
   }
   return null;
 }
-function load(url) { return new Promise((res) => { f.onload = () => res(); f.src = url; }); }
+// 战前面板：这些用例只关心「战斗能不能打/结算对不对」，默认按「直接开打」跳过选打法；
+// H2 要测格挡记账，会在那一段之前把 __prepAuto 清掉。
+function load(url) {
+  return new Promise((res) => {
+    f.onload = () => {
+      const ww = f.contentWindow;
+      if (ww) ww.__prepAuto = 'none';
+      res();
+    };
+    f.src = url;
+  });
+}
 
 (async () => {
   try {
@@ -310,9 +321,13 @@ function load(url) { return new Promise((res) => { f.onload = () => res(); f.src
       await wait(300);
       const cards0 = d.querySelectorAll('#vowCards .vow-card');
       const chips0 = d.querySelectorAll('#vowLocked .vow-chip');
-      rec('F2 首局立誓只有 1 张确认卡', cards0.length === 1 && cards0[0].dataset.vow === 'none' && chips0.length === 0, `卡 ${cards0.length} / chip ${chips0.length}`);
+      // 2026-11-24 用户要求：首局不再只有一张确认卡，一次摆出全部可选誓约（4 条 + 2 条锁着）
+      rec('F2 首局摆出全部可选誓约', cards0.length === 4 && chips0.length === 2
+        && Array.prototype.some.call(cards0, (c) => c.dataset.vow === 'none'),
+        `卡 ${cards0.length} / chip ${chips0.length}`);
       const em0 = d.getElementById('vowEmber'), en0 = d.getElementById('vowEmberNote');
-      rec('F3 首局不露余烬行', em0.hidden === true && en0.hidden === true, `余额=${em0.hidden} 注释=${en0.hidden}`);
+      // 有锁着的誓约，就得说明 ✦ 是什么（不然 chip 上的「还差 10 ✦」是个没有来路的符号）
+      rec('F3 首局写明余烬行与注释', em0.hidden === false && en0.hidden === false, `余额 hidden=${em0.hidden} 注释 hidden=${en0.hidden}`);
       // 造一份「进过塔」的档 → 塔友榜与四张誓约回来
       const raw0 = JSON.parse(w.localStorage.getItem('towermates_meta') || '{}');
       raw0.memory = Object.assign({}, raw0.memory || {}, { runs: 1 });
@@ -448,19 +463,29 @@ function load(url) { return new Promise((res) => { f.onload = () => res(); f.src
       const reachAfter = w.__tm.funnel().filter((x) => x.ev === 'floor_reach').length;
       rec('H1 进层记 floor_reach（连进两次只记一条）', reachAfter - reachBefore === 1, `增 ${reachAfter - reachBefore} 条（应为 1）`);
 
-      // 打法：第一层 x=4 时 B 在 x=6（同一行隔一格），resolveBattle 直接算目标格、不要求贴脸
+      // 打法：第一层 x=4 时 B 在 x=6（同一行隔一格），resolveBattle 直接算目标格、不要求贴脸。
+      // 2026-11-24：格挡的选择挪到战前面板——先让这一战「值得挡」（承伤 ≥5% 上限），
+      // 否则小架根本不弹面板，测到的是「没得选」而不是「选了要记账」。
+      st.hp = 400; st.maxHp = 400;
+      st.atk = 10; st.def = 10;
+      w.__prepAuto = false;      // 这一段要看到战前面板本身（格挡卡在不在）
+      w.__tm.refreshHud();
       w.__tm.resolveBattle(2, 0);
       await wait(450);
+      const prep2 = d.getElementById('prepOverlay');
+      const prepOn2 = !!prep2 && prep2.classList.contains('show');
+      const blockOpt2 = prep2 && prep2.querySelector('.prep-opt[data-pick="block"]');
+      if (blockOpt2) blockOpt2.click();
+      else if (prepOn2) { const a2 = prep2.querySelector('.prep-opt'); if (a2) a2.click(); }
+      await wait(320);
       const bs2 = d.getElementById('battleScene');
       const panelOn = !!bs2 && bs2.classList.contains('show');
-      const blockBtn = d.getElementById('bsBlock');
-      if (blockBtn && !blockBtn.disabled) blockBtn.click();
-      await wait(250);
-      if (panelOn) { bs2.click(); await waitFor(() => !bs2.classList.contains('show'), 6000); }
+      if (panelOn) { bs2.click(); await waitFor(() => !bs2.classList.contains('show'), 8000); }
       await wait(600);
       const st2 = w.Engine.state();
       const decNow = (st2 && st2.flags && st2.flags.dec) || {};
-      rec('H2 格挡记进打法计数', panelOn && (decNow.b || 0) >= 1, `面板 ${panelOn ? '开' : '没开'} · 计数 ${JSON.stringify(decNow)}`);
+      rec('H2 格挡记进打法计数', prepOn2 && !!blockOpt2 && panelOn && (decNow.b || 0) >= 1,
+        `战前面板 ${prepOn2 ? '开' : '没开'} · 格挡卡 ${blockOpt2 ? '在' : '缺'} · 面板 ${panelOn ? '开' : '没开'} · 计数 ${JSON.stringify(decNow)}`);
 
       // 结算：run_end 要带上整局打法汇总
       st2.over = true; st2.hp = 0;

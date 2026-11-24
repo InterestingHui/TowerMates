@@ -21,6 +21,7 @@ const push = (ok, name, detail) => {
   try {
     await wait(1800);
     const w = f.contentWindow;
+    if (w) w.__prepAuto = 'none';   // 战前面板：探针只走「直接开打」
     const d = f.contentDocument;
     const tm = w.__tm;
     if (!tm || !tm.funnel) throw new Error('页面没跑起来（__tm 缺失）');

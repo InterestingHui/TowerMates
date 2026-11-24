@@ -3,10 +3,15 @@
 // 四个锁匠（墨妖/魔王/钟妖/碑魔）各自独立轮廓——32px 纯黑下必须两两可分。
 // 用法：Portraits.render('烛', 'warm') → HTML 字符串；无立绘的角色返回 ''。
 (function () {
-  const KEY = { 烛: 'candle', 炎魔: 'torch', 魔王: 'mowang', 薇拉: 'vera', 秤: 'scale', 墨妖: 'yan', 钟妖: 'duo', 碑魔: 'heng' };
+  const KEY = { 烛: 'candle', 炎魔: 'torch', 魔王: 'mowang', 薇拉: 'vera', 秤: 'scale', 墨妖: 'yan', 钟妖: 'duo', 碑魔: 'heng', 勇者: 'hero' };
 
   // 每个角色的基准光色 + 情绪偏移
   const COLORS = {
+    // 勇者＝玩家本人：全塔唯一暖光源就在他身上（烛金），与棋盘上的小人同色
+    hero: {
+      base: '#ffd778',
+      warm: '#ffe6a8', sad: '#c9a85f', hard: '#ffcf6a', tired: '#c9b184', firm: '#ffe0a0', calm: '#ffd778',
+    },
     candle: {
       base: '#9fd8ff',
       warm: '#ffd8a0', sad: '#6f9ec8', hard: '#cfd8e8', tired: '#93a6bd', firm: '#bfe4ff', calm: '#9fd8ff',
@@ -47,6 +52,45 @@
   const EDGE = '#1a2230';  // 最亮窄边（≤3px）
 
   const BODY = {
+    // 勇者（玩家本人，2026-11-24 新增）：棋盘小人的半身像。
+    // 与「烛」必须 32px 下两两可分——烛是提灯的佝偻灵体，勇者是持剑的挺拔活人：
+    //   ① 兜帽尖更长、歪向左上（烛的帽尖几乎是圆的）；
+    //   ② 右肩后立着一把剑（唯一贯穿轮廓的斜直线，烛没有锐角）；
+    //   ③ 围巾尾巴被风掀向左（唯一横向飘带），胸口一条斜挎带。
+    // 全塔唯一暖光源：金瞳 + 金色 rim，别处都压冷。
+    hero: `
+      <path class="pt-main" d="M60 44c-21 0-33 15-36 35l-6 61h84l-6-61c-3-20-15-35-36-35z" fill="${INK}"/>
+      <path d="M60 44c-12 0-21 6-27 16 5 10 7 25 8 42l3 38H19l6-61c3-20 15-35 35-35z" fill="${INK2}"/>
+      <path d="M84 56c9 8 13 22 14 38l4 46h-9l-4-45c-1-15-4-29-11-38z" fill="${LIT}"/>
+      <!-- 兜帽：尖顶长而歪（非对称锚点） -->
+      <path class="pt-main" d="M60 15c-16 0-26 12-26 27 0 11 6 19 14 23l6 3 6-3c9-4 15-13 15-24 0-14-7-26-15-26z" fill="${INK}"/>
+      <path d="M60 15c-7 0-13 4-17 10 1-9 8-15 17-15 8 0 14 6 15 14-4-6-9-9-15-9z" fill="#03050a"/>
+      <path d="M46 22c-3-6-6-11-9-15 5 1 9 4 12 8 2 3 3 6 3 9z" fill="${INK}" stroke="currentColor" stroke-opacity=".22" stroke-width=".8"/>
+      <!-- 脸洞 + 金瞳（焦点层，全图唯一亮色） -->
+      <ellipse cx="60" cy="45" rx="12.6" ry="14.2" fill="#03050a"/>
+      <path d="M48 40c2-7 6-11 12-11s10 4 12 11c-4-4-8-6-12-6s-8 2-12 6z" fill="${INK2}" opacity=".9"/>
+      <ellipse cx="54.4" cy="45" rx="2.4" ry="2.7" fill="currentColor" opacity=".95"/>
+      <ellipse cx="65.6" cy="45" rx="2.4" ry="2.7" fill="currentColor" opacity=".95"/>
+      <circle cx="55.1" cy="44.1" r=".9" fill="#fff" opacity=".9"/>
+      <circle cx="66.3" cy="44.1" r=".9" fill="#fff" opacity=".9"/>
+      <!-- 围巾：从左肩绕出，尾巴被风掀向左侧 -->
+      <path d="M44 60c-6 1-10 4-13 8l-9-2 7 8c-3 3-4 6-4 9l6 2c1-6 5-10 11-12z" fill="${INK}"/>
+      <path d="M44 60c-4 1-7 3-9 6 4-2 8-3 12-3z" fill="${LIT}" opacity=".7"/>
+      <!-- 胸口斜挎带（从右肩到左腰，把躯干分成两块） -->
+      <path d="M74 58l-7 3-26 44 4 5 27-45z" fill="#03050a" opacity=".9"/>
+      <path d="M73 60l3 2-26 44-3-2z" fill="currentColor" opacity=".18"/>
+      <!-- 右肩后的剑：唯一贯穿轮廓的斜直线（剑尖出肩、柄在腰侧） -->
+      <path d="M83 30l5 2-27 92-5-2z" fill="${INK}"/>
+      <path d="M86 32l2 1-26 90-2-1z" fill="currentColor" opacity=".3"/>
+      <path d="M74 52l14 4" stroke="${INK}" stroke-width="4.4" stroke-linecap="round"/>
+      <path d="M75 52l11 3" stroke="currentColor" stroke-opacity=".35" stroke-width="1" stroke-linecap="round"/>
+      <circle cx="88" cy="34" r="2.6" fill="none" stroke="${INK}" stroke-width="2"/>
+      <!-- 腰带 -->
+      <path d="M26 112l68-3 .3 5-68 3z" fill="#03050a" opacity=".85"/>
+      <path d="M58 110l6-.3-.3 5-6 .3z" fill="currentColor" opacity=".5"/>
+      <!-- 左袖/手臂（垂在体侧，留负空间） -->
+      <path d="M31 74c-5 9-8 22-8 36l2 24 8-1-2-24c0-13 2-25 6-33z" fill="${INK2}"/>
+      <path d="M31 74c-4 8-6 18-6 28" fill="none" stroke="currentColor" stroke-opacity=".22" stroke-width="1.2"/>`,
     // 烛：兜帽、佝偻、提灯（唯一横向突出物）
     candle: `
       <path class="pt-main" d="M60 46c-17 0-27 14-30 32l-7 72h74l-7-72c-3-18-13-32-30-32z" fill="${INK}"/>

@@ -105,6 +105,67 @@ D.floors.forEach((f, fi) => {
   if (choke.length) err(`第 ${fi + 1} 层：会弹遮罩的格子焊死在唯一通路上 ${choke.join(' ')}`);
 });
 
+// ---------- 门禁有效性：每一扇门都得真的挡在「主路」或「值得拿的东西」前面 ----------
+// 2026-11-24 用户报障「第 2 层黄钥匙门可以绕过去」：黄门开在中央死胡同口上，
+// 绕左侧走廊照样上楼梯，门后的金/盾从另一头也进得去——一把钥匙换了个空气。
+// 判据（与 tools/gate-audit.js 同源）：把这扇门当成墙，
+//   ① 入口仍能走到上楼 → 它不在主路上；② 这时门后必须还有「非门自身」的收益格，
+// 否则这扇门后面什么都没有。两条件都不满足 = 无效门禁。
+const DOOR_DEF = { y: '黄门', r: '红门' };
+const REWARD_TILES = new Set(['p', 'P', 's', 'd', 'm', 'a', 'b', 'c', 'h', 'k', 'L', '$', 'O', 'S', 'X', 'K', 'Q', 'j', 'v', 'o', '!', '?', 'M', 'T', 'J']);
+const doorCount = { y: 0, r: 0 };
+const keyCount = { y: 0, r: 0 };
+D.floors.forEach((f, fi) => {
+  const entryCh = fi === 0 ? '@' : 'n';
+  let entry = null; let up = null;
+  f.map.forEach((row, y) => {
+    const a = row.indexOf(entryCh); const b = row.indexOf('u');
+    if (a >= 0) entry = [a, y];
+    if (b >= 0) up = [b, y];
+  });
+  f.map.forEach((row) => { for (const ch of row) { if (ch === 'k') keyCount.y++; if (ch === 'L') keyCount.r++; } });
+  if (!entry) return;
+  f.map.forEach((row, y) => {
+    for (let x = 0; x < SIZE; x++) {
+      if (!DOOR_DEF[row[x]]) continue;
+      doorCount[row[x]]++;
+      const seen = Array.from({ length: SIZE }, () => new Array(SIZE).fill(false));
+      const q = [entry];
+      seen[entry[1]][entry[0]] = true;
+      while (q.length) {
+        const [cx, cy] = q.shift();
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const nx = cx + dx; const ny = cy + dy;
+          if (nx < 0 || ny < 0 || nx >= SIZE || ny >= SIZE) continue;
+          if (seen[ny][nx]) continue;
+          if (f.map[ny][nx] === '#') continue;
+          if (nx === x && ny === y) continue;   // 这扇门当墙
+          seen[ny][nx] = true;
+          q.push([nx, ny]);
+        }
+      }
+      const upOk = up ? !!seen[up[1]][up[0]] : true;
+      let loot = 0; let behind = 0;
+      f.map.forEach((row2, yy) => {
+        for (let xx = 0; xx < SIZE; xx++) {
+          if (xx === x && yy === y) continue;
+          if (seen[yy][xx]) continue;
+          if (row2[xx] === '#') continue;
+          behind++;
+          if (REWARD_TILES.has(row2[xx])) loot++;
+        }
+      });
+      if (upOk && loot === 0) {
+        err(`第 ${fi + 1} 层 ${DOOR_DEF[row[x]]}(${x},${y}) 可绕过，且门后 ${behind} 格没有任何收益——这把钥匙白花`);
+      }
+    }
+  });
+});
+// 钥匙账：累计到第 N 层时，该色钥匙数不得少于门数（否则整条线是死锁）
+['y', 'r'].forEach((c) => {
+  if (doorCount[c] > keyCount[c]) err(`${DOOR_DEF[c]} ${doorCount[c]} 扇，地图上却只有 ${keyCount[c]} 把对应钥匙`);
+});
+
 // 章节结构：四章、每章三层、章末一位 Boss，Boss 必须站在该章最后一层
 if (D.chapters.length !== 4) err(`章节数应为 4，实际 ${D.chapters.length}`);
 D.chapters.forEach((ch) => {

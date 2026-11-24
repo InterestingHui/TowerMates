@@ -759,6 +759,20 @@ html, body {
   .sc-zoom, .sc-flick, .sc-fog, .sc-fog2, .sc-sway, .sc-pulse, .sc-tw { animation: none; }
 }
 
+/* ================= 对白背景（序章之后 · js/backdrops.js） ================= */
+/* 与序章同一套动画语言：镜头缓推、火苗呼吸、雾对漂。类名前缀 bd- 以示分开，
+   scenes.js 里两套共用同一个 .dlg-scene 容器。 */
+.bd-zoom { transform-origin: 52% 40%; animation: sceneZoom 72s linear both; }
+.bd-flick { transform-origin: 50% 100%; animation: flick 2.6s ease-in-out infinite; }
+.bd-fog { animation: fogA 30s ease-in-out infinite alternate; }
+.bd-fog2 { animation: fogB 38s ease-in-out infinite alternate; }
+.bd-tw { animation: twk 5s ease-in-out infinite; }
+.bd-turn { transform-origin: 215px 470px; animation: turn 90s linear infinite; }
+@keyframes turn { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .bd-zoom, .bd-flick, .bd-fog, .bd-fog2, .bd-tw, .bd-turn { animation: none; }
+}
+
 /* 立绘 */
 .pt { position: relative; width: 100%; aspect-ratio: 4 / 5; }
 .pt-aura {
@@ -1009,6 +1023,84 @@ html, body {
 .code-input::placeholder { color: var(--muted); }
 .bd-row.rival .bd-name { color: #9fd8ff; }
 .bd-row.rival { background: rgba(159, 216, 255, 0.06); }
+
+/* ================= 战前 · 打法选择 ================= */
+/* 为什么单独一屏：战斗只演 5 刀（快速模式不到 2 秒），把「要不要格挡」放在战斗里点，
+   等于要求玩家在动画里抢按钮——2026-11-24 用户报障的原话是「来不及操作」。
+   所以决策前移到开战前，一屏摆完三把打法的账（省多少血 / 花掉哪份额度），选完再开打。 */
+.overlay.prep { background: rgba(3, 5, 9, 0.86); padding: 16px; }
+.prep-panel {
+  position: relative;
+  width: 100%;
+  max-width: 356px;
+  background: linear-gradient(180deg, rgba(23, 29, 42, 0.97), rgba(10, 13, 20, 0.98));
+  border: 1px solid var(--line-regular);
+  border-radius: 18px;
+  padding: 13px 16px 12px;
+  box-shadow: 0 26px 64px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  animation: popIn var(--pop-in) ease-out;
+  /* 极矮横屏（844×320 这类）必须整块落在视口里：面板允许内部滚动，
+     但优先靠收掉副标题与提示行把高度压下来（闸门量的是「每个按钮完整可点」）。 */
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
+}
+@media (max-height: 430px) {
+  .prep-panel { padding: 9px 12px 7px; }
+  .prep-foe { margin: 6px 0 7px; }
+  .prep-opts { gap: 5px; }
+  .prep-opt { padding: 7px 9px; }
+  .prep-opt .po-main i { display: none; }
+  .prep-hint { display: none; }
+}
+.prep-head { display: flex; justify-content: space-between; align-items: baseline; }
+.prep-kicker { font-size: var(--fs-tag); letter-spacing: 3px; color: var(--gold); }
+.prep-rounds { font-size: var(--fs-tag); color: var(--muted); }
+.prep-foe { display: flex; align-items: center; gap: 10px; margin: 10px 0 11px; }
+.prep-icon {
+  width: 56px; height: 56px; flex: none;
+  border-radius: 10px;
+  background: radial-gradient(120% 110% at 50% 30%, rgba(255, 255, 255, 0.06), rgba(0, 0, 0, 0.34));
+  border: 1px solid var(--line-subtle);
+}
+.prep-foe-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.prep-foe-main b { font-size: var(--fs-sub); color: #eef1f7; letter-spacing: 1px; }
+.prep-foe-main i { font-style: normal; font-size: var(--fs-tag); color: var(--muted); }
+.prep-opts { display: flex; flex-direction: column; gap: 7px; }
+.prep-opt {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 9px 11px;
+  text-align: left;
+  font-family: inherit;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.028);
+  border: 1px solid var(--line-regular);
+  border-radius: 11px;
+  cursor: pointer;
+  transition: border-color 0.14s, background 0.14s, transform 0.12s;
+}
+.prep-opt:hover { border-color: rgba(232, 196, 106, 0.55); background: rgba(232, 196, 106, 0.06); }
+.prep-opt:active { transform: scale(0.985); }
+/* 第一张「直接开打」永远排在最上：不想算账的人一击即走 */
+.prep-opt:first-child { border-color: rgba(232, 196, 106, 0.34); }
+.prep-opt .po-ico { width: 20px; height: 20px; color: var(--gold); opacity: .92; display: flex; align-items: center; justify-content: center; }
+.prep-opt .po-ico svg { width: 20px; height: 20px; display: block; }
+.prep-opt.safe .po-ico { color: #cfe3ff; opacity: .8; }
+.prep-opt .po-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.prep-opt .po-main b { font-size: var(--fs-aux); font-weight: 600; letter-spacing: 0.4px; }
+.prep-opt .po-main i { font-style: normal; font-size: var(--fs-tag); color: var(--muted); line-height: 1.4; }
+.prep-opt .po-dmg { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }
+.prep-opt .po-dmg b { font-size: var(--fs-aux); font-variant-numeric: tabular-nums; color: #ff9b9b; letter-spacing: 0.5px; }
+.prep-opt .po-dmg small { font-size: var(--fs-tag); color: var(--dim); }
+.prep-opt.safe .po-dmg b { color: #9fd8ff; }
+.prep-opt.dead .po-dmg b { color: #ff5a4a; }
+.prep-opt.dead .po-dmg small { color: #ff8f8f; }
+.prep-opt .po-dmg small.warn { color: #ff8f8f; }
+.prep-hint { margin-top: 10px; text-align: center; font-size: var(--fs-tag); color: var(--muted); letter-spacing: 0.6px; }
+.prep-hint b { color: var(--gold); font-weight: 600; }
 
 /* ================= 战斗演出 ================= */
 .overlay.battle-scene { background: rgba(3, 5, 9, 0.84); padding: 0; overflow: hidden; }
@@ -2154,6 +2246,39 @@ body.at-start #bottom { visibility: hidden; }
 .vow-card.hero { border-color: rgba(232, 196, 106, 0.45); }
 .vow-card.hero .vc-name { color: #ffe6a8; }
 .vow-hint { margin-top: 13px; font-size: var(--fs-tag); color: var(--muted); letter-spacing: 1px; }
+
+/* 誓约主色（data.js vows[].accent）：卡片顶一条 3px 的主色，徽记/卡名跟着染——
+   六条誓约在缩略档也能一眼分开，不必逐张读描述。--vy 由 JS 写在卡上。 */
+.vow-card { border-top: 3px solid var(--vy-soft, rgba(232, 196, 106, 0.7)); }
+.vow-card .vc-name { color: var(--vy, var(--gold)); }
+.vow-card.hero .vc-name { color: #ffe6a8; }
+.vow-card:hover { border-color: var(--vy, rgba(232,196,106,0.62)); }
+
+/* 「誓约已立」回执条：开局第一秒的确认，不是弹窗——3.4 秒后自己走 */
+.vow-flash {
+  position: fixed;
+  left: 50%;
+  top: 8px;
+  z-index: 68;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  max-width: min(92vw, 400px);
+  padding: 9px 14px 9px 11px;
+  border-radius: 12px;
+  border: 1px solid var(--vy-soft, rgba(232, 196, 106, 0.46));
+  background: linear-gradient(180deg, rgba(14, 16, 22, 0.97), rgba(8, 10, 15, 0.94));
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(0, 0, 0, 0.3);
+  transform: translate(-50%, -14px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.32s ease, transform 0.4s cubic-bezier(0.2, 0.9, 0.25, 1);
+}
+.vow-flash.show { opacity: 1; transform: translate(-50%, 0); }
+.vow-flash .vow-glyph { flex: none; }
+.vow-flash .vf-body { display: flex; flex-direction: column; gap: 1px; min-width: 0; text-align: left; }
+.vow-flash .vf-body b { font-size: var(--fs-tag); letter-spacing: 1.4px; color: var(--vy, var(--gold)); font-weight: 700; }
+.vow-flash .vf-body i { font-style: normal; font-size: var(--fs-tag); line-height: 1.45; color: var(--muted); }
 /* 锁着的誓约：不占卡片，收成一排小 chips——首屏只留能选的那几张 */
 .vow-locked { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 10px; }
 .vow-chip {

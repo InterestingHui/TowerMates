@@ -79,6 +79,7 @@ const FAKE = `
     // 载入游戏（`#demo` 需要一个在跑的局：塔心石分支要 Engine.state() 非空）
     await new Promise((res) => { f.onload = () => res(); f.src = '/index.html?dev=1#demo=0,2,5'; });
     const w = f.contentWindow;
+    if (w) w.__prepAuto = 'none';   // 战前面板：探针只走「直接开打」
     await waitFor(() => w.__tm && w.__tm.sound && w.Engine && w.Engine.state());
     await wait(400);
     rec('A2 __tm.sound 已暴露', !!(w.__tm && w.__tm.sound && typeof w.__tm.sound.names === 'function'),
@@ -185,11 +186,11 @@ const FAKE = `
         '调用：' + (played.join(' ') || '无') + ' · 振荡器 ' + fw.__sfxProbe.osc);
     }
 
-    // 三种打法的按钮必须点 choose，不许再借「升级」那个和弦（它是全游戏唯一的成长反馈）。
-    // 走源码计数：三个按钮各一处 + 复制成功一处（2026-11-17 焦点A 补：复制这条路原本一声不响），
-    // 改回 level 或复制掉声音都会立刻掉到 0~3
+    // 打法确认必须点 choose，不许再借「升级」那个和弦（它是全游戏唯一的成长反馈）。
+    // 2026-11-24：三种打法的按钮合并成战前面板上的一次选择（一个调用点覆盖三把），
+    // 加上复制成功一处，共 3 处。改回 level 或复制掉声音都会立刻掉到 0~2。
     const chooseSites = (src.match(/Sound\.play\('choose'\)/g) || []).length;
-    rec('F4 三种打法 + 复制成功都点 choose（4 处）', chooseSites === 4, 'choose 调用点 ' + chooseSites + ' 处');
+    rec('F4 战前选打法 + 复制成功都点 choose（3 处）', chooseSites === 3, 'choose 调用点 ' + chooseSites + ' 处');
 
     rec('G 汇总', R.every((r) => r.ok), R.filter((r) => !r.ok).length + ' 项未过 / 共 ' + R.length);
   } catch (e) {

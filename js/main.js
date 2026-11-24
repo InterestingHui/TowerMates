@@ -703,7 +703,7 @@
     boardOverlay: $('boardOverlay'), codexOverlay: $('codexOverlay'),
     cfgOverlay: $('cfgOverlay'), choiceOverlay: $('choiceOverlay'),
     heartOverlay: $('heartOverlay'), heartTake: $('heartTake'), heartLeave: $('heartLeave'),
-    vowOverlay: $('vowOverlay'), vowCards: $('vowCards'), vowTag: $('vowTag'),
+    vowOverlay: $('vowOverlay'), vowCards: $('vowCards'), vowTag: $('vowTag'), vowFlash: $('vowFlash'),
     eventOverlay: $('eventOverlay'), evEmoji: $('evEmoji'), evName: $('evName'), evText: $('evText'), evOpts: $('evOpts'),
     gateOverlay: $('gateOverlay'), gateList: $('gateList'),
     tabOverlay: $('tabOverlay'), tabKicker: $('tabKicker'), tabBody: $('tabBody'), tabMain: $('tabMain'), tabAlt: $('tabAlt'),
@@ -711,6 +711,7 @@
     hitFlash: $('hitFlash'), relicFlash: $('relicFlash'), topbar: $('topbar'), hpGhost: $('hpGhost'), endScore: $('endScore'),
     toast: $('toast'), warnPill: $('warnPill'),
     battleScene: $('battleScene'),
+    prepOverlay: $('prepOverlay'), prepOpts: $('prepOpts'), prepFoe: $('prepFoe'),
     bsHero: $('bsHero'), bsFoe: $('bsFoe'),
     bsHeroBar: $('bsHeroBar'), bsFoeBar: $('bsFoeBar'),
     bsHeroHp: $('bsHeroHp'), bsFoeHp: $('bsFoeHp'),
@@ -1393,8 +1394,10 @@
     const vars = { need, atk: s.atk, gap, dmg: pred.damage || 0, hp: s.hp,
       defNow: s.def, defGap: defNeed ? defNeed.to - defNeed.from : 0, per: pred.per || 0, rounds: pred.rounds || 0 };
     const key = defBreak ? 'stuckDef' : 'stuckHp';
-    // 还没学格挡时，把「学格挡」作为第三个解法一起给出——尤其血量型卡关
-    const blockTip = !s.flags.hasBlock && !Engine.vowForbidsBlock() && s.floor <= 4;
+    // 还没学格挡时，把「学格挡」作为第三个解法一起给出——尤其血量型卡关。
+    // 2026-11-24：第一层不再提格挡（用户要求）——那时玩家连盾谱都没见过，
+    // 说「学了能省三成血」只是让他去记一个当层用不上的词。从第 2 层起才提。
+    const blockTip = !s.flags.hasBlock && !Engine.vowForbidsBlock() && s.floor >= 1 && s.floor <= 4;
     // 卡关条也要有说话人：无主语的「卡在墨妖这儿？」会被读成怪自己开口（2026-11-20 用户反馈）。
     // 诊断数字归秤（他是管账的），与点开后的 stuckDef/stuckHp 对白同一口径。
     renderRich(el.stuckText, defBreak
@@ -1439,12 +1442,14 @@
     $('hpText').textContent = `${Math.max(0, Math.round(s.hp))}/${Math.round(maxHp)}`;
     wrap.classList.toggle('low', pct <= 25);
     el.floorName.textContent = `第 ${s.floor + 1} 层 · ${D.floors[s.floor].name}`;
-    // 主角卡：立绘只换情绪，切层/掉血才重算 SVG；情绪同时给一句人话状态
+    // 主角卡：立绘只换情绪，切层/掉血才重算 SVG；情绪同时给一句人话状态。
+    // 2026-11-24 用户报障：这里原来画的是「烛」——玩家一进塔就变成了守塔人。
+    // 玩家是勇者（第九位），顶栏立绘必须是他自己：勇者专属剪影，金瞳 + 斜挎剑。
     const heroMoodNow = pct <= 30 ? 'sad' : pct <= 60 ? 'tired' : floorBossAlive(s) ? 'firm' : 'calm';
     if (heroMoodNow !== heroMood) {
       heroMood = heroMoodNow;
       const hp = $('heroPortrait');
-      if (hp && window.Portraits) hp.innerHTML = Portraits.render('烛', heroMoodNow);
+      if (hp && window.Portraits) hp.innerHTML = Portraits.render('勇者', heroMoodNow);
     }
     const hs = $('heroState');
     if (hs) {
@@ -1659,7 +1664,14 @@
           if (prevCb) prevCb();
         }
       : null;
-    typing = { lines, idx: 0, cb: chainedCb, cue: cue || '', variant: variant || null, key: Array.isArray(key) ? null : key };
+    // floor 一并带进 typing：对白背景由它挑（js/backdrops.js）。数组脚本（提示对白）没有 key，
+    // 但仍然要有「这一层的背景」——所以 floor 不跟着 key 一起置空。
+    const stNow = window.Engine && Engine.state ? Engine.state() : null;
+    typing = {
+      lines, idx: 0, cb: chainedCb, cue: cue || '', variant: variant || null,
+      key: Array.isArray(key) ? null : key,
+      floor: stNow ? stNow.floor : null,
+    };
     el.dialogOverlay.classList.add('show');
     if (window.Scenes) Scenes.sync(typing);
     renderLine();
@@ -2096,153 +2108,33 @@
       }
     }
 
-    // 格挡：每层一次，按下后整场承伤 ×0.6（引擎按同样比例结算，数字对得上）
-    let blockScale = 1;
-    let blockOn = false;
-    const canB = Engine.canBlock();
-    const blockLeftN = Engine.blockLeft();
-    const blockLimitN = Engine.blockLimit();
-    // 格挡比例由引擎给出（断刃之环会把它从 0.6 改成 0.5），演出与结算不会各算各的
-    const scaleWhenBlocked = info.dmgBlock && info.dmgBase.damage > 0
+    // 打法（2026-11-24 用户报障）：原来格挡/架盾/缠斗是在战斗面板里点的，
+    // 而一场战斗只演 5 刀、快速模式下不到两秒——玩家看见按钮时仗已经打完了。
+    // 现在这三把打法的选择挪到开战前的「战前」面板（openPrep），
+    // 这里只负责把玩家已经选好的打法变成演出与结算口径：
+    //   tactic.block = false | true（挡这一场）| 'all'（架盾盖整层）；tactic.tangle = 缠斗。
+    const tactic = info.tactic || {};
+    // 格挡比例由引擎给出（断刃之环会把它从 0.55 改成 0.45），演出与结算不会各算各的
+    const scaleWhenBlocked = info.dmgBlock && info.dmgBase && info.dmgBase.damage > 0
       ? Math.max(0.05, info.dmgBlock.damage / info.dmgBase.damage)
       : Engine.ringBlockScale();
-    // 小架不值得给选项：伤害不到 5% 上限的杂兵战不显示格挡，免得每次都弹
-    // 没学会格挡时也整个不显示——它不再是开局白送的能力
-    const worth = s.flags.hasBlock && (m.boss || pred.damage >= heroMax * 0.05);
-    // 挡完还剩多少血：整场战斗只有一个主动决策，这个数不写出来，玩家就得自己乘百分比。
-    // 承伤取引擎真值（含誓约/锁环乘区），与结算一字不差；判死与取整在 View.blockModel 里。
-    const blockDamage = info.dmgBlock && typeof info.dmgBlock.damage === 'number' ? info.dmgBlock.damage : null;
-    el.bsBlock.hidden = !worth;
-    el.bsBlock.classList.remove('done');
-    el.bsBlock.disabled = !canB;
-    // 额度 / 比例 / 挡后剩多少血：三句算术都在 View.blockModel（挡了照样倒下时不再沉默）
-    el.bsBlock.innerHTML = View.blockModel({
-      limit: blockLimitN, left: blockLeftN, scale: scaleWhenBlocked, hp: heroHp, damage: blockDamage,
-    }).html;
-    if (worth && Tips.mark('block')) Tips.banner('block');
-    el.bsBlock.onclick = (e) => {
-      e.stopPropagation();
-      if (!canB || blockOn) return;
-      blockOn = true;
-      blockScale = scaleWhenBlocked;
-      el.bsBlock.classList.add('done');
-      el.bsBlock.disabled = true;
-      if (el.bsTangle) el.bsTangle.disabled = true;   // 与缠斗二选一
-      if (el.bsGuard) el.bsGuard.disabled = true; // 与架盾二选一（同一份额度）
-      syncHint();
-      Sound.play('choose');
-      vibrate([12, 20, 8]);
-      warn(`**格挡**：这一战的承伤降到 **${Math.round(blockScale * 100)}%**`);
-    };
-
-    // 架盾（格挡的第二种用法，第 4 层起）：把这一层的盾一次性架开——
-    // 本层此后每一场承伤 ×0.85，只有一次机会。与「挡这一场」构成集中／摊平的取舍：
-    // 单只特别贵就集中挡，本层还有一堆中等怪要清就摊平。谁更值取决于「我到底会不会打完这层」，
-    // 这个只有玩家自己知道——面板只给账（余几场、每场省多少），不给结论。
-    let guardOn = false;
+    const tangle = info.dmgTangle || null;
+    const blockOn = !!tactic.block && tactic.block !== 'all';
+    const guardOn = tactic.block === 'all';
+    const tangleOn = !!tactic.tangle && !blockOn && !guardOn;
     const spreadActive = Engine.blockSpreadActive();
     const guardDmg = info.dmgGuard || null;
-    const spreadPct = Math.round((1 - Engine.blockSpreadScale()) * 100);
-    // 第 4 层起才出现：第 1 层那几场战斗面板只摆一个按钮，别在 63 秒那一战就教三种打法
-    const guardWorth = s.floor >= 3 && worth && !spreadActive && !!guardDmg && Engine.canGuard();
-    if (el.bsGuard) {
-      el.bsGuard.classList.remove('done');
-      el.bsGuard.disabled = false;
-      el.bsGuard.onclick = null;
-      // 三种形态（已架开 / 可点 / 不出现）与「此后 N 场」的减法都在 View.guardModel
-      const gM = View.guardModel({
-        spreadActive,
-        spreadScale: Engine.blockSpreadScale(),
-        offer: guardWorth,
-        count: guardWorth ? Engine.floorMonsterCount() : 0,
-        heroHp,
-        guardDamage: guardDmg ? guardDmg.damage : 0,
-        blockScale: scaleWhenBlocked,
-      });
-      if (gM.mode === 'offer') {
-        el.bsGuard.hidden = false;
-        el.bsGuard.innerHTML = gM.html;
-        el.bsGuard.title = gM.title;
-        el.bsGuard.onclick = (e) => {
-          e.stopPropagation();
-          if (guardOn) return;
-          guardOn = true;
-          el.bsGuard.classList.add('done');
-          el.bsGuard.disabled = true;
-          el.bsBlock.disabled = true;   // 同一份额度，二选一
-          if (el.bsTangle) el.bsTangle.disabled = true;
-          syncHint();
-          Sound.play('choose');
-          vibrate([12, 20, 8]);
-          warn(`**架盾**：这一层余下每场承伤降到 **${100 - spreadPct}%**`);
-        };
-      } else if (gM.mode === 'active') {
-        // 盾已经架开：这块变成一条状态，说明「这一层每场都在减」，不再可点
-        el.bsGuard.hidden = false;
-        el.bsGuard.disabled = true;
-        el.bsGuard.classList.add('done');
-        el.bsGuard.innerHTML = gM.html;
-      } else {
-        el.bsGuard.hidden = true;
-      }
-    }
-
-    // 缠斗（第 5 层起）：不急着收招，一个回合来回多磨一轮——多挨一轮，这一战经验翻倍。
-    // 它是本作战斗里的第三把打法：格挡是「用额度省血」，架盾是「摊平盖整层」，
-    // 缠斗是「用血换成长」——血是本作最硬的资源，所以它是个真取舍而不是快捷键。
-    // 2026-11-15 21:5x：从「第 4 层」后移到「第 5 层」——第 4 层已经要教架盾（同为「省血」），
-    // 两把都是省血、同一屏摆出来玩家分不清差别；拉开一层，每层只多一个决定。
-    // 数字全部取引擎同源（Engine.tangleInfo），面板与实际结算不会各算各的。
-    // 引擎已经把三种「不给」的情况滤掉了（缠完会死 / 这怪打不疼你 / 没经验可翻），
-    // 面板只负责摆。
-    let tangleOn = false;
-    const tangle = info.dmgTangle || null;
-    const tangleWorth = !!tangle;
-    if (el.bsTangle) {
-      el.bsTangle.hidden = !tangleWorth;
-      el.bsTangle.classList.remove('done');
-      el.bsTangle.disabled = false;
-      if (tangleWorth) {
-        // 「多挨一轮 +N 血 · 经验 ×M」与缠完剩多少血都在 View.tangleModel
-        const tM = View.tangleModel({
-          extra: tangle.extra, mult: tangle.mult, exp: tangle.exp, expGain: tangle.expGain,
-          damage: tangle.damage, heroHp,
-        });
-        el.bsTangle.innerHTML = tM.html;
-        el.bsTangle.title = tM.title;
-      }
-      el.bsTangle.onclick = (e) => {
-        e.stopPropagation();
-        if (!tangleWorth || tangleOn) return;
-        tangleOn = true;
-        el.bsTangle.classList.add('done');
-        el.bsTangle.disabled = true;
-        el.bsBlock.disabled = true;   // 与格挡二选一（挡下整场就无从「多磨一轮」）
-        if (el.bsGuard) el.bsGuard.disabled = true;
-        syncHint();
-        Sound.play('choose');
-        vibrate([12, 20, 8]);
-        warn(`**缠斗**：这一战多挨 ${tangle.extra} 血（拖长一回合），换来经验 ${tangle.exp} → ${tangle.expGain}；这一场不再格挡`);
-      };
-    }
-
-    // 提示行随状态改口：面板上有打法可选时，它不该再写「自动战斗中」——
-    // 那句话说出去等于「你可以不用管这一屏」，而这一屏恰恰在等你决定用哪种打法；
-    // 而「点击跳过」和「点按钮选打法」挤在同一块面板里，也容易读成「点哪个都是跳过」。
-    // 架盾已架开时那一格是不可点的状态条（onclick 为 null），不算可选打法。
-    // 2026-11-15 20:5x：判据从「onclick 有没有挂上」改成「看得见 且 没被禁用」——三把打法互斥，
-    // 按下任一把之后另外两把只是 disabled、onclick 仍在，旧判据于是继续说「可点下面的打法」，
-    // 而面板上已经一个能点的都没有（点了没反应）；选完还必须说清选的是哪一把。
-    function syncHint() {
-      if (!el.bsHint) return;
-      const live = (b) => !!b && !b.hidden && !b.disabled;
-      const pickable = live(el.bsBlock) || live(el.bsGuard) || live(el.bsTangle);
-      const picked = guardOn ? '架盾' : blockOn ? '格挡' : tangleOn ? '缠斗' : '';
-      el.bsHint.textContent = pickable
-        ? View.HINT_PICK
-        : picked ? View.hintPicked(picked) : View.HINT_AUTO;
-    }
-    syncHint();
+    // 三块按钮在开战后一律收起：决策已经做完，留着只会被误读成「还能改」
+    [el.bsBlock, el.bsGuard, el.bsTangle].forEach((b) => {
+      if (!b) return;
+      b.hidden = true;
+      b.disabled = true;
+      b.onclick = null;
+    });
+    // 提示行回显这一场按哪种打法结算（玩家在战前点的那一张）；文案走 View.hintPicked，
+    // 与「选完必须说清选的是哪一把」这条契约同源。
+    const pickedLabel = guardOn ? '架盾' : blockOn ? '格挡' : tangleOn ? '缠斗' : '';
+    if (el.bsHint) el.bsHint.textContent = pickedLabel ? View.hintPicked(pickedLabel) : View.HINT_AUTO;
 
     // 这一战最终掉多少血：格挡／架盾优先（引擎里挡下整场就不存在缠斗），
     // 其次缠斗，最后是白打——取值一律走这里，与 Engine.fight 的优先级同序
@@ -2762,6 +2654,82 @@
     openEcho({ chapter: ch, title: meta.title, pending: true });
   }
 
+  // ---------- 战前：打法选择 ----------
+  // 三把打法都是「花一份额度，换这一场（或这一层）少掉血」。账要在开打前算清楚：
+  // 每张卡写「这一场掉多少血 / 打完还剩多少 / 花掉什么额度」，不写结论。
+  // 数值一律取引擎同源（fightDamage / tangleInfo），面板与结算不会各算各的。
+  function prepOptions(ctx) {
+    const { m, pred, dmgBase, dmgBlock, dmgGuard, dmgTangle, s, heroMax } = ctx;
+    const base = dmgBase && typeof dmgBase.damage === 'number' ? dmgBase.damage : (pred.damage || 0);
+    // 卡面文案与算术全在 View.prepOptions（与战斗面板同一组模型：blockModel / guardModel / tangleModel）。
+    // 这里只负责把引擎读数翻译成模型的入参——面板怎么摆、结算怎么算，两处不会各说各话。
+    return View.prepOptions({
+      base,
+      hp: s.hp,
+      floor: s.floor,
+      hasBlock: !!s.flags.hasBlock,
+      // 小架不给选项：伤害不到 5% 上限的杂兵战弹一整屏只会变成噪音（沿用旧口径）
+      nonTrivial: m.boss || base >= heroMax * 0.05,
+      block: dmgBlock ? {
+        left: Engine.blockLeft(), limit: Engine.blockLimit(),
+        scale: Math.max(0.05, dmgBlock.damage / Math.max(1, base)), damage: dmgBlock.damage,
+      } : null,
+      guard: dmgGuard ? {
+        count: Engine.floorMonsterCount(), damage: dmgGuard.damage, scale: Engine.blockSpreadScale(),
+      } : null,
+      tangle: dmgTangle ? {
+        extra: dmgTangle.extra, mult: dmgTangle.mult, exp: dmgTangle.exp, expGain: dmgTangle.expGain, damage: dmgTangle.damage,
+      } : null,
+    });
+  }
+
+  let prepKeyPick = null;   // 战前面板开着时的选择函数（键盘 1–4 也走它，关掉即置空）
+  function openPrep(ctx, cb) {
+    const s = Engine.state();
+    const { m, pred, opts, ch } = ctx;
+    $('prepRounds').textContent = `共 ${pred.rounds} 回合`;
+    $('prepName').textContent = m.name + (m.boss ? ' · 锁匠' : '');
+    $('prepInfo').textContent = `你 ${Math.round(s.hp)} 血 · 它 ${m.hp} 血 · 攻 ${s.atk} / 防 ${s.def}`;
+    if (window.Renderer) Renderer.paintIcon($('prepFoe'), ch, 112, 56);   // 2x 背板缩到 56：剪影才够清楚
+    const choose = (id) => {
+      if (!prepKeyPick) return;
+      prepKeyPick = null;
+      el.prepOverlay.classList.remove('show');
+      Sound.play('choose');
+      vibrate([8, 12, 6]);
+      cb(id === 'block' ? { block: true } : id === 'guard' ? { block: 'all' } : id === 'tangle' ? { tangle: true } : null);
+    };
+    prepKeyPick = choose;
+    el.prepOpts.innerHTML = opts.map((o) => {
+      const after = Math.max(0, Math.round(s.hp - o.dmg));
+      const dead = o.dmg >= s.hp;
+      return `<button class="prep-opt ${dead ? 'dead' : o.id === 'none' ? '' : 'safe'}" data-pick="${o.id}">
+        <span class="po-ico">${o.ico}</span>
+        <span class="po-main"><b>${o.name}</b><i>${o.sub}</i></span>
+        <span class="po-dmg"><b>−${o.dmg}</b><small class="${dead ? 'warn' : ''}">${dead ? '撑不住' : '剩 ' + after}</small></span>
+      </button>`;
+    }).join('');
+    el.prepOpts.querySelectorAll('.prep-opt').forEach((b) => {
+      b.addEventListener('click', (e) => { e.stopPropagation(); choose(b.dataset.pick); });
+    });
+    el.prepOverlay.classList.add('show');
+    Funnel.push('prep_open', { floor: s.floor + 1, opts: opts.length });
+    // 自动化钩子（与 __battleSpeed 同族）：无头探针只关心战斗面板时，
+    // 把「选打法」按给定值一步跳过；真实玩家不会走到这里（没人会去设这个变量）。
+    if (window.__prepAuto) {
+      const want = window.__prepAuto === true ? 'none' : String(window.__prepAuto);
+      setTimeout(() => { if (prepKeyPick) choose(want); }, 0);
+    }
+  }
+  // 键盘 1–4：与点卡同一出口；面板没开时返回 false，让上层继续处理按键
+  function pickPrepByKey(n) {
+    if (!prepKeyPick) return false;
+    const btns = el.prepOpts.querySelectorAll('.prep-opt');
+    if (!btns[n - 1]) return true;
+    prepKeyPick(btns[n - 1].dataset.pick);
+    return true;
+  }
+
   // ---------- 战斗入口 ----------
   function resolveBattle(dx, dy) {
     if (battleBusy) return;
@@ -2844,7 +2812,6 @@
     }
 
     clearStuck();
-    battleBusy = true;
     const dmgBase = Engine.fightDamage(ch, false);
     const dmgBlock = Engine.canBlock() ? Engine.fightDamage(ch, true) : null;
     // 架盾：本层余下每场都吃 0.85（不叠盾谱/断刃，那是单场手艺）。与格挡二选一，同样花掉一次格挡
@@ -2853,29 +2820,44 @@
     const dmgTangle = s.floor >= 4 ? Engine.tangleInfo(ch) : null;
     // 演出装配段（同步抛错）在这里接；演出链上的抛错在 playBattleScene 内部接。
     // 两处都走同一个出口，否则「战斗忙」这把锁会连人带局一起锁住。
-    try {
-      playBattleScene({
-        ch, monster: m, pred, dmgBase, dmgBlock, dmgGuard, dmgTangle,
-        phases: m.boss ? Engine.bossPhases(ch) : null,
-        skip: { x: tx, y: ty },     // 本层威胁读数要排除的格子（正在打的这只）
-      }, (opt) => {
-        // 这一战只有格挡才能活：玩家撞上去就是求战，结算时自动带上格挡
-        // opt.block 可能是 true（挡这一场）或 'all'（架盾）——原样透传给引擎
-        // auto：这一记挡不是玩家按的（他没有选任何打法，是系统替他挡下来保命）。
-        // 只给引擎用来区分记账口径（dec 的 'f' 与 'b'），不参与任何数值。
-        const autoBlock = !opt.block && !!pred.blockSave;
-        const res = Engine.fight(dx, dy, { block: opt.block || (pred.blockSave ? true : false), tangle: opt.tangle, auto: autoBlock });
+    const launch = (tactic) => {
+      battleBusy = true;
+      try {
+        playBattleScene({
+          ch, monster: m, pred, dmgBase, dmgBlock, dmgGuard, dmgTangle, tactic,
+          phases: m.boss ? Engine.bossPhases(ch) : null,
+          skip: { x: tx, y: ty },     // 本层威胁读数要排除的格子（正在打的这只）
+        }, (opt) => {
+          // 打法在战前面板就定好了，这里原样透传（block 可能是 true / 'all'）。
+          // auto：残血玩家没选任何打法、但只有格挡能活时，系统替他挡下这一记——
+          // 只给引擎区分记账口径（dec 的 'f' 与 'b'），不参与任何数值。
+          const autoBlock = !opt.block && !!pred.blockSave;
+          const res = Engine.fight(dx, dy, { block: opt.block || (pred.blockSave ? true : false), tangle: opt.tangle, auto: autoBlock });
+          battleBusy = false;
+          if (res.type === 'fight') {
+            // 打法计数只记打成了的（战斗中断不算一次选择）；归属由引擎给（Engine.fight 的 pick 字段），
+            // 单一口径——面板怎么摆、引擎怎么结算、账本怎么记，三处不许各算各的
+            logBattlePick(s, res.pick);
+            applyFightResult(res, tx, ty);
+          } else { warn('烛：' + (res.msg || '战斗中断')); refreshHud(); }
+        });
+      } catch (e) {
+        abandonBattle(e);
+      }
+    };
+
+    // 战前决策（2026-11-24）：有不止一种打法时先摆面板，选完再开打。
+    // 只有一种打法（直接打）就不打断——杂兵战多弹一屏只会变成噪音。
+    const opts = prepOptions({ m, pred, dmgBase, dmgBlock, dmgGuard, dmgTangle, s, heroMax: s.maxHp || s.hp });
+    if (opts.length > 1) {
+      battleBusy = true;   // 面板开着时不许再触发另一场战斗
+      openPrep({ m, pred, opts, ch }, (tactic) => {
         battleBusy = false;
-        if (res.type === 'fight') {
-          // 打法计数只记打成了的（战斗中断不算一次选择）；归属由引擎给（Engine.fight 的 pick 字段），
-          // 单一口径——面板怎么摆、引擎怎么结算、账本怎么记，三处不许各算各的
-          logBattlePick(s, res.pick);
-          applyFightResult(res, tx, ty);
-        } else { warn('烛：' + (res.msg || '战斗中断')); refreshHud(); }
+        launch(tactic);
       });
-    } catch (e) {
-      abandonBattle(e);
+      return;
     }
+    launch(null);
   }
 
   // ---------- 商店 ----------
@@ -4032,6 +4014,13 @@
         if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') { e.preventDefault(); closePortraitZoom(); }
         return;
       }
+      // 战前面板：数字键直接选打法（1 = 直接开打，往后依次是格挡/架盾/缠斗）。
+      // 没有「取消」——它本来就是开战的一部分，Esc 等同第一张（直接开打）。
+      if (el.prepOverlay.classList.contains('show')) {
+        if (/^[1-9]$/.test(e.key)) { e.preventDefault(); pickPrepByKey(Number(e.key)); }
+        else if (e.key === 'Escape') { e.preventDefault(); pickPrepByKey(1); }
+        return;
+      }
       if (el.dialogOverlay.classList.contains('show') || typing) {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); advanceDialog(); }
         else if (e.key === 'Escape') skipDialog();
@@ -4483,7 +4472,7 @@
 
   // 遮罩是否完全盖住画布（盖住时暂停重绘）
   const FULL_OVERLAYS = ['startOverlay', 'dialogOverlay', 'shopOverlay', 'boardOverlay',
-    'codexOverlay', 'cfgOverlay', 'hintBookOverlay', 'choiceOverlay', 'altarOverlay', 'heartOverlay', 'vowOverlay', 'eventOverlay', 'gateOverlay', 'echoOverlay', 'endOverlay', 'resetConfirmOverlay', 'collectionOverlay'];
+    'codexOverlay', 'cfgOverlay', 'hintBookOverlay', 'choiceOverlay', 'altarOverlay', 'heartOverlay', 'vowOverlay', 'eventOverlay', 'gateOverlay', 'echoOverlay', 'endOverlay', 'resetConfirmOverlay', 'collectionOverlay', 'prepOverlay'];
   function covered() {
     for (const id of FULL_OVERLAYS) {
       if (el[id] && el[id].classList.contains('show')) return true;
@@ -4502,15 +4491,10 @@
   }
 
   // ---------- 立誓 ----------
-  // 首屏只回答一个问题：这局按哪条规矩走。余烬余额、还差几局、首通奖励一律不讲——
-  // 想解锁的人会去点下面那排小 chip，不想的人不该开屏就被一串数字埋掉。
-  // 节奏纠偏（2026-11-13）：首局只留 1 张确认卡——4 条誓约要在懂「承伤/金币/生命」之后才有意义，
-  // 开局 11 秒铺 6 个可点项会把「1 个核心动词」的预算直接打穿（PROGRESS《四、体验验收基线》）。
-  // 工具场景（?dev=1 / ?vow=full / openVow(true)）仍出全量，截图与自检不受影响；
-  // 但只认本地预览（js/devgate.js）——上线域名上这两个参数不再绕过首局裁剪。
-  const FORCE_FULL_VOW = window.DevGate
-    ? DevGate.allowMatch(/(?:^|[?&])(?:dev=1|vow=full)(?:&|$)/)
-    : false;
+  // 2026-11-24 用户报障：首局只给一张「先进塔看看」，等于没有选择。
+  // 现在首局和之后一样，一次摆出全部可选誓约（+ 锁着的收成一排 chip），
+  // 每条誓约各有自己的徽记 / 主色 / 代价行，选完立刻在画面顶端回一张
+  // 「誓约已立」的小条（名字 + 这一局改了什么），然后才进塔。
   const isFirstRun = () => !((Meta.memory && Meta.memory.runs) || 0);
 
   // 立誓页的键盘高亮：只标一格，不改任何选中状态（选中＝Enter，见 keydown 的 vow 分支）
@@ -4522,35 +4506,16 @@
   }
 
   function openVow(force) {
-    const full = force === true || FORCE_FULL_VOW || !isFirstRun();
     vowFocus = -1;
-    Funnel.push('vow_open', { first: isFirstRun() ? 1 : 0, full: full ? 1 : 0 });
+    Funnel.push('vow_open', { first: isFirstRun() ? 1 : 0 });
     const kicker = document.querySelector('#vowOverlay .vow-kicker');
     const desc = document.querySelector('#vowOverlay .vow-desc');
     const hint = document.querySelector('#vowOverlay .vow-hint');
-    if (kicker) kicker.textContent = full ? '立 誓' : '进 塔';
-    if (desc) desc.textContent = full
-      ? '定一条规矩，选了改不回来。也可以不立。'
-      : '第一局不用定规矩。先上去看看塔里有什么。';
-    // 首局只有一张卡，写「← → 切换」是纯噪音；4 张以上才提键盘
-    if (hint) hint.textContent = full ? '点一张开始 · 或 ← → 切换、Enter 确认' : '点一下开始';
-    if (!full) {
-      el.vowCards.innerHTML = `<button class="vow-card hero" data-vow="none">
-        <span class="vc-head">${VowIcons.icon('door', 30)}<span class="vc-tier t-easy">第一局</span></span>
-        <span class="vc-name">先进塔看看</span>
-        <span class="vc-desc">第一局按塔本来的样子走。下一局起可以立誓，用一条规矩换一种走法。</span>
-      </button>`;
-      const emberLine0 = $('vowEmber');
-      if (emberLine0) emberLine0.hidden = true;
-      const emberNote0 = $('vowEmberNote');
-      if (emberNote0) emberNote0.hidden = true;
-      if (el.vowLocked) { el.vowLocked.hidden = true; el.vowLocked.innerHTML = ''; }
-      el.vowCards.querySelectorAll('.vow-card').forEach((b) => {
-        b.addEventListener('click', () => chooseVow(b.dataset.vow));
-      });
-      el.vowOverlay.classList.add('show');
-      return;
-    }
+    if (kicker) kicker.textContent = '立 誓';
+    if (desc) desc.textContent = isFirstRun()
+      ? '第一次进塔。定一条规矩——也可以不立。'
+      : '定一条规矩，选了改不回来。也可以不立。';
+    if (hint) hint.textContent = '点一张开始 · 或 ← → 切换、Enter 确认';
     const all = Object.keys(D.vows);
     const lockedIds = all.filter((id) => D.vows[id].ember && !Meta.has(id));
     const shown = all.filter((id) => lockedIds.indexOf(id) < 0);
@@ -4583,8 +4548,11 @@
       const costRe = /不能[^；;]*|攻击 −\d+|物价 \+\d+%|(?:秤的)?价目 \+\d+%/g;
       const cost = (v.desc.match(costRe) || []).join(' · ');
       const rest = cost ? v.desc.split(costRe).map((p) => p.replace(/^[；;、]+|[；;、]+$/g, '').trim()).filter(Boolean).join('；') : v.desc;
-      return `<button class="vow-card ${id === 'none' ? 'hero' : ''}" data-vow="${id}">
-        <span class="vc-head">${VowIcons.icon(id, 30)}${tier}${lastMark}</span>
+      // 首局把「第一次来」直接顶掉档位签：一行只放得下两个小签，三个就挤成一条
+      const headTag = (isFirstRun() && id === 'none') ? '<span class="vc-tier t-easy">第一次来 · 推荐</span>' : tier;
+      const acc = v.accent || '#e8c46a';
+      return `<button class="vow-card ${id === 'none' ? 'hero' : ''}" data-vow="${id}" style="--vy:${acc};--vy-soft:${acc}66">
+        <span class="vc-head">${VowIcons.icon(id, 30, v.accent)}${headTag}${lastMark}</span>
         <span class="vc-name">${v.name}</span>
         <span class="vc-desc">${rest}</span>
         ${cost ? `<span class="vc-cost">${cost}</span>` : ''}
@@ -4608,6 +4576,22 @@
     el.vowOverlay.classList.add('show');
   }
 
+  // 誓约回执：选完不是「悄悄开始」，先在画面顶端亮一条——名字、徽记、这一局改了什么。
+  // 它压在顶栏下方，3.4 秒后自己淡出；不挡操作，也不进下一局的存档。
+  let vowFlashTimer = null;
+  function flashVow(id) {
+    const box = $('vowFlash');
+    if (!box) return;
+    const v = D.vows[id] || D.vows.none;
+    box.innerHTML = `${VowIcons.icon(id, 26, v.accent)}<span class="vf-body"><b>誓约已立 · ${v.name}</b><i>${v.desc}</i></span>`;
+    const acc = v.accent || '#e8c46a';
+    box.style.setProperty('--vy', acc);
+    box.style.setProperty('--vy-soft', acc + '66');
+    box.classList.add('show');
+    clearTimeout(vowFlashTimer);
+    vowFlashTimer = setTimeout(() => box.classList.remove('show'), 3400);
+  }
+
   function chooseVow(id) {
     const v = D.vows[id];
     if (v && v.ember && !Meta.has(id)) {
@@ -4622,6 +4606,9 @@
       return;
     }
     el.vowOverlay.classList.remove('show');
+    Sound.play('choose');
+    vibrate([8, 14, 8]);
+    flashVow(id);
     startGame(id);
   }
 
@@ -5030,6 +5017,9 @@
     showFloorCard, showEndingChoice, completeEnding, setChoiceFocus, openHeart, chooseHeart, setHeartFocus, openVow, chooseVow, openEvent, chooseEvent, openGate, jumpTo: (i) => doJump(i), Meta,
     showBossIntro, closeBossIntro, openPortraitZoom, enterFloor,
     resolveBattle, act, clickMove, emberOf, refreshHud, refreshStartBadges,
+    // 战前面板（headless 探针用）：open 判断面板在不在，pick 等同玩家点卡（none/block/guard/tangle）
+    prepOpen: () => !!prepKeyPick,
+    prepPick: (id) => { if (!prepKeyPick) return false; prepKeyPick(id); return true; },
     testRelicShowcase: () => { const st = Engine.state(); if (st) relicShowcase(st.x, st.y); },
     openEcho, chooseRing, closeEcho, resumePendingRing, setChapterColor, refreshCfg,
     // 提示系统：自动化可验证「加粗渲染 + 角色提示对白」

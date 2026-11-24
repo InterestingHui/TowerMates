@@ -72,29 +72,41 @@ function measurePanel(frame, sel) {
       try { w.Renderer.layout(d.getElementById('stage')); } catch (e) {}
       await wait(60);
 
-      // ---- 1) 战斗演出（overlay overflow:hidden、面板无滚动：按钮必须在视口里）----
+      // ---- 1) 战前面板 + 战斗演出 ----
+      // 2026-11-24：打法按钮搬到了开战前的「战前」面板，所以「按钮是否完整可点 / 读数是否被裁」
+      // 要量的是那一屏；战斗面板只剩回显（量整块是否溢出即可）。
       {
         const s = w.Engine.state();
         s.atk = 40; s.def = 20; s.hp = 800; s.maxHp = 1000;
         s.flags.hasBlock = true; s.flags.rings = ['twice'];
         w.__tm.refreshHud();
-        w.__battleSpeed = 30;
+        w.__prepAuto = false; w.__battleSpeed = 30;
         w.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'ArrowUp' }));
-        await wait(340);
-        const m = measurePanel(f, '#battleScene .bs-panel');
-        const shown = d.getElementById('battleScene').classList.contains('show');
-        dumps.push(c.tag + ' battle ' + JSON.stringify({ shown, m }));
-        if (!m) {
-          check(c.tag + ' 战斗面板可读', false);
+        await wait(400);
+        const pm = measurePanel(f, '#prepOverlay .prep-panel');
+        const prepShown = d.getElementById('prepOverlay').classList.contains('show');
+        dumps.push(c.tag + ' prep ' + JSON.stringify({ prepShown, pm }));
+        if (!pm) {
+          check(c.tag + ' 战前面板可读', false);
         } else {
-          const tag = c.tag + ' 战斗面板';
-          check(tag + ' 整块在视口内', m.r.top >= -1 && m.r.bottom <= c.h + 1, m.r.top + '–' + m.r.bottom + ' / ' + c.h);
-          check(tag + ' 每个打法按钮都完整可点', m.btns.length >= 1 && m.btns.every((b) => b.top >= -1 && b.bottom <= c.h + 1 && b.h >= 30),
-            m.btns.map((b) => b.id + ':' + b.top + '–' + b.bottom).join(' ') || '无按钮');
-          // 三把打法的读数一句比一句长（「此后 N 场 · 每场 −15% · 这战剩 528」），
-          // 窄屏上最先坏的不是「按钮掉出视口」而是「字被省略号吃成半句」
-          check(tag + ' 打法读数整句可见', m.btns.length >= 1 && m.btns.every((b) => !b.clip),
-            m.btns.map((b) => b.id + (b.clip ? ':裁切' : ':' + b.w + 'px')).join(' ') || '无按钮');
+          const tag = c.tag + ' 战前面板';
+          check(tag + ' 整块在视口内', pm.r.top >= -1 && pm.r.bottom <= c.h + 1, pm.r.top + '–' + pm.r.bottom + ' / ' + c.h);
+          check(tag + ' 每个打法按钮都完整可点', pm.btns.length >= 2 && pm.btns.every((b) => b.top >= -1 && b.bottom <= c.h + 1 && b.h >= 30),
+            pm.btns.map((b) => b.id + ':' + b.top + '–' + b.bottom + ':' + b.h).join(' ') || '无按钮');
+          // 卡面右列是「−承伤 / 剩多少」，窄屏上最先坏的不是掉出视口，而是字被裁
+          check(tag + ' 打法读数整句可见', pm.btns.every((b) => !b.clip),
+            pm.btns.map((b) => b.id + (b.clip ? ':裁切' : ':' + b.w + 'px')).join(' ') || '无按钮');
+        }
+        // 选「直接开打」→ 战斗面板：只量整块是否溢出（这一屏不再有按钮）
+        w.__tm.prepPick('none');
+        await wait(360);
+        const bm = measurePanel(f, '#battleScene .bs-panel');
+        const shown = d.getElementById('battleScene').classList.contains('show');
+        dumps.push(c.tag + ' battle ' + JSON.stringify({ shown, bm }));
+        if (!bm) check(c.tag + ' 战斗面板可读', false);
+        else {
+          check(c.tag + ' 战斗面板 整块在视口内', bm.r.top >= -1 && bm.r.bottom <= c.h + 1, bm.r.top + '–' + bm.r.bottom + ' / ' + c.h);
+          check(c.tag + ' 战斗面板 战斗中不再留打法按钮', bm.btns.length === 0, bm.btns.map((b) => b.id).join(' ') || '0 个');
         }
         try { d.getElementById('battleScene').classList.remove('show'); w.__battleSpeed = 30; } catch (e) {}
         await wait(120);

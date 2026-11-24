@@ -612,12 +612,22 @@
     c.beginPath(); c.moveTo(-1.5 * s, -6.5 * s); c.lineTo(-3 * s, -10 * s); c.stroke();
   }
   function slimeShape(c, s, L) {
+    // 软体：半圆顶 + 两侧滴落 + 底缘三滴（"在流"是它的形状语言，不是装饰）
     blob(c, s, L, 11, 8.5);
-    // 内核一点绿光（单焦点）
-    c.fillStyle = L[1] + '0.95)';
-    c.beginPath(); c.arc(0, 1.5 * s, 2 * s, 0, Math.PI * 2); c.fill();
-    c.fillStyle = 'rgba(255,255,255,0.75)';
-    c.beginPath(); c.arc(-0.7 * s, 0.7 * s, 0.7 * s, 0, Math.PI * 2); c.fill();
+    c.beginPath();
+    c.moveTo(-9.5 * s, 7.5 * s); c.quadraticCurveTo(-12 * s, 10 * s, -10.5 * s, 12.5 * s);
+    c.quadraticCurveTo(-8.6 * s, 11 * s, -8 * s, 8.5 * s); c.closePath(); c.fill();
+    c.beginPath();
+    c.moveTo(6.5 * s, 8 * s); c.quadraticCurveTo(5.6 * s, 12 * s, 7.6 * s, 12.6 * s);
+    c.quadraticCurveTo(9 * s, 10.5 * s, 8.6 * s, 8 * s); c.closePath(); c.fill();
+    // 两粒眼 + 一条嘴缝：软体也要有脸，不然只是块石头
+    eyes(c, -3.4, 3.4, -1.2, 1.5, L);
+    c.strokeStyle = 'rgba(0,0,0,0.7)';
+    c.lineWidth = 1.4 * s;
+    c.lineCap = 'round';
+    c.beginPath();
+    c.moveTo(-3 * s, 4.2 * s); c.quadraticCurveTo(0, 6.2 * s, 3 * s, 4.2 * s);
+    c.stroke();
   }
   function skullShape(c, s, L) {
     c.beginPath();
@@ -633,15 +643,21 @@
     noseDot(c, s, L);
   }
   function zombieShape(c, s, L) {
-    // 歪头 + 一侧下垂的腐袖（非对称锚点）
+    // 歪头 + 两只前伸的手 + 拖在后面的一条腿（非对称锚点都在左边）
     c.save(); c.rotate(-0.13);
-    c.fillRect(-8.5 * s, -3 * s, 17 * s, 14 * s);   // 方肩躯干
+    c.fillRect(-8.5 * s, -3 * s, 17 * s, 13 * s);   // 方肩躯干
     c.restore();
     roundBlob(c, s, -3.4 * s, -9.5 * s, 5.4 * s, 5 * s, -0.13);
-    // 右臂前伸
-    c.save(); c.rotate(0.18);
-    c.fillRect(6 * s, -3 * s, 9 * s, 3.2 * s);
+    // 双臂前伸（一高一低）：僵尸的招牌姿势，比任何细节都先被读到
+    c.save(); c.rotate(0.16);
+    c.fillRect(4 * s, -4.2 * s, 11.5 * s, 3.2 * s);
+    c.fillRect(5 * s, 0.4 * s, 10.5 * s, 3 * s);
     c.restore();
+    // 前腿直立、后腿拖成一截破布
+    c.fillRect(-3.5 * s, 9 * s, 4 * s, 5.5 * s);
+    c.beginPath();
+    c.moveTo(-7.5 * s, 9.5 * s); c.lineTo(-11 * s, 13.5 * s);
+    c.lineTo(-8.5 * s, 14.2 * s); c.lineTo(-4.5 * s, 10.5 * s); c.closePath(); c.fill();
     // 眼窝：长在歪头（头心 -3.4,-9.5）上，挖洞再点光
     eyeSocket(c, s, -5.2, -10, 1.4, 1.6, L);
     eyeSocket(c, s, -1.4, -9.2, 1.4, 1.6, L);
@@ -741,22 +757,25 @@
     eyes(c, -8.4, -4.6, -6.4, 1.05, L);
   }
   function lanternMonkShape(c, s, L) {
-    // 僧袍 + 提灯：袍身与 Boss 同构（宽摆），灯挂在身侧（非对称锚点）
+    // 僧袍 + 提灯。2026-11-24：32px 下与「灰烬祭司」（同族、同为宽摆长袍）撞到 IoU 0.83，
+    // 两只都靠「宽底 + 圆头」读形。这里把区分点做成**轮廓级**：
+    //   ① 袍摆收窄成直筒（祭司是 A 字铺开）；
+    //   ② 灯放大成一整块挂在身侧、伸出轮廓外（祭司的尖帽在上方，侧向没有凸出）。
     c.beginPath();
-    c.moveTo(-8 * s, 11 * s);
-    c.quadraticCurveTo(-9 * s, -4 * s, -5.5 * s, -11 * s);
-    c.arc(0, -11 * s, 5.5 * s, Math.PI, 0, false);
-    c.quadraticCurveTo(9 * s, -4 * s, 8 * s, 11 * s);
+    c.moveTo(-6 * s, 12 * s);
+    c.quadraticCurveTo(-6.6 * s, -3 * s, -5 * s, -11 * s);
+    c.arc(0, -11 * s, 5 * s, Math.PI, 0, false);
+    c.quadraticCurveTo(6.6 * s, -3 * s, 6 * s, 12 * s);
     c.closePath(); c.fill();
-    // 灯：钩线 + 发光小灯体
-    c.strokeStyle = L[1] + '0.75)';
-    c.lineWidth = 1.1;
-    c.beginPath(); c.moveTo(7 * s, -8 * s); c.quadraticCurveTo(11 * s, -5 * s, 11 * s, -1 * s); c.stroke();
+    // 灯：钩线 + 大灯体（唯一横向凸出物）
+    c.strokeStyle = L[1] + '0.8)';
+    c.lineWidth = 1.4;
+    c.beginPath(); c.moveTo(5.5 * s, -8 * s); c.quadraticCurveTo(10 * s, -7 * s, 11.5 * s, -4 * s); c.stroke();
     c.fillStyle = L[1] + '0.95)';
-    roundRectPath(c, 8.8 * s, -1 * s, 4.4 * s, 5.4 * s, 1.4 * s); c.fill();
+    roundRectPath(c, 9.4 * s, -4.2 * s, 7 * s, 8 * s, 1.8 * s); c.fill();
     c.fillStyle = 'rgba(255,240,200,0.95)';
-    c.fillRect(9.7 * s, 0.2 * s, 2.6 * s, 3 * s);
-    eyes(c, -2, 2, -12, 1.05, L);
+    c.fillRect(10.8 * s, -2.6 * s, 4.2 * s, 4.6 * s);
+    eyes(c, -1.8, 1.8, -12, 1.05, L);
   }
   function shieldShape(c, s, L) {
     // 立起的塔盾：盾面一道竖亮缝（眼睛位），盾缘亮边
@@ -818,16 +837,16 @@
     c.stroke();
   }
   function priestShape(c, s, L) {
-    // 尖帽长袍祭司：帽尖微弯（非对称），胸前一点余烬光
+    // 尖帽长袍祭司：A 字铺开的袍摆 + 高尖帽（与提灯僧的直筒袍/侧挂灯正相反）
     c.beginPath();
-    c.moveTo(-8.5 * s, 11 * s);
-    c.quadraticCurveTo(-9 * s, -2 * s, -5.5 * s, -8.5 * s);
+    c.moveTo(-10 * s, 12 * s);
+    c.quadraticCurveTo(-10.5 * s, -2 * s, -5.5 * s, -8.5 * s);
     c.lineTo(-5.5 * s, -11.5 * s);
     c.quadraticCurveTo(-2 * s, -14 * s, 1.5 * s, -17.5 * s);   // 帽尖右弯
     c.lineTo(2.5 * s, -13.5 * s);
     c.lineTo(5.5 * s, -11.5 * s);
     c.lineTo(5.5 * s, -8.5 * s);
-    c.quadraticCurveTo(9 * s, -2 * s, 8.5 * s, 11 * s);
+    c.quadraticCurveTo(10.5 * s, -2 * s, 10 * s, 12 * s);
     c.closePath(); c.fill();
     // 帽檐亮边
     c.strokeStyle = L[1] + '0.6)';
@@ -886,6 +905,13 @@
   // ---- 剪影基元 ----
   // 圆亮瞳两粒（x1/x2 各自定位，支持不对称布局），满亮 + 白芯
   function eyes(c, x1, x2, y, r, L) {
+    // 瞳外一圈柔光（2026-11-24）：缩到 30px 时，两粒亮点的「有生物感」比形状本身更早被读到。
+    // 只加在瞳上、不加在身体上——身体一亮就从剪影变成贴图了。
+    c.fillStyle = L[1] + '0.20)';
+    c.beginPath();
+    c.arc(x1, y, r * 2.6, 0, Math.PI * 2);
+    c.arc(x2, y, r * 2.6, 0, Math.PI * 2);
+    c.fill();
     c.fillStyle = L[1] + '1)';
     c.beginPath();
     c.arc(x1, y, r, 0, Math.PI * 2);
@@ -982,8 +1008,8 @@
 
     groundShadow(px, py, TILE * 0.3, 0.4);
     // 族色底光（沿用旧 kindColor 语义：同族同色，威胁类型一眼分）
-    const kg = ctx.createRadialGradient(cx, py + TILE * 0.6, 1, cx, py + TILE * 0.6, TILE * 0.52);
-    kg.addColorStop(0, L[1] + '0.16)');
+    const kg = ctx.createRadialGradient(cx, py + TILE * 0.6, 1, cx, py + TILE * 0.6, TILE * 0.56);
+    kg.addColorStop(0, L[1] + '0.24)');
     kg.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = kg;
     ctx.beginPath();
@@ -992,19 +1018,26 @@
 
     ctx.save();
     ctx.translate(cx, cy + bob);
-    ctx.scale(s * breathe, s * breathe);
+    // 2026-11-24 用户报障「看不出是怪物」：18 只的造型本身没错，问题是**太小**——
+    // 原来造型只占格子高度的 55%（48 单位里 y∈[-14,12]），棋盘上一格 30px，
+    // 落到屏幕上每只只有 16px 高，眼睛和角全糊成暗点。
+    // 这里统一放大 1.24 倍（占格 ~68%），并把 rim 加粗到 1.7px、族色底光提一档；
+    // 造型坐标一个没动——放大不改变任何两只之间的形状关系（minion-check 的 IoU 口径不变）。
+    const GROW = 1.24;
+    ctx.scale(s * breathe * GROW, s * breathe * GROW);
     if (m.ghost) ctx.globalAlpha = 0.92;   // 烛是灵体，微透明
-    // ① 亮边底版：同形状外扩 1.2px 画一遍族色，再盖近黑本体 → 右上 rim 的暗色等效实现
+    // ① 亮边底版：同形状外扩 1.7px 画一遍族色，再盖近黑本体 → 右上 rim 的暗色等效实现
     //    （描边为主的造型 noRim，避免重影）
     if (!art.noRim) {
-      ctx.fillStyle = L[1] + '0.8)';
+      ctx.fillStyle = L[1] + '0.95)';
       ctx.save();
-      ctx.translate(1.2, -1.2);
+      ctx.translate(1.7, -1.7);
       art.f(ctx, 1, L);
       ctx.restore();
     }
-    // ② 近黑剪影本体
-    ctx.fillStyle = MINION_INK;
+    // ② 剪影本体：棋盘上用近黑（要浮在石板上）；图标档（图鉴 / 战前卡）背后是纯黑面板，
+    //    近黑会糊成一块，所以提一阶到 #151b28——只改图标档，不改棋盘上的形体关系。
+    ctx.fillStyle = iconMode ? '#151b28' : MINION_INK;
     art.f(ctx, 1, L);
     ctx.restore();
 
@@ -2194,14 +2227,17 @@
   // 三处仍是整格 emoji —— 同一只怪在两屏里长成两种东西，正是「格子上的 emoji 太丑」那条反馈的残留。
   // 做法：临时把模块级 ctx/TILE 指向目标画布（同步调用、单线程，画完立刻换回），
   // 复用 drawMonster / drawPlayer 本体——绝不复制第二份造型，否则下次改造型又要改两处。
-  function paintInto(cv, size, drawer) {
+  // show：CSS 显示尺寸（可小于 ss）。图标要在 48px 的槽里看清，得用 96 的背板再缩到 48——
+  // 否则 48 的背板上剪影只占 30px，缩略档的角/齿全糊。
+  function paintInto(cv, size, drawer, show) {
     if (!cv || typeof cv.getContext !== 'function') return false;
     const ss = Math.max(16, Math.round(size || 40));
+    const disp = Math.max(16, Math.round(show || ss));
     const d = Math.min(2, window.devicePixelRatio || 1);
     cv.width = Math.round(ss * d);
     cv.height = Math.round(ss * d);
-    cv.style.width = ss + 'px';
-    cv.style.height = ss + 'px';
+    cv.style.width = disp + 'px';
+    cv.style.height = disp + 'px';
     const c2 = cv.getContext('2d');
     c2.setTransform(d, 0, 0, d, 0, 0);
     c2.clearRect(0, 0, ss, ss);
@@ -2227,15 +2263,15 @@
   // 背光会被裁成一块硬边亮方块（48px 上看像给图标垫了块灰牌）。
   function iconBackdrop(ss, light) {
     const g = ctx.createRadialGradient(ss / 2, ss / 2, 1, ss / 2, ss / 2, ss * 0.5);
-    g.addColorStop(0, light + '0.30)');
-    g.addColorStop(0.6, light + '0.10)');
+    g.addColorStop(0, light + '0.42)');
+    g.addColorStop(0.6, light + '0.14)');
     g.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, ss, ss);
   }
 
   // 怪物图标：小怪走剪影、Boss 走站姿锁匠、未收录的字符仍由 drawMonster 自己兜 emoji
-  function paintIcon(cv, ch, size) {
+  function paintIcon(cv, ch, size, show) {
     const m = D.monsters && D.monsters[ch];
     if (!m) return false;
     const light = m.boss
@@ -2244,7 +2280,7 @@
     return paintInto(cv, size, (ss) => {
       iconBackdrop(ss, light);
       drawMonster(ch, 0, 0, simT);
-    });
+    }, show);
   }
 
   function paintHeroIcon(cv, size) {

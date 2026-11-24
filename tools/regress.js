@@ -16,7 +16,7 @@ const CHROME_CANDIDATES = [
   'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
   'C:/Program Files/Microsoft/Edge/Application/msedge.exe',
 ];
-const SCENES = ['start', 'play', 'bossintro', 'codexzoom', 'critters', 'minions', 'dialog', 'hint', 'stuck', 'battle', 'battleblock', 'bossphase', 'bossyan', 'bossdef', 'probecard', 'altar', 'choice', 'end', 'board', 'codex', 'cfg', 'hud', 'tower', 'core', 'heart', 'stoneidle', 'vow', 'vowfirst', 'event', 'eventdeep', 'gate', 'echo', 'goal', 'flow', 'showcase', 'death', 'death1', 'collection', 'adsdeath', 'adsend', 'sword', 'daily', 'dailyboard', 'dailyend', 'floor2', 'floor3', 'shop', 'echo2', 'battletwice', 'zeal', 'final', 'tanglebattle', 'guardbattle', 'threatbattle', 'hudmax'];
+const SCENES = ['start', 'play', 'bossintro', 'codexzoom', 'critters', 'minions', 'dialog', 'hint', 'stuck', 'battle', 'battleblock', 'prep', 'bossphase', 'bossyan', 'bossdef', 'probecard', 'altar', 'choice', 'end', 'board', 'codex', 'cfg', 'hud', 'tower', 'core', 'heart', 'stoneidle', 'vow', 'vowfirst', 'vowflash', 'event', 'eventdeep', 'gate', 'echo', 'goal', 'flow', 'showcase', 'death', 'death1', 'collection', 'adsdeath', 'adsend', 'sword', 'daily', 'dailyboard', 'dailyend', 'floor2', 'floor3', 'shop', 'echo2', 'battletwice', 'zeal', 'final', 'tanglebattle', 'guardbattle', 'threatbattle', 'hudmax'];
 
 function run(cmd, args) {
   const r = spawnSync(cmd, args, { cwd: ROOT, encoding: 'utf8' });
@@ -429,16 +429,18 @@ if (!process.argv.includes('--no-shot')) {
         };
         let r = readPace();
         if (r.vow < 0 || r.floor1 < 0 || r.modals < 0 || r.hud < 0 || !r.bits) r = readPace(); // 偶发空 DOM 重试一次
-        // 立誓屏首局只留 1 张确认卡；第 1 层（教练卡态）≤4（含画布）；可操作态 ≤3；
+        // 立誓屏：2026-11-24 用户要求首局就摆出全部可选誓约（4 条可选 + 2 条锁着 = 6 个可点项），
+        // 这条预算随之从 1 放到 6——它改的是「开局有没有得选」，不是新增机制。
+        // 第 1 层（教练卡态）≤4（含画布）；可操作态 ≤3；
         // 前 3 分钟教学弹窗（教练卡 + 盾谱小传）≤2——超过就是同一机制/同一句话在重复打断
         // 首战 ≤70s：60 秒是「1 个核心动词」预算，探针含 10 秒模拟犹豫，留 10 秒余量
         const ffOk = r.firstFight > 0 && r.firstFight <= 70;
         const gateOk = /^1+$/.test(r.bits || '');
         okPace = r.start >= 0 && r.start <= 1 && r.hud === 1
-          && r.vow >= 0 && r.vow <= 1 && r.floor1 >= 0 && r.floor1 <= 4 && r.ready >= 0 && r.ready <= 3
+          && r.vow >= 0 && r.vow <= 6 && r.floor1 >= 0 && r.floor1 <= 4 && r.ready >= 0 && r.ready <= 3
           && r.modals >= 0 && r.modals <= 2 && ffOk && gateOk;
         paceLine = `首屏 ${r.start} / HUD隐藏 ${r.hud} / 立誓 ${r.vow} / 首层 ${r.floor1} / 可操作 ${r.ready} / 教学弹窗 ${r.modals} / 首战 ${r.firstFight < 0 ? '—' : r.firstFight + 's'}`;
-        console.log((okPace ? '✓' : '✗') + ' 首局节奏 ' + paceLine + '（预算 1 / 1 / 4 / 3 / ≤2 / ≤70s）');
+        console.log((okPace ? '✓' : '✗') + ' 首局节奏 ' + paceLine + '（预算 1 / 1 / ≤6 / 4 / 3 / ≤2 / ≤70s）');
         const gBits = r.bits || '';
         console.log((gateOk ? '✓' : '✗') + ` 全屏元素预算 ${(gBits.match(/1/g) || []).length}/${gBits.length || 0} 项`
           + (gateOk ? '' : '\n   超预算：' + (r.gfail.length ? r.gfail.join(' / ') : '读数失败（探针没跑到断言行）')));
@@ -492,8 +494,8 @@ if (!process.argv.includes('--no-shot')) {
           + ` / 结算日签 ${endOk ? '在' : '缺'}${vm && dayVowId && vm[1] !== dayVowId ? '（誓约对不上 ' + vm[1] + '）' : ''}`;
         console.log((okDaily ? '✓' : '✗') + ' 今日一塔 ' + dailyLine);
       }
-      // 首局立誓页（2026-11-17）：runs=0 只出 1 张确认卡，必须铺满整行——
-      // 用户报「明明只有一个誓言，右边却空出一块」：固定两列网格会让单卡落在左列留空。
+      // 首局立誓页（2026-11-24）：runs=0 也摆全部可选誓约（≥4 张，各有主色），
+      // 不再是「只有一张确认卡」——用户要求开局就有多个可区分的选项。
       console.log('== 附加 · 首局立誓页自检 ==');
       let okVowFirst = false, vowFirstLine = '读数失败';
       {
@@ -511,11 +513,11 @@ if (!process.argv.includes('--no-shot')) {
         };
         let outV = readV();
         if (outV.indexOf('VOWFIRST') < 0) outV = readV();
-        const fm = /VOWFIRST cards=(\d+) fullRow=(\w+) kicker=([^<\n]+)/.exec(outV);
+        const fm = /VOWFIRST cards=(\d+) uniqAccent=(\d+) kicker=([^<\n]+)/.exec(outV);
         if (fm) {
-          // 首局只许 1 张卡；fullRow=true = 卡宽 ≥ 容器 95%（铺满整行，不是半宽悬在左列）
-          okVowFirst = Number(fm[1]) === 1 && fm[2] === 'true';
-          vowFirstLine = `${fm[1]} 张确认卡 / 铺满整行 ${fm[2] === 'true' ? '是' : '否'} / 标题 ${fm[3].replace(/&nbsp;/g, ' ')}`;
+          // 首局至少 4 条可选誓约；每条卡有自己的主色（可区分），标题仍是「立誓」
+          okVowFirst = Number(fm[1]) >= 4 && Number(fm[2]) >= 4 && fm[3].indexOf('立誓') >= 0;
+          vowFirstLine = `${fm[1]} 张卡 / ${fm[2]} 种主色 / 标题 ${fm[3]}`;
         }
         console.log((okVowFirst ? '✓' : '✗') + ' 首局立誓页 ' + vowFirstLine);
       }
@@ -572,15 +574,18 @@ if (!process.argv.includes('--no-shot')) {
         if (outR.indexOf('bsTangle=') < 0) outR = readR();
         const shown = outR.indexOf('bsTangle=') >= 0 && outR.indexOf('HIDDEN') < 0 && outR.indexOf('缠斗') >= 0;
         const saved = /"extra":(\d+)/.exec(outR);
-        const saveOk = !!saved && outR.indexOf('多挨一轮 +' + saved[1]) >= 0;
-        const costOk = outR.indexOf('经验 ×2') >= 0;
+        // 2026-11-24：战前卡的缠斗文案是「多挨一轮 +N 血 · 经验 ×2」（把差额与倍数写成一句）
+        const saveOk = !!saved && outR.indexOf('多挨一轮 +' + saved[1] + ' 血') >= 0;
+        const multM = /"mult":(\d+)/.exec(outR);
+        const costOk = !!multM && outR.indexOf('经验 ×' + multM[1]) >= 0;
         // 节奏守门（2026-11-15 21:5x）：缠斗在第 5 层，威胁读数在第 6 层——
         // 第 5 层这一战不许一次冒出两块，否则第 4 层拆出来的那块又塞回来了
         const paceOk = /threatAt5=off/.test(outR);
         // 战斗面板元素预算（2026-11-15 21:5x）：第 5 层的实测上界——块 ≤ 8 / 按钮 = 3 / 字 ≤ 120。
         // 这屏此前从没进过任何预算，涨到 9 块 3 按钮 119 字也没人管
+        // 2026-11-24：打法按钮搬去战前面板，战斗内按钮数应为 0（不再靠抢点）
         const pb5 = /panelBlocks=(\d+) panelButtons=(\d+) panelChars=(\d+)/.exec(outR);
-        const budgetOk = !!pb5 && Number(pb5[1]) <= 8 && Number(pb5[2]) === 3 && Number(pb5[3]) <= 120;
+        const budgetOk = !!pb5 && Number(pb5[1]) <= 7 && Number(pb5[2]) === 0 && Number(pb5[3]) <= 120;
         // 首章那一战（还没学盾谱）：不许出现「架盾/缠斗」——点了没反应的死按钮
         // （.bs-block 的 display:flex 会盖掉 [hidden]，这条守着「首章只有一个按钮」）
         const readFirst = () => {
@@ -598,9 +603,11 @@ if (!process.argv.includes('--no-shot')) {
         const fbM = /firstPanel=(\{[^}]*\})/.exec(outF);
         let fb = null;
         try { fb = fbM ? JSON.parse(fbM[1]) : null; } catch (e) { fb = null; }
-        const firstOk = !!fb && fb.guard === false && fb.tangle === false;
+        const firstOk = !!fb && Array.isArray(fb.picks)
+          && ['block', 'guard', 'tangle'].every((k) => fb.picks.indexOf(k) < 0);
         // 第 1 层首战那一屏的预算：块 ≤ 5 / 按钮 0（0 按钮＝还没学盾谱，不该有任何打法）
-        const pb1 = /panelBlocks=(\d+) panelButtons=(\d+) panelChars=(\d+)/.exec(outF);
+        const pb1 = /firstPanelBudget=panelBlocks=(\d+) panelButtons=(\d+) panelChars=(\d+)/.exec(outF)
+          || /panelBlocks=(\d+) panelButtons=(\d+) panelChars=(\d+)/.exec(outF);
         const firstBudgetOk = !!pb1 && Number(pb1[1]) <= 5 && Number(pb1[2]) === 0;
         okTangle = shown && saveOk && costOk && paceOk && budgetOk && firstOk && firstBudgetOk;
         tangleLine = `面板 ${shown ? '在' : '缺'} / 多挨一轮与引擎同源 ${saveOk ? saved[1] : '不符'} / 收益写明 ${costOk ? '是' : '否'} / 第 5 层不带威胁读数 ${paceOk ? '是' : '否（又塞回来一块）'} / 预算 ${budgetOk ? pb5[1] + '块·' + pb5[2] + '钮·' + pb5[3] + '字' : '超或缺'} / 首章只一格 ${firstOk ? '是' : '否（' + JSON.stringify(fb) + '）'} / 首章预算 ${firstBudgetOk ? pb1[1] + '块·' + pb1[2] + '钮' : '超或缺'}`;
@@ -642,7 +649,7 @@ if (!process.argv.includes('--no-shot')) {
         const paceG = /tangleAt4=off/.test(outG) && /threatAt4=off/.test(outG);
         // 第 4 层的实测上界（改完的量法）：块 ≤ 7 / 按钮 = 2 / 字 ≤ 100
         const pb4 = /panelBlocks=(\d+) panelButtons=(\d+) panelChars=(\d+)/.exec(outG);
-        const budgetG = !!pb4 && Number(pb4[1]) <= 7 && Number(pb4[2]) === 2 && Number(pb4[3]) <= 100;
+        const budgetG = !!pb4 && Number(pb4[1]) <= 6 && Number(pb4[2]) === 0 && Number(pb4[3]) <= 100;
         okGuard = shown && countOk && pctOk && mathOk && canOk && paceG && budgetG;
         guardLine = `面板 ${shown ? '在' : '缺'} / 余场数与引擎同源 ${countOk ? n[1] : '不符'} / 比例写明 ${pctOk ? '−15%' : '否'} / 承伤=白打×0.85 ${mathOk ? gDmg[1] : '不符'} / 入口条件 ${canOk ? '可架' : '不符'} / 第 4 层只此一块 ${paceG ? '是' : '否'} / 预算 ${budgetG ? pb4[1] + '块·' + pb4[2] + '钮·' + pb4[3] + '字' : '超或缺'}（${txt || '无'}）`;
         console.log((okGuard ? '✓' : '✗') + ' 架盾面板 ' + guardLine);
@@ -672,7 +679,7 @@ if (!process.argv.includes('--no-shot')) {
         const countOkT = !!thNum && !!thCount && thNum[1] === thCount[1] && /(最贵|打不穿)/.test(thTxt);
         // 第 6 层是三块全在的最满载屏：块 ≤ 9 / 按钮 ≤ 3 / 字 ≤ 140（这是「一屏最多能有多少」的上界）
         const pb6 = /panelBlocks=(\d+) panelButtons=(\d+) panelChars=(\d+)/.exec(outT);
-        const budgetT = !!pb6 && Number(pb6[1]) <= 9 && Number(pb6[2]) <= 3 && Number(pb6[3]) <= 140;
+        const budgetT = !!pb6 && Number(pb6[1]) <= 8 && Number(pb6[2]) === 0 && Number(pb6[3]) <= 140;
         // 同屏口径：架盾「此后 N 场」必须等于威胁读数「这一层还剩 N 只」——
         // 两个数差 1 并排摆着，玩家只会读成「面板算错了」（2026-11-15 21:5x 加练修的正是这个）
         const gSame = /bsGuardSame=([\s\S]*?)(?: panelBlocks=|$)/.exec(outT);

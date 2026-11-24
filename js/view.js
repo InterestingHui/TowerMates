@@ -481,6 +481,56 @@
     };
   }
 
+  // 战前卡的四枚线刻图标（黄铜单色，currentColor）：与誓约徽记同一套语言，
+  // 不用 emoji——彩色卡通贴在暗面板上会跳出来抢「这一屏只有一个焦点」的规矩。
+  const PREP_ICON = {
+    none: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l10-10"/><path d="M13 5l6 6"/><path d="M15 3l6 6-3 3-6-6z"/><path d="M6 18l-3 3"/></svg>',
+    block: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6z"/><path d="M12 7v7"/></svg>',
+    guard: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18v12H3z"/><path d="M3 12h18M9 6v6M15 12v6"/></svg>',
+    tangle: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5l14 14M19 5L5 19"/><path d="M3 7l4-4M21 7l-4-4"/></svg>',
+  };
+
+  // ---------- 战前面板：三把打法摆成可挑的卡（2026-11-24） ----------
+  // 为什么也要搬进来：这三张卡上的每个数字都是同一套算术（额度 / 比例 / 剩血 / 余场），
+  // 和战斗面板里的那三块是同一笔账。文案与减法只许有一处，所以卡也走同一组模型。
+  // f = { base, hp, floor, hasBlock, nonTrivial,
+  //       block:{left,limit,scale,damage} | null, guard:{count,damage,scale} | null, tangle:{extra,mult,exp,expGain,damage} | null }
+  function prepOptions(f) {
+    const o = f || {};
+    const out = [{
+      id: 'none', ico: PREP_ICON.none, name: '直接开打',
+      sub: '不花额度，按现在的攻防打', dmg: o.base || 0,
+    }];
+    // 杂兵小架（承伤不到血量上限 5%，且不是 Boss）不值得打断：只留一张「直接开打」，
+    // main.js 见只有一张就不弹面板——这跟战斗面板当年「小架不摆格挡」是同一条口径。
+    if (!o.nonTrivial) return out;
+    if (o.block && o.hasBlock) {
+      const bm = blockModel({ limit: o.block.limit, left: o.block.left, scale: o.block.scale, hp: o.hp, damage: o.block.damage });
+      out.push({
+        id: 'block', ico: PREP_ICON.block, name: '格挡 · 只挡这一场',
+        sub: `${bm.quota} · 这一场承伤压到 ${100 - bm.pct}%`,
+        dmg: o.block.damage,
+      });
+    }
+    if (o.guard && o.floor >= 3) {
+      const gm = guardModel({ offer: true, count: o.guard.count, heroHp: o.hp, guardDamage: o.guard.damage, blockScale: o.block ? o.block.scale : 1 });
+      out.push({
+        id: 'guard', ico: PREP_ICON.guard, name: '架盾 · 盖住本层余下',
+        sub: `此后 ${gm.rest} 场每场 −${Math.round((1 - (o.guard.scale || 0.85)) * 100)}% · 同样花掉一次格挡`,
+        dmg: o.guard.damage,
+      });
+    }
+    if (o.tangle) {
+      const tm = tangleModel({ extra: o.tangle.extra, mult: o.tangle.mult, exp: o.tangle.exp, expGain: o.tangle.expGain, damage: o.tangle.damage, heroHp: o.hp });
+      out.push({
+        id: 'tangle', ico: PREP_ICON.tangle, name: '缠斗 · 多挨一轮',
+        sub: `${tm.html.replace(/<[^>]+>/g, '')} · 这一场不能格挡`,
+        dmg: o.tangle.damage,
+      });
+    }
+    return out;
+  }
+
   // ---------- 结算页：两块面板的标签与履历（2026-11-16 11:xx 切边界第四刀） ----------
   // 这一屏有两块面板（败局 / 胜局），同一件事各写了一遍，于是同一件事有两个口径：
   // 塔印名、章回响分母、层数基准都各写过两次。层数这一处已经真的说错过话——见 floorNo。
@@ -973,7 +1023,7 @@
     sealOf, nextSealHint, sealTarget, emberModel,
     cmpBoard, fmtTime, endName, marginRank, sameRun, isMine, RUN_KEYS,
     deathStatsModel, winStatsModel, memModel, floorNo, migrateFloors,
-    foeName, traitNote, threatModel, blockModel, guardModel, tangleModel,
+    foeName, traitNote, threatModel, blockModel, guardModel, tangleModel, prepOptions,
     hintPicked, HINT_PICK, HINT_AUTO,
     BOARD_TABS, BOARD_CAP, SHOP_CORE, SEALS, CHAPTERS,
     NOTE_DAILY, NOTE_CRUSHED, EMPTY_OTHER, TIP_BLOCK, TIP_SHARD,

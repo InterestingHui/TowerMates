@@ -7,7 +7,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="build" content="022227f075">
+<meta name="build" content="38101415f2">
 <title>TowerMates · 魔塔</title>
 <!-- 分享卡：挑战链接（?rival=）是全作唯一传播路径，没有这几条时粘进微信是一条裸链接 + 灰占位图，
      点开前看不出是什么。图是 tools/sharecard.html 用无头 Chrome 渲的 1200×1200 正方卡（1:1 裁切不丢字）。
@@ -22,7 +22,7 @@
 <meta property="og:image:height" content="1200">
 <meta property="og:url" content="https://towermates.app.workbuddy.host/?sharecode=U7XMLC2NKJ">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="stylesheet" href="css/style.css?v=022227f075">
+<link rel="stylesheet" href="css/style.css?v=38101415f2">
 </head>
 <body>
 <div id="app">
@@ -43,7 +43,7 @@
     <div class="hero-card">
       <div class="hero-portrait" id="heroPortrait" aria-hidden="true"></div>
       <div class="hero-main">
-        <div class="hero-id"><b>守灯人 · 烛</b><i id="heroState">还有余力</i></div>
+        <div class="hero-id"><b>勇者 · 第九位</b><i id="heroState">还有余力</i></div>
         <div class="chips">
           <div class="chip hp"><span class="ico">❤️</span><b id="statHp" hidden>1000</b><div class="hpwrap"><div class="hpghost" id="hpGhost"></div><div class="hpbar" id="hpBar"></div><span class="hptext" id="hpText">1000</span></div></div>
           <div class="chip"><span class="ico">🗡️</span><b id="statAtk">10</b></div>
@@ -169,6 +169,9 @@
   </div>
 </div>
 
+<!-- 誓约回执：选完之后在画面顶端亮一条，说明这局改了什么（3.4 秒自己淡出，不挡操作） -->
+<div class="vow-flash" id="vowFlash"></div>
+
 <div class="overlay portrait" id="portraitOverlay">
   <div class="pt-zoom-wrap">
     <div class="pt-zoom" id="ptZoom"></div>
@@ -255,6 +258,25 @@
     <div class="actions">
       <button class="btn primary" id="boardClose">关闭</button>
     </div>
+  </div>
+</div>
+
+<!-- 战前 · 打法选择：开战之前把三种打法摆在桌上（战斗里只剩回显，不再限时抢点） -->
+<div class="overlay prep" id="prepOverlay">
+  <div class="prep-panel">
+    <div class="prep-head">
+      <span class="prep-kicker">战 前</span>
+      <span class="prep-rounds" id="prepRounds">共 3 回合</span>
+    </div>
+    <div class="prep-foe">
+      <canvas class="prep-icon" id="prepFoe" width="48" height="48"></canvas>
+      <div class="prep-foe-main">
+        <b id="prepName">蝙蝠</b>
+        <i id="prepInfo">你 1000 / 它 42</i>
+      </div>
+    </div>
+    <div class="prep-opts" id="prepOpts"></div>
+    <p class="prep-hint" id="prepHint">选一种打法再开打 · 决定之后这一场不再改</p>
   </div>
 </div>
 
@@ -549,23 +571,24 @@
   </div>
 </div>
 
-<script src="js/data.js?v=022227f075"></script>
-<script src="js/vow-icons.js?v=022227f075"></script>
-<script src="js/story.js?v=022227f075"></script>
-<script src="js/portraits.js?v=022227f075"></script>
-<script src="js/scenes.js?v=022227f075"></script>
-<script src="js/achievements.js?v=022227f075"></script>
-<script src="js/daily.js?v=022227f075"></script>
-<script src="js/view.js?v=022227f075"></script>
-<script src="js/engine.js?v=022227f075"></script>
-<script src="js/render.js?v=022227f075"></script>
-<script src="js/devgate.js?v=022227f075"></script>
-<script src="js/ads.js?v=022227f075"></script>
-<script src="js/main.js?v=022227f075"></script>
-<script src="js/challenge.js?v=022227f075"></script>
-<script src="js/wxbridge.js?v=022227f075"></script>
-<script src="js/touch.js?v=022227f075"></script>
-<script src="js/gate-forth.js?v=022227f075"></script>
-<script src="js/wxwire.js?v=022227f075"></script>
+<script src="js/data.js?v=38101415f2"></script>
+<script src="js/vow-icons.js?v=38101415f2"></script>
+<script src="js/story.js?v=38101415f2"></script>
+<script src="js/portraits.js?v=38101415f2"></script>
+<script src="js/backdrops.js?v=38101415f2"></script>
+<script src="js/scenes.js?v=38101415f2"></script>
+<script src="js/achievements.js?v=38101415f2"></script>
+<script src="js/daily.js?v=38101415f2"></script>
+<script src="js/view.js?v=38101415f2"></script>
+<script src="js/engine.js?v=38101415f2"></script>
+<script src="js/render.js?v=38101415f2"></script>
+<script src="js/devgate.js?v=38101415f2"></script>
+<script src="js/ads.js?v=38101415f2"></script>
+<script src="js/main.js?v=38101415f2"></script>
+<script src="js/challenge.js?v=38101415f2"></script>
+<script src="js/wxbridge.js?v=38101415f2"></script>
+<script src="js/touch.js?v=38101415f2"></script>
+<script src="js/gate-forth.js?v=38101415f2"></script>
+<script src="js/wxwire.js?v=38101415f2"></script>
 </body>
 </html>

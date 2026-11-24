@@ -10,6 +10,12 @@
 <script>
   const q = new URLSearchParams(location.search);
   const scene = q.get('scene') || 'start';
+  // ?noerr=1：只出画面、不盖调试读数（目检/出图用；闸门仍走默认的带读数模式）
+  if (q.get('noerr') === '1') {
+    const stE = document.createElement('style');
+    stE.textContent = '#err{display:none!important}';
+    document.head.appendChild(stE);
+  }
   const f = document.getElementById('f');
   const errBox = document.getElementById('err');
   const errs = [];
@@ -29,6 +35,7 @@
     battle: base + '?dev=1#demo=0,2,3',
     battletwice: base + '?dev=1#demo=0,2,3',
     battleblock: base + '?dev=1#demo=0,2,3',
+    prep: base + '?dev=1#demo=3,5,5',
     // 缠斗：第 5 层（floor 4）的战斗面板上第三把打法（多挨一轮 ↔ 经验 ×2）。
     // 2026-11-15 21:5x：时机从第 4 层后移到第 5 层（第 4 层只教架盾），场景跟着下移一层，
     // 站 (6,5) 朝上撞吸血鬼。
@@ -117,7 +124,22 @@
       await wait(120);
       const T = w.__tm;
       const E = w.Engine;
-      if (scene === 'start' || scene === 'floor5' || scene === 'battle' || scene === 'battletwice' || scene === 'battleblock' || scene === 'tanglebattle' || scene === 'guardbattle' || scene === 'threatbattle' || scene === 'shop' || scene === 'tower' || scene === 'core' || scene === 'zeal' || scene === 'final' || scene === 'hudmax') {
+      // 战前面板（2026-11-24）：开战前先选打法。截图脚本统一在这里点掉，
+      // kind='block' 时选格挡，其余默认「直接开打」。
+      const pickPrep = async (kind) => {
+        const ov = d.getElementById('prepOverlay');
+        if (!ov || !ov.classList.contains('show')) return false;
+        const b = ov.querySelector('.prep-opt[data-pick="' + (kind || 'none') + '"]') || ov.querySelector('.prep-opt');
+        if (b) b.click();
+        await wait(160);
+        return true;
+      };
+      const prepText = (kind) => {
+        const ov = d.getElementById('prepOverlay');
+        const b = ov && ov.querySelector('.prep-opt[data-pick="' + kind + '"]');
+        return b ? b.textContent.replace(/\s+/g, ' ').trim() : 'HIDDEN';
+      };
+      if (scene === 'start' || scene === 'floor5' || scene === 'battle' || scene === 'battletwice' || scene === 'battleblock' || scene === 'prep' || scene === 'tanglebattle' || scene === 'guardbattle' || scene === 'threatbattle' || scene === 'shop' || scene === 'tower' || scene === 'core' || scene === 'zeal' || scene === 'final' || scene === 'hudmax') {
         if (scene === 'hudmax') {
           // 真满载（一局里可能的最挤一屏）：一局真实上限 9 件遗物（守誓之盾 / 断刃之锋 / 余烬灯芯 /
           // 无名之镜 / 层阶之钥 / 塔心石 + 三座祭坛各一件）+ 三枚锁环（第 3 章拿到罗盘那份）+ 三格徽记
@@ -163,27 +185,42 @@
         }
         if (scene === 'battleblock') {
           await wait(200);
-          // demo 开局不带格挡：先授予，截图才有盾按钮可点
+          // demo 开局不带格挡：先授予，战前面板才有「格挡」这一张
           E.state().flags.hasBlock = true;
           w.__battleSpeed = 4;
           w.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'ArrowUp' }));
           await wait(420);
-          const bb = d.getElementById('bsBlock');
-          if (bb) bb.click();
+          q2push('prepBlock=' + prepText('block'));
+          await pickPrep('block');
           await wait(300);
+        }
+        if (scene === 'prep') {
+          // 战前面板本尊：三把打法同屏（格挡 / 架盾 / 缠斗），每张都写清账
+          await wait(200);
+          const sP = E.state();
+          sP.atk = 40; sP.def = 20; sP.hp = 800; sP.maxHp = 1000;
+          sP.flags.hasBlock = true;
+          T.refreshHud();
+          w.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'ArrowUp' }));
+          await wait(520);
+          q2push('prepOpts=' + Array.prototype.slice.call(d.querySelectorAll('#prepOpts .prep-opt'))
+            .map((x) => x.dataset.pick).join(','));
         }
         if (scene === 'battle') {
           await wait(200);
           w.__battleSpeed = 30;
           w.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'ArrowUp' }));
           await wait(300);
-          // 首章这一战玩家还没学盾谱：面板上不许出现「架盾/缠斗」（点了没反应的死按钮）
-          const b1 = d.getElementById('bsBlock'), g1 = d.getElementById('bsGuard'), t1 = d.getElementById('bsTangle');
-          q2push('firstPanel=' + JSON.stringify({
-            block: !!b1 && !b1.hidden, guard: !!g1 && !g1.hidden, tangle: !!t1 && !t1.hidden,
-          }) + ' ' + panelBudget(d));
+          // 首章这一战玩家还没学盾谱：战前面板不该出现「格挡/架盾/缠斗」三种打法，
+          // 只剩一张「直接开打」——opts 只有一种时面板不弹，直接进战斗
+          const pov = d.getElementById('prepOverlay');
+          const popts = pov ? Array.prototype.slice.call(pov.querySelectorAll('.prep-opt')).map((x) => x.dataset.pick) : [];
+          q2push('firstPanel=' + JSON.stringify({ prepOpen: !!(pov && pov.classList.contains('show')), picks: popts }));
+          await pickPrep('none');
+          await wait(300);
+          q2push('firstPanelBudget=' + panelBudget(d));
         }
-        if (scene === 'battletwice') {          // 双挡之环：盾牌上的剩余次数与战斗面板的「本层剩 2 次」都得对得上
+        if (scene === 'battletwice') {          // 双挡之环：盾牌上的剩余次数与战前面板的「本层剩 2 次」都得对得上
           await wait(200);
           const sB = E.state();
           sB.flags.hasBlock = true;
@@ -192,13 +229,15 @@
           w.__battleSpeed = 30;
           w.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'ArrowUp' }));
           await wait(300);
+          q2push('prepBlockTwice=' + prepText('block') + ' left=' + E.blockLeft());
+          await pickPrep('none');
         }
         if (scene === 'tanglebattle') {
-          // 缠斗：第 5 层的战斗面板上第三把打法（多挨一轮 ↔ 经验 ×2）。数值必须与引擎同源
+          // 缠斗：第 5 层战前面板上的第三把打法（多挨一轮 ↔ 经验 ×2）。数值必须与引擎同源
           await wait(200);
           const sT = E.state();
           sT.atk = 40; sT.def = 20; sT.hp = 1500; sT.maxHp = 1500;
-          sT.flags.hasBlock = true;   // 第 5 层这一战的三把打法都得在（格挡/架盾/缠斗），否则量不到满载面
+          sT.flags.hasBlock = true;   // 第 5 层这一战的三把打法都得在（格挡/架盾/缠斗）
           T.refreshHud();
           // 引擎读数先取（战斗结算会改血量/经验，读数要在开打前定下来）
           const info = E.tangleInfo('V');
@@ -207,12 +246,12 @@
           w.__battleSpeed = 30;
           w.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'ArrowUp' }));
           await wait(320);
-          const tgb = d.getElementById('bsTangle');
-          q2push('bsTangle=' + (tgb && !tgb.hidden ? tgb.textContent.replace(/\s+/g, ' ').trim() : 'HIDDEN')
+          q2push('bsTangle=' + prepText('tangle')
             + ' info=' + JSON.stringify(info)
             + ' plain=' + plain + ' deep=' + deep);
-          // 节奏守门（2026-11-15 21:5x）：威胁读数是第 6 层的元素，第 5 层这一战不许出现——
-          // 否则第 5 层一次又加两块，白拆了第 4 层。用 ON/off 而不是 HIDDEN，免得干扰上面的匹配
+          await pickPrep('none');
+          await wait(300);
+          // 节奏守门：威胁读数是第 6 层的元素，第 5 层这一战不许出现
           const th5 = d.getElementById('bsThreat');
           q2push('threatAt5=' + (th5 && !th5.hidden ? 'ON' : 'off') + ' ' + panelBudget(d));
         }
@@ -221,17 +260,18 @@
           await wait(200);
           const sTh = E.state();
           sTh.atk = 120; sTh.def = 20; sTh.hp = 600; sTh.maxHp = 600;
-          sTh.flags.hasBlock = true;   // 满载面：三块（格挡/架盾/缠斗）+ 威胁读数一起量
+          sTh.flags.hasBlock = true;
           T.refreshHud();
           w.__battleSpeed = 30;
           w.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'ArrowLeft' }));
           await wait(320);
-          const tb = d.getElementById('bsThreat');
           // 同一屏上「架盾 此后 N 场」与「这一层还剩 N 只」必须是同一个数（差 1 会被读成算错）
-          const gb2 = d.getElementById('bsGuard');
+          q2push('bsGuardSame=' + prepText('guard'));
+          await pickPrep('none');
+          await wait(300);
+          const tb = d.getElementById('bsThreat');
           q2push('bsThreat=' + (tb && !tb.hidden ? tb.textContent.replace(/\s+/g, ' ').trim() : 'HIDDEN')
             + ' threat=' + JSON.stringify(E.floorThreat(undefined, { x: 4, y: 5 }))
-            + ' bsGuardSame=' + (gb2 && !gb2.hidden ? gb2.textContent.replace(/\s+/g, ' ').trim() : 'HIDDEN')
             + ' ' + panelBudget(d));
         }
         if (scene === 'guardbattle') {
@@ -249,13 +289,15 @@
           w.__battleSpeed = 30;
           w.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'ArrowUp' }));
           await wait(320);
-          const gb = d.getElementById('bsGuard');
-          q2push('bsGuard=' + (gb && !gb.hidden ? gb.textContent.replace(/\s+/g, ' ').trim() : 'HIDDEN')
+          q2push('bsGuard=' + prepText('guard')
             + ' guard=' + guardDmg + ' plain=' + plainG + ' count=' + cnt + ' can=' + canG);
-          // 节奏守门（2026-11-15 21:5x）：第 4 层只教架盾——缠斗（第 5 层）与威胁读数（第 6 层）
-          // 这时都不许出现，否则第 4 层又变成一屏三块
-          const tg4 = d.getElementById('bsTangle'), th4 = d.getElementById('bsThreat');
-          q2push('tangleAt4=' + (tg4 && !tg4.hidden ? 'ON' : 'off')
+          // 节奏守门：第 4 层只教架盾——缠斗（第 5 层）与威胁读数（第 6 层）这时都不许出现
+          const pov4 = d.getElementById('prepOverlay');
+          const picks4 = pov4 ? Array.prototype.slice.call(pov4.querySelectorAll('.prep-opt')).map((x) => x.dataset.pick) : [];
+          await pickPrep('none');
+          await wait(300);
+          const th4 = d.getElementById('bsThreat');
+          q2push('tangleAt4=' + (picks4.indexOf('tangle') >= 0 ? 'ON' : 'off')
             + ' threatAt4=' + (th4 && !th4.hidden ? 'ON' : 'off') + ' ' + panelBudget(d));
         }
         if (scene === 'shop') {
@@ -268,6 +310,25 @@
           T.showFloorCard(5);
           await wait(400);
         }
+      } else if (scene === 'vowflash') {
+        // 立誓回执：选完那一刻顶端要亮一条「誓约已立 · 名字 + 这局改了什么」
+        d.getElementById('btnNew').click();
+        await wait(320);
+        const vc = d.querySelector('#vowCards .vow-card[data-vow="mercy"]');
+        if (vc) vc.click();
+        await wait(620);
+        const vf = d.getElementById('vowFlash');
+        let vfDiag = 'none';
+        if (vf) {
+          const cs = w.getComputedStyle(vf);
+          const r = vf.getBoundingClientRect();
+          vfDiag = 'op=' + cs.opacity + ' z=' + cs.zIndex + ' pos=' + cs.position
+            + ' rect=' + Math.round(r.left) + ',' + Math.round(r.top) + ',' + Math.round(r.width) + 'x' + Math.round(r.height)
+            + ' vis=' + cs.visibility + ' disp=' + cs.display;
+        }
+        q2push('vowFlash=' + (vf && vf.classList.contains('show') ? 'ON' : 'off')
+          + '|' + (vf ? vf.textContent.replace(/\s+/g, ' ').trim() : '缺')
+          + '|' + vfDiag);
       } else if (scene === 'dialog') {
         d.getElementById('btnNew').click();
         await wait(200);
@@ -749,19 +810,18 @@
         try { d.getElementById('guide').classList.add('show'); d.getElementById('guideText').textContent = '点你想去的格子，会自动寻路过去；方向键走一格。'; } catch (e) {}
         await wait(300);
       } else if (scene === 'vowfirst') {
-        // 首局立誓页：runs=0 只出 1 张确认卡。断言「唯一一张卡铺满整行」——
-        // 2026-11-17 用户报「只有一个誓言右边却空一块」：固定两列网格会让单卡落在左列。
+        // 首局立誓页（2026-11-24 口径）：runs=0 也要摆出全部可选誓约，
+        // 不再是「只有一张确认卡」。断言：卡数 ≥ 4、标题是「立 誓」、每张卡都有自己的主色。
         const out = [];
         for (let i = 0; i < 20 && !w.__tm; i++) await wait(200);   // 等 boot（无头解析慢）
         d.getElementById('btnNew').click();
         for (let i = 0; i < 10 && !d.querySelector('#vowCards .vow-card'); i++) await wait(200);
-        const cards = d.querySelectorAll('#vowCards .vow-card');
-        const wrap = d.getElementById('vowCards');
-        const cw = wrap.getBoundingClientRect().width;
-        const first = cards[0] && cards[0].getBoundingClientRect();
+        const cards = Array.prototype.slice.call(d.querySelectorAll('#vowCards .vow-card'));
+        const accents = cards.map((c) => (c.getAttribute('style') || '').replace(/.*--vy:([^;]+);.*/, '$1'));
+        const uniq = new Set(accents.filter(Boolean));
         out.push('cards=' + cards.length
-          + ' fullRow=' + (first ? Math.round(first.width) >= Math.round(cw * 0.95) : 'MISSING')
-          + ' kicker=' + (d.querySelector('#vowOverlay .vow-kicker') || {}).textContent);
+          + ' uniqAccent=' + uniq.size
+          + ' kicker=' + ((d.querySelector('#vowOverlay .vow-kicker') || {}).textContent || '').replace(/\s+/g, ''));
         q2push('VOWFIRST ' + out.join(' '));
         await wait(400);   // 留截图时间
       } else if (scene === 'coach') {

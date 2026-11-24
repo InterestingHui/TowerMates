@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>hero-check</title>
+<style>
+  body{margin:0;background:#07090f;color:#8ef;font:12px/1.6 monospace;padding:14px}
+  .row{display:flex;gap:16px;align-items:flex-end;margin-bottom:14px}
+  .cell{display:flex;flex-direction:column;align-items:center;gap:4px}
+  .cap{color:#b98f35;font-size:11px}
+  .box{background:#0e131c;border:1px solid #1b2433;border-radius:8px;padding:4px}
+  .hud{width:58px;height:74px;position:relative;border-radius:8px;overflow:hidden;
+       background:radial-gradient(120% 90% at 72% 18%, rgba(232,196,106,.10), transparent 62%),#07090f;
+       border:1px solid rgba(255,255,255,.08)}
+  .hud .pt{width:100%}
+  .hud .pt-aura{inset:-10% -20% -4%;opacity:.4;animation:none}
+  .hud .pt-svg{animation:none}
+  .pt{position:relative;display:flex;justify-content:center;align-items:flex-end}
+  .pt-svg{display:block;width:100%;height:auto}
+  .pt-aura{position:absolute;inset:-14% -18% -6%;background:radial-gradient(60% 55% at 50% 62%, currentColor, transparent 70%);
+           opacity:.16;filter:blur(6px);pointer-events:none}
+  .pt-img{display:block;width:100%;height:auto}
+  .pt-img.is-fail{display:none}
+  #err{color:#f66;white-space:pre-wrap}
+</style>
+</head>
+<body>
+<div id="err"></div>
+<div class="row" id="row"></div>
+<script src="../js/portraits.js"></script>
+<script>
+  const err = (m) => { document.getElementById('err').textContent += m + '\n'; };
+  try {
+    const row = document.getElementById('row');
+    const cases = [
+      ['勇者', 'calm', 58], ['勇者', 'calm', 96], ['勇者', 'calm', 150],
+      ['烛', 'calm', 58], ['烛', 'calm', 96], ['烛', 'calm', 150],
+      ['勇者', 'firm', 96], ['勇者', 'sad', 96],
+    ];
+    cases.forEach(([who, mood, size]) => {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      const box = document.createElement('div');
+      box.className = size === 58 ? 'hud' : 'box';
+      box.style.width = size + 'px';
+      if (size !== 58) box.style.height = Math.round(size * 1.25) + 'px';
+      box.innerHTML = Portraits.render(who, mood);
+      cell.appendChild(box);
+      const cap = document.createElement('div');
+      cap.className = 'cap';
+      cap.textContent = who + ' ' + mood + ' ' + size + 'px';
+      cell.appendChild(cap);
+      row.appendChild(cell);
+    });
+  } catch (e) { err(String(e && e.stack || e)); }
+</script>
+</body>
+</html>

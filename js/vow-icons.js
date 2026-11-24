@@ -7,6 +7,9 @@
 // 唯一 fill：徽记中央的小焦点（蜡/币心/盾面），亮度高于线，保证 32px 下读得清。
 // 旧的 v.emoji 字段保留（成就墙 / 结算 chip 仍引用），本模块只管誓约卡与「下一局预告」chip。
 (function () {
+  // 线/焦点色默认黄铜；2026-11-24 起 icon() 支持传主色（六条誓约各有自己的主色，
+  // 立誓卡与「誓约已立」回执靠它一眼分开，线刻形状仍然共用一套语言）。
+  // viewBox 24×24，图形主体落在 3..21，安全边 3px（§3.3 同款纪律）
   const S = 'stroke="#e8c46a" fill="none" stroke-linecap="round" stroke-linejoin="round"';
   const F = 'fill="#ffe6a8"';
   // viewBox 24×24，图形主体落在 3..21，安全边 3px（§3.3 同款纪律）
@@ -45,11 +48,16 @@
            <circle cx="16.6" cy="14" r=".9" ${F}/>`,
   };
   // 尺寸档：卡上 30px，chip 里 14px。line-height 由外部容器管，svg 垂直对齐走 CSS。
-  function icon(id, size) {
-    const g = GLYPHS[id] || GLYPHS.none;
+  // col：主色（可选）。传入时把线色换成主色、焦点色换成同色提亮——形状不变，只换颜色语言。
+  function icon(id, size, col) {
+    let g = GLYPHS[id] || GLYPHS.none;
+    if (col) {
+      const hi = col;
+      g = g.split('#e8c46a').join(hi).split('#ffe6a8').join(hi);
+    }
     const s = size || 24;
     return '<svg class="vow-glyph" viewBox="0 0 24 24" width="' + s + '" height="' + s
-      + '" aria-hidden="true" focusable="false">' + g + '</svg>';
+      + '" aria-hidden="true" focusable="false" style="' + (col ? 'filter:drop-shadow(0 0 6px ' + col + '55)' : '') + '">' + g + '</svg>';
   }
   window.VowIcons = { icon, has: (id) => !!GLYPHS[id] };
 })();

@@ -121,6 +121,9 @@
        剪影世界里「同色叠同色」读不出来，所以她整体走「背光透」的处理：
        身体近黑、四周一圈 PAL 轮廓光（1.2px 实描），发间微光环是王女符码。
        构图上她悬在魔王左臂外（x≈170），与魔王黑披风错位，轮廓光贴着暗天空读得清。 -->
+    <!-- 魔王拎着她的那只手：从魔王左肩垂下的手臂 + 收拢的手（抓着薇拉的发/领） -->
+    <path d="M176 352 q-10 16 -8 40 q1 10 8 14 l6 -6 q-5 -22 2 -42 z" fill="${INK}"/>
+    <path d="M172 404 q8 -6 18 -2 l4 6 q-4 8 -13 8 q-9 0 -11 -12 z" fill="${INK}"/>
   <g>
     <g class="sc-sway">
       <!-- 垂发：两侧分缕，末端收尖 -->
@@ -141,15 +144,12 @@
       <!-- 薇拉受光层：右缘 LIT 一阶 -->
       <path d="M177 450 q8 21 9 43 l-4 0 q-2 -22 -9 -41 z" fill="${LIT}"/>
       <!-- 全身 PAL 轮廓光：贴形一圈 1.2px（近黑身体在暗天空上靠它读形） -->
-      <circle cx="169" cy="413" r="8.5" fill="none" stroke="${PAL}" stroke-width="1.1" opacity=".5"/>
+      <circle cx="169" cy="413" r="8.5" fill="none" stroke="${PAL}" stroke-width="1.4" opacity=".72"/>
       <path d="M159 424 q-9 2 -10 13 l-2 12 h3 l2 -11 q1 -10 8 -12 z" fill="${PAL}" opacity=".38"/>
       <path d="M157 448 q-9 23 -11 45 q11 6 11 6 q-8 -20 -3 -50 z" fill="${PAL}" opacity=".3"/>
-      <path d="M181 450 q9 22 10 43" fill="none" stroke="${PAL}" stroke-width="1.1" opacity=".45"/>
+      <path d="M181 450 q9 22 10 43" fill="none" stroke="${PAL}" stroke-width="1.4" opacity=".62"/>
       <path d="M176 406 q3 3 3 7" fill="none" stroke="${PAL}" stroke-width="1" opacity=".5"/>
     </g>
-    <!-- 魔王拎着她的那只手：从魔王左肩垂下的手臂 + 收拢的手（抓着薇拉的发/领） -->
-    <path d="M176 352 q-10 16 -8 40 q1 10 8 14 l6 -6 q-5 -22 2 -42 z" fill="${INK}"/>
-    <path d="M172 404 q8 -6 18 -2 l4 6 q-4 8 -13 8 q-9 0 -11 -12 z" fill="${INK}"/>
   </g>
   <!-- 火盆（本幕唯一暖光） -->
   <g>
@@ -525,18 +525,30 @@
   }
 
   // main.js 在 playStory / renderLine / closeDialog 三处调 sync：
-  // t = typing（含 key 与 idx）；key 为 null（数组脚本/提示对白）一律隐藏。
+  // t = typing（含 key / idx / floor）。
+  //   · 序章（key==='intro'）→ 本文件的四幕分镜；
+  //   · 其余所有对白 → js/backdrops.js 按「剧情键 → 楼层」取一张该层背景。
+  // 2026-11-24 之前这里只认 intro，序章之后的对白全压在压暗的棋盘上（用户报障「观感很差」）。
   function sync(t) {
     const box = node();
     if (!box) return;
     const ov = document.getElementById('dialogOverlay');
-    if (!t || t.key !== 'intro') { hide(); return; }
-    const idx = Math.min(Math.max(t.idx | 0, 0), INTRO_SCENES.length - 1);
-    const sceneId = 'intro' + idx;
+    if (!t) { hide(); return; }
     const ovOn = ov && ov.classList.contains('show');
     if (!ovOn) { hide(); return; }
+    if (t.key === 'intro') {
+      const idx = Math.min(Math.max(t.idx | 0, 0), INTRO_SCENES.length - 1);
+      const sceneId = 'intro' + idx;
+      if (ov) ov.classList.add('scene-on');
+      if (cur !== sceneId) paint(sceneId, INTRO_SCENES[idx]);
+      else box.classList.add('on');
+      return;
+    }
+    if (!window.Backdrops || typeof t.floor !== 'number') { hide(); return; }
+    const bid = Backdrops.pick({ key: t.key, floor: t.floor });
+    if (!bid) { hide(); return; }
     if (ov) ov.classList.add('scene-on');
-    if (cur !== sceneId) paint(sceneId, INTRO_SCENES[idx]);
+    if (cur !== 'bd:' + bid) paint('bd:' + bid, Backdrops.svg(bid));
     else box.classList.add('on');
   }
 

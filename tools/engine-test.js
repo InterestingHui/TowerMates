@@ -27,10 +27,11 @@ ok(s.hp === 1000 && s.atk === 10 && s.def === 10, '初始属性 1000/10/10');
 ok(s.keys.y === 1 && s.keys.r === 0, '初始 1 把黄钥匙、0 把红钥匙');
 
 // ---------- 2. 开门 ----------
-s.floor = 2; s.x = 4; s.y = 4;
-let ev = E.tryMove(-1, 0);
+// 2026-11-24 门禁修正：第 3 层的黄门从 (3,4) 的死支路挪到 (8,9)，锁住右下角宝库
+s.floor = 2; s.x = 7; s.y = 9;
+let ev = E.tryMove(1, 0);
 ok(ev.type === 'open' && s.keys.y === 0, '黄门打开并消耗钥匙');
-ok(E.tile(3, 4) === '.', '门变成地面');
+ok(E.tile(8, 9) === '.', '门变成地面');
 
 // ---------- 3. 无钥匙被锁 ----------
 s.floor = 3; s.x = 9; s.y = 3; s.keys.r = 0;
@@ -559,7 +560,7 @@ ok(E.eventCost(D.events.find((e) => e.id === 'scales').options[0]) === null, '�
 E.newGame();
 s = E.state();
 s.floor = 2;
-s.x = 8; s.y = 6;
+s.x = 6; s.y = 6;    // 2026-11-24：第 3 层的 ? 从 (8,7) 挪到 (6,7)
 ev = E.tryMove(0, 1);
 ok(ev.type === 'event' && !!ev.eventId, '踩到路遇点弹出事件');
 
@@ -604,15 +605,16 @@ if (potPos && side) {
 E.newGame();
 s = E.state();
 s.floor = 2;
-s.x = 8; s.y = 6;
+// 2026-11-24：第 3 层的 ? 从 (8,7) 挪到 (6,7)
+s.x = 6; s.y = 6;
 // 第 3 层散落物每局换位，可能正好摆在这一格：本测试只关心事件格，先清干净
-s.maps[2][6][8] = '.';
+s.maps[2][6][6] = '.';
 const ev0 = E.tryMove(0, 1);
 // 第 3 层是深层事件池，选项可能标价：先把资源给足，保证 opt 0 能结算
 s.gold = 500; s.keys.y = 3; s.keys.r = 3;
 const optIdx = 0;
 E.resolveEvent(ev0.eventId, optIdx);
-ok(E.tile(8, 7) === '.', '事件格结算后变地面');
+ok(E.tile(6, 7) === '.', '事件格结算后变地面');
 s.hp = 500;
 const evAgain = E.tryMove(0, -1) && E.tryMove(0, 1);
 ok(evAgain.type === 'move' && s.hp === 500, '事件格不能再踩出第二次回血');
@@ -652,21 +654,22 @@ ok(!!D.events.find((x) => x.id === ev.eventId), '事件来自数据池');
 E.newGame();
 s = E.state();
 s.floor = 2;
-s.x = 8; s.y = 6;
+// 2026-11-24 地图门禁修正：第 3 层的 '?' 从 (8,7) 挪到 (6,7)（原位置被宝库的墙占了）
+s.x = 6; s.y = 6;
 E.tryMove(0, 1);
 s.gold = 500;
 const atkA2 = s.atk, maxA2 = s.maxHp;
 const eRes = E.resolveEvent('smith', 0);
 ok(eRes.type === 'event' && typeof eRes.msg === 'string', '选择后返回结果文案');
 ok(s.atk === atkA2 + 2 && s.maxHp === maxA2 - 120, '铁匠磨刃：攻击 +2、上限 −120');
-ok(E.tile(8, 7) === '.', '路遇点用掉后清空');
+ok(E.tile(6, 7) === '.', '路遇点用掉后清空');
 ok(s.flags.ev_f2 === true, '本层路遇只触发一次');
 ok(D.events.find((e) => e.id === 'broker').options[0].effect.atk === 3, '深层事件「赌命的商人」存在');
 
 E.newGame();
 s = E.state();
 s.floor = 2;
-s.x = 8; s.y = 6;
+s.x = 6; s.y = 6;
 const ev2 = E.tryMove(0, 1);
 s.gold = 0;
 const poorIdx = D.events.find((x) => x.id === ev2.eventId).options.findIndex((o) => o.effect.gold < 0);

@@ -575,8 +575,30 @@ ok(V.hintPicked('架盾') === '这一战按「架盾」打 · 点这里直接看
 const battleStr = ['此后 ${', '挡后剩 ${', '多挨一轮 +${', '这一层还剩 ${', '盾已架开</b>', '<b>🛡 格挡</b>'];
 const battleHit = battleStr.filter((w) => mainSrc.indexOf(w) >= 0);
 ok(battleHit.length === 0, `战斗面板文案只在 view.js 定义（main.js 命中：${battleHit.join(',') || '无'}）`);
-const battleCalls = ['View.foeName', 'View.threatModel', 'View.blockModel', 'View.guardModel', 'View.tangleModel', 'View.hintPicked'];
-ok(battleCalls.every((w) => mainSrc.indexOf(w) >= 0), 'main.js 必须走这五个模型与提示行函数（不许绕过）');
+// 2026-11-24：打法选择从战斗面板挪到「战前」面板（战斗里只剩回显），
+// 卡面文案随之有一个新出口 View.prepOptions；它内部仍然复用 blockModel/guardModel/tangleModel，
+// 所以「同一笔账只有一处算术」这条没有被绕开。
+const battleCalls = ['View.foeName', 'View.threatModel', 'View.prepOptions', 'View.hintPicked'];
+ok(battleCalls.every((w) => mainSrc.indexOf(w) >= 0), 'main.js 必须走这几个视图模型与提示行函数（不许绕过）');
+const prepBuiltOn = ['blockModel(', 'guardModel(', 'tangleModel('].every((w) => {
+  const i = viewSrc.indexOf('function prepOptions');
+  return i >= 0 && viewSrc.indexOf(w, i) > 0;
+});
+ok(prepBuiltOn, '战前卡复用了格挡/架盾/缠斗三块模型（不是另写一套算术）');
+// 战前卡：三把打法各自的账
+const prepF = {
+  base: 320, hp: 800, floor: 3, hasBlock: true, nonTrivial: true,
+  block: { left: 1, limit: 1, scale: 0.55, damage: 176 },
+  guard: { count: 5, damage: 272, scale: 0.85 },
+  tangle: { extra: 40, mult: 2, exp: 12, expGain: 24, damage: 360 },
+};
+const prep = V.prepOptions(prepF);
+ok(prep.length === 4 && prep[0].id === 'none', '战前卡：默认一张直接开打 + 三把打法');
+ok(prep[1].sub.indexOf('本层一次') >= 0 && prep[1].sub.indexOf('55%') >= 0, '格挡卡写明额度与压到 55%');
+ok(prep[2].sub.indexOf('此后 4 场') >= 0 && prep[2].sub.indexOf('−15%') >= 0, '架盾卡写清「此后 N 场」与比例');
+ok(prep[3].sub.indexOf('多挨一轮 +40 血') >= 0 && prep[3].sub.indexOf('经验 ×2') >= 0, '缠斗卡写清多挨多少与收益');
+ok(V.prepOptions(Object.assign({}, prepF, { hasBlock: false })).length === 3, '不会格挡时不摆格挡卡');
+ok(V.prepOptions(Object.assign({}, prepF, { nonTrivial: false, floor: 0 })).length === 1, '杂兵小架只留「直接开打」');
 
 // ---------- 结算两页（败局 / 胜局）的标签与履历 ----------
 // 这一屏曾经同一个数有两个口径：层数（引擎 0 基 / 文案 1 基）、章回响分母（手写 4）、
@@ -1118,7 +1140,7 @@ ok(mainSrc.indexOf("searchParams.set('rival'") < 0, 'main.js 不许自己拼链�
   }
   // 收边：画布四周用 destination-in 淡出。玩家与怪自己的暖光晕（全塔唯一光源）会一路顶到画布边，
   // 没有这层收边就会被硬切一刀，图标底下多出一块有直边的方牌。实测：有收边时 20 只小怪边缘 alpha=0。
-  const into = renderSrc.match(/function paintInto\(cv, size, drawer\)\s*\{([\s\S]*?)\n  \}/);
+  const into = renderSrc.match(/function paintInto\(cv, size, drawer(?:, show)?\)\s*\{([\s\S]*?)\n  \}/);
   ok(!!into && /globalCompositeOperation = 'destination-in'/.test(into[1]), 'paintInto 用 destination-in 给图标收边');
   ok(!!into && /rim\.addColorStop\(1, 'rgba\(0,0,0,0\)'\)/.test(into[1]), '收边是渐变到全透明（不是硬裁）');
 }
