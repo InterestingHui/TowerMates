@@ -1123,9 +1123,6 @@ html, body {
 .prep-opt .po-dmg b { font-size: var(--fs-aux); font-variant-numeric: tabular-nums; color: #ff9b9b; letter-spacing: 0.5px; }
 .prep-opt .po-dmg small { font-size: var(--fs-tag); color: var(--dim); }
 .prep-opt.safe .po-dmg b { color: #9fd8ff; }
-.prep-opt.dead .po-dmg b { color: #ff5a4a; }
-.prep-opt.dead .po-dmg small { color: #ff8f8f; }
-.prep-opt .po-dmg small.warn { color: #ff8f8f; }
 .prep-hint { margin-top: 10px; text-align: center; font-size: var(--fs-tag); color: var(--muted); letter-spacing: 0.6px; }
 /* 「上次对这只……」（2026-11-24）：有记忆时这行比通用提示亮一档，因为它说的是这一只的事 */
 .prep-hint.has-last { color: #c9d3e2; }

@@ -718,6 +718,24 @@ const lastB = V.lastTacticLine({ p: 'b', d: 176 });
 ok(lastB.indexOf('格挡') >= 0 && lastB.indexOf('176') >= 0, '记忆行写出上次的打法与掉血');
 ok(V.lastTacticLine({ p: 'n' }).indexOf('直接打') >= 0, '没有掉血数时只写打法');
 ok(V.prepOptions(Object.assign({}, prepF, { nonTrivial: false, floor: 0 })).length === 1, '杂兵小架只留「直接开打」');
+// 「只有格挡能活」的那一场（blockSave）：这一档里引擎会强制替玩家挡（main 的 autoBlock），
+// 所以「直接开打」写着「撑不住」却没有对应后果、「缠斗」的多挨一轮与经验也拿不到（格挡优先）。
+// 两张撤掉，只留真能走的两条路——焦点A：卡上承诺的后果必须是真的发生的那一个。
+const prepSave = V.prepOptions(Object.assign({}, prepF, { blockSave: true, hp: 200 }));
+ok(prepSave.length === 2 && prepSave[0].id === 'block' && prepSave[1].id === 'guard',
+  `残血那一场只摆格挡/架盾（实得 ${prepSave.map((x) => x.id).join(',')}）——不摆点了也不会照做的「直接开打」「缠斗」`);
+ok(prepSave[0].dmg === 176 && prepSave[0].dmg < 200, '残血那一场格挡卡写的承伤是真实会发生的那个数（不是撑不住的白打数）');
+ok(V.prepOptions(Object.assign({}, prepF, { blockSave: true, guard: null })).length === 1,
+  '残血且还没到架盾的层：只剩一张卡 → main 见「只有一张」就不弹面板（读烛那句明话直接开打）');
+ok(/blockSave:\s*!!pred\.blockSave/.test(stripComments(mainSrc)),
+  'main.js 把 pred.blockSave 传进 View.prepOptions（不传则上面两条分支永远走不到＝死代码）');
+// 前提（2026-11-24 焦点A 第 2 段）：战前卡里不会出现「点了必死」的一张——这是 openPrep 里
+// 把「撑不住 / disabled」那一档删掉的前提。三条各由一处保证：①「直接开打」只在白打能活时出现
+// （blockSave 时 View 撤卡，上面两条守着）②格挡/架盾永远比白打便宜 ③缠斗在引擎 tangleInfo 里
+// 就把「缠完会死」滤掉（engine-test「缠完会死时不给缠斗选项」）。任一处破了这条先红，
+// 那时必须把红字与 disabled 补回来——不许摆一张点了必死、又没有二次确认的卡。
+ok(prep[1].dmg < prep[0].dmg && prep[2].dmg < prep[0].dmg,
+  '格挡/架盾永远比白打便宜（比例 <1 破了，面板就会摆出一张会致死的卡）');
 
 // 战前面板的提示行：首遇必须有归属（2026-11-24 22:4x 加练·叙事）
 // 11-20 定的口径是「无主语的系统文案会被读成怪自己开口，引导必须有归属（烛 / 秤 / 塔灵）」，

@@ -460,6 +460,149 @@ async function run() {
     w.__battleSpeed = 1;
     d.querySelectorAll('.overlay.show').forEach(function (o) { o.classList.remove('show'); });
 
+    // 残血那一场（只有格挡能活）的战前面板（2026-11-24 加练游戏性焦点A）：
+    // 这一档里引擎开打时会强制替玩家挡下，所以「直接开打」写着「撑不住」却没有对应后果、
+    // 「缠斗」的多挨一轮与经验也拿不到（结算里格挡优先）。两张卡撤掉，只留真能走的格挡/架盾。
+    // 这里在第 4 层造出真实一场（架盾卡要 floor ≥ 3），面板不许自动跳过（__prepAuto=false），
+    // 逐张读卡 id，再点「格挡」走完结算——玩家手上的操作必须与卡上承诺的后果一致。
+    out.prepSave = {};
+    (function () { w.__prepAuto = false; })();
+    E.newGame();
+    var sp = E.state();
+    sp.flags.hasBlock = true;
+    sp.floor = 3;
+    var psp = null;
+    for (var qy = 1; qy < 10 && !psp; qy++) {
+      for (var qx = 1; qx < 10 && !psp; qx++) {
+        var chS = sp.maps[3][qy][qx];
+        var moS = w.GAME_DATA.monsters[chS];
+        if (!moS || moS.ghost || moS.boss) continue;
+        [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (o) {
+          if (psp) return;
+          var ax = qx + o[0], ay = qy + o[1];
+          if (ax < 1 || ax > 9 || ay < 1 || ay > 9) return;
+          if (sp.maps[3][ay][ax] !== '.') return;
+          var wD = E.fightDamage(chS, false), bD = E.fightDamage(chS, true);
+          if (!wD || wD.damage === null || !bD || bD.damage === null) return;
+          if (!(bD.damage < wD.damage)) return;
+          psp = { x: qx, y: qy, hx: ax, hy: ay, white: wD.damage, block: bD.damage };
+        });
+      }
+    }
+    if (psp) {
+      sp.x = psp.hx; sp.y = psp.hy;
+      sp.hp = psp.white - 1;                 // 白打必死、格挡能活
+      sp.maxHp = Math.max(sp.maxHp, psp.white);
+      w.__tm.refreshHud();
+      out.prepSave.predBlockSave = !!(E.predictOpt(E.tile(psp.x, psp.y), true) || {}).blockSave;
+      out.prepSave.guardOk = E.canGuard();
+      w.__tm.clickMove(psp.x, psp.y);
+      var tp = Date.now(), prepShown = false;
+      while (Date.now() - tp < 2500) {
+        if (d.getElementById('prepOverlay').classList.contains('show')) { prepShown = true; break; }
+        await new Promise(function (r) { setTimeout(r, 40); });
+      }
+      out.prepSave.prepShown = prepShown;
+      var pOv = d.getElementById('prepOverlay');
+      out.prepSave.picks = pOv ? Array.prototype.slice.call(pOv.querySelectorAll('.prep-opt')).map(function (x) { return x.dataset.pick; }) : [];
+      out.prepSave.deadCards = pOv ? Array.prototype.slice.call(pOv.querySelectorAll('.prep-opt.dead')).map(function (x) { return x.dataset.pick; }) : [];
+      out.prepSave.hint = (d.getElementById('prepHint') || {}).textContent || '';
+      var pBtn = pOv ? pOv.querySelector('.prep-opt[data-pick="block"]') : null;
+      if (pBtn) pBtn.click();
+      var tp2 = Date.now(), inBattle = false;
+      while (Date.now() - tp2 < 2500) {
+        if (d.getElementById('battleScene').classList.contains('show')) { inBattle = true; break; }
+        await new Promise(function (r) { setTimeout(r, 40); });
+      }
+      out.prepSave.battle = inBattle;
+      d.getElementById('battleScene').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      var tp3 = Date.now();
+      while (Date.now() - tp3 < 2500) {
+        var dS = (E.state().flags || {}).dec || {};
+        if (dS.b || dS.f || dS.n) break;
+        await new Promise(function (r) { setTimeout(r, 40); });
+      }
+      var dNow = (E.state().flags || {}).dec || {};
+      out.prepSave.decB = dNow.b || 0;
+      out.prepSave.decF = dNow.f || 0;
+      out.prepSave.hpLeft = Math.round(E.state().hp);
+      out.prepSave.white = psp.white;
+    }
+    w.__prepAuto = 'none';
+    d.querySelectorAll('.overlay.show').forEach(function (o) { o.classList.remove('show'); });
+
+    // 战前卡不会出现「撑不住」的一张（2026-11-24 加练游戏性焦点A 第 2 段）：
+    // 这一档原本是唯一会致死的一张（「直接开打」），11-24 已由 View 在 blockSave 时撤掉；
+    // 格挡/架盾永远比白打便宜，缠斗在引擎 tangleInfo 里就把「缠完会死」滤掉（engine-test 有断言）。
+    // 这里用真实局面验一遍：血 = 白打 + 1 去撞第 5 层的怪 —— 面板上不许出现缠斗那张，
+    // 且每张卡写的承伤都 < 当前血（otherwise 就是一张点了必死、又没有二次确认的卡）。
+    out.prepLethal = {};
+    (function () { w.__prepAuto = false; })();
+    E.newGame();
+    var sd = E.state();
+    sd.flags.hasBlock = true;
+    sd.floor = 4;                       // 第 5 层：缠斗从这一层起才有
+    var pd = null;
+    for (var vy = 1; vy < 10 && !pd; vy++) {
+      for (var vx = 1; vx < 10 && !pd; vx++) {
+        var chD = sd.maps[4][vy][vx];
+        var moD = w.GAME_DATA.monsters[chD];
+        if (!moD || moD.ghost || moD.boss) continue;
+        [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (o) {
+          if (pd) return;
+          var ax = vx + o[0], ay = vy + o[1];
+          if (ax < 1 || ax > 9 || ay < 1 || ay > 9) return;
+          if (sd.maps[4][ay][ax] !== '.') return;
+          var wD = E.fightDamage(chD, false);
+          if (!wD || wD.damage === null || wD.damage <= 0) return;
+          pd = { x: vx, y: vy, hx: ax, hy: ay, white: wD.damage };
+        });
+      }
+    }
+    if (pd) {
+      sd.x = pd.hx; sd.y = pd.hy;
+      sd.hp = pd.white + 1;             // 白打能活、再多挨一轮就死
+      sd.maxHp = Math.max(sd.maxHp, sd.hp);
+      w.__tm.refreshHud();
+      out.prepLethal.hp = sd.hp;
+      out.prepLethal.white = pd.white;
+      w.__tm.clickMove(pd.x, pd.y);
+      var td0 = Date.now(), shownD = false;
+      while (Date.now() - td0 < 2500) {
+        if (d.getElementById('prepOverlay').classList.contains('show')) { shownD = true; break; }
+        await new Promise(function (r) { setTimeout(r, 40); });
+      }
+      out.prepLethal.prepShown = shownD;
+      var dOv = d.getElementById('prepOverlay');
+      var dBtns = dOv ? Array.prototype.slice.call(dOv.querySelectorAll('.prep-opt')) : [];
+      out.prepLethal.picks = dBtns.map(function (x) { return x.dataset.pick; });
+      out.prepLethal.dmg = dBtns.map(function (x) {
+        var b = x.querySelector('.po-dmg b');
+        return b ? -parseInt(String(b.textContent).replace(/[^0-9]/g, ''), 10) : null;
+      });
+      out.prepLethal.deadText = dBtns.some(function (x) { return x.textContent.indexOf('撑不住') >= 0; });
+      // 换一张能活的：格挡照常开战并记玩家格挡（挡住的是不存在的风险，不是把整屏按死）
+      var dBtn2 = dOv ? dOv.querySelector('.prep-opt[data-pick="block"]') : null;
+      if (dBtn2) dBtn2.click();
+      var td1 = Date.now(), battleD = false;
+      while (Date.now() - td1 < 2500) {
+        if (d.getElementById('battleScene').classList.contains('show')) { battleD = true; break; }
+        await new Promise(function (r) { setTimeout(r, 40); });
+      }
+      out.prepLethal.blockBattle = battleD;
+      d.getElementById('battleScene').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      var td2 = Date.now();
+      while (Date.now() - td2 < 2500) {
+        var dD = (E.state().flags || {}).dec || {};
+        if (dD.b || dD.f || dD.n) break;
+        await new Promise(function (r) { setTimeout(r, 40); });
+      }
+      var dDn = (E.state().flags || {}).dec || {};
+      out.prepLethal.decB = dDn.b || 0;
+    }
+    w.__prepAuto = 'none';
+    d.querySelectorAll('.overlay.show').forEach(function (o) { o.classList.remove('show'); });
+
     // 战斗面板右上「共 N 回合」：那个位置只放**强度预告**（这一战要打几回合），整场演出不许改它。
     // 旧写法 `回合 i / N`——演出刀数 K 被压到 5（普通）/ 8（Boss），rounds > K 的怪计数会停在
     // 「回合 5 / 13」然后面板就关了，玩家读成「打着打着就结束了」。这里用初始攻 10 下的史莱姆

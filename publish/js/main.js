@@ -2698,6 +2698,9 @@
       hasBlock: !!s.flags.hasBlock,
       // 小架不给选项：伤害不到 5% 上限的杂兵战弹一整屏只会变成噪音（沿用旧口径）
       nonTrivial: m.boss || base >= heroMax * 0.05,
+      // 「只有格挡能活」的那一场：引擎开打时会强制挡（见 launch 的 autoBlock），
+      // 所以「直接开打 / 缠斗」两张卡没有对应的后果——由 View 撤掉（2026-11-24 加练游戏性焦点A）
+      blockSave: !!pred.blockSave,
       block: dmgBlock ? {
         left: Engine.blockLeft(), limit: Engine.blockLimit(),
         scale: Math.max(0.05, dmgBlock.damage / Math.max(1, base)), damage: dmgBlock.damage,
@@ -2754,11 +2757,15 @@
     prepKeyPick = choose;
     el.prepOpts.innerHTML = opts.map((o) => {
       const after = Math.max(0, Math.round(s.hp - o.dmg));
-      const dead = o.dmg >= s.hp;
-      return `<button class="prep-opt ${dead ? 'dead' : o.id === 'none' ? '' : 'safe'}" data-pick="${o.id}">
+      // 这里没有「撑不住 / disabled」这一档了（2026-11-24 加练游戏性焦点A 收口）：
+      // 全作唯一会撑不住的一张是「直接开打」，而它在「只有格挡能活」那一场由 View 撤掉了；
+      // 格挡 / 架盾永远比白打便宜（比例 <1），缠斗在引擎 `tangleInfo` 里就把「缠完会死」滤掉了
+      // （engine-test 有断言）。三处前提由 code-test 的不变量守着：哪天有卡能致死，那条先红，
+      // 那时再把 disabled / 红字补回来——不摆一张点了必死、又没有任何二次确认的卡。
+      return `<button class="prep-opt ${o.id === 'none' ? '' : 'safe'}" data-pick="${o.id}">
         <span class="po-ico">${o.ico}</span>
         <span class="po-main"><b>${o.name}</b><i>${o.sub}</i></span>
-        <span class="po-dmg"><b>−${o.dmg}</b><small class="${dead ? 'warn' : ''}">${dead ? '撑不住' : '剩 ' + after}</small></span>
+        <span class="po-dmg"><b>−${o.dmg}</b><small>剩 ${after}</small></span>
       </button>`;
     }).join('');
     el.prepOpts.querySelectorAll('.prep-opt').forEach((b) => {

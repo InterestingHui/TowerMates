@@ -532,12 +532,21 @@
   //       block:{left,limit,scale,damage} | null, guard:{count,damage,scale} | null, tangle:{extra,mult,exp,expGain,damage} | null }
   function prepOptions(f) {
     const o = f || {};
-    const out = [{
+    // 「只有格挡能活」的那一场（`blockSave`）：这一屏摆出来的每个选项都必须**真能被执行**。
+    // 而这一档里引擎在开打时会强制替玩家挡下（`main.js` launch 的 `autoBlock`），所以——
+    // ①「直接开打」写着「撑不住」，点下去却会被挡下（承伤是格挡的数，不是白打的数）：一张没有对应后果的卡；
+    // ②「缠斗」也落空：结算里格挡优先于缠斗，多挨的那一轮与经验一分都拿不到。
+    // 两张都撤掉，只留「格挡 / 架盾」——这两条是真能走的路（架盾更贵，但盖住本层余下的场次）。
+    // 撤掉后若只剩一张（没到架盾的层），`main.js` 见「只有一张」就不弹面板，
+    // 玩家读的是 2845 那条烛的明话「格挡能把你救下来」，行为与 11-24 之前一致。
+    const blockSave = !!o.blockSave;
+    const out = blockSave ? [] : [{
       id: 'none', ico: PREP_ICON.none, name: '直接开打',
       sub: '不花额度，按现在的攻防打', dmg: o.base || 0,
     }];
     // 杂兵小架（承伤不到血量上限 5%，且不是 Boss）不值得打断：只留一张「直接开打」，
     // main.js 见只有一张就不弹面板——这跟战斗面板当年「小架不摆格挡」是同一条口径。
+    // （这一档与 blockSave 互斥：撑不住的承伤必然 ≥ 5% 上限。）
     if (!o.nonTrivial) return out;
     if (o.block && o.hasBlock) {
       const bm = blockModel({ limit: o.block.limit, left: o.block.left, scale: o.block.scale, hp: o.hp, damage: o.block.damage });
@@ -555,7 +564,7 @@
         dmg: o.guard.damage,
       });
     }
-    if (o.tangle) {
+    if (o.tangle && !blockSave) {
       const tm = tangleModel({ extra: o.tangle.extra, mult: o.tangle.mult, exp: o.tangle.exp, expGain: o.tangle.expGain, damage: o.tangle.damage, heroHp: o.hp });
       out.push({
         id: 'tangle', ico: PREP_ICON.tangle, name: '缠斗 · 多挨一轮',

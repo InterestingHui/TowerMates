@@ -147,6 +147,30 @@ const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-ui-'));
   ok(da.f === 1 && da.b === 0 && da.n === 0, `自动挡单记 f、不混进玩家格挡率（实测 f=${da.f} b=${da.b} n=${da.n}）`);
   ok(typeof da.hpLeft === 'number' && da.hpLeft > 0 && da.hpLeft < da.white,
     `自动挡真的救下这一场（剩 ${da.hpLeft} 血 < 白打 ${da.white}）`);
+  // 残血那一场的战前面板（2026-11-24 加练游戏性焦点A）：卡上承诺的后果必须是真的发生的那一个
+  const ps = out.prepSave || {};
+  ok(ps.predBlockSave === true && ps.prepShown === true,
+    '造出「只有格挡能活」且到了架盾层的一场，战前面板确实开了出来');
+  ok((ps.picks || []).length >= 1 && (ps.picks || []).indexOf('none') < 0 && (ps.picks || []).indexOf('tangle') < 0,
+    `残血那一场不摆「直接开打」「缠斗」（点下去也不会照做：引擎强制挡、格挡优先于缠斗；实测 ${(ps.picks || []).join(',')}）`);
+  ok((ps.picks || [])[0] === 'block' || ps.guardOk !== true,
+    `残血那一场首张就是格挡（Esc 走第一张＝最稳的那条，不是最亏的；实测 ${(ps.picks || []).join(',')}）`);
+  ok((ps.deadCards || []).length === 0, `面板上不再有「撑不住」的红卡（实测 ${(ps.deadCards || []).join(',') || '无'}）`);
+  ok(ps.battle === true && ps.decB === 1 && ps.decF === 0,
+    `点「格挡」走真实入口 → 记玩家的格挡（实测 b=${ps.decB} f=${ps.decF}），不是被系统代挡`);
+  ok(typeof ps.hpLeft === 'number' && ps.hpLeft > 0 && ps.hpLeft < ps.white,
+    `这一场按格挡结算（剩 ${ps.hpLeft} 血 < 白打 ${ps.white}）`);
+  // 战前卡不会出现「撑不住」的一张（2026-11-24 加练游戏性焦点A 第 2 段）：
+  // 唯一会致死的那张（「直接开打」）已由 View 在 blockSave 时撤掉，缠斗由引擎 tangleInfo 滤掉。
+  // 这里用真实局面（血 = 白打 + 1 撞第 5 层）验一遍：这张卡不该出现，也不该有人写着「撑不住」。
+  const pl = out.prepLethal || {};
+  ok(pl.prepShown === true && (pl.picks || []).indexOf('tangle') < 0,
+    `血只够白打一场时，面板上不出现缠斗那张卡（引擎自己滤掉会死的交易；实测 ${(pl.picks || []).join(',') || '面板没开'}）`);
+  ok((pl.dmg || []).length >= 1 && (pl.dmg || []).every((n) => typeof n === 'number' && n < pl.hp),
+    `每张卡写的承伤都 < 当前血（实测 ${(pl.dmg || []).join('/')} vs ${pl.hp}）——没有一张点了必死又没有二次确认的卡`);
+  ok(pl.deadText === false, '面板上不再有「撑不住」这个已无对象的死分支（前提变了要先把红字与 disabled 补回来，见 openPrep 注释）');
+  ok(pl.blockBattle === true && pl.decB === 1,
+    `换点「格挡」照常开战并记玩家格挡（实测 b=${pl.decB}）——限制的是卡，不是把整屏按死`);
   // 演出抛错兜底（2026-11-17 自检）：抛错不许把「战斗忙」留在 true 上，也不许把战斗层留在屏幕上
   const ab = out.battleAbort || {};
   ok(ab.syncStuck === false, '装配段抛错：战斗层没留在屏幕上（否则没有关闭按钮 = 只能刷新）');
