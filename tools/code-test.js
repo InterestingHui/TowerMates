@@ -425,6 +425,29 @@ ok(prepTry && prepCatch, 'openPrep 装配段有 catch，且 catch 里一定先�
     '战斗面板三块打法按钮开战即收起（所以「战斗中」这类说法必须删干净）');
 }
 
+// ---------- 线稿是同一支笔：黄铜亮档只有一个值（2026-11-24 加练·美术焦点D） ----------
+// 全作有两套线稿：誓约徽记（`vow-icons.js`，线色**硬编码** #e8c46a，因为要支持运行时的 hi 替换）
+// 与战前卡四枚图标（`view.js` PREP_ICON，走 `stroke="currentColor"` + CSS `var(--gold)`）。
+// 两套并排读作同一支笔，靠的是「数值相同」——而这是个两处存值的隐患：改 `--gold` 忘了改 vow-icons，
+// 或者反过来，界面就分成两支笔，且没有任何闸门会红（截图看不出 8 位色差）。
+{
+  const fs3 = require('fs'), p3 = require('path');
+  const cssSrc = fs3.readFileSync(p3.join(__dirname, '..', 'css', 'style.css'), 'utf8');
+  const vowSrc = fs3.readFileSync(p3.join(__dirname, '..', 'js', 'vow-icons.js'), 'utf8');
+  const goldVar = (/--gold:\s*(#[0-9a-fA-F]{3,6})/.exec(cssSrc) || [])[1];
+  const vowGold = (/stroke="(#[0-9a-fA-F]{3,6})"/.exec(vowSrc) || [])[1];
+  ok(!!goldVar && !!vowGold && goldVar.toLowerCase() === vowGold.toLowerCase(),
+    `誓约徽记的线色与 --gold 同值（css ${goldVar} / vow-icons ${vowGold}）`);
+  const prepBlock = (/const PREP_ICON = \{([\s\S]*?)\n  \};/.exec(viewSrc) || [])[1] || '';
+  const prepIcos = (prepBlock.match(/<svg /g) || []).length;
+  ok(prepIcos === 4, `战前卡四枚线刻图标都在（实得 ${prepIcos}）`);
+  ok(prepBlock.indexOf('stroke="currentColor"') >= 0 && prepBlock.indexOf('#') < 0,
+    '战前图标不写死颜色，一律 currentColor 交给 CSS（换色只改一处）');
+  ok((prepBlock.match(/viewBox="0 0 24 24"/g) || []).length === prepIcos
+    && (prepBlock.match(/stroke-width="1\.6"/g) || []).length === prepIcos,
+    '四枚图标的画布与粗细同一档（24×24 / 1.6，与誓约徽记的大形同笔）');
+}
+
 // ---------- 结算：塔印与余烬（切边界第二刀） ----------
 // 这一屏的每句话都是算术：塔印档位、「下一枚还差什么」、「本局余烬 +N」。
 // 原先是 main.js 里的手写文案 + 手写判据，两边各写一遍就会漂——所以除了逐个档位验，
