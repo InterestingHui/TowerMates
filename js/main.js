@@ -36,6 +36,8 @@
   // （随 BATTLE_SPEED 一起缩放，快速战斗下自动变短；点击跳过仍然立刻收层）
   const TEACH_HOLD = 900;
   const BATTLE_SPEED_NAME = { slow: '慢', normal: '标准', fast: '快' };
+  // 设置写盘失败要说的话（与存档那条同一个口径：提示条 nowrap，92vw ≈ 27 汉字，《设置存不下…》够短）
+  const CFG_TIPS = '设置存不下：这台设备不让写存储，刷新会回到上次的样子。';
   const Settings = (() => {
     let data = { fx: 'full', sfx: true, music: true, vib: true, fast: false, critters: true, dpad: false, hintSpeed: 'normal', battleSpeed: 'normal', fullRounds: false };
     try {
@@ -44,11 +46,24 @@
       if (cur) data = Object.assign(data, cur);
       else if (old) data = { fx: old.reduceFx ? 'low' : 'full', sfx: !old.mute, music: !old.mute, vib: true };
     } catch (e) {}
-    const save = () => {
-      try { localStorage.setItem('towermates_cfg_v2', JSON.stringify(data)); } catch (e) {}
+    let cfgFailTold = false;
+    const save = (quiet) => {
+      try { localStorage.setItem('towermates_cfg_v2', JSON.stringify(data)); }
+      catch (e) {
+        // 2026-11-24 自检（消化 11-18 面 5 的待办）：这条 catch 原来是空的——存储满了 / 无痕模式下
+        // 改完设置当场生效、关掉再进就回落，全程零提示。与存档同一条口径：写不进必须留痕。
+        // 只提示一次（持续弹会盖住别的反馈），日志每次留一行当履历。
+        // quiet＝初始化那一次：那一刻提示层还没就绪，且首页「存不了」那行已经说过同一件事，
+        // 所以不弹条、只往下走；用户真去改设置时还有下一次，一定会报。
+        if (!quiet && !cfgFailTold) {
+          cfgFailTold = true;
+          setTimeout(() => { try { warn(CFG_TIPS, 6000); } catch (e2) {} }, 0);
+        }
+        if (!quiet) { try { log('⚠ ' + CFG_TIPS, 'warn'); } catch (e2) {} }
+      }
       window.__tmCfg = data; // 渲染层读开关用（critters）
     };
-    save();
+    save(true);   // 初始化这一次静默（提示层还没就绪，首页「存不了」那行已经说过）
     return {
       get fx() { return data.fx; },
       get sfx() { return data.sfx; },
@@ -2713,7 +2728,11 @@
       b.addEventListener('click', (e) => { e.stopPropagation(); choose(b.dataset.pick); });
     });
     el.prepOverlay.classList.add('show');
-    Funnel.push('prep_open', { floor: s.floor + 1, opts: opts.length });
+    // 2026-11-24 22:3x 自检：这里原本还逐场写一条 Funnel.push('prep_open')——已删。
+    // 漏斗缓冲只有 200 条（Funnel.push 里 slice(-200)），而战前面板在「有格挡 + 承伤≥5% 上限」
+    // 时每场都弹：全清一局 52 场里约 40 场满足条件 ⇒ 四五局就把 run_start / first_fight /
+    // floor_reach / run_end 这些跨局关键行从头挤掉，而「打法用了几次」本来就由 run_end.dec
+    // 一条汇总，不需要逐场流水。闸门见 code-test「漏斗只写关键节点」。
     // 自动化钩子（与 __battleSpeed 同族）：无头探针只关心战斗面板时，
     // 把「选打法」按给定值一步跳过；真实玩家不会走到这里（没人会去设这个变量）。
     if (window.__prepAuto) {
@@ -2851,10 +2870,25 @@
     const opts = prepOptions({ m, pred, dmgBase, dmgBlock, dmgGuard, dmgTangle, s, heroMax: s.maxHp || s.hp });
     if (opts.length > 1) {
       battleBusy = true;   // 面板开着时不许再触发另一场战斗
-      openPrep({ m, pred, opts, ch }, (tactic) => {
+      // 2026-11-24 22:3x 自检补的兜底：装配面板是纯 DOM 活，却夹在「battleBusy 已置真」
+      // 与「playBattleScene 之前」这一小段里，此前没有任何 catch。paintIcon / innerHTML /
+      // 节点缺失任一处抛错，异常直接冒到 clickMove 外面，而 battleBusy 永远是 true ⇒
+      // 整局走不动、点不动（11-17 在演出链上修过同一个死角，这里是新开的一段）。
+      // 兜底：解锁 + 收面板 + 这一次按「直接开打」放行。最坏是少选一次打法，不许卡死。
+      try {
+        openPrep({ m, pred, opts, ch }, (tactic) => {
+          battleBusy = false;
+          launch(tactic);
+        });
+      } catch (e) {
         battleBusy = false;
-        launch(tactic);
-      });
+        prepKeyPick = null;
+        // 收面板这一步本身也可能抛（节点缺失就是抛错的常见来源之一）：包住它，
+        // 否则 catch 里再抛一次，锁又回到 true——兜底必须比它兜的错更结实。
+        try { if (el.prepOverlay) el.prepOverlay.classList.remove('show'); } catch (e3) {}
+        try { ErrorSink.note('error', 'prep: ' + (e && (e.message || e)), (e && e.filename) || 'js/main.js', (e && e.lineno) || 0, 0); } catch (e2) {}
+        launch(null);
+      }
       return;
     }
     launch(null);

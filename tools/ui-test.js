@@ -269,6 +269,24 @@ const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-ui-'));
   ok(bh.liveAfter === 0, `战斗里不再留能点的打法按钮（实测 ${bh.liveAfter}）`);
   ok(/按「格挡」打/.test(bh.after || ''), `战斗提示行回显已选打法（实测：${bh.after}）`);
   ok(!/可点下面的打法/.test(bh.after || ''), '战斗中不再说「可点下面的打法」');
+  // 战前面板装配抛错（2026-11-24 自检）：battleBusy 在面板这段是置真的，没有 catch 就会永久锁住输入。
+  // 判据四条：异常不外泄 / 面板不留半开 / 这一战按「直接开打」落空但怪没被吃掉 / 修好之后还能打完。
+  const pf = out.prepFallback || {};
+  ok(pf.threwOut === false, '面板装配抛错不许冒到点击调用外面（冒出去说明锁没人放）');
+  ok(pf.aborts >= 1, `兜底把这一战交给演出逃生口（实测 ${pf.aborts} 次）`);
+  ok(pf.open === false && pf.stuckScene === false,
+    `抛错后面板与战斗层都不许留在屏幕上（面板 ${pf.open} / 战斗层 ${pf.stuckScene}）`);
+  ok(pf.noKill === true && pf.monsterKept === true, '这一战没算数，怪留在原地可重打');
+  ok(pf.retryKills === 1 && pf.retryCleared === true,
+    `修好后再点同一只怪能正常结算（击杀 +${pf.retryKills} / 格子已清 ${pf.retryCleared}）`);
+  // 设置写盘失败（2026-11-24 自检，消化 11-18 面 5 待办）：空 catch 会让「改完设置关掉再进就回落」
+  // 这件事全程无声。判据：提示条挂出来、日志留一行、只报一次、恢复后真的写进去了。
+  const cf = out.cfgFail || {};
+  ok(cf.shown === true && /设置存不下/.test(cf.pill || ''),
+    `设置写不上时要挂提示条（实测「${cf.pill}」）`);
+  ok(cf.logged === true, '设置写不上时日志留一行（提示条会自己消失，履历要留在账上）');
+  ok(cf.again === false, '同一句只报一次（恢复后再改设置不许重复弹）');
+  ok(cf.saved === true, '恢复写盘后设置真的落盘了（没有因为一次失败就再也不写）');
   // 键盘面（2026-11-16 21:xx）：立誓页可键盘 / 浮层挡走人 / Esc 覆盖 / 输入框隔离
   const kb = out.kbd || {};
   ok(kb.cards >= 4, `立誓页出全量卡（实测 ${kb.cards} 张）`);

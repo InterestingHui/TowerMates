@@ -368,6 +368,26 @@ ok(stripComments(wxSrc).indexOf('slice(0, 12)') < 0 && wxSrc.indexOf('capRivals'
 ok(mainSrc.indexOf('if (!saved.ok)') >= 0 && mainSrc.indexOf('if (!kept.ok)') >= 0,
   '两条入口（贴码 / 落地收下）在存储失败时改口，不许说「进榜了」');
 
+// ---------- 漏斗缓冲：只许写「关键节点」（2026-11-24 自检） ----------
+// 缓冲 200 条、write 时 slice(-200)，而漏斗页的跨局读数（加载→开局 / 首局→二局 / 逐层到达）
+// 全靠 run_start·first_fight·floor_reach·run_end 这几行串起来。11-24 给战前面板顺手加了
+// 一条逐场事件，全清一局 52 场里约 40 场会触发 ⇒ 四五局就把历史从头挤空，而它没有任何读者。
+// 这条闸门把「高频事件混进漏斗」钉死：名单之外的 push 一出现就红。
+const FUNNEL_EVENTS = ['run_start', 'run_end', 'first_fight', 'floor_reach', 'page_hide', 'vow_open', 'tab_split', 'err'];
+const funnelPushes = (stripComments(mainSrc).match(/Funnel\.push\('([a-z_]+)'/g) || [])
+  .map((x) => x.replace(/.*'([a-z_]+)'/, '$1'));
+ok(funnelPushes.length >= 6, '漏斗写点解析得到（源码写法变了要回来改这条闸门）');
+ok(funnelPushes.every((n) => FUNNEL_EVENTS.indexOf(n) >= 0),
+  '漏斗只写关键节点（逐场事件会把 200 条缓冲从头挤空）：' + funnelPushes.filter((n) => FUNNEL_EVENTS.indexOf(n) < 0).join(','));
+ok(funnelPushes.indexOf('prep_open') < 0, '战前面板不逐场写漏斗（打法次数已由 run_end.dec 汇总）');
+
+// ---------- 战前面板装配必须有兜底（2026-11-24 自检：battleBusy 死角） ----------
+// battleBusy 在开面板前置真、在选完之后才放开；中间这段（画怪、拼卡、挂监听）此前没有 catch。
+// 抛错就会冒到 clickMove 外面而锁永远是 true ⇒ 整局走不动点不动，只能刷新。
+const prepTry = /try\s*\{\s*openPrep\(/.test(stripComments(mainSrc));
+const prepCatch = /catch\s*\(e\)\s*\{[^}]*battleBusy = false/.test(stripComments(mainSrc));
+ok(prepTry && prepCatch, 'openPrep 装配段有 catch，且 catch 里一定先把 battleBusy 解开');
+
 // ---------- 结算：塔印与余烬（切边界第二刀） ----------
 // 这一屏的每句话都是算术：塔印档位、「下一枚还差什么」、「本局余烬 +N」。
 // 原先是 main.js 里的手写文案 + 手写判据，两边各写一遍就会漂——所以除了逐个档位验，

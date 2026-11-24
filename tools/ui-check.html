@@ -706,6 +706,96 @@ async function run() {
     w.__battleSpeed = 1;
     d.querySelectorAll('.overlay.show').forEach(function (o) { o.classList.remove('show'); });
 
+    // 战前面板装配抛错不许锁死（2026-11-24 自检）：battleBusy 在开面板前置真、选完才放开，
+    // 中间这段（画怪 / 拼卡 / 挂监听）2026-11-24 才新增，此前没有 catch —— 抛错会冒到
+    // clickMove 外面，锁永远是 true，整局走不动点不动（与 11-17 演出链那个死角同型）。
+    // 判据：异常不外泄、面板不留半开、这一战按「直接开打」放过，且下一次还能正常打完。
+    out.prepFallback = {};
+    E.newGame();
+    var sf = E.state();
+    sf.flags.hasBlock = true;               // 有格挡 ⇒ 面板一定有两张卡（不会因为只有一张而不弹）
+    sf.atk = 200; sf.def = 0; sf.hp = 100; sf.maxHp = 100;   // 承伤 ≥5% 上限，走真面板
+    var pf = null;
+    for (var fy = 1; fy < 10 && !pf; fy++) {
+      for (var fx = 1; fx < 10 && !pf; fx++) {
+        var chF = sf.maps[0][fy][fx];
+        var moF = w.GAME_DATA.monsters[chF];
+        if (!moF || moF.ghost || moF.boss) continue;
+        [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (o) {
+          if (pf) return;
+          var qx = fx + o[0], qy = fy + o[1];
+          if (qx < 1 || qx > 9 || qy < 1 || qy > 9) return;
+          if (sf.maps[0][qy][qx] !== '.') return;
+          pf = { x: fx, y: fy, hx: qx, hy: qy, ch: chF };
+        });
+      }
+    }
+    if (pf) {
+      sf.x = pf.hx; sf.y = pf.hy;
+      w.__tm.refreshHud();
+      await new Promise(function (r) { setTimeout(r, 60); });
+      var paintF = w.Renderer.paintIcon;
+      var abortsF = w.__battleAbortCount || 0;
+      var killsF = sf.flags.killCount || 0;
+      w.Renderer.paintIcon = function () { throw new Error('probe-prep-boom'); };
+      try { w.__tm.clickMove(pf.x, pf.y); out.prepFallback.threwOut = false; }
+      catch (e) { out.prepFallback.threwOut = true; }
+      var tF = Date.now();
+      while (Date.now() - tF < 3000 && (w.__battleAbortCount || 0) === abortsF) {
+        await new Promise(function (r) { setTimeout(r, 40); });
+      }
+      await new Promise(function (r) { setTimeout(r, 200); });
+      out.prepFallback.aborts = (w.__battleAbortCount || 0) - abortsF;
+      out.prepFallback.open = d.getElementById('prepOverlay').classList.contains('show');
+      out.prepFallback.stuckScene = d.getElementById('battleScene').classList.contains('show');
+      out.prepFallback.noKill = (sf.flags.killCount || 0) === killsF;   // 这一战没算，怪还在
+      out.prepFallback.monsterKept = E.tile(pf.x, pf.y) === pf.ch;
+      w.Renderer.paintIcon = paintF;
+      // 修好之后再点同一只怪：这一次必须正常开面板 → 自动选「直接开打」→ 结算
+      var killsG = sf.flags.killCount || 0;
+      w.__tm.clickMove(pf.x, pf.y);
+      var tG = Date.now();
+      while (Date.now() - tG < 6000 && (sf.flags.killCount || 0) === killsG) {
+        await new Promise(function (r) { setTimeout(r, 60); });
+      }
+      out.prepFallback.retryKills = (sf.flags.killCount || 0) - killsG;
+      out.prepFallback.retryCleared = E.tile(pf.x, pf.y) !== pf.ch;
+    }
+    w.__battleSpeed = 1;
+    d.querySelectorAll('.overlay.show').forEach(function (o) { o.classList.remove('show'); });
+
+    // 设置写盘失败要说出来（2026-11-24 自检：消化 11-18 面 5 的待办）。
+    // 复现就是待办里写的那条：让 localStorage.setItem 抛 quota，再改一个开关。
+    // 判据：提示条真的挂出那句话（且不吞异常）、日志留一行、恢复后不再报（只报一次）。
+    out.cfgFail = {};
+    w.__tm.openCfg();
+    await new Promise(function (r) { setTimeout(r, 120); });
+    var setI = w.localStorage.setItem;
+    var pill = d.getElementById('warnPill');
+    if (pill) { pill.classList.remove('show'); pill.textContent = ''; }
+    Object.defineProperty(w.localStorage, 'setItem', {
+      configurable: true,
+      value: function () { throw new Error('probe-quota'); },
+    });
+    var sfxRow = d.getElementById('cfgSfx');
+    if (sfxRow) sfxRow.click();
+    await new Promise(function (r) { setTimeout(r, 260); });
+    out.cfgFail.pill = pill ? (pill.textContent || '') : '';
+    out.cfgFail.shown = pill ? pill.classList.contains('show') : false;
+    var logTxt = d.getElementById('log') ? d.getElementById('log').textContent : '';
+    out.cfgFail.logged = /设置存不下/.test(logTxt);
+    delete w.localStorage.setItem;
+    if (w.localStorage.setItem !== setI) { try { w.localStorage.setItem = setI; } catch (e) {} }
+    // 再点一次：恢复写盘之后不许再弹那句（只报一次），且设置真的写进去了
+    if (pill) { pill.classList.remove('show'); pill.textContent = ''; }
+    var vibRow = d.getElementById('cfgVib');
+    if (vibRow) vibRow.click();
+    await new Promise(function (r) { setTimeout(r, 200); });
+    out.cfgFail.again = pill ? pill.classList.contains('show') : false;
+    out.cfgFail.saved = !!w.localStorage.getItem('towermates_cfg_v2');
+    w.__tm.closeCfg();
+    d.querySelectorAll('.overlay.show').forEach(function (o) { o.classList.remove('show'); });
+
     // 商店链：8 / 11 / 13 层的商人，单击一次就要「走到跟前 → 首会对白 → 商店面板」。
     // 第 3 层曾因「walk 教学对白打断寻路 + playStory 覆盖丢回调」卡死，这里把整条链钉进闸门。
     d.querySelectorAll('.overlay.show').forEach(function (o) { o.classList.remove('show'); });
