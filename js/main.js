@@ -3315,7 +3315,9 @@
     // 否则榜单「今日」档筛不到它，玩家只看见「我打了今日一塔、榜上却没有我」。
     const dayTag = Daily.tagAtSettle((s.flags && s.flags.daily) || '');
     sum.daily = dayTag || null;
-    sum.dailyCrossed = !dayTag && !!(s.flags && s.flags.daily);
+    // 只给摘要用，不挂进 sum：sum 整份塞进榜单存档，多一个字段就多一行没人读的存储
+    // （与 05:4x 删掉的好友缓存同一个毛病）
+    const dailyCrossed = !dayTag && !!(s.flags && s.flags.daily);
 
     Sound.play('win');
     Sound.stopMotif();
@@ -3423,7 +3425,7 @@
     // 摘要条目与折叠全在 View 里定：顺序、几件算超、提示挂在哪一档，都不许在渲染层再判断一次
     const bm = View.briefModel(View.winBrief({
       dailyLabel: sum.daily ? Daily.label(sum.daily) : '',
-      dailyCrossed: !!sum.dailyCrossed,
+      dailyCrossed,
       relicCount: relicIds.length, kills: s.flags.killCount || 0,
       worstHit: s.flags.worstHit, worstName: s.flags.worstName,
       retries: s.flags.retries,

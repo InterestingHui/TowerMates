@@ -1479,6 +1479,10 @@ ok(mainSrc.indexOf("searchParams.set('rival'") < 0, 'main.js 不许自己拼链�
     '23:59 开的今日局在 00:05 结算时按普通局记账');
   ok((stripComments(mainSrc).match(/Daily\.tagAtSettle\(/g) || []).length === 2,
     '结算两条路（胜局落榜 / 败局上报）都过 tagAtSettle，没有哪条直写 flags.daily');
+  // `sum` 整份塞进榜单存档（`saveBoard(sum)` 直接 push）：任何只为摘要服务的标记都不许挂上去，
+  // 否则每次落榜都往 localStorage 多存一个没人读的字段——与同轮删掉的好友缓存同一个毛病。
+  ok(stripComments(mainSrc).indexOf('sum.dailyCrossed') < 0,
+    '跨零点标记是局部变量，没挂进 sum（榜单存档里不许混入摘要专用字段）');
 }
 
 console.log(`挑战码 / 触控 / 桥接 / 视图模型单测：${pass} 项通过${bad ? `，${bad} 项失败` : ''}`);
