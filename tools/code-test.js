@@ -400,6 +400,31 @@ ok(prepTry && prepCatch, 'openPrep 装配段有 catch，且 catch 里一定先�
   ok(cssHandoff, 'CSS 接了那边的标记：nofade 时遮幕同帧就位（否则又要闪一帧棋盘）');
 }
 
+// ---------- 打法的入口只有「战前」一处（2026-11-24 加练·游戏性焦点D） ----------
+// 11-24 把格挡 / 架盾 / 缠斗从战斗面板搬到「战前」面板之后，战斗面板那三块按钮一律 hidden。
+// 可全作还有 7 处在教「战斗中点盾」——新玩家照做会去战斗面板找那个盾，而它按设计不在了。
+// 契约两半：①战斗面板确实不再摆按钮；②没有任何一处文案还把打法指到战斗中（注释不算）。
+{
+  const fs2 = require('fs'), p2 = require('path');
+  const read2 = (rel) => fs2.readFileSync(p2.join(__dirname, '..', rel), 'utf8');
+  const noCmt2 = (s) => String(s).replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+  const staleWords = ['战斗中点盾', '战斗中可把', '战斗中点一下'];
+  const sources = ['js/story.js', 'js/main.js', 'js/data.js', 'js/view.js', 'index.html']
+    .map((rel) => [rel, noCmt2(read2(rel))]);
+  const stale = sources
+    .filter(([, s]) => staleWords.some((w) => s.indexOf(w) >= 0))
+    .map(([rel]) => rel);
+  ok(stale.length === 0, `没有一处把打法指到「战斗中」（命中：${stale.join(',') || '无'}）`);
+  const count = (rel, w) => noCmt2(read2(rel)).split(w).length - 1;
+  ok(count('js/story.js', '撞怪时先挑「格挡」') >= 2, '盾谱小传与「还没学格挡」两处都改口到战前');
+  ok(count('js/main.js', '撞怪时先挑「格挡」') >= 2, '格挡 pip 与「格挡已学会」提示条都改口到战前');
+  ok(count('js/data.js', '撞怪时先挑「格挡」') >= 1 && count('index.html', '撞怪时在战前挑「格挡」') >= 1,
+    '老兵明码与玩法说明同口径');
+  const mainNoCmt2 = noCmt2(read2('js/main.js'));
+  ok(/\[el\.bsBlock, el\.bsGuard, el\.bsTangle\]\.forEach/.test(mainNoCmt2) && /b\.hidden = true/.test(mainNoCmt2),
+    '战斗面板三块打法按钮开战即收起（所以「战斗中」这类说法必须删干净）');
+}
+
 // ---------- 结算：塔印与余烬（切边界第二刀） ----------
 // 这一屏的每句话都是算术：塔印档位、「下一枚还差什么」、「本局余烬 +N」。
 // 原先是 main.js 里的手写文案 + 手写判据，两边各写一遍就会漂——所以除了逐个档位验，

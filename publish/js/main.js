@@ -1518,7 +1518,7 @@
         const pct = Math.round(Engine.ringBlockScale() * 100);
         el.blockPip.title = used
           ? '本层格挡已用完（进下一层恢复）'
-          : `本层还剩 ${left} 次格挡：战斗中可把承伤降到 ${pct}%${s.flags.hasBlock2 ? ' · 卸伤三成化为经验' : ''}`;
+          : `本层还剩 ${left} 次格挡：撞怪时先挑「格挡」，这一场承伤降到 ${pct}%${s.flags.hasBlock2 ? ' · 卸伤三成化为经验' : ''}`;
       }
     }
 
@@ -3040,7 +3040,7 @@
           if (res.item.block) {
             Renderer.ring(before.x, before.y, 'rgba(159,216,255,0.9)', TN() * 2.4, 600);
             Tips.show('block');
-            warn('**格挡已学会**：每层一次，战斗中点盾。');
+            warn('**格挡已学会**：每层一次，撞怪时先挑「格挡」。');
           }
           if (res.item.heartShard) {
             Renderer.ring(before.x, before.y, 'rgba(255,180,200,0.9)', TN() * 2.6, 620);
