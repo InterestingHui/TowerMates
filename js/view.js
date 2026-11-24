@@ -504,6 +504,15 @@
     tangle: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5l14 14M19 5L5 19"/><path d="M3 7l4-4M21 7l-4-4"/></svg>',
   };
 
+  // 战前面板的提示行（2026-11-24 22:4x 加练·叙事）：首遇那一屏必须有归属。
+  // 11-20 已定口径「无主语的系统文案会被读成怪自己开口，引导必须有归属（烛 / 秤 / 塔灵）」，
+  // 而已有的归属做法是 `TRAIT_WHY = '烛：'`（首遇特性把规则念在玩家正在看的面板里）。
+  // 战前面板是 11-24 新加的第一处战前决策，原先只有一句系统口吻，玩家只能自己猜为什么突然多一屏。
+  // 只首遇那一次由烛说；之后退回通用提示行——同一句规则不再请人复述，字数也回到原样。
+  const PREP_WHY = '烛：';
+  const PREP_FIRST = (n) => `${PREP_WHY}撞上了就先定这一场怎么打——定下不再改 · 或按 1–${n}`;
+  const PREP_HINT = (n) => `选一种打法再开打 · 或按 1–${n} · 决定之后这一场不再改`;
+
   // 「上次对这只用了什么」：战前面板脚下那行记忆。只说发生过的事（打法 + 实际掉血），
   // 不给建议——建议会把这一屏从「自己算」变成「照做」。
   const TAC_NAME = { n: '直接打', b: '格挡', g: '架盾', t: '缠斗', f: '自动挡' };
@@ -1067,7 +1076,7 @@
     sealOf, nextSealHint, sealTarget, emberModel,
     cmpBoard, fmtTime, endName, marginRank, sameRun, isMine, RUN_KEYS,
     deathStatsModel, winStatsModel, memModel, floorNo, migrateFloors,
-    foeName, traitNote, threatModel, blockModel, guardModel, tangleModel, prepOptions, lastTacticLine,
+    foeName, traitNote, threatModel, blockModel, guardModel, tangleModel, prepOptions, lastTacticLine, PREP_FIRST, PREP_HINT,
     hintPicked, HINT_PICK, HINT_AUTO,
     BOARD_TABS, BOARD_CAP, SHOP_CORE, SEALS, CHAPTERS,
     NOTE_DAILY, NOTE_CRUSHED, EMPTY_OTHER, TIP_BLOCK, TIP_SHARD,

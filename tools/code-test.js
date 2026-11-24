@@ -719,6 +719,21 @@ ok(lastB.indexOf('格挡') >= 0 && lastB.indexOf('176') >= 0, '记忆行写出�
 ok(V.lastTacticLine({ p: 'n' }).indexOf('直接打') >= 0, '没有掉血数时只写打法');
 ok(V.prepOptions(Object.assign({}, prepF, { nonTrivial: false, floor: 0 })).length === 1, '杂兵小架只留「直接开打」');
 
+// 战前面板的提示行：首遇必须有归属（2026-11-24 22:4x 加练·叙事）
+// 11-20 定的口径是「无主语的系统文案会被读成怪自己开口，引导必须有归属（烛 / 秤 / 塔灵）」，
+// 而战前面板原先只有一句系统口吻。这里守两件事：首遇那版由烛开口、键位上限两版都随卡片数走。
+const prepFirst4 = V.PREP_FIRST(4);
+ok(prepFirst4.indexOf('烛：') === 0, `首遇那一次由烛开口（实测「${prepFirst4}」）`);
+ok(prepFirst4.indexOf('1–4') >= 0 && V.PREP_FIRST(2).indexOf('1–2') >= 0,
+  '首遇那版也带键盘入口，且上限随卡片数走（写死 1–4 会在两张卡时教出按不动的键）');
+ok(prepFirst4.indexOf('不再改') >= 0, '首遇那版仍说清「定下就不能改」（规则不许只在第二版里）');
+ok(V.PREP_HINT(4).indexOf('烛：') < 0 && V.PREP_HINT(4).indexOf('1–4') >= 0,
+  '之后那版退回通用提示行（不再请人复述同一句），键盘入口仍在');
+ok(stripComments(mainSrc).indexOf('选一种打法再开打') < 0
+  && mainSrc.indexOf('View.PREP_FIRST') >= 0 && mainSrc.indexOf('View.PREP_HINT') >= 0
+  && mainSrc.indexOf("Tips.mark('prepfirst')") >= 0,
+  '提示行两版只在 view.js 定义（装配段不许再抄一份文案），首遇标记走 Tips.mark 一次性');
+
 // ---------- 结算两页（败局 / 胜局）的标签与履历 ----------
 // 这一屏曾经同一个数有两个口径：层数（引擎 0 基 / 文案 1 基）、章回响分母（手写 4）、
 // 塔印名（两页各取一次）。搬进 view.js 之后这些口径只剩一处，下面的断言直接盯它们。
@@ -1349,7 +1364,9 @@ ok(mainSrc.indexOf("searchParams.set('rival'") < 0, 'main.js 不许自己拼链�
   // 面板却一个字没写——同一作里立誓页写「或 ← → 切换、Enter 确认」、回响写「也可按 1 / 2 / 3」，
   // 只有这屏把键盘当暗能力。键位上限必须随卡片数走：写死 1–4 时只摆两张卡会教出按不动的键。
   const mainNoCmt = stripComments(mainSrc);
-  ok(mainNoCmt.indexOf('或按 1–${opts.length}') > 0,
+  // 2026-11-24 22:4x：文案两版搬进 view.js（PREP_FIRST / PREP_HINT），装配段只剩选择；
+  // 所以这条改盯 view.js 的模板串——写死数字仍会让它红，顺手也守住了「不许在装配段抄第二份文案」。
+  ok(stripComments(viewSrc).indexOf('或按 1–${n}') > 0 && mainNoCmt.indexOf('View.PREP_HINT') > 0,
     '战前面板提示行写明键盘入口，且键位上限与卡片数同源（写死数字会教出一个按不出反应的键）');
 }
 
