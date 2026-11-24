@@ -1247,5 +1247,24 @@ ok(mainSrc.indexOf("searchParams.set('rival'") < 0, 'main.js 不许自己拼链�
     `decision-audit 的架盾摊平比例必须与引擎同源（${m ? m[3] : '-'} vs ${spread}）`);
 }
 
+// 名墙上的每个名字都必须有戏份（2026-11-24 19:3x 加练 · 叙事）：
+// 名墙那句原本是全塔唯一提到锤魔的地方（另有两条源码注释写着他的名字）。玩家读到五个名字、
+// 塔里只遇到四个锁匠，收到的是一个永远不回收的问号——本作唯一一处「埋了钩子没收」（对照：第八位勇者川
+// 有断剑小传 / 执剑者成就 / 结算两版 / 影子脚注四方互证）。判据不看「有没有写」，看「除了名墙那句
+// 还能不能在别处见到他」；注释不算戏份，否则注释写得越全越容易骗过闸门。
+{
+  const fs = require('fs'), p = require('path');
+  const src = stripComments(fs.readFileSync(p.join(__dirname, '..', 'js', 'story.js'), 'utf8'));
+  const wm = /'(炎魔[^']*?)。五道刻完的名字。'/.exec(src);
+  ok(!!wm, '名墙那句还在（下面两条以它列的名字为准，读不到就是假绿）');
+  const wall = wm ? wm[1].split('。').filter(Boolean) : [];
+  const mute = wall.filter((n) => (src.match(new RegExp(n, 'g')) || []).length < 2);
+  ok(wall.length === 5 && mute.length === 0,
+    `名墙上的每个名字都另有戏份（只刻在墙上＝埋了钩子不回收；没下文的：${mute.join(' / ') || '无'}）`);
+  ok(/第三道[^']{0,8}锤魔|锤魔[^']{0,20}第三道/.test(src),
+    '锤魔的第三道锁有人交代（五个名字四个锁匠，缺的那位得在塔里说清去哪了）');
+}
+
 console.log(`挑战码 / 触控 / 桥接 / 视图模型单测：${pass} 项通过${bad ? `，${bad} 项失败` : ''}`);
+
 process.exit(bad ? 1 : 0);
