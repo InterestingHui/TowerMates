@@ -89,7 +89,10 @@ ok(W.normalize('不是数组').length === 0, '非数组输入不炸');
 let stored = null;
 global.localStorage = { getItem: () => null, setItem: (k, v) => { stored = v; } };
 const merged = W.merge([{ name: 'A', floor: 7, time: 300 }, { name: 'A', floor: 7, time: 300 }]);
-ok(merged.length === 1 && !!stored, '同一人同一趟只留一条并写入存储');
+ok(merged.length === 1 && stored === null, '同一人同一趟只留一条，且不再往存储里写一份没人读的缓存');
+// 只写不读的缓存（`towermates_wx_friends` + `friends()`）11-25 整块删除：要恢复它，先给出读者，
+// 并把这条断言改成「谁在读」；直接加回写入会红在这里。
+ok(typeof W.friends === 'undefined', '只写不读的 friends() 已删除（好友行真正的落点是 wxwire 的 towermates_rivals）');
 
 // ---------- 视图模型层（js/view.js）：榜单与商店的「规则」从 DOM 里切出来之后的第一次单测 ----------
 // 这一层此前不存在：排序 / 筛选 / 10 行上限 / 「还差 N 金」「再买 N 次」这些算术都埋在 main.js 的
@@ -882,6 +885,11 @@ ok(b1[0] === '带走 1 件遗物 · 击杀 33 只', '没有今日一塔时第一
 ok(b1[1] === '一次没回头' && b1[b1.length - 1] === '✦ +12', '没回头写陈述句，余烬收尾');
 ok(briefOf({ relicCount: 0, kills: 0, retries: 3 })[1] === '重来本层 3 次', '重来过几次就报几次');
 ok(briefOf({ dailyLabel: '11月16日', relicCount: 0, kills: 0 })[0] === '今日一塔 · 11月16日', '今日一塔排第一（藏着等于没写）');
+// 跨零点：摘要要把「这局算普通局」说清楚，否则玩家只会读成「今日榜没记上我」
+const crossed = briefOf({ dailyCrossed: true, relicCount: 0, kills: 0 });
+ok(crossed[0] === '跨了零点：今日榜只收当天走完的，这局按普通局记账', '跨零点的那一局在摘要里明说按普通局记账');
+ok(!crossed.some((t) => t.indexOf('今日一塔') === 0), '跨零点的局不再挂「今日一塔」标签（标签与记账口径同源）');
+ok(!briefOf({ relicCount: 0, kills: 0 }).some((t) => t.indexOf('跨了零点') === 0), '没跨零点就不提这一条');
 ok(briefOf({ worstHit: 126, worstName: '怨灵', relicCount: 0, kills: 1 }).some((t) => t === '最狠的一场：怨灵 −126'), '最狠的一场');
 ok(!briefOf({ relicCount: 0, kills: 1 }).some((t) => t.indexOf('最狠') === 0), '没挨过大打就不提这一条');
 ok(briefOf({ hint: '锁环攒到 3 枚可换「守灯」', relicCount: 0, kills: 1 }).some((t) => t.indexOf('下一枚塔印：') === 0), '下一枚塔印的提示原样进摘要');
@@ -1459,6 +1467,18 @@ ok(mainSrc.indexOf("searchParams.set('rival'") < 0, 'main.js 不许自己拼链�
   // 胜局与败局各有一份 lastRun（败局那条最容易被漏——它走的是另一个函数）
   ok((stripComments(mainSrc).match(/lastRun = \{[\s\S]{0,260}?daily:/g) || []).length === 2,
     '胜局与败局两份 lastRun 都带日签');
+  // 日签是**开局**落档的：23:59 开今日一塔、00:05 结算时它已经是昨天的键。
+  // 榜单「今日」档按今天的键筛 ⇒ 那局既进不了今天也回不到昨天，玩家读成「榜上没记上我」。
+  // 判据收在 Daily.tagAtSettle 一处，胜局落榜与败局上报都走它（下面那条源码断言守着「别绕过去」）。
+  ok(Daily.tagAtSettle('2026-03-05', now) === '2026-03-05', '当天的日签结算时保留');
+  ok(Daily.tagAtSettle('2026-03-04', now) === '', '跨了零点：昨天的日签结算时清掉');
+  ok(Daily.tagAtSettle('', now) === '' && Daily.tagAtSettle(null, now) === '', '普通局（空/缺日签）不受影响');
+  const lateOpen = new Date(2026, 2, 5, 23, 59, 0).getTime();
+  const afterMid = new Date(2026, 2, 6, 0, 5, 0).getTime();
+  ok(Daily.tagAtSettle(Daily.keyOf(lateOpen), afterMid) === '',
+    '23:59 开的今日局在 00:05 结算时按普通局记账');
+  ok((stripComments(mainSrc).match(/Daily\.tagAtSettle\(/g) || []).length === 2,
+    '结算两条路（胜局落榜 / 败局上报）都过 tagAtSettle，没有哪条直写 flags.daily');
 }
 
 console.log(`挑战码 / 触控 / 桥接 / 视图模型单测：${pass} 项通过${bad ? `，${bad} 项失败` : ''}`);

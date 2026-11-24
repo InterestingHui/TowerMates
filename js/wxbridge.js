@@ -5,7 +5,6 @@
 (function () {
   const w = typeof window !== 'undefined' ? window : null;
   const wx = w && w.wx;
-  const CACHE = 'towermates_wx_friends';
   const clean = (v, n) => String(v == null ? '' : v).replace(/[<>&"']/g, '').slice(0, n || 24);
   const num = (v) => Math.min(999999, Math.max(0, Number(v) || 0));
   // 今日一塔的日签（YYYY-MM-DD）。托管的键位多一个 tm_daily，好友行才进得了「今日」档；
@@ -13,12 +12,11 @@
   const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
   const dayKey = (v) => (DAY_RE.test(String(v == null ? '' : v)) ? String(v) : '');
 
-  function read() {
-    try { return JSON.parse(localStorage.getItem(CACHE) || '[]'); } catch (e) { return []; }
-  }
-  function write(list) {
-    try { localStorage.setItem(CACHE, JSON.stringify(list.slice(0, 20))); } catch (e) {}
-  }
+  // 这里曾经有一份 `towermates_wx_friends` 缓存：onFriends / merge 都往里写，而唯一读者 `friends()`
+  // 全仓零调用（好友行真正的落点是 wxwire 里那份 `towermates_rivals`）。每收到一批排行榜就往
+  // localStorage 塞一份没人读的 JSON，占配额、让「存储里到底有什么」更难查 —— 11-25 收敛轮整块删掉。
+  // 要恢复缓存，先给出读者；`code-test` 有一条守着「merge 不许再写存储」。
+
   function normalize(list) {
     if (!Array.isArray(list)) return [];
     return list.slice(0, 20).map((x) => ({
@@ -57,7 +55,6 @@
         return true;
       } catch (e) { return false; }
     },
-    friends() { return read(); },
     // 请开放数据域把好友托管数据画到 sharedCanvas；支持回传的宿主会把结果送回来
     request() {
       if (!wx || typeof wx.getOpenDataContext !== 'function') return false;
@@ -72,23 +69,19 @@
         wx.onMessage((msg) => {
           if (!msg || msg.type !== 'tm_rank_result') return;
           const list = normalize(msg.friends);
-          if (list.length) write(list);
           if (typeof cb === 'function') cb(list);
         });
         return true;
       } catch (e) { return false; }
     },
-    // 供宿主/测试直接注入好友影子（等价于贴一批挑战码）
+    // 供宿主/测试直接注入好友影子（等价于贴一批挑战码）：只去重这一批，不落存储
     merge(list) {
-      const all = normalize(list).concat(read());
       const seen = new Set();
-      const uniq = all.filter((x) => {
+      return normalize(list).filter((x) => {
         const k = x.name + '|' + x.floor + '|' + x.time + '|' + x.vow;
         if (seen.has(k)) return false;
         seen.add(k); return true;
       });
-      write(uniq);
-      return uniq;
     },
     normalize,
   };

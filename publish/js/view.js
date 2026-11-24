@@ -766,6 +766,8 @@
     const fx = o.fx || {};
     const out = [];
     if (o.dailyLabel) out.push(`今日一塔 · ${o.dailyLabel}`);
+    // 跨零点：日签在结算时已经过期，这局按普通局记账。不说这一句，玩家只会读成「榜上没记上我」
+    if (o.dailyCrossed) out.push('跨了零点：今日榜只收当天走完的，这局按普通局记账');
     out.push(`带走 ${o.relicCount || 0} 件遗物 · 击杀 ${o.kills || 0} 只`);
     if (o.worstHit) out.push(`最狠的一场：${o.worstName} −${o.worstHit}`);
     out.push(o.retries ? `重来本层 ${o.retries} 次` : '一次没回头');

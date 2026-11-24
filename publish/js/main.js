@@ -2506,7 +2506,8 @@
       steps: sum.steps, seal, goals: 0,
       // 败局也要带日签：微信好友榜回的是托管数据，不带这一位就只能进「全部」档，
       // 而「今日一塔」正是最想跟人比的那一档（好友榜与今日榜此前是两条不相交的线）。
-      daily: (s.flags && s.flags.daily) || '',
+      // 与胜局同一道判定：跨零点的局日签已过期，按普通局上报，不把别人挤进一个不存在的日子。
+      daily: Daily.tagAtSettle((s.flags && s.flags.daily) || ''),
     };
     el.endOverlay.classList.add('show', 'death-mode');
     refreshStartBadges();
@@ -3309,8 +3310,12 @@
     const s = Engine.state();
     const E = s.ending === 'true' ? S.endingTrue : S.endingPlain;
     const sum = Engine.summary();
-    // 今日一塔的日签跟着结算走：榜单「🗓 今日」按这个字段归堆，普通局是 null
-    sum.daily = (s.flags && s.flags.daily) || null;
+    // 今日一塔的日签跟着结算走：榜单「🗓 今日」按这个字段归堆，普通局是 null。
+    // 零点前开、零点后结算的局带的是昨天的键 —— 过期就按普通局记账（判定在 Daily 里，与败局上报同源），
+    // 否则榜单「今日」档筛不到它，玩家只看见「我打了今日一塔、榜上却没有我」。
+    const dayTag = Daily.tagAtSettle((s.flags && s.flags.daily) || '');
+    sum.daily = dayTag || null;
+    sum.dailyCrossed = !dayTag && !!(s.flags && s.flags.daily);
 
     Sound.play('win');
     Sound.stopMotif();
@@ -3418,6 +3423,7 @@
     // 摘要条目与折叠全在 View 里定：顺序、几件算超、提示挂在哪一档，都不许在渲染层再判断一次
     const bm = View.briefModel(View.winBrief({
       dailyLabel: sum.daily ? Daily.label(sum.daily) : '',
+      dailyCrossed: !!sum.dailyCrossed,
       relicCount: relicIds.length, kills: s.flags.killCount || 0,
       worstHit: s.flags.worstHit, worstName: s.flags.worstName,
       retries: s.flags.retries,

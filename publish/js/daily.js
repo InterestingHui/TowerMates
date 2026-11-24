@@ -42,6 +42,17 @@
     return key === keyOf(now === undefined ? Date.now() : now);
   }
 
+  // 结算时的日签：只有仍是「今天」才留下。
+  // 日签是**开局**落档的，23:59 开今日一塔、00:05 结算的那局带的是昨天的键——
+  // 榜单「今日」档按今天的键筛，那局既进不了今天、也回不到昨天，等于榜上凭空少一局，
+  // 而玩家只会读成「我打了今日一塔，榜上却没有我」。过期就按普通局记账（判据全库只此一处，
+  // 胜局落榜与败局上报都走它）。
+  function tagAtSettle(key, now) {
+    const k = String(key == null ? '' : key);
+    if (!k) return '';
+    return isToday(k, now) ? k : '';
+  }
+
   // 今日之约：日期种子挑一条基础誓约。
   // 池子只有不需要余烬解锁的四条——不能把「还没解锁的规则」塞给玩家当今日任务；
   // 苦行(10 余烬)/无名(20 余烬) 因此不在池内。难度按 reward 升序：无誓 2 < 慈悲 3 < 贪婪 5 < 铁壁 12。
@@ -51,5 +62,5 @@
     return VOW_POOL[s % VOW_POOL.length];
   }
 
-  return { keyOf, seedOf, label, isToday, vowOf, VOW_POOL, DAY };
+  return { keyOf, seedOf, label, isToday, tagAtSettle, vowOf, VOW_POOL, DAY };
 });
