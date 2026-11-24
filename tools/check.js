@@ -313,6 +313,23 @@ if (global.STORY) {
   });
 }
 
+// ---------- 叙事可达性：写好的每一段都得有人播 ----------
+// 2026-11-24：此前只有「引用的键必须存在」这半边（拼错键名 → playStory 静默跳过），
+// 反过来的那半边没人管——`floorTips` 的 13 段环境叙事在 story.js 里躺了很久，
+// 代码里零引用、data.js 也不用它（楼层卡读的是 floors[].tip），玩家永远读不到，
+// 而 check / regress / 所有截图全绿。逻辑复用 tools/lore-audit.js（单一实现），
+// 那边出报告，这边当闸门。
+{
+  const lore = require('./lore-audit.js').audit();
+  lore.orphan.forEach((k) => {
+    err(`剧情 ${k} 没有任何触发点——写了却播不到（要么接上引用，要么删掉）`);
+  });
+  [...lore.missingDeclared, ...lore.missingCalled, ...lore.missingHints].forEach((k) => {
+    err(`代码/数据引用了剧情 ${k}，story.js 里没有这段稿——玩家会看到空对白`);
+  });
+  console.log(`✓ 叙事可达性：${lore.keys} 段有主（弱引用 ${lore.weak.length} 段走 data 字段代播）`);
+}
+
 // ---------- 跨局余烬经济：解锁线不能掐断循环 ----------
 // 一局常规通关约 16 余烬（基础 5 + 击杀/回响/结局/路遇），最贵的解锁应在 3 局内够得着。
 // 老分数制时代留的 60/120 要 7~20 局，PROGRESS P-1 记过这个断头问题。

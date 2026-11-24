@@ -99,6 +99,11 @@
   })();
   const REDUCED = () => Settings.fx === 'low';
   const hintMs = (base) => Math.round(base * (HINT_SCALE[Settings.hintSpeed] || 1));
+  // 一句话该挂多久：按字数分两档（26 字是提示条实际读得完 / 读不完的分界，量过多次）。
+  // 2026-11-24 之前只有顶部提示条守这条，楼层卡的层名氛围句写死 2100ms——
+  // 那是 19~36 字的一句话，2.1 秒只读得下十一二个，三分之二的句子没人读完就淡掉了。
+  const READ_SHORT = 3200, READ_LONG = 4800, READ_LONG_CHARS = 26;
+  const readMs = (text) => hintMs([...(text || '')].length > READ_LONG_CHARS ? READ_LONG : READ_SHORT);
   // 走路节奏：三套基准按入口的操作方式定（点击连走 105 / 方向键长按 135 / 键盘连按 95），
   // 开「快速模式」时一起收——不然打架压到 1.1s、走路还是老速度，刷层的手感全断在移动上。
   // 走路不肯跟演出一样砍到 ×0.42（44ms/格会糊成一片），收到 ×0.65 为止。
@@ -914,7 +919,7 @@
     renderRich(p, msg);
     p.classList.add('show');
     clearTimeout(warnTimer);
-    const dur = hintMs(ms || (p.textContent.length > 26 ? 4800 : 3200));
+    const dur = ms ? hintMs(ms) : readMs(p.textContent);
     warnTimer = setTimeout(() => p.classList.remove('show'), dur);
   }
 
@@ -3625,7 +3630,7 @@
     void card.offsetWidth;
     card.classList.add('show');
     clearTimeout(floorCardTimer);
-    floorCardTimer = setTimeout(() => card.classList.remove('show'), hintMs(2100));
+    floorCardTimer = setTimeout(() => card.classList.remove('show'), readMs(f.tip));
   }
 
   // ---------- 点击寻路 ----------

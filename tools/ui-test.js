@@ -287,6 +287,23 @@ const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-ui-'));
   ok(cf.logged === true, '设置写不上时日志留一行（提示条会自己消失，履历要留在账上）');
   ok(cf.again === false, '同一句只报一次（恢复后再改设置不许重复弹）');
   ok(cf.saved === true, '恢复写盘后设置真的落盘了（没有因为一次失败就再也不写）');
+  // 楼层卡的层名氛围句要读得完（2026-11-24 加练·叙事）：19~36 字的环境叙事此前一律挂 2.1 秒，
+  // 按 6 字/秒只读得下十二三个字。判据是「读得完」而不是「等于某个常数」——
+  // 实现换成别的算法也该过，只有又写死一个短时长才会红。
+  const fr = out.floorRead || {};
+  const frDelays = fr.delays || [];
+  const frChars = fr.chars || [];
+  const frMin = frDelays.length ? Math.min.apply(null, frDelays) : 0;
+  const frMax = frDelays.length ? Math.max.apply(null, frDelays) : 0;
+  const frMaxChars = frChars.length ? Math.max.apply(null, frChars) : 0;
+  ok(frDelays.length >= 13 && frMin >= 3000,
+    `最短的楼层氛围句也要挂够 3 秒（实测 ${frDelays.length} 层 / 最短 ${frMin}ms）`);
+  ok(frMax >= frMaxChars * 120,
+    `最长那句（${frMaxChars} 字）按 8 字/秒给够阅读时间（实测 ${frMax}ms ≥ ${frMaxChars * 120}ms）`);
+  ok(frMax > frMin, `时长随字数分档，不是又一个写死的常数（${frMin}ms ↔ ${frMax}ms）`);
+  ok(fr.realLong >= 3600,
+    `最长那层真挂到 4 秒以上再收（实测等 ${fr.realLong}ms；读数骗人会在这里露馅）`);
+
   // 键盘面（2026-11-16 21:xx）：立誓页可键盘 / 浮层挡走人 / Esc 覆盖 / 输入框隔离
   const kb = out.kbd || {};
   ok(kb.cards >= 4, `立誓页出全量卡（实测 ${kb.cards} 张）`);

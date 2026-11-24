@@ -793,6 +793,45 @@ async function run() {
     await new Promise(function (r) { setTimeout(r, 200); });
     out.cfgFail.again = pill ? pill.classList.contains('show') : false;
     out.cfgFail.saved = !!w.localStorage.getItem('towermates_cfg_v2');
+
+    // 楼层卡的层名氛围句要读得完（2026-11-24 加练·叙事）。
+    // 13 层每层一句 19~36 字的环境叙事，此前一律写死 2100ms 就淡掉——按 6 字/秒只读得下十二三个字，
+    // 三分之二的句子没人读完。可读性闸门只管字号达标，管不到「挂几秒」。
+    // 量法：13 层逐层调 showFloorCard，偷接一次 setTimeout 读它排的时长（真等 62 秒不划算），
+    //       再对最长那句真等一遍，确认不是读数骗人。判据分三条：最短不低于 3 秒、最长按字数给够、
+    //       档位确实按字数分开（不是又换了个写死的常数）。
+    out.floorRead = { chars: [], delays: [] };
+    (function () {
+      var fr = out.floorRead;
+      var realTO = w.setTimeout;
+      var cap = null;
+      w.setTimeout = function (fn, ms) {
+        if (cap === null && typeof ms === 'number') cap = ms;
+        return realTO.call(w, fn, ms);
+      };
+      var floors = w.GAME_DATA.floors;
+      for (var fi = 0; fi < floors.length; fi++) {
+        cap = null;
+        w.__tm.showFloorCard(fi);
+        fr.chars.push(Array.from(floors[fi].tip || '').length);
+        fr.delays.push(cap);
+      }
+      w.setTimeout = realTO;
+      // 最长那句真等一遍（4.8s 档），确认卡片不是被别的分支提前收走的
+      var longIdx = fr.chars.indexOf(Math.max.apply(null, fr.chars));
+      fr.longIdx = longIdx;
+      fr.realLong = -1;
+    })();
+    {
+      var fr2 = out.floorRead;
+      var fc = d.getElementById('floorCard');
+      var rt0 = Date.now();
+      w.__tm.showFloorCard(fr2.longIdx);
+      while (Date.now() - rt0 < 6500 && fc.classList.contains('show')) {
+        await new Promise(function (r) { setTimeout(r, 60); });
+      }
+      fr2.realLong = Date.now() - rt0;
+    }
     w.__tm.closeCfg();
     d.querySelectorAll('.overlay.show').forEach(function (o) { o.classList.remove('show'); });
 
