@@ -1388,6 +1388,24 @@ if (mTarget) ok(E.pathsTo(mTarget.x, mTarget.y) === null, '怪物目标返回 nu
   ok(/七成/.test(D.TRAITS.double.tip) && !/翻倍|两下/.test(D.TRAITS.double.tip.replace('每回合打两下', '')),
     '连击文案与 1.7 系数同口径（不写翻倍）');
 
+  // 数据面 vs 引擎面：TRAITS 里每一条都必须在 predict 里真的被算一次（2026-11-25 收敛轮）
+  // 起因：「坚固」全塔 0 只怪在用，trait 文案/引擎两处分支/sim 一处副本都活着却没人验过——
+  // 这种「休眠规则」最容易在下一次改动里坏掉而没人发现。docs/mota-elements.md §4 已把它
+  // 留作下一轮的「防御检查关」，所以不删，改成逐条打桩验语义：休眠可以，坏掉不行。
+  {
+    const d0 = D.monsters.D;                 // 僵尸：无特性，当桩
+    const keep = d0.trait;
+    const baseP = E.predict('D');
+    for (const tr of Object.keys(D.TRAITS)) {
+      d0.trait = tr;
+      const p = E.predict('D');
+      const live = !!(p && baseP && (p.rounds !== baseP.rounds || p.damage !== baseP.damage));
+      ok(live, `特性「${D.TRAITS[tr].name}」在引擎里有效果（不只是文案）`);
+      d0.trait = keep;
+    }
+    ok(d0.trait === keep && E.predict('D').rounds === baseP.rounds, '特性打桩后已还原（不污染后续用例）');
+  }
+
   // 边际收益：魔攻怪的「加防」收益必须为 0，只攻有效
   const mgW = E.margin('W');
   ok(mgW && mgW.def === 0, '魔攻怪：加防收益为 0（只能加攻）');

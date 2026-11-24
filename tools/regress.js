@@ -202,6 +202,27 @@ if (!process.argv.includes('--no-shot')) {
           console.log((good ? '✓' : '✗') + ` scene-act${i} ${(size / 1024).toFixed(0)}KB`);
         }
       }
+      // 对白背景一致性：14 张（序章之后）+ 序章四幕放进同一把尺子量明度/亮面积/焦点位置
+      // （2026-11-25 加练美术焦点A：backdrops.js 新增 718 行，此前只有一张肉眼网格页，零度量）
+      console.log('== 附加 · 对白背景一致性 ==');
+      {
+        const readBd = () => {
+          const p = spawnSync(chrome, [
+            '--headless=new', '--disable-gpu', '--no-sandbox', '--no-first-run', '--disable-extensions',
+            '--user-data-dir=' + path.join(os.tmpdir(), 'tm-bdluma-' + process.pid),
+            '--virtual-time-budget=30000', '--dump-dom',
+            `http://127.0.0.1:${PORT}/tools/bd-luma.html`,
+          ], { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+          const m = /<pre id="out">([\s\S]*?)<\/pre>/.exec(p.stdout || '');
+          return m ? m[1] : '';
+        };
+        let bdOut = readBd();
+        if (!bdOut.includes('ALL PASS') && !bdOut.includes('HAS FAIL')) bdOut = readBd();   // 偶发空 DOM 重试
+        const okBd = bdOut.includes('ALL PASS');
+        const bdN = (bdOut.match(/✓/g) || []).length;
+        console.log((okBd ? '✓' : '✗') + ` backdrop-luma ${bdN} 项` + (okBd ? '' : '\n' + bdOut.slice(0, 400)));
+        if (!okBd) bad++;
+      }
       // 「打不过」预警归属：撞墨妖（打不过）时，说话人必须是引导者（烛/秤），
       // 不许 Boss 自己开口，也不许战前剧本串场（2026-11-20 用户反馈：逻辑要严谨）
       console.log('== 附加 · 打不过预警归属 ==');

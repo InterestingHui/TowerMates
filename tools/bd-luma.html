@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>bd-luma</title>
+<style>body{margin:0;background:#05070c;color:#8ef;font:12px/1.5 monospace;padding:10px}
+pre{white-space:pre-wrap}</style>
+</head>
+<body>
+<pre id="out">measuring…</pre>
+<script src="../js/backdrops.js"></script>
+<script src="../js/scenes.js"></script>
+<script>
+// 对白背景一致性量尺（2026-11-25 加练 美术 焦点A）
+// ---------------------------------------------------------------------------
+// 11-24 新增的 js/backdrops.js 给了「序章之后」13 张对白背景 + 1 张锁芯。
+// 它此前只有一张肉眼网格页（tools/backdrop-check.html），零度量——而序章四幕 11-20 已经量过
+// 均亮度/亮面积。这一页把两批放进同一把尺子：都渲进 canvas 后量
+//   ① 均亮度 L（0–255）  ② 亮面积%（L≥90，圣经 §2.2 亮铜 ≤10% 面积）
+//   ③ 视觉焦点 fY%（最亮 40×40 窗口的中心 y）  ④ 暖光面积%（r>140 且 r>b+30）
+// 焦点这一项是这轮新加的：对白框从 y≈80% 起压住下缘，最亮处若落在框后等于没画。
+// 断言取「实测上限再留一档余量」，不按圣经字面（10% 亮面积对这批图松了 15 倍，拦不住漂移）。
+(function () {
+  const KEYS = ['gate', 'corridor', 'market', 'passage', 'wolfhall', 'throne', 'ridge', 'empty', 'bell', 'namewall', 'carve', 'roof', 'core', 'dawn'];
+  // 允许没有暖光的场景（冷光是有意的叙事选择，不是漏画）
+  const COLD_ONLY = {
+    throne: '王座厅：三扇高窗冷光 + 空王座前一只倒下的烛台（火已熄）',
+    roof: '塔顶：天光，塔已经在云上',
+    dawn: '结局黎明：全作唯一一次白昼',
+  };
+  const W = 430, H = 900, STEP = 2, BW = 40;
+  const BAND_MIN = 10, BAND_MAX = 34;   // 实测 11.9–27.4（序章四幕 18.0–24.3）
+  const LIT_MAX = 2.0;                  // 实测上限 0.65（序章 0.54）
+  const FOCAL_MAX = 78;                 // 对白框自 y≈80% 起盖住下缘（实测上限 76，留一格）
+
+  const lines = [];
+  let pass = 0, fail = 0;
+  function rec(name, ok, note) {
+    if (ok) pass++; else fail++;
+    lines.push((ok ? '✓ ' : '✗ ') + name + (note ? ' · ' + note : ''));
+  }
+  function luma(r, g, b) { return 0.2126 * r + 0.7152 * g + 0.0722 * b; }
+
+  function measure(svg) {
+    return new Promise((res) => {
+      const img = new Image();
+      img.onload = () => {
+        const cv = document.createElement('canvas');
+        cv.width = W; cv.height = H;
+        const ctx = cv.getContext('2d');
+        ctx.drawImage(img, 0, 0, W, H);
+        let data;
+        try { data = ctx.getImageData(0, 0, W, H).data; }
+        catch (e) { res({ err: 'tainted' }); return; }
+        // 最亮 40×40 窗口 → 视觉焦点
+        let best = { v: -1, y: 0 };
+        for (let y = 0; y + BW <= H; y += 20) {
+          for (let x = 0; x + BW <= W; x += 20) {
+            let s = 0;
+            for (let yy = y; yy < y + BW; yy += 4) {
+              for (let xx = x; xx < x + BW; xx += 4) {
+                const i = (yy * W + xx) * 4;
+                s += luma(data[i], data[i + 1], data[i + 2]);
+              }
+            }
+            if (s > best.v) best = { v: s, y: y + BW / 2 };
+          }
+        }
+        let sum = 0, n = 0, lit = 0, warm = 0;
+        for (let y = 0; y < H; y += STEP) {
+          for (let x = 0; x < W; x += STEP) {
+            const i = (y * W + x) * 4;
+            const r = data[i], g = data[i + 1], b = data[i + 2];
+            const L = luma(r, g, b);
+            sum += L; n++;
+            if (L >= 90) lit++;
+            if (r > 140 && r > b + 30) warm++;
+          }
+        }
+        res({
+          meanL: sum / n,
+          lit: (lit / n) * 100,
+          warm: (warm / n) * 100,
+          focalY: (best.y / H) * 100,
+        });
+      };
+      img.onerror = () => res({ err: 'load' });
+      // 源码里的 svg 是给 HTML 内联用的（不带 xmlns）；当 <img> 独立解析时必须补上
+      img.src = 'data:image/svg+xml;charset=utf-8,'
+        + encodeURIComponent(svg.replace(/<svg /, '<svg xmlns="http://www.w3.org/2000/svg" '));
+    });
+  }
+
+  function pad(s, w) { return (s + '                              ').slice(0, w || 10); }
+  function row(tag, m) {
+    return pad(tag, 10) + m.meanL.toFixed(1).padStart(7) + m.lit.toFixed(2).padStart(7)
+      + m.warm.toFixed(2).padStart(7) + m.focalY.toFixed(0).padStart(6);
+  }
+
+  async function run() {
+    const table = [], ms = {};
+    for (const k of KEYS) {
+      const m = await measure(window.Backdrops.svg(k));
+      ms[k] = m;
+      table.push(m.err ? pad(k, 10) + ' ERR ' + m.err : row(k, m));
+    }
+    // 序章四幕基准：走真实出口 Scenes.sync（不额外导出内部幕数组），从 #dlgScene 取回真上屏的 SVG
+    const ov = document.createElement('div');
+    ov.id = 'dialogOverlay'; ov.className = 'show';
+    const box = document.createElement('div');
+    box.id = 'dlgScene';
+    ov.appendChild(box); document.body.appendChild(ov);
+    for (let i = 0; i < 4; i++) {
+      window.Scenes.sync({ key: 'intro', idx: i, floor: 0 });
+      const m = await measure(box.innerHTML);
+      ms['intro' + (i + 1)] = m;
+      table.push(m.err ? pad('intro' + (i + 1), 10) + ' ERR ' + m.err : row('intro' + (i + 1), m));
+    }
+
+    // ---- 断言 ----
+    const bad = (pred, label) => KEYS.filter((k) => !ms[k].err && !pred(ms[k])).map((k) => k + label);
+    rec('18 张全部渲进画布（14 背景 + 序章 4 幕）',
+      Object.values(ms).every((m) => !m.err),
+      Object.values(ms).filter((m) => m.err).length ? '解析失败 ' + Object.keys(ms).filter((k) => ms[k].err).join(',') : '');
+    const outBand = bad((m) => m.meanL >= BAND_MIN && m.meanL <= BAND_MAX, '');
+    rec(`均亮度落在 ${BAND_MIN}–${BAND_MAX}`, outBand.length === 0, outBand.length ? '越界 ' + outBand.join(',') : '');
+    const overLit = bad((m) => m.lit <= LIT_MAX, '');
+    rec(`亮面积 ≤ ${LIT_MAX}%（圣经亮铜预算）`, overLit.length === 0, overLit.length ? '超标 ' + overLit.join(',') : '');
+    const lowFocus = bad((m) => m.focalY <= FOCAL_MAX, '');
+    rec(`视觉焦点在 y ≤ ${FOCAL_MAX}%（对白框之上）`, lowFocus.length === 0, lowFocus.length ? '被压 ' + lowFocus.join(',') : '');
+    // 暖光：只有白名单允许「全冷」
+    const noWarm = KEYS.filter((k) => !ms[k].err && ms[k].warm <= 0 && !COLD_ONLY[k]);
+    rec('每屏一盏暖光（冷光场景须在白名单里）', noWarm.length === 0, noWarm.length ? '无暖光 ' + noWarm.join(',') : '白名单 ' + Object.keys(COLD_ONLY).join('/'));
+    // 序章四幕与 14 张同带（一致性本体：两批资产走同一套明度语言）
+    const acts = ['intro1', 'intro2', 'intro3', 'intro4'].map((k) => ms[k]);
+    const bd = KEYS.map((k) => ms[k]);
+    const avg = (a) => a.reduce((s, m) => s + m.meanL, 0) / a.length;
+    const drift = Math.abs(avg(acts) - avg(bd));
+    rec('14 张与序章四幕均亮度同带（差 ≤ 6）', drift <= 6, `序章 ${avg(acts).toFixed(1)} / 背景 ${avg(bd).toFixed(1)} / 差 ${drift.toFixed(1)}`);
+
+    lines.push('', 'scene        meanL   lit%   warm%   fY%');
+    lines.push.apply(lines, table);
+    lines.push('', fail === 0 ? 'ALL PASS ' + pass + '/' + (pass + fail) : 'HAS FAIL ' + fail + ' 项');
+    document.getElementById('out').textContent = lines.join('\n');
+    document.title = fail === 0 ? 'done' : 'fail';
+  }
+  run();
+})();
+</script>
+</body>
+</html>
