@@ -8,6 +8,10 @@
   const CACHE = 'towermates_wx_friends';
   const clean = (v, n) => String(v == null ? '' : v).replace(/[<>&"']/g, '').slice(0, n || 24);
   const num = (v) => Math.min(999999, Math.max(0, Number(v) || 0));
+  // 今日一塔的日签（YYYY-MM-DD）。托管的键位多一个 tm_daily，好友行才进得了「今日」档；
+  // 脏值一律清空而不是塞进榜里——一条乱码日签会把别人挤进一个不存在的日子。
+  const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+  const dayKey = (v) => (DAY_RE.test(String(v == null ? '' : v)) ? String(v) : '');
 
   function read() {
     try { return JSON.parse(localStorage.getItem(CACHE) || '[]'); } catch (e) { return []; }
@@ -26,6 +30,7 @@
       ending: x && x.ending === 'true' ? 'true' : 'plain',
       seal: clean(x && x.seal, 8),
       goals: num(x && x.goals), // 回响章数
+      daily: dayKey(x && x.daily), // 今日一塔日签（普通局为空）
     })).filter((x) => x.floor > 0);
   }
 
@@ -43,6 +48,8 @@
             { key: 'tm_ending', value: String((entry && entry.ending) || '') },
             { key: 'tm_seal', value: clean(entry && entry.seal, 8) },
             { key: 'tm_goals', value: String(num(entry && entry.goals)) },
+            // 日签：好友榜回的是托管数据，缺这一位时好友永远进不了「今日」档（两条社交线不相交）
+            { key: 'tm_daily', value: dayKey(entry && entry.daily) },
             { key: 'tm_at', value: String(Date.now()) },
           ],
           fail() {},

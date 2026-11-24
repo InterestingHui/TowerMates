@@ -12,12 +12,20 @@
     const B = window.WXBridge;
     if (!tm || !B) return;
 
-    const origEnd = tm.showEnd;
-    tm.showEnd = function () {
-      const r = origEnd.apply(this, arguments);
-      try { if (tm.lastRun) B.submit(tm.lastRun); } catch (e) { /* 上报失败不影响结算 */ }
-      return r;
-    };
+    // 结算上报：**胜局与败局都要报**。此前只挂了 showEnd ⇒ 绝大多数局死在第 5–8 层，
+    // 好友托管数据几乎从不更新，好友榜上永远只有「很久以前通关的那几个」。
+    // 塔友榜按层比，败局的层数一样算数（「我死在第 9 层」正是最想让人看见的一句）。
+    function wrapReport(name) {
+      const orig = tm[name];
+      if (typeof orig !== 'function') return;
+      tm[name] = function () {
+        const r = orig.apply(this, arguments);
+        try { if (tm.lastRun) B.submit(tm.lastRun); } catch (e) { /* 上报失败不影响结算 */ }
+        return r;
+      };
+    }
+    wrapReport('showEnd');
+    wrapReport('showDeath');
 
     // 好友榜贴图：子域把榜画进 sharedCanvas，主域每帧把它当图片贴到面板里的 canvas 上。
     // H5 没有 wx/sharedCanvas → 整块保持 hidden，玩家看到的就是原来的挑战码榜。
@@ -92,6 +100,8 @@
           seal: x.seal,
           goals: x.goals,
           vow: x.vow,
+          // 日签透传到名录：好友走的是不是「今天这座」，榜单「今日」档才认得出他
+          daily: x.daily || '',
         }));
         const seen = new Set();
         // 好友榜每次回的是「最新一批」，排在前面；本地名录是旧→新。去重时新的优先，

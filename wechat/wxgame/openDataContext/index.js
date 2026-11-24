@@ -7,7 +7,7 @@
 // 同一份代码也能在 H5 里跑（见 tools/opendata-check.html 注入假数据），
 // 排版调完再进微信，不用每次真机试。
 //
-// 字段口径与 js/wxbridge.js 完全一致：tm_floor / tm_time / tm_vow / tm_ending / tm_seal / tm_goals
+// 字段口径与 js/wxbridge.js 完全一致：tm_floor / tm_time / tm_vow / tm_ending / tm_seal / tm_goals / tm_daily
 (function (root) {
   // 色板取 DESIGN-NOTES.md 的全局基底，子域没有 CSS 变量，只能硬编码同一批 hex
   const C = {
@@ -21,6 +21,7 @@
 
   const clean = (v, n) => String(v == null ? '' : v).replace(/[<>&"']/g, '').slice(0, n || 24);
   const num = (v) => Math.min(999999, Math.max(0, Number(v) || 0));
+  const DAY_RE = /^\d{4}-\d{2}-\d{2}$/; // 与 js/wxbridge.js 的 dayKey 同一口径
 
   // 两种输入都收：微信原始 [{nickname, KVDataList:[{key,value}]}] / 已解析的对象
   function normalize(list) {
@@ -42,6 +43,8 @@
         ending: pick('ending') === 'true' ? 'true' : 'plain',
         seal: clean(pick('seal'), 8),
         goals: num(pick('goals')),
+        // 今日一塔日签：带上它，好友行回到主域后能进「今日」档（此前子域只转六位，好友永远进不去）
+        daily: DAY_RE.test(String(pick('daily') == null ? '' : pick('daily'))) ? String(pick('daily')) : '',
       };
       return row.floor > 0 ? row : null; // 没进过塔的名录不占榜位
     }).filter(Boolean).slice(0, 30);
@@ -59,6 +62,28 @@
   function fmtTime(t) {
     if (!t) return '—';
     return t >= 60 ? Math.floor(t / 60) + '分' + (t % 60) + '秒' : t + '秒';
+  }
+
+  // 本地日期键（YYYY-MM-DD），与主域 js/daily.js 的 keyOf 同一口径。
+  // 子域不能 require 主域模块，只能抄一份——两处口径靠 code-test 的字符串比对钉住。
+  const pad2 = (n) => (n < 10 ? '0' : '') + n;
+  function todayKey(now) {
+    const t = new Date(now === undefined ? Date.now() : now);
+    if (isNaN(t.getTime())) return todayKey(Date.now());
+    return t.getFullYear() + '-' + pad2(t.getMonth() + 1) + '-' + pad2(t.getDate());
+  }
+
+  // 第二行的标签：誓约 · 塔印 · 真结局 · 今日。
+  // 「今日」只能在这里说：好友托管数据不进主域，好友行到不了主域的「今日」档
+  // （`boardModel` 按 `r.daily === todayKey` 筛，而微信真机上好友数据只以画布形式出现）。
+  // 所以要让玩家看出「他走的是今天这座」，标记必须画在子域的榜上。
+  function rowTags(r, now) {
+    const tags = [];
+    if (r.vow && r.vow !== 'none') tags.push(VOW_NAME[r.vow] || r.vow);
+    if (r.seal && SEAL_NAME[r.seal]) tags.push(SEAL_NAME[r.seal]);
+    if (r.ending === 'true') tags.push('真结局');
+    if (r.daily && r.daily === todayKey(now)) tags.push('今日');
+    return tags;
   }
 
   // 主绘制：canvas 的 width/height 由调用方按 dpr 设好，这里只按逻辑尺寸画
@@ -147,11 +172,8 @@
       const name = r.name.length > 8 ? r.name.slice(0, 8) + '…' : r.name;
       ctx.fillText(name, 60, y + 23);
 
-      // 第二行：誓约 · 塔印（塔印只在有值时显示）
-      const tags = [];
-      if (r.vow && r.vow !== 'none') tags.push(VOW_NAME[r.vow] || r.vow);
-      if (r.seal && SEAL_NAME[r.seal]) tags.push(SEAL_NAME[r.seal]);
-      if (r.ending === 'true') tags.push('真结局');
+      // 第二行：誓约 · 塔印（塔印只在有值时显示）· 今日
+      const tags = rowTags(r);
       ctx.fillStyle = C.dim;
       ctx.font = '11px ' + FONT;
       ctx.fillText(tags.join(' · ') || '—', 60, y + 39);
@@ -176,7 +198,7 @@
     return { rows: rows, shown: shown.length };
   }
 
-  const api = { draw: draw, normalize: normalize, sortRows: sortRows, C: C };
+  const api = { draw: draw, normalize: normalize, sortRows: sortRows, rowTags: rowTags, todayKey: todayKey, C: C };
 
   // ---- 微信子域自动启动：只有真正跑在子域里才挂（H5 调试时手动调 draw）----
   const wx = root.wx;
@@ -195,7 +217,7 @@
       lastAt = now;
       paint([], { loading: true });
       wx.getFriendCloudStorage({
-        keyList: ['tm_floor', 'tm_time', 'tm_vow', 'tm_ending', 'tm_seal', 'tm_goals'],
+        keyList: ['tm_floor', 'tm_time', 'tm_vow', 'tm_ending', 'tm_seal', 'tm_goals', 'tm_daily'],
         success: function (res) { paint(res && res.data); },
         fail: function () { paint([], { error: true }); },
       });

@@ -2504,6 +2504,9 @@
     if (window.__tm) window.__tm.lastRun = {
       ending: null, vow: s.flags.vow || 'none', floor: s.floor + 1, time: sum.time,
       steps: sum.steps, seal, goals: 0,
+      // 败局也要带日签：微信好友榜回的是托管数据，不带这一位就只能进「全部」档，
+      // 而「今日一塔」正是最想跟人比的那一档（好友榜与今日榜此前是两条不相交的线）。
+      daily: (s.flags && s.flags.daily) || '',
     };
     el.endOverlay.classList.add('show', 'death-mode');
     refreshStartBadges();
@@ -3486,7 +3489,7 @@
     // 平台桥接读这份摘要上报，不用再从 DOM 里抠数字
     if (window.__tm) window.__tm.lastRun = {
       ending: sum.ending, vow: sum.vow, floor: sum.floor, time: sum.time,
-      steps: sum.steps, seal, goals: echoDone,
+      steps: sum.steps, seal, goals: echoDone, daily: sum.daily || '',
     };
     Achievements.evaluate('finish', s, notifyAchievement);
     el.endOverlay.classList.add('show');

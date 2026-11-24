@@ -13,13 +13,24 @@ t('解析 KVDataList 形状', () => {
   const r = OD.normalize([{ nickname: '阿箬', KVDataList: [
     { key: 'tm_floor', value: '12' }, { key: 'tm_time', value: '1340' },
     { key: 'tm_vow', value: 'mercy' }, { key: 'tm_ending', value: 'plain' },
-    { key: 'tm_seal', value: 'ward' }, { key: 'tm_goals', value: '2' }] }]);
+    { key: 'tm_seal', value: 'ward' }, { key: 'tm_goals', value: '2' },
+    { key: 'tm_daily', value: '2026-11-25' }] }]);
   eq(r.length, 1, '条数');
   eq(r[0].name, '阿箬', '名字');
   eq(r[0].floor, 12, '层数');
   eq(r[0].time, 1340, '用时');
   eq(r[0].vow, 'mercy', '誓约');
   eq(r[0].seal, 'ward', '塔印');
+  eq(r[0].daily, '2026-11-25', '日签（好友行要能进「今日」档）');
+});
+
+t('日签脏值清空、缺省为空串', () => {
+  const r = OD.normalize([
+    { nickname: 'a', KVDataList: [{ key: 'tm_floor', value: '3' }, { key: 'tm_daily', value: '今天' }] },
+    { nickname: 'b', KVDataList: [{ key: 'tm_floor', value: '3' }] },
+  ]);
+  eq(r[0].daily, '', '乱码日签不许进榜');
+  eq(r[1].daily, '', '没上报日签＝普通局');
 });
 
 t('也接受已解析的对象（H5 调试路径）', () => {
@@ -74,6 +85,17 @@ t('不改原数组', () => {
   const src = [{ name: 'a', floor: 1, time: 1 }];
   OD.sortRows(src);
   eq(src.length, 1);
+});
+
+// ---- rowTags：第二行的「今日」标（子域是微信真机上唯一能说清这件事的地方）----
+t('今天这座的塔友打「今日」标，昨天/没日签的不打', () => {
+  const now = new Date(2026, 10, 25, 12, 0, 0).getTime();
+  eq(OD.todayKey(now), '2026-11-25', '日期键与主域同口径');
+  eq(OD.rowTags({ vow: 'mercy', daily: '2026-11-25' }, now).indexOf('今日') >= 0, true, '今天');
+  eq(OD.rowTags({ vow: 'mercy', daily: '2026-11-24' }, now).indexOf('今日'), -1, '昨天');
+  eq(OD.rowTags({ vow: 'mercy', daily: '' }, now).indexOf('今日'), -1, '普通局');
+  const t4 = OD.rowTags({ vow: 'guard', seal: 'ward', ending: 'true', daily: '2026-11-25' }, now);
+  eq(t4.join('/'), '铁壁/守誓/真结局/今日', '四个标同在（一行放得下）');
 });
 
 console.log('\n' + (fail ? '✗ ' : '✓ ') + `${pass} 项通过` + (fail ? `，${fail} 项失败` : ''));

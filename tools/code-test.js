@@ -1388,6 +1388,55 @@ ok(mainSrc.indexOf("searchParams.set('rival'") < 0, 'main.js 不许自己拼链�
     '战前面板提示行写明键盘入口，且键位上限与卡片数同源（写死数字会教出一个按不出反应的键）');
 }
 
+// 微信好友行进不了「今日」档（2026-11-25 01:5x 加练 · 社交）：好友榜回的是微信托管数据，
+// 原先上报的七位里没有日签 ⇒ 好友行只有楼层/用时，`boardModel` 的「今日」档按 `r.daily === todayKey`
+// 筛，好友永远筛不进来——「今日一塔」与「微信好友榜」这两条社交线从上线起就没相交过。
+// 判据不看注释，看四个环节是否真的带着这一位：上报 tm_daily → 子域解析 → 桥接 normalize → 名录行。
+{
+  const fs = require('fs'), p = require('path');
+  const stub = { sent: null };
+  global.window = { wx: { setUserCloudStorage(o) { stub.sent = o; } } };
+  // 文件顶部已经 require 过一次（那时没有 window，wx 被捕获成 null）——这里清缓存重载，
+  // 否则测的是一份「永远不会上报」的实例，三条断言全假红。
+  delete require.cache[require.resolve('../js/wxbridge.js')];
+  const WB = require('../js/wxbridge.js');
+  ok(WB.submit({ floor: 9, time: 640, daily: '2026-11-25' }) === true, '上报走通（桩宿主收得到）');
+  const kvOf = (o) => ((o && o.KVDataList) || []);
+  ok(kvOf(stub.sent).some((k) => k.key === 'tm_daily' && k.value === '2026-11-25'),
+    '上报带着日签 tm_daily（缺这一位好友永远进不了今日档）');
+  WB.submit({ floor: 9, time: 640 });
+  ok(kvOf(stub.sent).some((k) => k.key === 'tm_daily' && k.value === ''),
+    '普通局上报空日签（不能凭空把自己塞进今日档）');
+  const rows = WB.normalize([
+    { name: '阿岩', floor: 9, time: 640, daily: '2026-11-25' },
+    { name: '乱码', floor: 9, time: 640, daily: '今天' },
+  ]);
+  ok(rows.length === 2 && rows[0].daily === '2026-11-25', '桥接把日签递给主域');
+  ok(rows.length === 2 && rows[1].daily === '', '乱码日签被清空（不把人挤进不存在的日子）');
+  delete global.window;
+  const ODsrc = fs.readFileSync(p.join(__dirname, '..', 'wechat', 'wxgame', 'openDataContext', 'index.js'), 'utf8');
+  const WXsrc = fs.readFileSync(p.join(__dirname, '..', 'js', 'wxwire.js'), 'utf8');
+  ok(/keyList:\s*\[[^\]]*'tm_daily'/.test(stripComments(ODsrc)),
+    '子域请求的字段里带日签（不请求这一位，回传里也不会有）');
+  ok(/daily: DAY_RE\.test/.test(stripComments(ODsrc)), '子域解析出日签');
+  ok(stripComments(WXsrc).indexOf('daily: x.daily') > 0, '名录行透传日签');
+  // 微信真机上好友数据只以画布形式出现（子域不能回传行），所以「今日」标必须画在子域榜上；
+  // 子域的日期键是**抄**的一份，抄的东西必须有闸门钉住，否则跨天一处改了另一处没改。
+  const OD = require('../wechat/wxgame/openDataContext/index.js');
+  const Daily = require('../js/daily.js');
+  // 取单数字月/日（3 月 5 日）：用 11-25 量不出补零缺失——两位数月份本来就对
+  const now = new Date(2026, 2, 5, 12, 0, 0).getTime();
+  ok(OD.todayKey(now) === Daily.keyOf(now) && OD.todayKey(now) === '2026-03-05',
+    '子域的日期键与主域 Daily.keyOf 同口径（补零也要一模一样）');
+  ok(stripComments(ODsrc).indexOf('rowTags(r)') > 0, '子域榜把「今日」标画进第二行（真机上唯一能说清的地方）');
+  // 只挂 showEnd 时，绝大多数局（死在第 5–8 层）从不上报，好友榜永远停在「上次通关」
+  ok(/wrapReport\('showEnd'\)/.test(stripComments(WXsrc)) && /wrapReport\('showDeath'\)/.test(stripComments(WXsrc)),
+    '胜局与败局都上报（漏了败局，好友榜就只剩通关记录）');
+  // 胜局与败局各有一份 lastRun（败局那条最容易被漏——它走的是另一个函数）
+  ok((stripComments(mainSrc).match(/lastRun = \{[\s\S]{0,260}?daily:/g) || []).length === 2,
+    '胜局与败局两份 lastRun 都带日签');
+}
+
 console.log(`挑战码 / 触控 / 桥接 / 视图模型单测：${pass} 项通过${bad ? `，${bad} 项失败` : ''}`);
 
 process.exit(bad ? 1 : 0);

@@ -17,11 +17,15 @@ const kase = q.get('case') || 'full';
 const canvas = document.getElementById('c');
 
 // 微信 getFriendCloudStorage 的原始形状：nickname + KVDataList，正好测 normalize
+// 今日一塔日签：一行带「今天」、一行带旧日期（截图里应只有前者的第二行出现「今日」）
+const _d = new Date();
+const TODAY = _d.getFullYear() + '-' + String(_d.getMonth() + 1).padStart(2, '0') + '-' + String(_d.getDate()).padStart(2, '0');
 const full = [
   { nickname: '沈知白', KVDataList: [
     { key: 'tm_floor', value: '13' }, { key: 'tm_time', value: '1120' },
     { key: 'tm_vow', value: 'guard' }, { key: 'tm_ending', value: 'true' },
-    { key: 'tm_seal', value: 'name' }, { key: 'tm_goals', value: '4' }] },
+    { key: 'tm_seal', value: 'name' }, { key: 'tm_goals', value: '4' },
+    { key: 'tm_daily', value: TODAY }] },
   { nickname: '一个名字特别长的塔友', KVDataList: [
     { key: 'tm_floor', value: '12' }, { key: 'tm_time', value: '980' },
     { key: 'tm_vow', value: 'greed' }, { key: 'tm_ending', value: 'plain' },
@@ -29,7 +33,8 @@ const full = [
   { nickname: '阿箬', KVDataList: [
     { key: 'tm_floor', value: '12' }, { key: 'tm_time', value: '1340' },
     { key: 'tm_vow', value: 'mercy' }, { key: 'tm_ending', value: 'plain' },
-    { key: 'tm_seal', value: 'ward' }, { key: 'tm_goals', value: '2' }] },
+    { key: 'tm_seal', value: 'ward' }, { key: 'tm_goals', value: '2' },
+    { key: 'tm_daily', value: '2026-01-02' }] },
   { nickname: '老秤', KVDataList: [
     { key: 'tm_floor', value: '9' }, { key: 'tm_time', value: '760' },
     { key: 'tm_vow', value: 'none' }, { key: 'tm_ending', value: 'plain' }, { key: 'tm_seal', value: '' }] },
