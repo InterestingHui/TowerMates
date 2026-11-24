@@ -1,5 +1,12 @@
 # TowerMates 长期记忆
 
+## 候选四项：面板场景/锁芯锁环/战前记忆/族色变体（2026-11-24 下午，commit 61bee88，build 0e8d3776b3）
+- **面板场景**：`#shopScene/#altarScene/#echoScene` + `.panel-scene`（backdrops 复用，暗幕 0.84，面板 z-index:1），回响按章取景。商店面板不透明，效果只在留白处；祭坛/回响半透，场景能透出来。
+- **锁芯**：`render.js drawCoreRings()` 画 4 段弧（章色点亮 / 虚线底），`backdrops.js coreSvg(lit)` 同步，`scenes.js` 传 `flags.rings.length`。
+- **战前记忆**：`flags['tac_'+怪]={p,d}` + `Engine.lastTactic` + `View.lastTacticLine`（返回 markdown，`<b>` 会被 renderRich 转义）。
+- **族色变体**：8 只后半塔怪 `deep:true`，`MINION_KIND_COLOR_DEEP` 同色相压明度 + 脚下一圈细环；族色编码没变。
+- **部署坑**：`sites_deploy` 报 `SITES_START_FAILED`（port 3000 未响应）但线上 build/内容均已更新——先复查线上 build 与关键字符串再决定是否重试，别被状态码吓到重发。
+
 ## 七连修：立誓/背景/身份/小怪/提示/门禁/战前打法（2026-11-24，commit 7abc506，build 38101415f2 已上线）
 - **立誓**：首局不再只有一张卡（用户报障「只有一个固定选项」）。`openVow` 去掉首局裁剪，一次摆 4 张可选 + 2 条锁定 chip；`vows[].accent` 六色 + 卡顶 3px 主色条；选完 `flashVow()` 亮 3.4s 回执。
 - **对白背景**：`js/backdrops.js` 14 张 430×900 SVG（塔门/回廊/集市/密道/狼厅/王座/塔脊/空廊/钟楼/名墙/刻名室/塔顶/锁芯/黎明），`scenes.js sync()` 只有 `key==='intro'` 走四幕分镜，其余全部按 `KEY_SCENE`→楼层取景。`playStory` 把 `floor` 带进 typing。背景墙比剪影亮一档（`url(#bWall)`）才读得出空间；每屏一盏暖光 + 一圈大弱光。
