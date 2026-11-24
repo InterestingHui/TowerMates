@@ -16,7 +16,7 @@ const CHROME_CANDIDATES = [
   'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
   'C:/Program Files/Microsoft/Edge/Application/msedge.exe',
 ];
-const SCENES = ['start', 'play', 'bossintro', 'codexzoom', 'critters', 'minions', 'dialog', 'hint', 'stuck', 'battle', 'battleblock', 'prep', 'bossphase', 'bossyan', 'bossdef', 'probecard', 'altar', 'choice', 'end', 'board', 'codex', 'cfg', 'hud', 'tower', 'core', 'heart', 'stoneidle', 'vow', 'vowfirst', 'vowflash', 'event', 'eventdeep', 'gate', 'echo', 'goal', 'flow', 'showcase', 'death', 'death1', 'collection', 'adsdeath', 'adsend', 'sword', 'daily', 'dailyboard', 'dailyend', 'floor2', 'floor3', 'shop', 'echo2', 'battletwice', 'zeal', 'final', 'tanglebattle', 'guardbattle', 'threatbattle', 'hudmax'];
+const SCENES = ['start', 'play', 'bossintro', 'codexzoom', 'critters', 'minions', 'dialog', 'hint', 'stuck', 'battle', 'battleblock', 'prep', 'prep4', 'bossphase', 'bossyan', 'bossdef', 'probecard', 'altar', 'choice', 'end', 'board', 'codex', 'cfg', 'hud', 'tower', 'core', 'heart', 'stoneidle', 'vow', 'vowfirst', 'vowflash', 'event', 'eventdeep', 'gate', 'echo', 'goal', 'flow', 'showcase', 'death', 'death1', 'collection', 'adsdeath', 'adsend', 'sword', 'daily', 'dailyboard', 'dailyend', 'floor2', 'floor3', 'shop', 'echo2', 'battletwice', 'zeal', 'final', 'tanglebattle', 'guardbattle', 'threatbattle', 'hudmax'];
 
 function run(cmd, args) {
   const r = spawnSync(cmd, args, { cwd: ROOT, encoding: 'utf8' });
@@ -595,8 +595,9 @@ if (!process.argv.includes('--no-shot')) {
         if (outR.indexOf('bsTangle=') < 0) outR = readR();
         const shown = outR.indexOf('bsTangle=') >= 0 && outR.indexOf('HIDDEN') < 0 && outR.indexOf('缠斗') >= 0;
         const saved = /"extra":(\d+)/.exec(outR);
-        // 2026-11-24：战前卡的缠斗文案是「多挨一轮 +N 血 · 经验 ×2」（把差额与倍数写成一句）
-        const saveOk = !!saved && outR.indexOf('多挨一轮 +' + saved[1] + ' 血') >= 0;
+        // 2026-11-24：战前卡的缠斗文案是「多掉 N 血换经验 ×2」（差额 + 换到什么，一句说完）
+        // 2026-11-25 06:5x 焦点D 前它是「多挨一轮 +N 血」——加号指向**掉的血**、且与卡右边的「−N」反向
+        const saveOk = !!saved && outR.indexOf('多掉 ' + saved[1] + ' 血') >= 0;
         const multM = /"mult":(\d+)/.exec(outR);
         const costOk = !!multM && outR.indexOf('经验 ×' + multM[1]) >= 0;
         // 节奏守门（2026-11-15 21:5x）：缠斗在第 5 层，威胁读数在第 6 层——

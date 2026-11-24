@@ -678,7 +678,10 @@ ok(V.guardModel({ offer: true, count: 0, heroHp: 100, guardDamage: 10 }).html.in
 
 // 缠斗：符号与「省下来的 −N%」相反，用「+N 血」；缠完剩多少血在 title
 const tm = V.tangleModel({ extra: 40, mult: 2, exp: 12, expGain: 24, damage: 130, heroHp: 400 });
-ok(tm.html.indexOf('多挨一轮 +40 血 · 经验 ×2') > 0, '缠斗写「+N 血」而不是减号（那会和格挡的「省下 N%」读反）');
+// 2026-11-25 06:5x：这条守的是**战斗面板那块**（`tangleModel.html`，11-24 起开战即收起、玩家看不到），
+// 战前卡不再抄这句话了——卡上写「多掉 N 血换经验 ×2」（见下方 prep 卡四条）。
+// 两块屏的句子各自归各自，别再合流：合流正是这张卡原先带 emoji、重复卡名的原因。
+ok(tm.html.indexOf('多挨一轮 +40 血 · 经验 ×2') > 0, '战斗面板那块仍写「+N 血」（不与格挡的「省下 N%」共用一个符号）');
 ok(tm.title.indexOf('缠完还剩 270 血') >= 0 && tm.title.indexOf('12 → 24') > 0, '缠完剩多少血与经验收益都写出来');
 ok(V.tangleModel({ extra: 5, mult: 2, exp: 1, expGain: 2, damage: 999, heroHp: 10 }).title.indexOf('缠完还剩 0 血') >= 0,
   '缠完会倒下时钳到 0，不写出负数');
@@ -713,7 +716,24 @@ const prep = V.prepOptions(prepF);
 ok(prep.length === 4 && prep[0].id === 'none', '战前卡：默认一张直接开打 + 三把打法');
 ok(prep[1].sub.indexOf('本层一次') >= 0 && prep[1].sub.indexOf('55%') >= 0, '格挡卡写明额度与压到 55%');
 ok(prep[2].sub.indexOf('此后 4 场') >= 0 && prep[2].sub.indexOf('−15%') >= 0, '架盾卡写清「此后 N 场」与比例');
-ok(prep[3].sub.indexOf('多挨一轮 +40 血') >= 0 && prep[3].sub.indexOf('经验 ×2') >= 0, '缠斗卡写清多挨多少与收益');
+ok(prep[3].sub.indexOf('多掉 40 血换经验 ×2') >= 0,
+  `缠斗卡写清多掉多少、换到什么（实测「${prep[3].sub}」）`);
+// 卡片副标题的统一口径（2026-11-25 06:5x 加练·游戏性焦点D）：四张卡里只有缠斗那张此前是
+// 「把战斗面板那一块剥掉标签当副标题」，于是它同时踩了三件事——emoji 与左侧线刻图标并存、
+// 卡名在副标题里又念一遍（剥标签还把 `<b>缠斗</b><span>多挨一轮` 粘成「缠斗多挨一轮」）、
+// 「+40 血」用加号指向**掉的血**（同一张卡右边写着「−360」）。三条各钉一条，谁再抄整句就红。
+const prepSubs = prep.map((x) => x.sub);
+ok(!prepSubs.some((s) => /[\u{1F300}-\u{1FAFF}\u2600-\u27BF]/u.test(s)),
+  '战前卡副标题里不出现 emoji（图标只走左边那枚线刻，彩色卡通会抢焦点）');
+ok(!prepSubs.some((s, i) => s.indexOf(prep[i].name.split(' · ')[0]) >= 0),
+  '副标题不重复卡名（卡名已经说了「缠斗 / 格挡 / 架盾」，副标题只补账）');
+ok(!prepSubs.some((s) => /[+＋]\s*\d+\s*血/.test(s)),
+  '掉血的数不许用加号（同一张卡右边是「−N」，加号读起来像回血）');
+ok(prep[3].sub.indexOf('多挨一轮') < 0, '副标题不重复卡名的后半句（卡名已经是「缠斗 · 多挨一轮」）');
+// 副标题一行放得下：430 宽下 `.po-main i` 是单行（架盾卡 24 字是实测上限），
+// 多一个词就折成两行、四张卡高度不齐——长度也算契约，不然「写清楚」会一路写到折行为止。
+ok(prepSubs.every((s) => s.length <= 24),
+  `四张卡的副标题都单行放得下（最长 ${Math.max.apply(null, prepSubs.map((s) => s.length))} 字 / 上限 24）`);
 ok(V.prepOptions(Object.assign({}, prepF, { hasBlock: false })).length === 3, '不会格挡时不摆格挡卡');
 // 战前面板的「上次对这只」：只说发生过的事（打法 + 实际掉血），没有就不出现
 ok(V.lastTacticLine(null) === '', '没有上次记录时不写记忆行');

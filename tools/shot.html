@@ -36,6 +36,10 @@
     battletwice: base + '?dev=1#demo=0,2,3',
     battleblock: base + '?dev=1#demo=0,2,3',
     prep: base + '?dev=1#demo=3,5,5',
+    // 战前面板的四张卡（第 5 层起）：三张打法 + 直接开打同屏。第 4 层只有三张（缠斗要 s.floor ≥ 4），
+    // 所以 `prep` 那张截图从来拍不到缠斗卡——2026-11-25 焦点D 修的那处（副标题抄了战斗面板整块、
+    // 带 emoji、重复卡名、「+40 血」用加号指向掉的血）在 57 张截图里一张都没露过脸。
+    prep4: base + '?dev=1#demo=4,6,5',
     // 缠斗：第 5 层（floor 4）的战斗面板上第三把打法（多挨一轮 ↔ 经验 ×2）。
     // 2026-11-15 21:5x：时机从第 4 层后移到第 5 层（第 4 层只教架盾），场景跟着下移一层，
     // 站 (6,5) 朝上撞吸血鬼。
@@ -139,7 +143,7 @@
         const b = ov && ov.querySelector('.prep-opt[data-pick="' + kind + '"]');
         return b ? b.textContent.replace(/\s+/g, ' ').trim() : 'HIDDEN';
       };
-      if (scene === 'start' || scene === 'floor5' || scene === 'battle' || scene === 'battletwice' || scene === 'battleblock' || scene === 'prep' || scene === 'tanglebattle' || scene === 'guardbattle' || scene === 'threatbattle' || scene === 'shop' || scene === 'tower' || scene === 'core' || scene === 'zeal' || scene === 'final' || scene === 'hudmax') {
+      if (scene === 'start' || scene === 'floor5' || scene === 'battle' || scene === 'battletwice' || scene === 'battleblock' || scene === 'prep' || scene === 'prep4' || scene === 'tanglebattle' || scene === 'guardbattle' || scene === 'threatbattle' || scene === 'shop' || scene === 'tower' || scene === 'core' || scene === 'zeal' || scene === 'final' || scene === 'hudmax') {
         if (scene === 'hudmax') {
           // 真满载（一局里可能的最挤一屏）：一局真实上限 9 件遗物（守誓之盾 / 断刃之锋 / 余烬灯芯 /
           // 无名之镜 / 层阶之钥 / 塔心石 + 三座祭坛各一件）+ 三枚锁环（第 3 章拿到罗盘那份）+ 三格徽记
@@ -204,7 +208,8 @@
           await wait(200);
         }
         if (scene === 'prep') {
-          // 战前面板本尊：三把打法同屏（格挡 / 架盾 / 缠斗），每张都写清账
+          // 战前面板本尊（第 4 层，三张卡）：直接开打 / 格挡 / 架盾。
+          // 缠斗要 s.floor ≥ 4（第 5 层）才有，所以这一屏拍不到它——四张卡同屏的形态见 prep4。
           await wait(200);
           const sP = E.state();
           sP.atk = 40; sP.def = 20; sP.hp = 800; sP.maxHp = 1000;
@@ -217,6 +222,19 @@
           await wait(520);
           q2push('prepOpts=' + Array.prototype.slice.call(d.querySelectorAll('#prepOpts .prep-opt'))
             .map((x) => x.dataset.pick).join(','));
+        }
+        if (scene === 'prep4') {
+          // 四张卡同屏（第 5 层）：这一屏是玩家唯一能同时看到「缠斗」副标题的地方，
+          // 也是 2026-11-25 焦点D 那处缺陷（emoji / 重复卡名 / 加号指向掉血）唯一现形的地方。
+          await wait(200);
+          const sQ = E.state();
+          sQ.atk = 40; sQ.def = 20; sQ.hp = 1800; sQ.maxHp = 2000;
+          sQ.flags.hasBlock = true;
+          T.refreshHud();
+          w.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'ArrowUp' }));
+          await wait(520);
+          q2push('prep4=' + Array.prototype.slice.call(d.querySelectorAll('#prepOpts .prep-opt'))
+            .map((x) => x.dataset.pick + ':' + x.textContent.replace(/\s+/g, ' ').trim()).join(' | '));
         }
         if (scene === 'battle') {
           await wait(200);

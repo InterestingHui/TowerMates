@@ -487,11 +487,14 @@
   }
 
   // 缠斗：多挨一轮换这一战经验翻倍。符号不能跟格挡/架盾共用「−」（那两处是「省下来的」）
+  // 战前卡还要这两个数自己造句（`extra` 是多掉的伤、`mult` 是经验倍数），所以一并给出——
+  // 卡面与战斗面板用的是同一笔账，只是句子各自写给自己的那一屏。
   function tangleModel(f) {
     const after = Math.max(0, Math.round((f.heroHp || 0) - (f.damage || 0)));
     return {
       html: `<b>🗡️ 缠斗</b><span>多挨一轮 +${f.extra} 血 · 经验 ×${f.mult}</span>`,
       title: `缠完还剩 ${after} 血：多挨这一轮是为了把它的招数看全，这一战经验 ${f.exp} → ${f.expGain}`,
+      extra: f.extra, mult: f.mult,
     };
   }
 
@@ -568,7 +571,15 @@
       const tm = tangleModel({ extra: o.tangle.extra, mult: o.tangle.mult, exp: o.tangle.exp, expGain: o.tangle.expGain, damage: o.tangle.damage, heroHp: o.hp });
       out.push({
         id: 'tangle', ico: PREP_ICON.tangle, name: '缠斗 · 多挨一轮',
-        sub: `${tm.html.replace(/<[^>]+>/g, '')} · 这一场不能格挡`,
+        // 2026-11-25 06:5x 加练·游戏性焦点D：这里原先把战斗面板那一块（`tm.html`）剥掉标签直接当副标题，
+        // 于是四张卡里只有这一张读作「🗡️ 缠斗多挨一轮 +40 血 · 经验 ×2 …」——三个问题同时出现：
+        // ①🗡️ 与卡左边的线刻图标并存（PREP_ICON 的注释写着「不用 emoji」，用了的只有它）；
+        // ②卡名「缠斗 · 多挨一轮」在副标题里又念了一遍，且剥标签把 `<b>缠斗</b><span>` 粘成「缠斗多挨一轮」；
+        // ③「+57 血」是**多掉的伤**，可同一张卡右边写着「−1083」，一个面板里「+」指向伤、「−」指向伤。
+        // 三张卡的其余三张都是「拿模型里的数、自己写一句」（`bm.quota` / `gm.rest`），只有它抄整句——
+        // 改回同一种写法：数字取模型（同一笔账），句子归卡面（同一屏该长什么样）。
+        // 长度也钉住：`po-main i` 按 430 宽只有一行（24 字，与架盾卡同档），超一个词就折成两行、卡高不齐。
+        sub: `多掉 ${tm.extra} 血换经验 ×${tm.mult} · 这一场不能格挡`,
         dmg: o.tangle.damage,
       });
     }
