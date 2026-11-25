@@ -788,3 +788,10 @@
 - 闸门：check ✓ / code 527 / engine ✓（含他人未提交改动仍全绿——他的改动是纯新增 CSS 规则 + backdrops 追加）。commit 7f8e226 已推。**未部署**（部署目录是仓库根，此刻发版会把他人半成品一起推上线）。
 - 坑：①别人在改 `css/style.css` 时**不要 commit 自己那半个 hunk**（非交互 add 没法只挑自己的行）——想改 CSS 只能等它提交；②`git diff --stat` 是发现他人中途接手的快办法（本轮 11:15 就在里面看到 `css/style.css` +13）。
 - 下轮：先看 `git status`——`css/style.css` / `js/backdrops.js` 仍脏则继续谨慎；已提交则先跑全套闸门再决定（他的接线可能改 `backdrops.js` 接口）。加练顺延 **游戏性**（上次 06:5x 焦点D）；变体五选最久＝**自检**（05:5x，距升级线还差 3 轮）或**诊断**（06:5x）。
+
+## 2026-11-25 12:2x — 全力模式（单段 · 加练 游戏性 焦点A + 变体 4 自检轻扫）
+- 判定：代码 mtime 57 分钟；唯一未提交是 `tools/shot.html` +15（他会话 11:10 的 CG 调试探针，工作已提交、publish 已同步、无活跃进程）→ 判残留，全程不碰不 add。用时约 9 分钟。
+- 产出：①上一轮待办「中」收口——誓约档位色阶改由 `data.js vows[*].tier` 自带（6/6），`main.js` 那份写死 tag→类名 map 删除，css 补 `.t-ascetic`/`.t-abyss`；②焦点A 真缺陷——18 张对白 CG 零预载，首现先露矢量底图再啪地换图 → `Backdrops.preload()` 在 load 后 idle 预热 IMG 整表（序章优先）；③顺手改掉 css 一句不实注释（「失败时脚本 display:none」根本没有这个脚本）。
+- 闸门：check ✓ / engine 634 / code **537**（+10）/ regress 59 图 + 可读性 1539·40 屏 0 违规 / ui-test ✓。部署 build **59b72c4796**（线上 build 命中 + data.js 6 条 tier + backdrops preload + css t-abyss 均已生效）。commit d2da2c8 / 0642216 已推。无残留进程（临时 serve 9481 按 PID 杀并复查 count=0；临时探针页与截图已删）。
+- 坑（下轮直接用）：①`publish/` 与 `assets/` 是两个文件系统，漏同步＝线上静默回落矢量、零报错 → 已写成契约按 `fs.existsSync` 量两处；②`index.html:308-310` 那三颗「残留按钮」**不是死 DOM**——`regress` 靠 `bsTangle=`/`bsGuard=` 的 HIDDEN 读数做「开战即收起」契约，删它要同步改 3 套探针，低优先别硬做；③同文件混着他人未提交改动时，别为了加截图去动它，走临时探针页（localStorage 桥 + `location.replace` 到 shot.html 同场景）拍完即删，这一步能绕开 git 半 hunk 的坑。
+- 下轮：加练顺延 **美术**（上次 04:2x 焦点B → 顺延焦点C 或 D 看日志）；变体五选最久＝**诊断**（06:5x）；`tools/shot.html` 若仍脏、且仍无活跃进程，继续按残留处理。待办：第二局要想什么（阶段级）／微信版切边界（半天）／护甲强化同价恒劣（中，单变量 + sim）／知识点表 12→14（待拍板）／战斗面板三颗残留按钮（低，见坑②）。
