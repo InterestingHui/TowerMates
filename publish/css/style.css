@@ -1740,10 +1740,15 @@ body.at-start #bottom { visibility: hidden; }
 .altar-hint { margin-top: 14px; font-size: var(--fs-tag); color: var(--muted); letter-spacing: 1px; }
 
 /* ---------- 塔印与余烬（不再有结算分） ---------- */
+/* 两段式：上行「塔印名 ←→ 余烬」，下行这一局的定性独占整行。
+   旧实现是三件事挤一行（塔印 + 定性 + 余烬），430 屏下定性只剩 ~160px：
+   胜局折成「…遗物 2 ·／锁环 0」的孤儿行，败局把「用时 0秒」从数字中间劈开（tools/out/adsdeath.png），
+   而余烬那块被夹在两行之间、看起来像没对齐。定性拿到整行后大约 24 字，430 屏一行装得下。 */
 .end-score {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 3px;
   padding: 8px 12px;
   margin-bottom: 8px;
   border-radius: 11px;
@@ -1798,7 +1803,10 @@ body.at-start #bottom { visibility: hidden; }
    （2026-11-25 动效体检：21 个浮层与图鉴详情条都有进场，只有结算页这两块是硬切。） */
 #endOverlay.death-mode #endMemory.open { display: block; animation: fadeIn 0.18s ease-out; }
 #endOverlay.death-mode #endMemory { margin: 0 0 9px; }
-.es-meta { flex: 1; font-size: var(--fs-tag); color: var(--muted); line-height: 1.5; }
+.es-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+/* keep-all：这一行是「结局 · 层 · 击杀 · 用时」四段短句，允许断行的地方只该是「 · 」。
+   默认规则会把「0秒」拆成「0／秒」、「第 9 层」拆成「第 9／层」——数字离开单位就成了另一个数。 */
+.es-meta { font-size: var(--fs-tag); color: var(--muted); line-height: 1.5; word-break: keep-all; }
 .es-num { font-size: var(--fs-sub); font-weight: 700; color: #fff; font-variant-numeric: tabular-nums; }
 .es-num small { font-size: var(--fs-tag); color: var(--dim); margin-left: 2px; font-weight: 400; }
 

@@ -2496,9 +2496,9 @@
       ending: s.ending, floor0: s.floor, kills: s.flags.killCount || 0,
       time: sum.time, ember: emberGain,
     });
-    $('endScore').innerHTML = `<span class="es-grade ${score.cls}" data-seal="${score.cls}">${score.name}</span>
-      <span class="es-meta">${score.meta}</span>
-      <span class="es-num">${score.num}</span>`;
+    $('endScore').innerHTML = `<span class="es-top"><span class="es-grade ${score.cls}" data-seal="${score.cls}">${score.name}</span>
+      <span class="es-num">${score.num}</span></span>
+      <span class="es-meta">${score.meta}</span>`;
     $('endScore').title = score.title;
     $('endEmberDetail').innerHTML = '';
     $('endTag').textContent = score.tag;
@@ -3445,9 +3445,9 @@
       ending: s.ending, heart: s.flags.heart, echoDone,
       relicCount: relicIds.length, ringCount: ringList.length, ember: emberGain,
     });
-    $('endScore').innerHTML = `<span class="es-grade ${score.cls}" data-seal="${score.cls}">${score.name}</span>
-      <span class="es-meta">${score.meta}</span>
-      <span class="es-num">${score.num}</span>`;
+    $('endScore').innerHTML = `<span class="es-top"><span class="es-grade ${score.cls}" data-seal="${score.cls}">${score.name}</span>
+      <span class="es-num">${score.num}</span></span>
+      <span class="es-meta">${score.meta}</span>`;
     $('endScore').title = score.title;
     const ed = $('endEmberDetail');
     if (ed) {
