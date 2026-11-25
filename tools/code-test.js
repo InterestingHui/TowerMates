@@ -890,6 +890,16 @@ ok(V.prepOptions(Object.assign({}, prepF, { blockSave: true, guard: null })).len
   '残血且还没到架盾的层：只剩一张卡 → main 见「只有一张」就不弹面板（读烛那句明话直接开打）');
 ok(/blockSave:\s*!!pred\.blockSave/.test(stripComments(mainSrc)),
   'main.js 把 pred.blockSave 传进 View.prepOptions（不传则上面两条分支永远走不到＝死代码）');
+// 2026-11-26 04:0x 自检轮：战前面板是「必须选一个」的屏（路遇 / 祭坛 / 锁芯门同类），Esc 故意不响应；
+// 而全站其它浮层的 Esc 一律是「关掉」。原先这里把 Esc 绑成第一张卡（直接开打 = 承伤最大），
+// 等于在「取消」的肌肉记忆上挂了最贵的动作，且面板上从不写这个键。两条钉住。
+ok(stripComments(mainSrc).indexOf('pickPrepByKey(1)') < 0,
+  '战前面板不再把 Esc 等同第一张卡（取消键不许绑定「直接开打」这个最贵的打法）');
+{
+  const branch = (stripComments(mainSrc).match(/prepOverlay\.classList\.contains\('show'\)\)\s*\{[\s\S]{0,200}?\n      \}/) || [''])[0];
+  ok(branch.length > 0 && branch.indexOf('Escape') < 0,
+    '战前面板的键盘分支里没有 Escape（必须选择的屏与路遇 / 祭坛 / 锁芯门同一条口径）');
+}
 // 节奏预算的执行点（2026-11-25 变体 6 节奏审计）：这张面板是**每场战斗**都要过的一屏，
 // 「只有一种打法就不弹」是它不挤占前 3 分钟的唯一开关。写成 >=1 就等于每场杂兵前都插一屏
 // 只有一个按钮的确认页——首局节奏预算是「教学弹窗 ≤2」，而这类屏不在那个计数口径里，

@@ -4158,10 +4158,12 @@
         return;
       }
       // 战前面板：数字键直接选打法（1 = 直接开打，往后依次是格挡/架盾/缠斗）。
-      // 没有「取消」——它本来就是开战的一部分，Esc 等同第一张（直接开打）。
+      // **Esc 故意不响应**（2026-11-26 04:0x 自检轮）：它与路遇 / 祭坛 / 锁芯门同类——都是「必须选一个」的屏，
+      // 而全站其它浮层的 Esc 一律是「关掉」。原先这里把 Esc 绑成第一张卡（直接开打 = 承伤最大的那条），
+      // 等于在「取消」这个肌肉记忆上挂了代价最贵的动作；面板提示行写的是「或按 1–N」，键位从不缺。
+      // `code-test` 有「Esc 不许接到 prep 的选卡」守着，别再挂回去。
       if (el.prepOverlay.classList.contains('show')) {
         if (/^[1-9]$/.test(e.key)) { e.preventDefault(); pickPrepByKey(Number(e.key)); }
-        else if (e.key === 'Escape') { e.preventDefault(); pickPrepByKey(1); }
         return;
       }
       if (el.dialogOverlay.classList.contains('show') || typing) {
