@@ -860,6 +860,16 @@ ok(V.coreRingLine(4).indexOf('都亮着') >= 0 && V.coreRingLine(0).indexOf('全
   '满环说「都亮着」、零环说「全是暗的」');
 ok(V.coreRingLine(0).indexOf('都亮着') < 0,
   '旧档零锁环时不写「四道都亮着」（v2.0 存档迁上来 rings=[] 会当场成假话）');
+// 2026-11-26 03:4x 追认（第二节「新零件追认」）：上一轮那句旁白让人「低头看脚下」，
+// 而这一屏是 `KEY_SCENE.core → core.webp` 的不透明 CG（`.bd-shot` z-index:1）——那一刻画面上
+// 只有石阶与神龛，脚下什么也没有。两条钉住：①不许再指地面；②必须指向画面上真有的东西（石头）。
+{
+  const RING = [0, 1, 2, 3, 4].map((n) => V.coreRingLine(n));
+  ok(RING.every((t) => !/脚下|低头|地面|脚边/.test(t)),
+    '锁环五档都不许让人低头看地面（锁芯那一屏是不透明 CG，地面被盖住——说了玩家也看不到）');
+  ok(RING.every((t) => t.indexOf('石头') >= 0),
+    '锁环五档都从石头说起（CG 与地图上都在的东西；指向画面里没有的位置就是假话）');
+}
 ok(V.coreRingLine(9) === V.coreRingLine(4) && V.coreRingLine(-3) === V.coreRingLine(0)
   && V.coreRingLine(undefined) === V.coreRingLine(0) && V.coreRingLine('2') === V.coreRingLine(2),
   '越界/负数/未定义/字符串都收到 0~4 之间（数组末位与首档不越界）');
