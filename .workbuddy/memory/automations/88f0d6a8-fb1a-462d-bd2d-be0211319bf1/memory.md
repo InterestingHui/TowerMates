@@ -932,3 +932,7 @@
 - **量具坑**：`shot.html` 跑在固定 430px iframe 里，`--window-size=360` 只裁图不改布局 → 改宽度必须 `?scene=x&w=N`；否则会把「被裁到画外」误判成横向溢出。
 - 闸门：check ✓ / engine 635 / code 593 / sim 18,745·68.4% / fuzz 0 / 59 图 / 可读性 0 违规 / ui-test ✓。部署 build **ca6b9e0831**（线上 main.js `es-top` 2 处、css `keep-all` 2 处、指纹一致）。commit ae2552b / 7c06f20 已推。无残留进程（临时探针 + 16 张 _tr_*.png 已删，count=0）。
 - 下轮：加练顺延 **叙事**；变体五选最久＝**校准**（02:5x）。待办：第二局（阶段级）／微信版切边界（半天）／知识点 12→14（待拍板）／hintPump 无兜底（低）／三颗死按钮（低·仍阻塞在 shot.html 的 panelBudget）。
+
+### 同轮第 2 段（06:2x）— hintPump 排队过期
+- 原待办判断被推翻：不是「空转无害」而是**积压有害**（面板里攒的提示关面板后连播，讲的是变过的数）。修法选「按时间退队」：`View.hintSweep` + `HINT_TTL=5min` + `say()` 盖 `at` + 泵每跳先扫、扫空停泵。code 593→602，变异红 4。
+- 部署 build **f6c71f5b5b**。同日两段合计（含前一段）commit ae2552b / 7c06f20 / ad79011 / e7c5dcc 全部已推。下一轮待办少了这一条。
