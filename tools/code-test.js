@@ -1641,6 +1641,40 @@ ok(mainSrc.indexOf("searchParams.set('rival'") < 0, 'main.js 不许自己拼链�
     '对白背景层的内容动效（.dlg-scene svg → sceneIn）还在');
 }
 
+// ---------- 立誓屏档位色阶：六条誓约各有各的颜色，不许静默降级成基础灰 ----------
+// 病根（2026-11-25 11:0x 发现）：main.js 里是 4 条 tag→类名映射，苦行 / 无名的 tag 不在表里，
+// `|| ''` 把它们落到 .vc-tier 的基础灰 #9aa4b5 —— 而这两条恰好是唯一要余烬解锁、实测最难的两档。
+{
+  const cssVow = require('fs').readFileSync(require('path').join(__dirname, '..', 'css', 'style.css'), 'utf8');
+  const ids = Object.keys(GD.vows);
+  ok(ids.length === 6, `誓约表读到 ${ids.length} 条（少于 6 条说明扫漏了）`);
+  const noTier = ids.filter((k) => !GD.vows[k].tier);
+  ok(noTier.length === 0, `每条誓约都自带档位类名（缺：${noTier.join(' / ') || '无'}）`);
+  const tiers = ids.map((k) => GD.vows[k].tier);
+  const noRule = [...new Set(tiers)].filter((t) => cssVow.indexOf('.vc-tier.' + t) < 0);
+  ok(noRule.length === 0, `档位类名在 style.css 里真有规则（缺：${noRule.join(' / ') || '无'}）`);
+  ok(new Set(tiers).size === tiers.length, '六条誓约的档位色互不重复（两条同色等于把难度说成一样）');
+  ok(mainSrc.replace(/\/\/[^\n]*/g, '').indexOf("'轻羽': 't-easy'") < 0,
+    'main.js 里不许再有写死的 tag→类名映射（改回去就红）');
+}
+
+// ---------- 对白 CG：图必须在两处都在，且开局有空闲预热 ----------
+// 漏同步到 publish/ 的后果是线上静默回落到矢量图，没有任何报错——所以按文件系统量，不按注释量。
+{
+  const fs2 = require('fs');
+  const path2 = require('path');
+  const bdSrc = fs2.readFileSync(path2.join(__dirname, '..', 'js', 'backdrops.js'), 'utf8');
+  const cg = [...new Set((bdSrc.match(/assets\/cg\/[a-z0-9-]+\.webp/g) || []))];
+  ok(cg.length >= 18, `backdrops.js 里读到 ${cg.length} 张 CG（少于 18 张说明表被拆了）`);
+  const missSrc = cg.filter((p) => !fs2.existsSync(path2.join(__dirname, '..', p)));
+  ok(missSrc.length === 0, `CG 源文件都在 assets/（缺：${missSrc.join(' / ') || '无'}）`);
+  const missPub = cg.filter((p) => !fs2.existsSync(path2.join(__dirname, '..', 'publish', p)));
+  ok(missPub.length === 0, `CG 都已同步到 publish/（缺：${missPub.join(' / ') || '无'}——漏同步线上会静默回落矢量）`);
+  ok(/function preload\(\)[\s\S]{0,200}Object\.keys\(IMG\)/.test(bdSrc), '预热遍历的是 IMG 表本身（不是另抄一份名单）');
+  ok(/addEventListener\('load', kick, \{ once: true \}\)/.test(bdSrc) && /preload,/.test(bdSrc),
+    '预热挂在 load 后且只挂一次（不预热＝每幕第一次出现先露矢量再啪地换图）');
+}
+
 console.log(`挑战码 / 触控 / 桥接 / 视图模型单测：${pass} 项通过${bad ? `，${bad} 项失败` : ''}`);
 
 process.exit(bad ? 1 : 0);

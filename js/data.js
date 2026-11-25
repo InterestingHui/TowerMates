@@ -565,28 +565,28 @@ window.GAME_DATA = (function () {
     // （口径：打完碑魔剩血/maxHp，全清贪心路线，tools/sim.js --vow=X 尾行）
     // 不立誓不是零难度——它要求不靠任何规则兜底，比慈悲（回血兜底）略难，所以也有奖励。
     none: {
-      name: '不立誓', emoji: '○', tag: '无名之分', accent: '#9fb6d8',
+      name: '不立誓', emoji: '○', tag: '无名之分', tier: 't-normal', accent: '#9fb6d8',
       desc: '塔是什么样就什么样。第一次爬塔就选它。', reward: 2,
     },
     mercy: {
-      name: '慈悲之誓', emoji: '🕊️', tag: '轻羽', accent: '#7ec9a2',
+      name: '慈悲之誓', emoji: '🕊️', tag: '轻羽', tier: 't-easy', accent: '#7ec9a2',
       desc: '攻击 −3；每上一层回复 12% 生命', reward: 3,
     },
     greed: {
-      name: '贪婪之誓', emoji: '🪙', tag: '重金', accent: '#e0b56a',
+      name: '贪婪之誓', emoji: '🪙', tag: '重金', tier: 't-hard', accent: '#e0b56a',
       desc: '击杀金币 +50%；秤的价目 +45%', reward: 5,
     },
     ascetic: {
-      name: '苦行之誓', emoji: '🪵', tag: '苦行', accent: '#c8a978',
+      name: '苦行之誓', emoji: '🪵', tag: '苦行', tier: 't-ascetic', accent: '#c8a978',
       desc: '不能格挡；每上一层回复 10% 生命', reward: 8, ember: 10,
     },
     guard: {
-      name: '铁壁之誓', emoji: '🛡️', tag: '铁色', accent: '#e07a6a',
+      name: '铁壁之誓', emoji: '🛡️', tag: '铁色', tier: 't-nightmare', accent: '#e07a6a',
       desc: '不能格挡；每场战斗承伤 +18%', reward: 12,
     },
     // 以下一条要用余烬解锁（塔的记忆）：最陡的规则，反馈也最高
     nameless: {
-      name: '无名之誓', emoji: '🕳️', tag: '无名', accent: '#a99cf0',
+      name: '无名之誓', emoji: '🕳️', tag: '无名', tier: 't-abyss', accent: '#a99cf0',
       desc: '不能格挡、物价 +40%；每上一层回复 10% 生命', reward: 18, ember: 20,
     },
   };

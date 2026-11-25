@@ -4647,8 +4647,9 @@
     el.vowCards.innerHTML = shown.map((id) => {
       const v = D.vows[id];
       // 用户明确要求：开局不展示每局预计余烬收益——那是结算页才该出现的数字
-      const tierCls = { '轻羽': 't-easy', '无名之分': 't-normal', '重金': 't-hard', '铁色': 't-nightmare' }[v.tag] || '';
-      const tier = `<span class="vc-tier ${tierCls}">${v.tag}</span>`;
+      // 2026-11-25：档位色阶改由数据自带（data.js vows[*].tier）。此前这里是 4 条写死的 tag→类名映射，
+      // 「苦行」「无名」两条不在表里 ⇒ 落到基础灰，而这两条恰好是唯一要余烬解锁、实测最难的两档。
+      const tier = `<span class="vc-tier ${v.tier || ''}">${v.tag}</span>`;
       // 上局用的誓约标角标：重开的人一眼认出自己那条（焦点 B：重复认卡是纯劳动）
       const lastMark = (Meta.memory.lastVow || '') === id ? '<span class="vc-last">上局</span>' : '';
       // 代价高亮：desc 里「不能 / −N」这类负面词挑出来染红，选之前先看见失去什么

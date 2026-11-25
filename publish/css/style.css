@@ -760,8 +760,9 @@ html, body {
 }
 
 /* ================= 对白背景（序章之后 · js/backdrops.js） ================= */
-/* CG 层（2026-11-25）：位图铺满、压在矢量底图上面；加载失败时脚本把自己 display:none，
-   露出的就是下面那张矢量图。object-position 偏上，保证对话框压住的是地面而不是主体。 */
+/* CG 层（2026-11-25）：位图铺满、压在矢量底图上面；图没到/加载失败时这一层就是透明的，
+   露出的正是 `layer()` 垫在下面的那张矢量图（没有脚本去隐藏它——此前这里写「脚本把自己 display:none」，不实）。
+   object-position 偏上，保证对话框压住的是地面而不是主体。 */
 /* 用背景图而不是 <img>：序章那几段 SVG 结构复杂，实测 <img> 会被解析进 <svg> 里而不加载；
    背景图不受这个影响，缺图时也就是这一层透明、露出下面的矢量底图。 */
 .bd-shot {
@@ -2290,6 +2291,9 @@ body.at-start #bottom { visibility: hidden; }
 .vc-tier.t-normal { color: #9fb6d8; border-color: rgba(159, 182, 216, 0.4); background: rgba(159, 182, 216, 0.07); }
 .vc-tier.t-hard { color: #e0b56a; border-color: rgba(224, 181, 106, 0.45); background: rgba(224, 181, 106, 0.08); }
 .vc-tier.t-nightmare { color: #e07a6a; border-color: rgba(224, 122, 106, 0.5); background: rgba(224, 122, 106, 0.1); }
+/* 第 4 / 第 6 档（苦行 / 无名）：此前没有类名，静默落到基础灰 #9aa4b5 */
+.vc-tier.t-ascetic { color: #c8a978; border-color: rgba(200, 169, 120, 0.45); background: rgba(200, 169, 120, 0.09); }
+.vc-tier.t-abyss { color: #a99cf0; border-color: rgba(169, 156, 240, 0.45); background: rgba(169, 156, 240, 0.09); }
 .vow-card .vc-name { font-size: var(--fs-aux); font-weight: 700; color: var(--gold); letter-spacing: 0.5px; }
 .vow-card .vc-desc { font-size: var(--fs-tag); line-height: 1.55; color: var(--muted); min-height: 31px; }
 .vow-card .vc-mul { font-size: var(--fs-tag); color: #7f8a9c; border: 1px solid rgba(255,255,255,0.12); border-radius: 20px; padding: 1px 7px; }

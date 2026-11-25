@@ -729,6 +729,20 @@
     return wrap('core', body);
   }
 
+  // 首帧手感（2026-11-25 焦点A）：CG 是 background-image，从来没谁预载过 —— 每一幕第一次出现时
+  // 先露出下面的矢量底图，等 webp 解码完再「啪」地换上去，读起来像背景闪了一下。
+  // 做法：页面 load 后空闲时把 18 张图各 new Image() 一次，序章四张排最前（最先被看到）；
+  // 只是预热缓存，不挂 DOM、不改任何一屏的内容。
+  function preload() {
+    const keys = Object.keys(IMG).sort((a, b) => (/^intro/.test(a) ? 0 : 1) - (/^intro/.test(b) ? 0 : 1));
+    keys.forEach((k) => {
+      const im = new Image();
+      im.decoding = 'async';
+      im.src = IMG[k];
+    });
+    return keys.length;
+  }
+
   function pick(ctx) {
     const k = ctx && ctx.key;
     if (k && Object.prototype.hasOwnProperty.call(KEY_SCENE, k)) {
@@ -740,5 +754,15 @@
     return FLOOR_SCENE[Math.max(0, Math.min(FLOOR_SCENE.length - 1, f))] || 'gate';
   }
 
-  window.Backdrops = { svg, layer, pick, imgTag, cgUrl: (k) => IMG[k] || '', has: (k) => !!SCENES[k], FLOOR_SCENE, KEY_SCENE };
+  window.Backdrops = { svg, layer, pick, imgTag, preload, cgUrl: (k) => IMG[k] || '', has: (k) => !!SCENES[k], FLOOR_SCENE, KEY_SCENE };
+
+  // 预热只跑一次：load 已过就直接排，否则等 load（once，避免重复挂监听）。
+  if (typeof document !== 'undefined' && typeof window.Image === 'function') {
+    const kick = () => {
+      if (window.requestIdleCallback) window.requestIdleCallback(preload, { timeout: 2500 });
+      else setTimeout(preload, 400);
+    };
+    if (document.readyState === 'complete') kick();
+    else window.addEventListener('load', kick, { once: true });
+  }
 })();
