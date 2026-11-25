@@ -7,7 +7,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="build" content="26602d86c3">
+<meta name="build" content="e4c9bec0f7">
 <title>TowerMates · 魔塔</title>
 <!-- 分享卡：挑战链接（?rival=）是全作唯一传播路径，没有这几条时粘进微信是一条裸链接 + 灰占位图，
      点开前看不出是什么。图是 tools/sharecard.html 用无头 Chrome 渲的 1200×1200 正方卡（1:1 裁切不丢字）。
@@ -22,7 +22,7 @@
 <meta property="og:image:height" content="1200">
 <meta property="og:url" content="https://towermates.app.workbuddy.host/?sharecode=U7XMLC2NKJ">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="stylesheet" href="css/style.css?v=26602d86c3">
+<link rel="stylesheet" href="css/style.css?v=e4c9bec0f7">
 </head>
 <body>
 <div id="app">
@@ -151,7 +151,10 @@
       <button class="btn" id="btnBoard2">🏆 塔友榜</button>
       <button class="btn" id="btnHelp">❔ 玩法</button>
     </div>
-    <p class="hint">方向键 / 点击格子移动</p>
+    <!-- 首屏这句是新手唯一的操作教学：方向键默认收起（main.js `dpad:false`），
+         先念「方向键」等于教一个屏幕上看不见的控件（手机上尤其）→ 先念屏幕上真有的那个。
+         键盘/摇杆的完整口径在「玩法」速查卡里。2026-11-26 变体1 诊断改。 -->
+    <p class="hint">点格子移动 · 右下角 ▲ 展开方向键</p>
   </div>
 </div>
 
@@ -574,24 +577,24 @@
   </div>
 </div>
 
-<script src="js/data.js?v=26602d86c3"></script>
-<script src="js/vow-icons.js?v=26602d86c3"></script>
-<script src="js/story.js?v=26602d86c3"></script>
-<script src="js/portraits.js?v=26602d86c3"></script>
-<script src="js/backdrops.js?v=26602d86c3"></script>
-<script src="js/scenes.js?v=26602d86c3"></script>
-<script src="js/achievements.js?v=26602d86c3"></script>
-<script src="js/daily.js?v=26602d86c3"></script>
-<script src="js/view.js?v=26602d86c3"></script>
-<script src="js/engine.js?v=26602d86c3"></script>
-<script src="js/render.js?v=26602d86c3"></script>
-<script src="js/devgate.js?v=26602d86c3"></script>
-<script src="js/ads.js?v=26602d86c3"></script>
-<script src="js/main.js?v=26602d86c3"></script>
-<script src="js/challenge.js?v=26602d86c3"></script>
-<script src="js/wxbridge.js?v=26602d86c3"></script>
-<script src="js/touch.js?v=26602d86c3"></script>
-<script src="js/gate-forth.js?v=26602d86c3"></script>
-<script src="js/wxwire.js?v=26602d86c3"></script>
+<script src="js/data.js?v=e4c9bec0f7"></script>
+<script src="js/vow-icons.js?v=e4c9bec0f7"></script>
+<script src="js/story.js?v=e4c9bec0f7"></script>
+<script src="js/portraits.js?v=e4c9bec0f7"></script>
+<script src="js/backdrops.js?v=e4c9bec0f7"></script>
+<script src="js/scenes.js?v=e4c9bec0f7"></script>
+<script src="js/achievements.js?v=e4c9bec0f7"></script>
+<script src="js/daily.js?v=e4c9bec0f7"></script>
+<script src="js/view.js?v=e4c9bec0f7"></script>
+<script src="js/engine.js?v=e4c9bec0f7"></script>
+<script src="js/render.js?v=e4c9bec0f7"></script>
+<script src="js/devgate.js?v=e4c9bec0f7"></script>
+<script src="js/ads.js?v=e4c9bec0f7"></script>
+<script src="js/main.js?v=e4c9bec0f7"></script>
+<script src="js/challenge.js?v=e4c9bec0f7"></script>
+<script src="js/wxbridge.js?v=e4c9bec0f7"></script>
+<script src="js/touch.js?v=e4c9bec0f7"></script>
+<script src="js/gate-forth.js?v=e4c9bec0f7"></script>
+<script src="js/wxwire.js?v=e4c9bec0f7"></script>
 </body>
 </html>

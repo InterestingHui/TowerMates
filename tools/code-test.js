@@ -1923,6 +1923,16 @@ ok(mainSrc.indexOf("searchParams.set('rival'") < 0, 'main.js 不许自己拼链�
     '誓约卡名色默认跟 --vy（身份色），不是写死金色');
 }
 
+// 首屏那句操作教学必须点明「屏幕上真有的那个控件」：方向键默认收起（Settings.dpad=false），
+// 只说「方向键」等于教一个新手看不见的东西（2026-11-26 变体1 诊断改的）。
+{
+  const startHint = (htmlSrc.match(/<p class="hint">([^<]*)<\/p>/) || [])[1] || '';
+  ok(startHint.length > 0 && (!startHint.includes('方向键') || startHint.includes('▲')),
+    `首屏操作教学提到方向键时必须同时说清 ▲ 在哪（现文：${startHint || '缺'}）`);
+  ok(/dpad:\s*false/.test(require('fs').readFileSync(require('path').join(__dirname, '..', 'js', 'main.js'), 'utf8')),
+    '方向键默认收起这条前提仍在（若改成默认展开，上面那句就该恢复成「方向键 / 点击格子」）');
+}
+
 console.log(`挑战码 / 触控 / 桥接 / 视图模型单测：${pass} 项通过${bad ? `，${bad} 项失败` : ''}`);
 
 process.exit(bad ? 1 : 0);
