@@ -78,6 +78,13 @@ const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-ui-'));
   ok(out.rivalFloor === true, '贴码后名录出现朋友的层数');
   ok(out.rivalFloorCell === '9层' && out.rivalNameNoFloor === true,
     `朋友行同一个数只说一遍：楼层交给「N层」列（${out.rivalFloorCell}），名字列不再重复（${out.rivalNameCell}）`);
+  // 判定句按「开榜那一刻」的成绩算（2026-11-26 01:2x）：收码时算一次就冻住的话，
+  // 玩家爬过朋友之后那行仍是旧读数——它还是面板里唯一一句比较结论。
+  ok(out.hintAtPasteNone === true, `收码后那行先说实话（还没开过局）：${out.hintAtPaste}`);
+  ok(out.hintRecomputed === true && out.hintNoChase === true,
+    `爬过朋友后再开榜，同一行当场改口（${out.hintAfterClimb}）`);
+  ok(out.hintThreeFloors === true, '再爬一层句子跟着动（不是只切一次档）');
+  ok(out.hintStillChases === true, '成绩落在朋友下面时仍念「去追」（改口不是单向的）');
   ok(out.tabIds === 'all,daily,none,mercy,greed,ascetic,guard,nameless' && out.tabCount === 8,
     `榜单档位覆盖全部六条誓约 + 全部 / 今日（实测 ${out.tabIds}）`);
   ok(out.hasAscTab === true && out.ascOnly === true,

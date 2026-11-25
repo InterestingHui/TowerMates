@@ -476,12 +476,21 @@ ok(stripComments(wxSrc).indexOf('slice(0, 12)') < 0 && wxSrc.indexOf('capRivals'
   '微信好友榜那条写者与贴码共用同一份上限（不许第二份 12）');
 ok(mainSrc.indexOf('if (!saved.ok)') >= 0 && mainSrc.indexOf('if (!kept.ok)') >= 0,
   '两条入口（贴码 / 落地收下）在存储失败时改口，不许说「进榜了」');
-// 收码那句「谁更远」只有一处定义（view.js 的 rivalVerdict），两条入口共用同一句（rivalHint）
+// 收码那句「谁更远」只有一处定义（view.js 的 rivalVerdict），一条渲染出口（main.js 的 rivalHint），
+// 而它必须**每次开榜重算**：判定比的是「你此刻的成绩」，收码时算一次就冻住，玩家爬得更高后那行会当场说错
+//（2026-11-26 01:2x 加练·社交修的就是这个——旧写法两条入口各写一次 textContent）。
 const mainCode = stripComments(mainSrc);
 ok(!/爬得比他更高|爬得比他深/.test(mainCode), 'main.js 不许再写死「爬得比他更高」（注释里提到不算）');
 ok(/function rivalHint\(/.test(mainCode) && (mainCode.match(/View\.rivalVerdict\(/g) || []).length === 1,
   '判定句只在 rivalHint 里取一次，别处不许自造一份「谁更远」');
-ok((mainCode.match(/rivalHint\(/g) || []).length >= 3, '贴码与落地收码两条入口都走 rivalHint（+1 处定义）');
+ok(/function refreshBoardHint\(/.test(mainCode) && (mainCode.match(/rivalHint\(/g) || []).length === 2,
+  '判定句只在 refreshBoardHint 一处生成（两条入口只记「收到了哪一局」）');
+ok(/function openBoard\([\s\S]{0,6000}?refreshBoardHint\(\)/.test(mainCode),
+  '每次开榜都按当前最好成绩重算那行（否则玩家超过他之后还是旧读数）');
+ok((mainCode.match(/\$\('boardHint'\)/g) || []).length === 1 && (mainCode.match(/lastRival = \{/g) || []).length === 2,
+  '两条入口（贴码 / 落地）都不许把判定句钉在收码那一刻（只有 refreshBoardHint 碰那行）');
+ok(/function refreshBoardHint\([\s\S]{0,600}?mine: loadBoard\(\)/.test(mainCode),
+  '重算用的必须是当前成绩（loadBoard），不是收码时的快照');
 // 顶部提示条 #warnPill 是 nowrap + 92vw + ellipsis：实测 45 字 = 431px，430 屏可用 364px、320 屏只有 262px。
 // 所以判定句与「名录满」这类尾巴只能落在榜面板那行（会换行），提示条只报「层 + 用时」。
 const landWarn = mainCode.match(/`收下了挑战[^`]*`/g) || [];

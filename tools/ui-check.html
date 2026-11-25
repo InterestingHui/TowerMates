@@ -119,6 +119,34 @@ async function run() {
       if (atab2) atab2.click();
     }
 
+    // 判定句必须按「开榜那一刻」的成绩算（2026-11-26 01:2x 加练·社交修）：
+    // 旧实现在收码时算一次就冻住，玩家爬过朋友之后那行还在写「他比你高 9 层——去追」。
+    var hintEl = d.getElementById('boardHint');
+    if (inp2) {
+      inp2.value = code;                       // 朋友第 9 层（同一串码，榜上重新收一次）
+      d.getElementById('btnPasteCode').click();
+    }
+    out.hintAtPaste = hintEl ? hintEl.textContent.replace(/\s+/g, ' ').trim() : null;
+    out.hintAtPasteNone = !!out.hintAtPaste && out.hintAtPaste.indexOf('你先走一局') >= 0;
+    // 造一局比朋友更深的成绩（11 层 > 9 层），再开一次榜：同一句必须当场改口
+    var myRun = function (f) {
+      return JSON.stringify([{ floor: f, steps: 300, time: 240, ending: 'plain', vow: 'none', seal: 'ward', level: 12, goals: 3, margin: '' }]);
+    };
+    w.localStorage.setItem('towermates_board', myRun(11));
+    w.__tm.openBoard();
+    out.hintAfterClimb = hintEl ? hintEl.textContent.replace(/\s+/g, ' ').trim() : null;
+    out.hintRecomputed = !!out.hintAfterClimb && out.hintAfterClimb.indexOf('比他高 2 层') >= 0;
+    out.hintNoChase = !!out.hintAfterClimb && out.hintAfterClimb.indexOf('去追') < 0;
+    // 再爬一层：句子要跟着动（不是只从「先走一局」切到第一档就交差）
+    w.localStorage.setItem('towermates_board', myRun(12));
+    w.__tm.openBoard();
+    out.hintThreeFloors = !!hintEl && hintEl.textContent.indexOf('比他高 3 层') >= 0;
+    // 反过来说也不能丢：成绩退回朋友下面（新局还没超过）时仍要念「去追」
+    w.localStorage.setItem('towermates_board', myRun(5));
+    w.__tm.openBoard();
+    out.hintStillChases = !!hintEl && hintEl.textContent.indexOf('去追') >= 0 && hintEl.textContent.indexOf('高 4 层') >= 0;
+    w.localStorage.removeItem('towermates_board');
+
     // 挑战链接（社交面）：把剪贴板换成探针，点一下看「真正被复制到的是什么」。
     // 只断言「按钮在」是假绿——要断言那串被复制出去的东西带码、且还落在同一个页面上。
     var linkBtn = d.getElementById('btnCopyLink');

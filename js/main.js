@@ -1857,6 +1857,24 @@
         <span class="bd-time">${r.time}</span>
       </div>`;
 
+  // 收码之后那句「谁更远」不能冻在收码那一刻。
+  // 它比的是**你此刻的成绩**，而旧实现只在收码那一瞬算一次、此后永不重算：玩家爬到第 12 层再开榜，
+  // 那行还在写「他比你高 9 层（你在第 0 层）——去追」。榜面板只有这一句比较结论，
+  // 说错方向比不说更糟（同 15:0x 榜单结局列 / 16:2x「这只」：派生句比底层数据多活一层）。
+  // 现在只记「收到了哪一局」，句子每次开面板按当前最好成绩重算；
+  // 「名录满，最早那条让位」是一次性事件，只在收下那一面说一次。
+  let lastRival = null;
+  function refreshBoardHint() {
+    if (!lastRival) return;
+    const bh = $('boardHint');
+    if (!bh) return;
+    const rec = lastRival.rec;
+    const sameDay = !!rec.daily && rec.daily === Daily.keyOf(Date.now());
+    bh.textContent = rivalHint(rec, {
+      dup: lastRival.dup, sameDay, evicted: lastRival.fresh ? lastRival.evicted : false, mine: loadBoard(),
+    });
+    lastRival.fresh = false;
+  }
   function openBoard() {
     const mine = loadBoard();
     const todayKey = Daily.keyOf(Date.now());
@@ -1902,6 +1920,7 @@
       });
     }
     el.boardOverlay.classList.add('show');
+    refreshBoardHint(); // 每次开榜都按「当前最好成绩」重算那行判定句
   }
   // 收码之后那句完整的话（榜面板里的提示，会换行、读得完整句）：贴码与落地两条入口共用一处，
   // 否则同一个「谁更远」会被两条路各说一遍、迟早说岔。
@@ -1915,7 +1934,6 @@
   function pasteChallenge() {
     const input = $('pasteCode');
     const code = (input.value || '').trim();
-    const hint = $('boardHint');
     if (!code) { warn('先贴进一个挑战码'); return; }
     const rec = decodeChallenge(code);
     if (!rec) { warn('这个码读不出来——让朋友复制完整的挑战码'); return; }
@@ -1925,11 +1943,10 @@
     const dup = loadRivals().some((x) => x.code === code);
     const saved = saveRival(code, rec);
     input.value = '';
-    // 带日签的码能判出「他走的是不是今天这座」，同塔的成绩才进得了「今日」档
-    const sameDay = !!rec.daily && rec.daily === Daily.keyOf(Date.now());
     // 存不进去（隐私模式 / 配额满）时不许说「进榜了」——榜上根本没有这一行
     if (!saved.ok) { warn('收到了，但存不进本地（浏览器存储被禁用）'); return; }
-    if (hint) hint.textContent = rivalHint(rec, { dup, sameDay, evicted: saved.evicted, mine: loadBoard() });
+    // 判定句交给 refreshBoardHint（openBoard 里调）：这里只记「收到了哪一局」，句子按开榜那一刻的成绩算
+    lastRival = { rec, dup, evicted: saved.evicted, fresh: true };
     // 顶部提示条一句话只有 ~262px 预算（320 屏 92vw−32px），放不下判定句——判定只走面板里那行
     warn(dup ? '朋友的最新成绩已更新' : `挑战·朋友 第 ${rec.floor} 层，进榜了`);
     Sound.play('ach');
@@ -5066,7 +5083,6 @@
       else if (View.isMine(rrec, loadBoard())) warn('这是你自己那一局的链接');
       else {
         const kept = saveRival(rivalCode, rrec);
-        const sameDay = !!rrec.daily && rrec.daily === Daily.keyOf(Date.now());
         // 存不进去 / 名录满了把别人挤掉，都要在收下的那句话说清——那句提示是玩家唯一的信息来源
         if (!kept.ok) warn('这个挑战收下了，但存不进本地（浏览器存储被禁用）');
         else {
@@ -5074,8 +5090,9 @@
           // 顶部提示条只有 ~262px 预算（320 屏 92vw−32px）：只说「层 + 用时」，
           // 挤掉名录里那条时优先说挤人（一句 241px 装得下）。
           // 旧实现把整句塞进提示条：实测 45 字 = 431px > 430 屏可用 364px，尾半句从来读不到。
-          const bh = $('boardHint');
-          if (bh) bh.textContent = rivalHint(rrec, { sameDay, evicted: kept.evicted, mine: loadBoard() });
+          // 判定句不在这一刻生成：只记「收到了哪一局」，句子由 refreshBoardHint 按开榜那一刻的成绩算
+          //（首局不弹榜，那行等到玩家第一次开榜才渲染）。
+          lastRival = { rec: rrec, evicted: kept.evicted, fresh: true };
           warn(kept.evicted
             ? `收下了挑战·朋友：第 ${rrec.floor} 层（挤掉最早那条）`
             : `收下了挑战·朋友：第 ${rrec.floor} 层 · 用时 ${fmtTime(rrec.time)}`);
