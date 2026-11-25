@@ -1896,6 +1896,33 @@ ok(mainSrc.indexOf("searchParams.set('rival'") < 0, 'main.js 不许自己拼链�
     `表头只在一处渲染（调用 ${headCalls} 处；index.html 里没有独立表头容器）`);
 }
 
+// 语义色只走 token（style.css 顶部铁律②，2026-11-26 加练·美术 焦点D 首次上尺）。
+// 病根：--warn / --info / --success / 亮金 这些色在 CSS 里被抄了十几处裸值，
+// 改 token 改不到它们 —— 于是「同一级颜色」在两张卡上是两个值，且从此再也不会一起变。
+// 量法：色值在 style.css 里出现的次数必须正好等于它的定义处（:root 那一条），注释里也不许写。
+{
+  const count = (re) => (cssSrc.match(re) || []).length;
+  const tokens = [
+    ['--warn', '#ffd27d'],
+    ['--info', '#9fd8ff'],
+    ['--success', '#6fe3a0'],
+    ['--gold-bright', '#ffe6a8'],
+  ];
+  const drift = tokens.filter(([, hex]) => count(new RegExp(hex, 'gi')) > 1).map(([name, hex]) => `${hex}(${name})×${count(new RegExp(hex, 'gi'))}`);
+  ok(drift.length === 0, `语义色裸值只留在 :root 定义处（越界的：${drift.join(' / ') || '无'}）`);
+  ok(tokens.every(([name, hex]) => new RegExp(`${name}:\\s*${hex}`, 'i').test(cssSrc)),
+    '四个 token 都真在 :root 里定义（别只改了引用、定义写错一个字符）');
+  // 弱文灰（#9aa4b5 一族）**故意不收敛**：2026-11-17 焦点D 拍板「Δ≤14 在暗底不可辨，批量改要重跑
+  // 25 屏对比度 + 全量截图，收益近零」。这里只锁「有名字的语义色」必须走 token，别顺手把灰也改了。
+  // 誓约卡名色：六卡按 --vy 染，唯一例外是 .hero（推荐那条固定亮金）—— 那句只许出现一次，
+  // 两份同值声明会让人以为漏改了一处（2026-11-26 去重）
+  const heroName = (cssSrc.match(/\.vow-card\.hero \.vc-name\s*\{[^}]*\}/g) || []);
+  ok(heroName.length === 1 && /var\(--gold-bright\)/.test(heroName[0] || ''),
+    `誓约卡名色例外只有一句（实测 ${heroName.length} 句，且走 --gold-bright）`);
+  ok(/\.vow-card \.vc-name\s*\{\s*color:\s*var\(--vy/.test(cssSrc),
+    '誓约卡名色默认跟 --vy（身份色），不是写死金色');
+}
+
 console.log(`挑战码 / 触控 / 桥接 / 视图模型单测：${pass} 项通过${bad ? `，${bad} 项失败` : ''}`);
 
 process.exit(bad ? 1 : 0);

@@ -46,6 +46,9 @@
   --gold2: #b98f35;
   --gold3: #8a6a2f;
   --gold-rgb: 232, 196, 106;
+  /* 比 --gold 亮一档：只用于「已选中/正在进行」的字（选中页签、结算评级、事件选项的高亮词）。
+     2026-11-26：此前 9 处直接写这串色值，改 --gold 一律改不到它们 —— 收成一个 token。 */
+  --gold-bright: #ffe6a8;
 
   /* ── 语义色：只表意，不装饰 ── */
   --danger: #ff6b6b;
@@ -567,9 +570,9 @@ html, body {
 }
 .ad-cta:hover { background: rgba(232, 196, 106, 0.14); border-color: rgba(232, 196, 106, 0.8); }
 .ad-cta:disabled { opacity: 0.55; cursor: default; }
-.ad-cta b { color: #ffe6a8; }
+.ad-cta b { color: var(--gold-bright); }
 .ad-cta-inline { display: block; margin: 8px 0 0; }
-.ad-done { display: block; margin-top: 8px; font-size: var(--fs-aux); color: #6fe3a0; }
+.ad-done { display: block; margin-top: 8px; font-size: var(--fs-aux); color: var(--success); }
 #endOverlay.death-mode .ad-cta { border-color: rgba(174, 184, 198, 0.45); color: #aeb8c6; background: rgba(174, 184, 198, 0.06); }
 
 .icon-btn {
@@ -605,7 +608,7 @@ html, body {
 .tw-lamps rect { transition: fill 0.4s, filter 0.4s; }
 .start-art.lit .tw-lamps rect:nth-child(1) { fill: var(--gold); filter: drop-shadow(0 0 6px rgba(232, 196, 106, 0.9)); }
 .start-art.lit .tw-lamps rect:nth-child(2) { fill: #ffc46b; filter: drop-shadow(0 0 6px rgba(255, 196, 107, 0.7)); }
-.start-art.true .tw-lamps rect { fill: #ffe6a8; filter: drop-shadow(0 0 8px rgba(255, 230, 168, 0.95)); }
+.start-art.true .tw-lamps rect { fill: var(--gold-bright); filter: drop-shadow(0 0 8px rgba(255, 230, 168, 0.95)); }
 
 .logo {
   font-family: Georgia, "Times New Roman", serif;
@@ -679,7 +682,7 @@ html, body {
 .dlg-who.boss { color: #ff8f8f; }
 .dlg-who.merchant { color: var(--green); }
 .dlg-who.yan { color: #b9a6ff; }
-.dlg-who.duo { color: #ffd27d; }
+.dlg-who.duo { color: var(--warn); }
 .dlg-who.heng { color: #bfe4ff; }
 .dlg-text {
   font-size: var(--fs-body);
@@ -1057,7 +1060,7 @@ html, body {
   padding: 11px 0;
 }
 .code-input::placeholder { color: var(--muted); }
-.bd-row.rival .bd-name { color: #9fd8ff; }
+.bd-row.rival .bd-name { color: var(--info); }
 .bd-row.rival { background: rgba(159, 216, 255, 0.06); }
 
 /* ================= 面板场景（祭坛 / 商店 / 回响） ================= */
@@ -1158,7 +1161,7 @@ html, body {
 .prep-opt .po-dmg { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }
 .prep-opt .po-dmg b { font-size: var(--fs-aux); font-variant-numeric: tabular-nums; color: #ff9b9b; letter-spacing: 0.5px; }
 .prep-opt .po-dmg small { font-size: var(--fs-tag); color: var(--dim); }
-.prep-opt.safe .po-dmg b { color: #9fd8ff; }
+.prep-opt.safe .po-dmg b { color: var(--info); }
 .prep-hint { margin-top: 10px; text-align: center; font-size: var(--fs-tag); color: var(--muted); letter-spacing: 0.6px; }
 /* 「上次打这一种……」（2026-11-24 加练·叙事，11-25 改口径）：有记忆时这行比通用提示亮一档，
    因为它是这一屏唯一说「塔记着你怎么打的」的地方（记忆按怪种存，不是按个体） */
@@ -1264,7 +1267,7 @@ html, body {
   display: block;
   font-style: normal;
   font-size: var(--fs-tag);
-  color: #ffd27d;
+  color: var(--warn);
   letter-spacing: 0.2px;
   margin-top: 3px;
   line-height: 1.45;
@@ -1758,8 +1761,8 @@ body.at-start #bottom { visibility: hidden; }
   white-space: nowrap;
   text-align: center;
 }
-.es-grade.clear { color: #ffd27d; text-shadow: 0 0 16px rgba(255, 210, 125, 0.7); }
-.es-grade.ward { color: #ffe6a8; }
+.es-grade.clear { color: var(--warn); text-shadow: 0 0 16px rgba(255, 210, 125, 0.7); }
+.es-grade.ward { color: var(--gold-bright); }
 .es-grade.name { color: #e2cfa6; }
 .es-grade.rough { color: var(--muted); }
 .es-grade.fall { color: #9aa4b5; text-shadow: 0 0 14px rgba(120, 132, 150, 0.45); }
@@ -1988,8 +1991,8 @@ body.at-start #bottom { visibility: hidden; }
 .probe-card .pb-stats { margin-top: 4px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .probe-card .pb-stats b { color: #e8ecf5; }
 .probe-card .pb-loss { margin-top: 3px; font-size: var(--fs-aux); }
-.probe-card .pb-loss.safe { color: #6fe3a0; }
-.probe-card .pb-loss.warn { color: #ffd27d; }
+.probe-card .pb-loss.safe { color: var(--success); }
+.probe-card .pb-loss.warn { color: var(--warn); }
 .probe-card .pb-loss.danger { color: #ff8080; }
 .probe-card .pb-reward { margin-top: 3px; color: var(--gold); font-size: var(--fs-tag); }
 .probe-card .pb-hint { margin-top: 5px; font-size: var(--fs-tag); color: var(--muted); }
@@ -2170,7 +2173,7 @@ body.at-start #bottom { visibility: hidden; }
   opacity: 0.75;
   border-color: rgba(159, 216, 255, 0.45);
   background: linear-gradient(180deg, rgba(18, 30, 44, 0.92), rgba(10, 14, 20, 0.94));
-  color: #9fd8ff;
+  color: var(--info);
 }
 .bs-block.done b::after { content: ' 已挡下'; font-size: var(--fs-tag); letter-spacing: 0; opacity: 0.8; }
 /* 架盾：格挡的第二种用法（摊平整层）。青钢色，跟金色的「挡这一场」区分开 */
@@ -2280,7 +2283,7 @@ body.at-start #bottom { visibility: hidden; }
   border-color: rgba(232, 196, 106, 0.72);
   box-shadow: 0 0 0 1px rgba(232, 196, 106, 0.42), 0 16px 38px rgba(232, 196, 106, 0.16);
 }
-.vow-card.focus .vc-name { color: #ffe6a8; }
+.vow-card.focus .vc-name { color: var(--gold-bright); }
 /* 誓约徽记（js/vow-icons.js）：黄铜线刻 SVG，替代原先的整颗 emoji——
    彩色卡通贴暗金卡是两种语言；线刻 + 中央一点高光才接得住剪影叙事（圣经 §6） */
 .vow-card .vc-emoji { display: none; }
@@ -2319,7 +2322,7 @@ body.at-start #bottom { visibility: hidden; }
 .vc-tier.t-normal { color: #9fb6d8; border-color: rgba(159, 182, 216, 0.4); background: rgba(159, 182, 216, 0.07); }
 .vc-tier.t-hard { color: #e0b56a; border-color: rgba(224, 181, 106, 0.45); background: rgba(224, 181, 106, 0.08); }
 .vc-tier.t-nightmare { color: #e07a6a; border-color: rgba(224, 122, 106, 0.5); background: rgba(224, 122, 106, 0.1); }
-/* 第 4 / 第 6 档（苦行 / 无名）：此前没有类名，静默落到基础灰 #9aa4b5 */
+/* 第 4 / 第 6 档（苦行 / 无名）：此前没有类名，静默落到基础灰（旧裸值，现统一 --muted） */
 .vc-tier.t-ascetic { color: #c8a978; border-color: rgba(200, 169, 120, 0.45); background: rgba(200, 169, 120, 0.09); }
 .vc-tier.t-abyss { color: #a99cf0; border-color: rgba(169, 156, 240, 0.45); background: rgba(169, 156, 240, 0.09); }
 .vow-card .vc-name { font-size: var(--fs-aux); font-weight: 700; color: var(--gold); letter-spacing: 0.5px; }
@@ -2329,14 +2332,15 @@ body.at-start #bottom { visibility: hidden; }
 /* 代价行：誓约让你失去什么，选之前就该看见 */
 .vow-card .vc-cost { font-size: var(--fs-tag); color: #d98a86; letter-spacing: 0.3px; }
 .vow-card.hero { border-color: rgba(232, 196, 106, 0.45); }
-.vow-card.hero .vc-name { color: #ffe6a8; }
 .vow-hint { margin-top: 13px; font-size: var(--fs-tag); color: var(--muted); letter-spacing: 1px; }
 
 /* 誓约主色（data.js vows[].accent）：卡片顶一条 3px 的主色，徽记/卡名跟着染——
    六条誓约在缩略档也能一眼分开，不必逐张读描述。--vy 由 JS 写在卡上。 */
 .vow-card { border-top: 3px solid var(--vy-soft, rgba(232, 196, 106, 0.7)); }
 .vow-card .vc-name { color: var(--vy, var(--gold)); }
-.vow-card.hero .vc-name { color: #ffe6a8; }
+/* 唯一例外：不立誓（.hero）固定亮金——它是「第一次来 · 推荐」那条，金在这里表身份不表誓约。
+   这句曾在上面的 hero 块里也写了一遍（同值两份）：改一处像漏改，已去重（2026-11-26）。 */
+.vow-card.hero .vc-name { color: var(--gold-bright); }
 .vow-card:hover { border-color: var(--vy, rgba(232,196,106,0.62)); }
 
 /* 「誓约已立」回执条：开局第一秒的确认，不是弹窗——3.4 秒后自己走 */
@@ -2427,7 +2431,7 @@ body.at-start #bottom { visibility: hidden; }
 .btab.on {
   border-color: rgba(232, 196, 106, 0.7);
   background: rgba(232, 196, 106, 0.14);
-  color: #ffe6a8;
+  color: var(--gold-bright);
   box-shadow: 0 0 14px rgba(232, 196, 106, 0.16);
 }
 .bd-vowtag {
@@ -2481,7 +2485,7 @@ body.at-start #bottom { visibility: hidden; }
   font-family: Georgia, "Microsoft YaHei", serif;
   font-size: var(--fs-sub);
   letter-spacing: 4px;
-  color: #ffe6a8;
+  color: var(--gold-bright);
   margin-bottom: 8px;
 }
 .ev-text {
@@ -2509,7 +2513,7 @@ body.at-start #bottom { visibility: hidden; }
   transition: transform 0.14s cubic-bezier(0.2, 0.9, 0.25, 1), border-color 0.2s, box-shadow 0.2s;
 }
 .ev-opt:hover { transform: translateX(3px); border-color: rgba(232, 196, 106, 0.66); box-shadow: 0 10px 26px rgba(232, 196, 106, 0.14); }
-.ev-opt b { font-weight: 600; color: #ffe6a8; flex: 0 0 auto; }
+.ev-opt b { font-weight: 600; color: var(--gold-bright); flex: 0 0 auto; }
 /* 付不起时那行会变成「还差 125 金 · 红钥匙 +1」——两件事都得看得见，
    所以允许折行（原来是 nowrap，长了就溢出按钮外，短了又必须砍文案） */
 .ev-opt small { font-size: var(--fs-tag); color: var(--muted); white-space: normal; text-align: left; line-height: 1.45; }
