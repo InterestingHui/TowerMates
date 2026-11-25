@@ -1,4 +1,5 @@
-// TowerMates · 成就系统（29 项，含章节 Boss/遗物/结局/塔心/誓约/锁环）
+// TowerMates · 成就系统（含章节 Boss/遗物/结局/塔心/誓约/锁环；条数不写死在注释里，
+// 权威只有 DEFS 本身——这个数字从 29 漂到 35 时没有一处会红，改注释不如删掉这个数字）
 // 定义 + 检测 + 通知，存储在 localStorage。与引擎解耦，由 main 喂事件。
 (function () {
   const KEY = 'towermates_ach_v1';

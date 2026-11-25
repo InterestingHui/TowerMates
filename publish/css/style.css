@@ -772,7 +772,13 @@ html, body {
   background-size: cover;
   background-position: 50% 38%;
   background-repeat: no-repeat;
-  animation: sceneIn 0.9s ease-out both;
+  /* 进场淡入 + **镜头缓推**。这一层是不透明的，垫在它下面的矢量底图里
+     `.bd-zoom`（72s）/`.sc-zoom`（60s）一直照跑，玩家一秒也看不见——
+     下面那句「与序章同一套动画语言」在 18 张 CG 上是空话（2026-11-25 17:xx 才发现，
+     rm-check 此前只点 .bd-zoom / .sc-zoom，量不到「被盖住」这件事）。
+     所以把同一支缓推挂到 CG 自己身上，矢量那份留给图挂掉时的兜底。 */
+  transform-origin: 52% 40%;
+  animation: sceneIn 0.9s ease-out both, sceneZoom 72s linear both;
 }
 
 /* 与序章同一套动画语言：镜头缓推、火苗呼吸、雾对漂。类名前缀 bd- 以示分开，
@@ -786,6 +792,8 @@ html, body {
 @keyframes turn { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) {
   .bd-zoom, .bd-flick, .bd-fog, .bd-fog2, .bd-tw, .bd-turn { animation: none; }
+  /* CG 层：只停缓推（72s 的持续位移），进场淡入留着——它是一次性、无位移的 */
+  .bd-shot { animation: sceneIn 0.9s ease-out both; }
 }
 
 /* 立绘 */

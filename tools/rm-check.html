@@ -112,6 +112,23 @@ const CHECK = [
       rows.push((okCer ? 'PASS|' : 'FAIL|') + '入场二档（章末回响） .echo-panel|' + cer.name + ' ' + cer.dur);
       bits.push(okCer ? 1 : 0);
     }
+    // 6) CG 层（.bd-shot）的镜头缓推：默认必须有、减弱必须停，进场淡入两边都留。
+    //    起因（2026-11-25 17:xx）：这一层不透明，压在底下那张矢量图的 .bd-zoom/.sc-zoom
+    //    一直照跑但玩家一秒也看不见——上面的 CHECK 只点矢量类名，量不到「被盖住」。
+    {
+      const el = d.createElement('div');
+      el.className = 'bd-shot';
+      d.body.appendChild(el);
+      const cs = w.getComputedStyle(el);
+      const names = (cs.animationName || 'none').split(',').map((s) => s.trim());
+      const hasZoom = names.indexOf('sceneZoom') >= 0;
+      const hasIn = names.indexOf('sceneIn') >= 0;
+      const ok = reduce ? (!hasZoom && hasIn) : (hasZoom && hasIn);
+      rows.push((ok ? 'PASS|' : 'FAIL|') + 'CG 层缓推 .bd-shot' + (reduce ? '（减弱：停缓推、留淡入）' : '（默认：缓推+淡入）')
+        + '|' + names.join('+'));
+      bits.push(ok ? 1 : 0);
+      el.remove();
+    }
     out.textContent = 'REDUCE=' + (reduce ? 1 : 0) + '\n' + rows.join('\n')
       + '\nTRACE|' + bits.join('') + '|';
     document.title = (bits.every((b) => b) ? 'ALLPASS|' : 'HASFAIL|') + bits.join('') + '|R' + (reduce ? 1 : 0);
