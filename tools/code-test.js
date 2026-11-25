@@ -1015,6 +1015,20 @@ ok(briefOf({ worstHit: 126, worstName: '怨灵', relicCount: 0, kills: 1 }).some
 ok(!briefOf({ relicCount: 0, kills: 1 }).some((t) => t.indexOf('最狠') === 0), '没挨过大打就不提这一条');
 ok(briefOf({ hint: '锁环攒到 3 枚可换「守灯」', relicCount: 0, kills: 1 }).some((t) => t.indexOf('下一枚塔印：') === 0), '下一枚塔印的提示原样进摘要');
 ok(!briefOf({ relicCount: 0, kills: 1 }).some((t) => t.indexOf('下一枚塔印') === 0), '已经刻满（hint 为 null）时不挂这一条');
+// 折叠线是前 4 条，而「今日一塔 · 日期」「跨了零点…」是**上下文**行、会把塔印提示挤到第 5 条。
+// 那一局正好是唯一有对手可比的局——玩家读到「未竟」却看不到差什么，所以塔印必须钉进最后一个展开位。
+const pinOne = briefOf({ dailyLabel: '11月26日', hint: '再拿到 2 枚锁环，可换「留名」', relicCount: 0, kills: 5, worstHit: 30, worstName: '锁虫' });
+const pinOneM = V.briefModel(pinOne);
+ok(pinOneM.items.slice(0, V.BRIEF_SHOW).some((x) => x.html.indexOf('下一枚塔印：') === 0),
+  '今日一塔那一局：塔印提示留在展开区（不是折进「＋N 项」）');
+const pinTwo = briefOf({ dailyLabel: '11月26日', dailyCrossed: true, hint: 'h', relicCount: 1, kills: 5, worstHit: 30, worstName: '锁虫' });
+const pinTwoBase = briefOf({ dailyLabel: '11月26日', dailyCrossed: true, relicCount: 1, kills: 5, worstHit: 30, worstName: '锁虫' });
+ok(V.briefModel(pinTwo).items.slice(0, V.BRIEF_SHOW).some((x) => x.html.indexOf('下一枚塔印：') === 0)
+  && pinTwo.length === pinTwoBase.length + 1,
+  '两条上下文行也把塔印留在展开区，且条目一条不丢（只换位不删条）');
+ok(pinTwo[0] === '今日一塔 · 11月26日' && pinTwo[1].indexOf('跨了零点') === 0 && pinTwo[2].indexOf('带走 1 件遗物') === 0,
+  '钉位只动塔印与最狠一场：上下文行与「这一局的账」首句的顺序一概不变');
+ok(briefOf({ hint: 'h2', relicCount: 1, kills: 2, worstHit: 9, worstName: '锁虫' })[3] === '下一枚塔印：h2', '没有上下文行时它原本就在第 4 条（不因这条规则被提前）');
 // 图鉴新收录：前 4 件 + 「等 N 件」，并报还差几件
 const newly4 = briefOf({ collectNew: ['红药水', '铜钥匙', '灯芯', '盾谱'], collectionRemain: 7, relicCount: 0, kills: 0 });
 ok(newly4.some((t) => t === '图鉴新收录：红药水、铜钥匙、灯芯、盾谱（还差 7 件集齐）'), '四件全念，不写「等」');

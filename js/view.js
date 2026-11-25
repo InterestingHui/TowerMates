@@ -824,6 +824,16 @@
       out.push(`决战余裕 <b>${m.grade}</b> · ${m.label}（剩 ${m.pct}%）${tip}`);
     }
     out.push(`✦ +${o.emberGain || 0}`);
+    // 「下一枚塔印」是这一屏唯一的下一步行动句，它必须在展开区里。
+    // 折叠线是前 4 条，而「今日一塔 · M月D日」与「跨了零点…」是**上下文**行，会把它挤到第 5 条——
+    // 那一局正好是唯一有对手可比的局：玩家读到「未竟」，却看不到差什么。
+    // 让位的是「最狠的一场」（纯回味），不是判据：塔印插到它前面，其余条目的相对顺序一概不动。
+    const hintAt = out.findIndex((s) => s.indexOf('下一枚塔印：') === 0);
+    if (hintAt >= BRIEF_SHOW) {
+      const worstAt = out.findIndex((s) => s.indexOf('最狠的一场：') === 0);
+      const at = worstAt >= 0 && worstAt < BRIEF_SHOW ? worstAt : BRIEF_SHOW - 1;
+      out.splice(at, 0, out.splice(hintAt, 1)[0]);
+    }
     return out;
   }
 
