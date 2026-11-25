@@ -6,6 +6,7 @@ const viewSrc = require('fs').readFileSync(require('path').join(__dirname, '..',
 const mainSrc = require('fs').readFileSync(require('path').join(__dirname, '..', 'js', 'main.js'), 'utf8');
 const cssSrc = require('fs').readFileSync(require('path').join(__dirname, '..', 'css', 'style.css'), 'utf8');
 const htmlSrc = require('fs').readFileSync(require('path').join(__dirname, '..', 'index.html'), 'utf8');
+const storySrcTop = require('fs').readFileSync(require('path').join(__dirname, '..', 'js', 'story.js'), 'utf8');
 function ok(cond, label) {
   if (cond) { pass++; } else { bad++; console.log('✗ ' + label); }
 }
@@ -847,6 +848,27 @@ ok(lastB.indexOf('这一种') >= 0 && !/这一?只/.test(lastB),
 ok(stripComments(viewSrc).indexOf('上次对这只') < 0,
   'view.js 里不再出现「上次对这只」（说错身份的那份文案）');
 ok(V.prepOptions(Object.assign({}, prepF, { nonTrivial: false, floor: 0 })).length === 1, '杂兵小架只留「直接开打」');
+// 锁芯开场那一句读数（2026-11-26 加练·叙事）：地图上四段章色弧是锁环系统唯一的现场读数，
+// 而这一屏是锁环篇的收口。三件事各钉一条：数要说对、旧档不许说谎、文案只许有一份。
+const CHN = ['零', '一', '两', '三', '四'];
+ok([0, 1, 2, 3, 4].every((n) => typeof V.coreRingLine(n) === 'string' && V.coreRingLine(n).length > 10),
+  '锁环 0~4 五档都有话（不出现空白旁白）');
+ok(new Set([0, 1, 2, 3, 4].map((n) => V.coreRingLine(n))).size === 5, '五档文案互不相同（数不同就念不同的话）');
+ok([1, 2, 3, 4].every((n) => V.coreRingLine(n).indexOf(CHN[n] + '道') >= 0),
+  '每一档都念出真实数目（一道/两道/三道/四道）');
+ok(V.coreRingLine(4).indexOf('都亮着') >= 0 && V.coreRingLine(0).indexOf('全是暗的') >= 0,
+  '满环说「都亮着」、零环说「全是暗的」');
+ok(V.coreRingLine(0).indexOf('都亮着') < 0,
+  '旧档零锁环时不写「四道都亮着」（v2.0 存档迁上来 rings=[] 会当场成假话）');
+ok(V.coreRingLine(9) === V.coreRingLine(4) && V.coreRingLine(-3) === V.coreRingLine(0)
+  && V.coreRingLine(undefined) === V.coreRingLine(0) && V.coreRingLine('2') === V.coreRingLine(2),
+  '越界/负数/未定义/字符串都收到 0~4 之间（数组末位与首档不越界）');
+ok(/View\.coreRingLine\(Engine\.rings\(\)\.length\)/.test(mainSrc),
+  '锁芯开场按 Engine.rings() 的真实枚数取句（不许写死一句）');
+ok(stripComments(mainSrc).indexOf("playStory('core')") < 0,
+  '锁芯不再直接 playStory(\'core\')（那样就绕开了读数那一句）');
+ok(storySrcTop.indexOf('四道弧') < 0,
+  'story.js 的静态稿里不出现「四道弧」（读数只许有一份实现）');
 // 「只有格挡能活」的那一场（blockSave）：这一档里引擎会强制替玩家挡（main 的 autoBlock），
 // 所以「直接开打」写着「撑不住」却没有对应后果、「缠斗」的多挨一轮与经验也拿不到（格挡优先）。
 // 两张撤掉，只留真能走的两条路——焦点A：卡上承诺的后果必须是真的发生的那一个。

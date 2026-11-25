@@ -556,6 +556,23 @@
     return `上次打这一种：**${name}**${dmg}`;
   }
 
+  // ---------- 锁芯开场：脚下那四道弧是什么（2026-11-26 加练·叙事） ----------
+  // 地图上四段章色弧（render.js drawCoreRings）是锁环系统**唯一**的现场读数：你带下来几道锁，
+  // 最后一间屋子的地面上就亮几段。但全作没有一句话说过它是什么——玩家站在塔心石前看见四段亮弧，
+  // 只能读出「这里有点会发光的东西」。旁白补一句，把它接回「你拆掉了四道锁」。
+  // 不写死「四道都亮着」：v2.0 旧档迁上来 `flags.rings` 可能是空的，那句当场成假话（自审②旧档）。
+  const CORE_RING_LINES = [
+    '你低头看脚下——四道弧全是暗的。你拆过四道锁，却一道也没带在身上。',
+    '你低头看脚下——只有一道弧亮着。其余三道埋在黑里，看不出原来是什么颜色。',
+    '你低头看脚下——只有两道弧亮着。剩下两道暗在那儿，像没点过的蜡烛。',
+    '你低头看脚下——三道弧亮着，第四道还是暗的。你数了两遍，确实少带了一道锁。',
+    '你低头看脚下——四道弧围成一圈，紫、红、金、蓝，都亮着。四道锁，你一道也没落下。',
+  ];
+  function coreRingLine(n) {
+    const i = Math.max(0, Math.min(4, n | 0));
+    return CORE_RING_LINES[i];
+  }
+
   // ---------- 战前面板：三把打法摆成可挑的卡（2026-11-24） ----------
   // 为什么也要搬进来：这三张卡上的每个数字都是同一套算术（额度 / 比例 / 剩血 / 余场），
   // 和战斗面板里的那三块是同一笔账。文案与减法只许有一处，所以卡也走同一组模型。
@@ -1136,7 +1153,7 @@
     sealOf, nextSealHint, sealTarget, emberModel,
     cmpBoard, fmtTime, endName, marginRank, sameRun, isMine, RUN_KEYS, rivalVerdict, VERDICT_NONE,
     deathStatsModel, winStatsModel, memModel, floorNo, migrateFloors,
-    foeName, traitNote, threatModel, blockModel, guardModel, tangleModel, prepOptions, lastTacticLine, PREP_FIRST, PREP_HINT,
+    foeName, traitNote, threatModel, blockModel, guardModel, tangleModel, prepOptions, lastTacticLine, coreRingLine, PREP_FIRST, PREP_HINT,
     hintPicked, HINT_PICK, HINT_AUTO,
     BOARD_TABS, BOARD_CAP, SHOP_CORE, SEALS, CHAPTERS,
     NOTE_DAILY, NOTE_CRUSHED, EMPTY_OTHER, TIP_BLOCK, TIP_SHARD,

@@ -3972,7 +3972,9 @@
     if (s.floor === 12 && !s.flags.core) {
       s.flags.core = true;
       Engine.save();
-      playStory('core');
+      // 收尾一句「你带下来几道锁」（2026-11-26 加练·叙事）：脚下那四道章色弧是锁环系统唯一的现场读数，
+      // 而 lock 环的篇目到这一屏才真正收口——所以这句必须按真实数目念，不能写死在 story.js 里。
+      playStory(S.core.concat([['', View.coreRingLine(Engine.rings().length), 'think']]));
       return;
     }
     // 塔顶：一件遗物都没拿的人——告诉这条路真的走得通（4.6% 极限通关），但只有一次机会
