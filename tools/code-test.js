@@ -752,6 +752,12 @@ ok(V.prepOptions(Object.assign({}, prepF, { blockSave: true, guard: null })).len
   '残血且还没到架盾的层：只剩一张卡 → main 见「只有一张」就不弹面板（读烛那句明话直接开打）');
 ok(/blockSave:\s*!!pred\.blockSave/.test(stripComments(mainSrc)),
   'main.js 把 pred.blockSave 传进 View.prepOptions（不传则上面两条分支永远走不到＝死代码）');
+// 节奏预算的执行点（2026-11-25 变体 6 节奏审计）：这张面板是**每场战斗**都要过的一屏，
+// 「只有一种打法就不弹」是它不挤占前 3 分钟的唯一开关。写成 >=1 就等于每场杂兵前都插一屏
+// 只有一个按钮的确认页——首局节奏预算是「教学弹窗 ≤2」，而这类屏不在那个计数口径里，
+// 属于「闸门看不见的加屏」。这条断言守的就是那个 `> 1`。
+ok(/\bif\s*\(\s*opts\.length\s*>\s*1\s*\)/.test(stripComments(mainSrc)),
+  '战前面板只在「不止一种打法」时弹出（opts.length > 1）——改成 >=1 就是每场杂兵前多一屏单按钮确认');
 // 前提（2026-11-24 焦点A 第 2 段）：战前卡里不会出现「点了必死」的一张——这是 openPrep 里
 // 把「撑不住 / disabled」那一档删掉的前提。三条各由一处保证：①「直接开打」只在白打能活时出现
 // （blockSave 时 View 撤卡，上面两条守着）②格挡/架盾永远比白打便宜 ③缠斗在引擎 tangleInfo 里
