@@ -540,8 +540,11 @@
       const idx = Math.min(Math.max(t.idx | 0, 0), INTRO_SCENES.length - 1);
       const sceneId = 'intro' + idx;
       if (ov) ov.classList.add('scene-on');
-      if (cur !== sceneId) paint(sceneId, INTRO_SCENES[idx]);
-      else box.classList.add('on');
+      if (cur !== sceneId) {
+        // 2026-11-25：CG 接管序章四幕——矢量分镜留在下面当兜底（图挂了就露出来）
+        const tag = window.Backdrops && Backdrops.imgTag ? Backdrops.imgTag('intro' + (idx + 1)) : '';
+        paint(sceneId, INTRO_SCENES[idx] + tag);
+      } else box.classList.add('on');
       return;
     }
     if (!window.Backdrops || typeof t.floor !== 'number') { hide(); return; }
@@ -557,7 +560,7 @@
       idTail = ':' + n;
     }
     if (ov) ov.classList.add('scene-on');
-    if (cur !== 'bd:' + bid + idTail) paint('bd:' + bid + idTail, Backdrops.svg(bid, opt));
+    if (cur !== 'bd:' + bid + idTail) paint('bd:' + bid + idTail, Backdrops.layer(bid, opt));
     else box.classList.add('on');
   }
 

@@ -3,3 +3,4 @@
 live-*.png
 tools/out/
 .workbuddy/tmp-*/
+tools/art-test/

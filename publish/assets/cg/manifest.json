@@ -1,0 +1,109 @@
+{
+  "generatedAt": "2026-11-25",
+  "pipeline": "local ComfyUI 0.42.0 @ 127.0.0.1:8188 (D:/personal-video-pipline/pipeline)",
+  "model": "sd_xl_base_1.0.safetensors",
+  "params": {
+    "width": 832,
+    "height": 1216,
+    "steps": 30,
+    "cfg": 5.5,
+    "sampler": "dpmpp_2m",
+    "scheduler": "karras",
+    "seed": 20261126
+  },
+  "post": "center-crop to 430x900 webp q82 (Pillow)",
+  "style": "dark fantasy game background, matte painting, extreme low key lighting, chiaroscuro, nearly black shadows swallowing the edges, ONE small warm light source, cold blue ambient, volumetric fog, deep blacks, high contrast, painterly texture, vertical composition, dim underexposed, no people, no characters",
+  "negative": "people, person, character, figure, text, letters, watermark, signature, ui, hud, bright daylight, evenly lit, well lit, colorful, cartoon, anime, low contrast, blurry, oversaturated, multiple light sources, lens flare, frame, border",
+  "images": [
+    {
+      "file": "assets/cg/corridor.webp",
+      "scene": "corridor",
+      "prompt": "interior of an ancient stone tower corridor, tall pointed gothic arches receding into darkness, worn flagstone floor, damp grey stone walls with faint carved tally marks, a single oil lamp on the left wall as the only light, warm amber pool on the stones"
+    },
+    {
+      "file": "assets/cg/market.webp",
+      "scene": "market",
+      "prompt": "an underground night market stall in a vast stone hall, heavy dark cloth awning, wooden counter with a brass balance scale and scattered coins, old crates, one hanging lantern as the only warm light, cold fog on the floor"
+    },
+    {
+      "file": "assets/cg/throne.webp",
+      "scene": "throne",
+      "prompt": "an empty throne room at the top of a tower, high-backed stone throne with three points, tall narrow windows letting in cold moonlight shafts, faded dark red carpet, dust in the air"
+    },
+    {
+      "file": "assets/cg/gate.webp",
+      "scene": "gate",
+      "prompt": "a massive iron portcullis gate inside a stone gatehouse, heavy chains, a thin blade of warm light leaking through the bars, two dying torches on the walls"
+    },
+    {
+      "file": "assets/cg/passage.webp",
+      "scene": "passage",
+      "prompt": "a narrow brick passage deep inside a tower, cracked walls, a fallen wooden beam overhead, one thin shaft of cold light from a crack in the ceiling, rubble on the floor"
+    },
+    {
+      "file": "assets/cg/wolfhall.webp",
+      "scene": "wolfhall",
+      "prompt": "a low vaulted stone hall with claw marks gouged into the walls, bones scattered on the floor, a rusted chain hanging from the arch, one small brazier burning low"
+    },
+    {
+      "file": "assets/cg/ridge.webp",
+      "scene": "ridge",
+      "prompt": "the broken upper level of a tower, half-collapsed roof open to a starry night sky, exposed timber beams, wind-blown dust, a single lantern hanging from a beam"
+    },
+    {
+      "file": "assets/cg/empty.webp",
+      "scene": "empty",
+      "prompt": "an endless empty stone gallery with a row of dark doorways, nothing inside them, one distant torch, long shadows on the floor"
+    },
+    {
+      "file": "assets/cg/bell.webp",
+      "scene": "bell",
+      "prompt": "a bell tower interior, an enormous bronze bell hanging in the centre, broken clapper, thick bell frame beams, one brazier burning at the base"
+    },
+    {
+      "file": "assets/cg/namewall.webp",
+      "scene": "namewall",
+      "prompt": "a huge polished stone wall covered with thousands of carved names, one blank patch in the lower right, a single torch lighting the carvings from the left"
+    },
+    {
+      "file": "assets/cg/carve.webp",
+      "scene": "carve",
+      "prompt": "a stone carving room, a long work table with chisels and a half-finished stone tablet, an empty chair, one low oil lamp on the table"
+    },
+    {
+      "file": "assets/cg/roof.webp",
+      "scene": "roof",
+      "prompt": "the very top of a black tower above a sea of clouds at dawn, broken stone pillars, an empty stone pedestal in the centre, cold blue sky with a thin warm band on the horizon"
+    },
+    {
+      "file": "assets/cg/core.webp",
+      "scene": "core",
+      "prompt": "the hidden heart of a tower, a circular stone mechanism of concentric rings around a stone pedestal, cold blue light rising from below, four tall lock columns at the corners"
+    },
+    {
+      "file": "assets/cg/dawn.webp",
+      "scene": "dawn",
+      "prompt": "a black tower on a sea cliff at dawn seen from outside, a thin warm light in its doorway, calm dark sea below, cold sky"
+    },
+    {
+      "file": "assets/cg/intro1.webp",
+      "scene": "intro1",
+      "prompt": "a ruined throne room, a huge horned demon rendered as a pure black silhouette stands before the throne, holding a small woman silhouette by the arm, cold moonlight behind them, dark red carpet, embers in the air, figures are flat black silhouettes only"
+    },
+    {
+      "file": "assets/cg/intro2.webp",
+      "scene": "intro2",
+      "prompt": "a grand empty palace hall at midnight, torn banners hanging from the columns, moonlight through tall broken windows, a folded pale cloth on a stone pedestal in the foreground, dust"
+    },
+    {
+      "file": "assets/cg/intro3.webp",
+      "scene": "intro3",
+      "prompt": "a small stone altar in a dark chapel, a single candle burning on it as the only light, a folded grey cloth and a short sword laid on the stone, deep shadows all around"
+    },
+    {
+      "file": "assets/cg/intro4.webp",
+      "scene": "intro4",
+      "prompt": "the gate of a black tower at dawn seen from outside, one small hooded figure rendered as a pure black silhouette walking toward the open gate, warm light spilling from the doorway, cold mist on the ground"
+    }
+  ]
+}

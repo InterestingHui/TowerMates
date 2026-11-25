@@ -639,6 +639,24 @@
     afterChoicePlain: 'dawn', afterChoiceTrue: 'dawn',
   };
 
+  // 2026-11-25：CG 接管。14 张背景改用本地 ComfyUI（SDXL）生成的位图（assets/cg/*.webp，430×900，合计 416KB），
+  // 矢量版退为兜底：图没到/加载失败时它就是底图，不会出现黑屏。管线与提示词见 tools/cg-gen.js。
+  const IMG = {
+    gate: 'assets/cg/gate.webp', corridor: 'assets/cg/corridor.webp', market: 'assets/cg/market.webp',
+    passage: 'assets/cg/passage.webp', wolfhall: 'assets/cg/wolfhall.webp', throne: 'assets/cg/throne.webp',
+    ridge: 'assets/cg/ridge.webp', empty: 'assets/cg/empty.webp', bell: 'assets/cg/bell.webp',
+    namewall: 'assets/cg/namewall.webp', carve: 'assets/cg/carve.webp', roof: 'assets/cg/roof.webp',
+    core: 'assets/cg/core.webp', dawn: 'assets/cg/dawn.webp',
+    // 序章四幕也用 CG（矢量分镜退为兜底）：挑一张「誓约之后第一批看到」的图最要紧
+    intro1: 'assets/cg/intro1.webp', intro2: 'assets/cg/intro2.webp',
+    intro3: 'assets/cg/intro3.webp', intro4: 'assets/cg/intro4.webp',
+  };
+  // 序章用：只取图片标签（矢量分镜由 scenes.js 自己拼在下面当兜底）
+  function imgTag(key) {
+    const src = IMG[key];
+    if (!src) return '';
+    return `<div class="bd-shot" style="background-image:url(${src})"></div>`;
+  }
   const cache = {};
   // opt.lit：锁芯专用——已得几枚锁环就点亮几道（0~4）。
   // 其余场景忽略 opt（同 key 复用同一份字符串，不重复生成）。
@@ -654,6 +672,14 @@
     if (!fn) return '';
     if (!cache[key]) cache[key] = fn();
     return cache[key];
+  }
+
+  // 上屏用：矢量打底 + CG 覆盖（图没到/没图时，露出的就是下面那张矢量）
+  function layer(key, opt) {
+    const base = svg(key, opt);
+    if (!base) return '';
+    const src = IMG[key];
+    return src ? base + `<div class="bd-shot" style="background-image:url(${src})"></div>` : base;
   }
 
   // 锁芯：因为需要独立的动画层，单独拼一次。lit = 已得锁环数（0~4）。
@@ -714,5 +740,5 @@
     return FLOOR_SCENE[Math.max(0, Math.min(FLOOR_SCENE.length - 1, f))] || 'gate';
   }
 
-  window.Backdrops = { svg, pick, has: (k) => !!SCENES[k], FLOOR_SCENE, KEY_SCENE };
+  window.Backdrops = { svg, layer, pick, imgTag, cgUrl: (k) => IMG[k] || '', has: (k) => !!SCENES[k], FLOOR_SCENE, KEY_SCENE };
 })();

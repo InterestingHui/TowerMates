@@ -760,6 +760,20 @@ html, body {
 }
 
 /* ================= 对白背景（序章之后 · js/backdrops.js） ================= */
+/* CG 层（2026-11-25）：位图铺满、压在矢量底图上面；加载失败时脚本把自己 display:none，
+   露出的就是下面那张矢量图。object-position 偏上，保证对话框压住的是地面而不是主体。 */
+/* 用背景图而不是 <img>：序章那几段 SVG 结构复杂，实测 <img> 会被解析进 <svg> 里而不加载；
+   背景图不受这个影响，缺图时也就是这一层透明、露出下面的矢量底图。 */
+.bd-shot {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background-size: cover;
+  background-position: 50% 38%;
+  background-repeat: no-repeat;
+  animation: sceneIn 0.9s ease-out both;
+}
+
 /* 与序章同一套动画语言：镜头缓推、火苗呼吸、雾对漂。类名前缀 bd- 以示分开，
    scenes.js 里两套共用同一个 .dlg-scene 容器。 */
 .bd-zoom { transform-origin: 52% 40%; animation: sceneZoom 72s linear both; }

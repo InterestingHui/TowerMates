@@ -2953,7 +2953,7 @@
     if (!box || !window.Backdrops) return;
     if ((box.dataset.scene || '') === key && box.firstChild) return;
     box.dataset.scene = key;
-    box.innerHTML = key ? Backdrops.svg(key) : '';
+    box.innerHTML = key ? Backdrops.layer(key) : '';
   }
   // 章末回响落在该章最后一层的场景里（1 集市 / 2 王座 / 3 钟楼 / 4 名墙）
   const ECHO_SCENE = ['market', 'throne', 'bell', 'namewall'];

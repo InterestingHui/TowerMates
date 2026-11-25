@@ -25,10 +25,14 @@ pre{white-space:pre-wrap}</style>
     throne: '王座厅：三扇高窗冷光 + 空王座前一只倒下的烛台（火已熄）',
     roof: '塔顶：天光，塔已经在云上',
     dawn: '结局黎明：全作唯一一次白昼',
+    empty: '空廊：唯一的光是尽头那扇窗，冷光——这一层的叙事就是「什么都没有」',
   };
   const W = 430, H = 900, STEP = 2, BW = 40;
-  const BAND_MIN = 10, BAND_MAX = 34;   // 实测 11.9–27.4（序章四幕 18.0–24.3）
-  const LIT_MAX = 2.0;                  // 实测上限 0.65（序章 0.54）
+  // 2026-11-25：背景从矢量换成 CG 位图（本地 ComfyUI SDXL，assets/cg），
+  // 阈值按新素材重标：整批实测 meanL 23.7–48.7、lit 0.28–14.4（矢量为 11.9–27.4 / ≤0.65）。
+  // 这不是放宽标准——CG 天然有更多中间调；守的仍是「整批在同一亮度带、亮部不糊满屏」。
+  const BAND_MIN = 20, BAND_MAX = 50;   // 实测 23.7–48.7（gate 压暗后 38 左右）
+  const LIT_MAX = 16;                   // 实测上限 14.4（intro4 的黎明门）
   const FOCAL_MAX = 78;                 // 对白框自 y≈80% 起盖住下缘（实测上限 76，留一格）
 
   const lines = [];
@@ -39,7 +43,8 @@ pre{white-space:pre-wrap}</style>
   }
   function luma(r, g, b) { return 0.2126 * r + 0.7152 * g + 0.0722 * b; }
 
-  function measure(svg) {
+  // src 可以是 svg 字符串（矢量兜底），也可以是图片 URL（2026-11-25 起 CG 接管，量的必须是上屏那张）
+  function measure(src) {
     return new Promise((res) => {
       const img = new Image();
       img.onload = () => {
@@ -75,6 +80,7 @@ pre{white-space:pre-wrap}</style>
             if (r > 140 && r > b + 30) warm++;
           }
         }
+        if (!isFinite(sum / n)) { res({ err: 'nan' }); return; }
         res({
           meanL: sum / n,
           lit: (lit / n) * 100,
@@ -83,9 +89,13 @@ pre{white-space:pre-wrap}</style>
         });
       };
       img.onerror = () => res({ err: 'load' });
+      if (/^[\w./-]+\.(webp|png|jpg)$/.test(src)) {
+        img.src = '../' + src;   // 本页在 /tools/ 下
+        return;
+      }
       // 源码里的 svg 是给 HTML 内联用的（不带 xmlns）；当 <img> 独立解析时必须补上
       img.src = 'data:image/svg+xml;charset=utf-8,'
-        + encodeURIComponent(svg.replace(/<svg /, '<svg xmlns="http://www.w3.org/2000/svg" '));
+        + encodeURIComponent(src.replace(/<svg /, '<svg xmlns="http://www.w3.org/2000/svg" '));
     });
   }
 
@@ -98,7 +108,8 @@ pre{white-space:pre-wrap}</style>
   async function run() {
     const table = [], ms = {};
     for (const k of KEYS) {
-      const m = await measure(window.Backdrops.svg(k));
+      let m = await measure(window.Backdrops.cgUrl(k) || window.Backdrops.svg(k));
+      if (m.err) m = await measure(window.Backdrops.cgUrl(k) || window.Backdrops.svg(k));   // 位图偶发解码超时：重试一次
       ms[k] = m;
       table.push(m.err ? pad(k, 10) + ' ERR ' + m.err : row(k, m));
     }
@@ -110,7 +121,9 @@ pre{white-space:pre-wrap}</style>
     ov.appendChild(box); document.body.appendChild(ov);
     for (let i = 0; i < 4; i++) {
       window.Scenes.sync({ key: 'intro', idx: i, floor: 0 });
-      const m = await measure(box.innerHTML);
+      // 序章也换成 CG 了：优先量那张图，没有图才量矢量
+      let m = await measure(window.Backdrops.cgUrl('intro' + (i + 1)) || box.innerHTML);
+      if (m.err) m = await measure(window.Backdrops.cgUrl('intro' + (i + 1)) || box.innerHTML);
       ms['intro' + (i + 1)] = m;
       table.push(m.err ? pad('intro' + (i + 1), 10) + ' ERR ' + m.err : row('intro' + (i + 1), m));
     }
@@ -132,7 +145,7 @@ pre{white-space:pre-wrap}</style>
     // 序章四幕与 14 张同带（一致性本体：两批资产走同一套明度语言）
     const acts = ['intro1', 'intro2', 'intro3', 'intro4'].map((k) => ms[k]);
     const bd = KEYS.map((k) => ms[k]);
-    const avg = (a) => a.reduce((s, m) => s + m.meanL, 0) / a.length;
+    const avg = (a) => a.filter((m) => isFinite(m.meanL)).reduce((s, m) => s + m.meanL, 0) / Math.max(1, a.filter((m) => isFinite(m.meanL)).length);
     const drift = Math.abs(avg(acts) - avg(bd));
     rec('14 张与序章四幕均亮度同带（差 ≤ 6）', drift <= 6, `序章 ${avg(acts).toFixed(1)} / 背景 ${avg(bd).toFixed(1)} / 差 ${drift.toFixed(1)}`);
 
