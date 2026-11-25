@@ -18,6 +18,27 @@ const js = Object.fromEntries(JS_FILES.map((f) => [f, fs.readFileSync(path.join(
 const css = fs.readFileSync(path.join(ROOT, 'css', 'style.css'));
 const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
 
+// CG 的指纹单走一套（2026-11-25）：下面的 build 只算 html+css+js，换一张 assets/cg/*.webp
+// 指纹一字不变 ⇒ 老玩家浏览器继续用缓存里的旧图（结局那张 dawn 已经换过一次，改的人以为上线了）。
+// **线上服务的是仓库根**（部署目录＝根，`/js/backdrops.js` 就是 js/ 这份），不是 publish/，
+// 所以指纹必须写进源码那份；先改源码、再算 build，保证 build 与线上内容同源、重复 sync 幂等。
+const CG_DIR = path.join(ROOT, 'assets', 'cg');
+const cgFiles = fs.existsSync(CG_DIR)
+  ? fs.readdirSync(CG_DIR).filter((f) => /\.(webp|png|jpg)$/.test(f)).sort()
+  : [];
+const ah = crypto.createHash('md5');
+cgFiles.forEach((f) => { ah.update(f); ah.update(fs.readFileSync(path.join(CG_DIR, f))); });
+const assetV = ah.digest('hex').slice(0, 8);
+{
+  const bdPrev = js['backdrops.js'].toString('utf8');
+  if (!/const ASSET_V = '[^']*';/.test(bdPrev)) throw new Error('asset version injection failed: ASSET_V 那行不见了');
+  const bdNext = bdPrev.replace(/const ASSET_V = '[^']*';/, `const ASSET_V = '${assetV}';`);
+  if (bdNext !== bdPrev) {
+    fs.writeFileSync(path.join(ROOT, 'js', 'backdrops.js'), bdNext);   // 源码＝线上那一份
+    js['backdrops.js'] = Buffer.from(bdNext, 'utf8');                 // 让 build 算的是最终内容
+  }
+}
+
 // 指纹不能自引用：直接拿含旧 build/v= 的 html 算 md5，每次 sync 都会得到新指纹，
 // 于是源码 index.html 永远处于「已修改」、线上与本地也永远对不上（排查部署状态时全是假信号）。
 // 先把旧指纹抹成空再哈希——hash 只由真实内容决定，同样源码重复 sync 必须同指纹。
@@ -39,21 +60,6 @@ fs.mkdirSync(path.join(OUT, 'css'), { recursive: true });
 JS_FILES.forEach((f) => fs.writeFileSync(path.join(OUT, 'js', f), js[f]));
 fs.writeFileSync(path.join(OUT, 'css', 'style.css'), css);
 fs.writeFileSync(path.join(OUT, 'index.html'), outHtml);
-
-// CG 的指纹单走一套（2026-11-25）：上面的 build 只算 html+css+js，换一张 assets/cg/*.webp
-// 指纹一字不变 ⇒ 老玩家浏览器继续用缓存里的旧图（结局那张 dawn 已经换过一次）。
-// 把 assets/cg 的内容指纹写进 publish 那份 backdrops.js：换图即换 URL，不靠人记得 bump。
-const CG_DIR = path.join(ROOT, 'assets', 'cg');
-const cgFiles = fs.existsSync(CG_DIR)
-  ? fs.readdirSync(CG_DIR).filter((f) => /\.(webp|png|jpg)$/.test(f)).sort()
-  : [];
-const ah = crypto.createHash('md5');
-cgFiles.forEach((f) => { ah.update(f); ah.update(fs.readFileSync(path.join(CG_DIR, f))); });
-const assetV = ah.digest('hex').slice(0, 8);
-const bdSrcText = js['backdrops.js'].toString('utf8');
-const bdOut = bdSrcText.replace(/const ASSET_V = '[^']*';/, `const ASSET_V = '${assetV}';`);
-if (bdOut === bdSrcText) throw new Error('asset version injection failed: ASSET_V 那行不见了');
-fs.writeFileSync(path.join(OUT, 'js', 'backdrops.js'), bdOut);
 
 // 静态资产（立绘等）：整目录同步，避免 publish/ 缺图导致回落成 SVG
 function copyDir(src, dst) {

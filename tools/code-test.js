@@ -1790,16 +1790,18 @@ ok(mainSrc.indexOf("searchParams.set('rival'") < 0, 'main.js 不许自己拼链�
   // 反例护栏：不许再出现「直接把 IMG[...] 拼进 URL / 塞进 Image.src」的裸用法
   ok(!/url\(\$\{IMG\[/.test(noComment) && !/\.src = IMG\[/.test(noComment),
     '没有裸拼 IMG[...] 的 URL（那样换图不会换地址，缓存永远不击穿）');
-  // 真实效果：publish 那份的 ASSET_V 必须等于此刻 assets/cg 的内容指纹
-  // —— 改了图却忘了 sync，这条会红，比任何注释都可靠
+  // 真实效果：**线上服务的是仓库根那份**（部署目录＝根），所以源码的 ASSET_V 必须等于此刻
+  // assets/cg 的内容指纹；publish 那份同步跟。改了图却忘了 sync，这两条会红，比任何注释都可靠
   const cgDir = path3.join(__dirname, '..', 'assets', 'cg');
   const cgFiles = fs3.readdirSync(cgDir).filter((f) => /\.(webp|png|jpg)$/.test(f)).sort();
   const ah = crypto3.createHash('md5');
   cgFiles.forEach((f) => { ah.update(f); ah.update(fs3.readFileSync(path3.join(cgDir, f))); });
   const want = ah.digest('hex').slice(0, 8);
+  const gotSrc = (bd.match(/const ASSET_V = '([^']*)';/) || [])[1];
+  ok(gotSrc === want, `源码的资产指纹与 assets/cg 现内容一致（${gotSrc} / 应为 ${want}——换图后没跑 sync-publish）`);
   const pubBd = fs3.readFileSync(path3.join(__dirname, '..', 'publish', 'js', 'backdrops.js'), 'utf8');
   const got = (pubBd.match(/const ASSET_V = '([^']*)';/) || [])[1];
-  ok(got === want, `publish 的资产指纹与 assets/cg 现内容一致（线上 ${got} / 应为 ${want}——换图后没跑 sync-publish）`);
+  ok(got === want, `publish 的资产指纹与 assets/cg 现内容一致（${got} / 应为 ${want}）`);
   const pubAt = fs3.readFileSync(path3.join(__dirname, '..', 'tools', 'sync-publish.js'), 'utf8');
   ok(/asset version injection failed/.test(pubAt) && /assets', 'cg'/.test(pubAt),
     'sync-publish 负责把资产指纹写进 publish（注入失败要抛错，不许静默发旧图）');

@@ -770,10 +770,12 @@
   **assets 换了指纹不变** ⇒ 换过图的 roof/intro2 在老玩家浏览器里会继续用旧的。
   **收口做法（比原计划更进一步：不靠人记得 bump）**：①`backdrops.js` 新增 `const ASSET_V = 'dev'` + `cgSrc(k)`，
   四处出图口子（序章 `imgTag` / 上屏 `layer` / 预热 `preload` / 对外 `cgUrl`）全部改走它，源码里不再有裸拼的 URL；
-  ②`tools/sync-publish.js` 单算一份 `assets/cg` 的内容指纹（文件名 + 字节 md5 前 8 位），写进 **publish 那份** `backdrops.js`——
-  换图即换 URL；③`tools/bd-luma.html` 的文件判断放行 `?v=`；④`code-test` +5：四处口子都过 `cgSrc` / 无裸拼 `IMG[...]` /
-  **publish 的 `ASSET_V` 必须等于此刻 `assets/cg` 的内容指纹**（改了图没 sync 当场红）/ 注入失败必须抛错。
-  变异两刀都红（`preload` 退回 `IMG[k]` → 红 2；publish 的 ASSET_V 改回 `dev` → 红 1）。
+  ②`tools/sync-publish.js` 单算一份 `assets/cg` 的内容指纹（文件名 + 字节 md5 前 8 位），写进**源码**那份 `js/backdrops.js`
+  ——**线上服务的就是它**（部署目录＝仓库根，`/js/backdrops.js` 就是 `js/` 这份，`publish/` 只是另一份拷贝；首版只写 publish，
+  部署后线上实测仍是 `ASSET_V = 'dev'`，等于没修，当场改成写源码并把顺序调到 build 之前，两次 sync 验证同指纹幂等）；
+  ③`tools/bd-luma.html` 的文件判断放行 `?v=`；④`code-test` +6：四处口子都过 `cgSrc` / 无裸拼 `IMG[...]` /
+  **源码与 publish 的 `ASSET_V` 都必须等于此刻 `assets/cg` 的内容指纹**（改了图没 sync 当场红）/ 注入失败必须抛错。
+  变异三刀都红（`preload` 退回 `IMG[k]` → 红 2；源码指纹改 `deadbeef` → 红 1；publish 改回 `dev` → 红 1）。
   实测：`sync-publish` → `assetV 463e930a（18 张 CG）`；`cg_dialog.png` 目检 CG 正常上屏；`bd-luma` 11/11 ALL PASS（18 张全渲进画布，`?v=` 不影响解码）。
   ｜复现：改一张 `assets/cg/*.webp` → `node tools/sync-publish.js` → 两次 build 串相同（现在 assetV 会变）｜ 影响：错图（旧画面）｜优先级：中。
 - [ ] **序章第二幕的「帕」在 CG 里没有（2026-11-25 焦点D · 低）**：`intro2` 的提示词两版都写了
@@ -1132,7 +1134,7 @@
 >
 > **规模台账（2026-11-16 变体 3 收敛轮实测；2026-11-25 21:4x 逐项重测）**：
 > 全屏面板 **16** 个（另有 5 个特殊 `.overlay` 层：立绘放大 / 对白 / Boss 入场 / 战斗场景 / 运行态，共 21 个 overlay 元素）｜`js/main.js` **5170** 行 / `js/view.js` **1148** 行 / `js/engine.js` **1927** 行 / `js/daily.js` **66** / `js/wxbridge.js` **93**（比 05:4x 台账：main +21 / view +49，都是这几天战前面板与结算摘要的文案与模型；engine 未动）｜
-> 闸门 **23 套页面探针 + 9 个 Node 单测**（check / sim / engine **635** / code **557** / battle-sim / fuzz / opendata / wechat / ui-test 驱动 ui-check；另有四套只出读数不进闸门的工具：`gate-audit` / `ring-audit` / `decision-audit` / `backdrop-check`），`node tools/regress.js` 全套 **87 秒**（59 图 + 23 探针 + 9 单测）｜
+> 闸门 **23 套页面探针 + 9 个 Node 单测**（check / sim / engine **635** / code **558** / battle-sim / fuzz / opendata / wechat / ui-test 驱动 ui-check；另有四套只出读数不进闸门的工具：`gate-audit` / `ring-audit` / `decision-audit` / `backdrop-check`），`node tools/regress.js` 全套 **87 秒**（59 图 + 23 探针 + 9 单测）｜
 > 收集项：遗物 11 / 锁环 40（四章各 10，已封顶）/ 成就 35 / 怪物 22 / 事件 24 / 誓约 6。
 > **用法**：下一轮若要有任何一项数字往上走，先用 G-14 的「收敛第四问」答一次「它换掉了什么」；
 > 答不出来就只记账、不动手——**这是「每轮顺手加一点」唯一的刹车**。
@@ -1583,7 +1585,9 @@
   判定：代码 mtime 约 9 小时、工作树只有 `tools/shot.html`（他会话 11:10 的 CG 调试探针）→ 全力，不碰不 add。加练四向顺延 **叙事**（上次 16:2x），变体补 **收敛**（上次 20:2x 是校准，收敛上次 05:4x，五变体里最久）。
   **叙事体检（判据：碎片是否可读、有没有形成悬念）**：按「钩子是否回收」逐条过了一遍现存碎片——Boss 台词 26 条 / 章末回响 4 句 / 11 件遗物全有小传（cross·coin 11-17 补、ward 11-18 补）/ 影子勇者 3 位三方互证 / 名墙五名 + 锤魔解释（11-24）/ 「六道锚」同句对照回收（11-25）。**结论：链条完整，不再新增碎片**（逐枚写 40 条锁环小传会把「塔的记录」变成图鉴轰炸，与「收集项已封顶」相反——11-17 已判过一次，本轮复核仍成立）。
   但**最新那块碎片根本没送到玩家眼前**：`assets/cg/dawn.webp`（结局「带她回去 / 替她」两幕的最后一张画面）19:1x 才按「近乎全黑 + 一道金缝」重出并部署，而 `IMG` 表里全是裸路径、`sync-publish` 的指纹只算 html+css+js ⇒ **老玩家浏览器继续用旧那张冷夜海崖**。改的人以为上线了，回来的人看到的还是前一版——这是「叙事交付链断在最后一米」，比再写一段台词重要。
-  **修**（见待办那条的收口）：`cgSrc()` 统一出图口子 + `sync-publish` 注入 `assets/cg` 内容指纹（`463e930a` / 18 张）+ `bd-luma` 放行 `?v=` + `code-test` +5（含「publish 的 ASSET_V 必须等于此刻资产指纹」——改了图没 sync 当场红）。变异两刀都红（`preload` 退回裸 `IMG[k]` → 红 2；publish 改回 `dev` → 红 1）。
+  **修**（见待办那条的收口）：`cgSrc()` 统一出图口子 + `sync-publish` 注入 `assets/cg` 内容指纹（`463e930a` / 18 张）+ `bd-luma` 放行 `?v=` + `code-test` +6（含「源码与 publish 的 ASSET_V 都必须等于此刻资产指纹」——改了图没 sync 当场红）。
+  **踩到一个自己挖的坑（值得记）**：第一版只把指纹写进 `publish/`，部署后线上实测 `/js/backdrops.js` 仍是 `ASSET_V = 'dev'`——**线上服务的是仓库根，不是 publish/**（`.genie` 绑在根，部署目录＝根），等于修了个只在副本里生效的修。改成写源码那份、并把注入挪到 build 之前（否则 build 算的是注入前的内容，两次 sync 不同指纹），实测重复 `sync-publish` 同 build 同 assetV。
+  变异三刀都红（`preload` 退回裸 `IMG[k]` → 红 2；源码指纹改 `deadbeef` → 红 1；publish 改回 `dev` → 红 1）。
   **收敛三段**：①最近 3 轮过账（19:1x 换 dawn / 20:2x 塔印折行 / 本轮 CG 指纹）——三轮都落在「上线前调优」的格子里，**没有超阶段的新系统**；但形状是同一个：**都在最后一屏 / 最后一张图上打转**，这本身是边际递减的信号，本轮因此不加任何零件，只把已经做了的东西送到位。②`这个游戏不是什么`（G-14，九条）复核成立，不重复补。③只收一件半成品，收到可验证结束（就是上面那条），不开新工作面。
-  闸门：check ✓ / engine 635 / code 548 → **557** / fuzz 0 / sim 18,745·68.4% 一字未漂 / regress **59 图** + 全套（bd-luma **11/11 ALL PASS**、可读性 1539·40 屏 0 违规、触控 80、弹层 116、减弱 18-18、并发 28、存档 19、错误 18、音效 16）。`cg_dialog.png` 目检：CG 带 `?v=` 正常上屏。
+  闸门：check ✓ / engine 635 / code 548 → **558** / fuzz 0 / sim 18,745·68.4% 一字未漂 / regress **59 图** + 全套（bd-luma **11/11 ALL PASS**、可读性 1539·40 屏 0 违规、触控 80、弹层 116、减弱 18-18、并发 28、存档 19、错误 18、音效 16）。`cg_dialog.png` 目检：CG 带 `?v=` 正常上屏。
   ｜加练：叙事（碎片链条完整→不新增；真缺陷 1 处 / 已修 1 处）｜变体：收敛（零新增工作面）｜薄弱层：表层（碎片能读、悬念能收，但**交付**那一环此前是断的）/ 结构（真人数据 + 第二局要想什么，同前）｜阻塞：无
