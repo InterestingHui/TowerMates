@@ -86,7 +86,10 @@
     {
       "file": "assets/cg/dawn.webp",
       "scene": "dawn",
-      "prompt": "a black tower on a sea cliff at dawn seen from outside, a thin warm light in its doorway, calm dark sea below, cold sky"
+      "seed": 20261201,
+      "factor": 0.74,
+      "note": "2026-11-25 焦点A 重出：原图提示词写「at dawn」却配「cold sky」，出成冷夜暴风海崖（实测 warm 0.00%），而这是玩家看到的最后一张图。新版只留地平线一道金缝 + 一点水面反光，其余全黑",
+      "prompt": "almost entirely black sea and sky, a single thin horizontal slit of golden dawn light at the horizon, heavy black storm clouds filling the top two thirds, a black tower silhouette rising against the faint glow, calm black water with one thin reflection"
     },
     {
       "file": "assets/cg/intro1.webp",
