@@ -1858,6 +1858,8 @@
       filter: boardFilter,
       todayKey,
       dayLabel: Daily.label(todayKey),
+      // 结局列只在塔顶层成立（view.js 里做判定）：塔共有几层只有 data.js 知道，所以由这里注进去
+      topFloor: D.floors.length,
       // 「今日之约」当天是不立誓时不写——那本来是默认状态，写出来只是噪音
       dayVowName: dailyVowDef().name === '不立誓' ? '' : dailyVowDef().name,
       vows: D.vows,

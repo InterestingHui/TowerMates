@@ -25,7 +25,9 @@
       time: num(x && x.time),
       steps: num(x && x.steps),
       vow: clean(x && x.vow, 16) || 'none',
-      ending: x && x.ending === 'true' ? 'true' : 'plain',
+      // 结局三态：'true' / 'plain' / ''（'' = 没走到塔顶）。旧实现把「不是真结局」一律补成 'plain'，
+      // 于是死在第 4 层的好友在榜上写着「铁与霜」——托管数据没有这一位时不许替他编一个结局。
+      ending: x && x.ending === 'true' ? 'true' : (x && x.ending === 'plain' ? 'plain' : ''),
       seal: clean(x && x.seal, 8),
       goals: num(x && x.goals), // 回响章数
       daily: dayKey(x && x.daily), // 今日一塔日签（普通局为空）

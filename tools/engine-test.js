@@ -1207,6 +1207,11 @@ ok(S.shadowRivals.some((r) => r.name === '第二位勇者·鸦' && r.floor === 2
 ok(String(S.relicLore.steel[0][1]).includes('第 2 层') && String(S.relicLore.vigor[0][1]).includes('第 3 层'), '鸦/岩遗物小传与榜单脚注呼应（第 2 层 / 第 3 层）');
 ok(S.princessPlainSword && S.princessPlainSword.some((l) => String(l[1]).includes('第五层')), '薇拉认剑变体保留第五层互证');
 ok(JSON.stringify(S).indexOf('剑断在第五层') < 0, '榜单脚注文本属于 main.js（RIVAL_NOTE），story.js 不重复维护');
+// 影子勇者的「结局」必须与「层数」是同一件事：三人都没走到塔顶（2 / 3 / 5 层），结局只能是空的。
+// 11-25 之前这里填 'plain'，榜上就成了「第五位勇者·岩 / 停在第 3 层 / 铁与霜」——
+// 铁与霜是打完碑魔在塔顶选的普通结局，死在第 3 层拿不到它。脚注、小传、数据三处得说同一件事。
+ok(S.shadowRivals.every((r) => r.floor < D.floors.length && !r.ending),
+  '影子勇者没到塔顶就不挂结局（榜上「层」与「结局」同一行不许互相打脸）');
 
 // 生僻字闸门：文案里不再出现玩家基本不认识的字（2026-11-12 用户反馈「门闩」的「闩」；同日用户再次点名：Boss 名也不许用生僻字，砚/炬/铎/砧/磐/岚 已全部改名并拉黑）
 const RARE_CHARS = ['闩', '掳', '蛭', '饯', '掸', '龛', '薪', '砚', '炬', '铎', '砧', '磐', '岚'];

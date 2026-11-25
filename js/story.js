@@ -359,10 +359,14 @@ window.STORY = {
   },
 
   // ---------- 影子塔友（榜单内置的旧勇者） ----------
+  // ending 一律留空：他们都没走到塔顶（鸦 2 / 岩 3 / 川 5），三个人的「结局」就是「未竟」。
+  // 11-25 之前这里填的是 'plain'，榜上于是出现「第五位勇者·岩 / 停在第 3 层 / 铁与霜」——
+  // 铁与霜是打完碑魔在塔顶选的普通结局，一个人死在第 3 层不可能拿到它。脚注与小传都说他停在第 3 层，
+  // 结局列却说他通关了：同一行里两个字段互相打脸，而这还是新玩家看到的第一屏社交。
   shadowRivals: [
-    { name: '第二位勇者·鸦', ending: 'plain', floor: 2, level: 3, steps: 210, time: 540 },
-    { name: '第五位勇者·岩', ending: 'plain', floor: 3, level: 4, steps: 340, time: 880 },
-    { name: '第八位勇者·川', ending: 'plain', floor: 5, level: 6, steps: 460, time: 1220 },
+    { name: '第二位勇者·鸦', ending: '', floor: 2, level: 3, steps: 210, time: 540 },
+    { name: '第五位勇者·岩', ending: '', floor: 3, level: 4, steps: 340, time: 880 },
+    { name: '第八位勇者·川', ending: '', floor: 5, level: 6, steps: 460, time: 1220 },
   ],
 
   // ---------- 遗物小传（祭坛拾取时各一句） ----------

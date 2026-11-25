@@ -96,6 +96,14 @@
     const notes = o.rivalNotes || {};
     const cap = o.cap || BOARD_CAP;
     const filter = o.filter || 'all';
+    // 塔顶层（13 = 12 主塔 + 锁芯）。结局只在这一层成立：铁与霜要打完碑魔选「带走王冠/留下」，
+    // 第六个名字要念出那个名字——都发生在塔顶，层列写着 3 层时不可能有结局。
+    // 为什么要在读取侧拦：挑战码的线格式只有 t / p 两位（`challenge.js` 的 p = 普通结局），
+    // 「没走到结局」与「普通结局」在码里是同一串 ⇒ 死在第 5 层的码解开就是 ending:'plain'，
+    // 微信托管数据缺 tm_ending 时也一样，影子勇者的数据当年也是这么填的。三个写入方各自都在编，
+    // 改线格式只能救新码，救不了已存在本地的名录；所以口径收在唯一读它做展示的地方。
+    const top = o.topFloor || 13;
+    const endOf = (r) => ((r.floor || 0) >= top ? (r.ending || '') : '');
     const mine = (o.mine || []).map((x) => Object.assign({ mine: true, vow: x.vow || 'none' }, x));
     const all = (o.shadows || []).map((x) => Object.assign({ vow: 'none' }, x))
       .concat(o.rivals || [])
@@ -138,6 +146,7 @@
       : (offBoard || (crushed ? NOTE_CRUSHED : ''));
     const out = people.slice(0, cap).map((r, i) => {
       const v = vows[r.vow] || vows.none || { name: '不立誓', tag: '' };
+      const ending = endOf(r);
       return {
         rank: i + 1,
         // 幽灵行不再把楼层写进名字里：同一行的「N层」列就是那个数，写两遍只是噪音
@@ -146,8 +155,8 @@
         vowTag: v.name === '不立誓' ? '' : (v.tag || '').charAt(0),
         mine: !!r.mine,
         rival: !!r.rival,
-        end: endName(r.ending),
-        ended: r.ending === 'true',
+        end: endName(ending),
+        ended: ending === 'true',
         margin: r.margin || '',
         floor: r.floor || 0,
         steps: r.steps || 0,

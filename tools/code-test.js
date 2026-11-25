@@ -86,6 +86,16 @@ const friends = W.normalize([
 ok(friends.length === 1 && friends[0].name.indexOf('<') < 0, '非法标签被剔除、无效行被丢弃');
 ok(friends[0].floor === 13 && friends[0].time === 512 && friends[0].seal === 'clear', '好友层数/用时/塔印完整');
 ok(W.normalize('不是数组').length === 0, '非数组输入不炸');
+// 结局三态：托管数据没有 tm_ending 时不许替他编「普通结局」——旧实现补成 'plain'，
+// 死在第 4 层的好友在榜上就成了「铁与霜」（打完碑魔才有的那个结局）。
+{
+  const n = W.normalize([
+    { name: '死了的', floor: 4, time: 300 },
+    { name: '普通结局', floor: 13, time: 300, ending: 'plain' },
+    { name: '真结局', floor: 13, time: 300, ending: 'true' },
+  ]);
+  ok(n[0].ending === '' && n[1].ending === 'plain' && n[2].ending === 'true', '结局三态原样透传：缺结局的留空，不补 plain');
+}
 let stored = null;
 global.localStorage = { getItem: () => null, setItem: (k, v) => { stored = v; } };
 const merged = W.merge([{ name: 'A', floor: 7, time: 300 }, { name: 'A', floor: 7, time: 300 }]);
@@ -129,17 +139,57 @@ ok(crushed.rows[2].vowTag === '' || crushed.rows[2].vowTag, '不立誓行不挂�
 // 排序口径：同层先看结局，再看决战余裕，最后才是用时
 // 用 rivals 而不是 mine 来测：榜单上一人一行（见「同一个人只占一行」那条），
 // 三条 mine 会被折叠成一行——排序口径就只能拿三位朋友来验了。
+// 层必须是塔顶层（13）：结局只在塔顶成立，写 5 层的话三行全被归一成「未竟」，这条口径就没得验了。
 const tie = V.boardModel({
   mine: [],
   rivals: [
-    { code: 'c1', rival: true, floor: 5, ending: 'plain', margin: 'C', time: 100, steps: 10 },
-    { code: 'c2', rival: true, floor: 5, ending: 'true', margin: 'C', time: 900, steps: 20 },
-    { code: 'c3', rival: true, floor: 5, ending: 'plain', margin: 'A', time: 500, steps: 30 },
+    { code: 'c1', rival: true, floor: 13, ending: 'plain', margin: 'C', time: 100, steps: 10 },
+    { code: 'c2', rival: true, floor: 13, ending: 'true', margin: 'C', time: 900, steps: 20 },
+    { code: 'c3', rival: true, floor: 13, ending: 'plain', margin: 'A', time: 500, steps: 30 },
   ], shadows: [], filter: 'all', todayKey: '2026-11-16', vows: VOWS,
 });
 ok(tie.rows[0].ended === true, '同层时真结局排在前面（哪怕用时更久）');
 ok(tie.rows[1].margin === 'A' && tie.rows[2].margin === 'C', '结局相同再比决战余裕');
 ok(tie.rows[2].time === '1分40秒', '用时 100 秒渲染成 1分40秒');
+
+// 结局列只在塔顶层成立：社交榜上「这个人是什么结局」是给别人的第一印象，
+// 而死在第 N 层的码 / 缺 tm_ending 的好友行 / 影子勇者的旧数据都带着 'plain' 进来。
+// 层列写着 5 层、结局列写着「铁与霜」，就是同一行里两个字段互相打脸。
+{
+  const endRows = V.boardModel({
+    mine: [],
+    rivals: [
+      { code: 'e5', rival: true, floor: 5, ending: 'plain', time: 100, steps: 10 },
+      { code: 'e13p', rival: true, floor: 13, ending: 'plain', time: 200, steps: 20 },
+      { code: 'e13t', rival: true, floor: 13, ending: 'true', time: 300, steps: 30 },
+      { code: 'e12', rival: true, floor: 12, ending: 'true', time: 400, steps: 40 },
+    ], shadows: [], filter: 'all', todayKey: '2026-11-16', vows: VOWS,
+  });
+  // rows 不带 code（只留画出来要用的字段），按层数取
+  const r5 = endRows.rows.find((r) => r.floor === 5);
+  const r12 = endRows.rows.find((r) => r.floor === 12);
+  const r13 = endRows.rows.filter((r) => r.floor === 13);
+  ok(r5.end === '未竟' && r5.ended === false, '5 层的行不写结局（码里那位 ' + "'plain'" + ' 是线格式没有第三态导致的）');
+  ok(r12.end === '未竟' && r12.ended === false, '12 层（塔顶却没选结局/码里编的）也不写结局');
+  ok(r13.some((r) => r.end === '铁与霜') && r13.some((r) => r.end === '第六个名字' && r.ended === true),
+    '13 层的两行照写：普通结局 / 真结局分得开');
+  ok(r13.every((r) => r.end !== '未竟'), '塔顶层的行不会出现「未竟」以外的降级');
+}
+
+// 影子勇者是榜单上唯一的「内置的人」：他们的层数与结局必须是同一件事。
+// 11-25 之前三人 ended 全是 'plain'，于是「停在第 3 层」的岩在结局列写着「铁与霜」。
+{
+  const top = 13;
+  const sh = [
+    { name: '第二位勇者·鸦', ending: '', floor: 2 },
+    { name: '第五位勇者·岩', ending: '', floor: 3 },
+    { name: '第八位勇者·川', ending: '', floor: 5 },
+  ];
+  const m = V.boardModel({ mine: [], rivals: [], shadows: sh, filter: 'all', todayKey: '2026-11-16', vows: VOWS, topFloor: top });
+  ok(m.rows.every((r) => r.end === '未竟' && r.ended === false), '影子勇者都写「未竟」（他们都没走到塔顶）');
+  const sloppy = V.boardModel({ mine: [], rivals: [], shadows: [{ name: 'X', ending: 'plain', floor: 3 }], filter: 'all', todayKey: '2026-11-16', vows: VOWS, topFloor: top });
+  ok(sloppy.rows[0].end === '未竟', '数据就算填错（3 层 + plain），读取侧也不许把它画成通关');
+}
 
 // 10 行上限：总条数要如实报出来，页面上只画前 10 行（用朋友行测，自己只会占一行）
 const many = [];
