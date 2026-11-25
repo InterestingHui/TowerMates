@@ -883,6 +883,27 @@
     return { items, hidden, toggle: hidden ? `＋${hidden} 项 ▾` : '', openToggle: '收起 ▴' };
   }
 
+  // 角色提示的排队过期（2026-11-26 06:2x 收口自检待办）：
+  // 提示是「此刻该按 Q 了 / 这层还剩几只」这类**有时效**的话，排队那一侧只看「有没有面板盖着」，
+  // 玩家在商店或图鉴里待多久，队列就攒多久——一关面板会一次放出一串早就不成立的话（面板里已经花掉的金币、
+  // 已经换掉的楼层），而且泵（`setInterval(180ms)`）在 `canSay()` 长期为假时一直空转。
+  // 这里只定一条规则：**排队超过 5 分钟的提示不再播**（丢掉比说错好）。清队列之后泵自己会停（调用侧见空就 clear）。
+  // 注意别跟 `hintMs`（阅读时长 × 提示速度档）混用：过期是墙上时间，不该随「读得快」而缩短。
+  const HINT_TTL = 300000;
+  function hintSweep(queue, now, ttl) {
+    const t = ttl == null ? HINT_TTL : ttl;
+    const at0 = now == null ? 0 : Number(now);
+    const keep = [];
+    let dropped = 0;
+    (Array.isArray(queue) ? queue : []).forEach((h) => {
+      const at = h ? Number(h.at) : NaN;
+      // 没有入队时间（老调用 / 脏数据）也按过期处理：宁可不播，不许在很久之后突然插一句
+      if (!Number.isFinite(at) || at0 - at > t) dropped++;
+      else keep.push(h);
+    });
+    return { keep, dropped };
+  }
+
   // ---------- 祭坛 / 回响 / 路遇：三块弹层的规则与明码 ----------
   // 这三块此前是「数据 → 模板串」直接写在 main.js 里：能验「画出来长什么样」，
   // 验不了「它说的和引擎做的是不是一回事」。搬进来以后 Node 单测能逐条核：
@@ -1153,7 +1174,7 @@
     boardModel, shopModel, codexModel, lossModel, CODEX_CHARS,
     rivalLink, withoutRival, rivalFromSearch, RIVAL_CAP, capRivals, dedupeRivals, personKey,
     altarModel, echoModel, eventModel, shortfallText,
-    endScoreModel, emberDetailModel, winBrief, deathBrief, briefModel,
+    endScoreModel, emberDetailModel, winBrief, deathBrief, briefModel, hintSweep, HINT_TTL,
     sealOf, nextSealHint, sealTarget, emberModel,
     cmpBoard, fmtTime, endName, marginRank, sameRun, isMine, RUN_KEYS, rivalVerdict, VERDICT_NONE,
     deathStatsModel, winStatsModel, memModel, floorNo, migrateFloors,

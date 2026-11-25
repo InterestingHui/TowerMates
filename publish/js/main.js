@@ -934,6 +934,11 @@
   function scheduleHint() {
     if (!hintQueue.length || hintPump) return;
     hintPump = setInterval(() => {
+      // 先扫过期：面板开着的那几分钟里攒下的「此刻该按 Q」到了关面板时早已不成立，
+      // 一并放出去等于一次插进一串错话（而且队列永远不空，泵就一直空转）。丢掉过期的那几条，
+      // 队列彻底空了就顺手停泵——`canSay()` 长期为假时不再 5.5 次/秒地空转。
+      const sw = View.hintSweep(hintQueue, Date.now());
+      if (sw.dropped) hintQueue.splice(0, hintQueue.length, ...sw.keep);
       if (!hintQueue.length) { clearInterval(hintPump); hintPump = null; return; }
       if (!canSay()) return;
       const h = hintQueue.shift();
@@ -960,7 +965,7 @@
     const script = (Array.isArray(lines) ? lines : [lines]).map((row) =>
       Array.isArray(row) ? row : ['', String(row), '']);
     const autoMs = opts && opts.autoMs != null ? opts.autoMs : hintMs(HINT_AUTO_MS);
-    hintQueue.push({ script, autoMs, cue: (opts && opts.cue) || '点击收起 · 稍后自动关闭' });
+    hintQueue.push({ script, autoMs, cue: (opts && opts.cue) || '点击收起 · 稍后自动关闭', at: Date.now() });
     scheduleHint();
   }
 
