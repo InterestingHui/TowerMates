@@ -4,6 +4,8 @@ let pass = 0, bad = 0;
 // 源码契约要用到的两份源码：声明放最前面，避免后置 const 造成的 TDZ 假红
 const viewSrc = require('fs').readFileSync(require('path').join(__dirname, '..', 'js', 'view.js'), 'utf8');
 const mainSrc = require('fs').readFileSync(require('path').join(__dirname, '..', 'js', 'main.js'), 'utf8');
+const cssSrc = require('fs').readFileSync(require('path').join(__dirname, '..', 'css', 'style.css'), 'utf8');
+const htmlSrc = require('fs').readFileSync(require('path').join(__dirname, '..', 'index.html'), 'utf8');
 function ok(cond, label) {
   if (cond) { pass++; } else { bad++; console.log('✗ ' + label); }
 }
@@ -1805,6 +1807,42 @@ ok(mainSrc.indexOf("searchParams.set('rival'") < 0, 'main.js 不许自己拼链�
   const pubAt = fs3.readFileSync(path3.join(__dirname, '..', 'tools', 'sync-publish.js'), 'utf8');
   ok(/asset version injection failed/.test(pubAt) && /assets', 'cg'/.test(pubAt),
     'sync-publish 负责把资产指纹写进 publish（注入失败要抛错，不许静默发旧图）');
+}
+
+// 榜单表头（2026-11-26 加练·美术 焦点B）：六列里有三列玩家读不出来——「未竟」是什么、第三到第六列
+// 哪一列是耗时。补表头之后最容易坏的不是表头本身，而是「表头与数据行各写一份列宽/列序」：
+// 改宽只改一处就错位，改序只改一处就串列。分四件事量：列序同源 / 列宽同源 / 空榜不挂 / 表头不在滚动容器里。
+{
+  const CELLS = ['bd-rank', 'bd-name', 'bd-end', 'bd-floor', 'bd-steps', 'bd-time'];
+  const headSrc2 = (mainSrc.match(/const BOARD_HEAD = \[([\s\S]*?)\];/) || [])[1] || '';
+  const headCols = (headSrc2.match(/\['(bd-[a-z]+)'/g) || []).map((s) => s.slice(2, -1));
+  const rowSrc2 = (mainSrc.match(/const boardRowHtml[\s\S]*?\n  function openBoard/) || [''])[0];
+  const rowCols = [];
+  for (const m of rowSrc2.matchAll(/class="(bd-[a-z]+)/g)) {
+    if (CELLS.includes(m[1]) && !rowCols.includes(m[1])) rowCols.push(m[1]);
+  }
+  ok(headCols.length === CELLS.length && headCols.join(',') === rowCols.join(','),
+    `表头列序与数据行一致（头 ${headCols.join('/') || '缺'} ｜ 行 ${rowCols.join('/') || '缺'}）`);
+  // 列宽只有一处来源：head 与 row 都得读 --bd-cols，标题与数字才会竖着对齐
+  const headBlock = (cssSrc.match(/\.bd-head \{([\s\S]*?)\}/) || [])[1] || '';
+  const rowBlock = (cssSrc.match(/\n\.bd-row \{([\s\S]*?)\}/) || [])[1] || '';
+  ok(/grid-template-columns: var\(--bd-cols\)/.test(headBlock) && /grid-template-columns: var\(--bd-cols\)/.test(rowBlock),
+    '表头与数据行共用一份列宽（--bd-cols）');
+  ok(/--bd-cols:[^;}]+;/.test((cssSrc.match(/\.board-panel \{[^}]*\}/) || [''])[0])
+    && !/grid-template-columns: \d/.test(headBlock) && !/grid-template-columns: \d/.test(rowBlock),
+    '列宽只在一处定义（表头或数据行里再写死一份 = 缩屏时两排错位）');
+  // 同框：表头与行必须是同一个内容盒（同 1px 透明边 + 同左右内边距），否则右对齐的层/步/用时整体偏
+  const rowPad = (rowBlock.match(/padding:\s*([^;]+);/) || [])[1] || '';
+  ok(/border:\s*1px solid transparent/.test(headBlock) && /border:\s*1px solid transparent/.test(rowBlock)
+    && /padding:\s*0 8px/.test(headBlock) && / 8px/.test(rowPad),
+    `表头与行同内容盒（head padding 0 8px / row padding ${rowPad.trim() || '缺'}）`);
+  // 表头必须挂在 #boardList 的 innerHTML 里、且排在行之前：放外面会被列表的滚动条挤偏 23px（实测四档视口）
+  ok(!/\$\('boardHead'\)/.test(mainSrc) && /boardHeadHtml\(\)\s*\n\s*\+ m\.rows\.map\(boardRowHtml\)/.test(mainSrc),
+    '表头与数据行同容器（放列表外面时滚动条会把右四列挤偏）');
+  // 只有一处渲染：多出来的调用点 = 空榜也挂表头 / 两份表头各写一遍
+  const headCalls = (mainSrc.match(/boardHeadHtml\(\)/g) || []).length;
+  ok(headCalls === 1 && htmlSrc.indexOf('id="boardHead"') < 0,
+    `表头只在一处渲染（调用 ${headCalls} 处；index.html 里没有独立表头容器）`);
 }
 
 console.log(`挑战码 / 触控 / 桥接 / 视图模型单测：${pass} 项通过${bad ? `，${bad} 项失败` : ''}`);

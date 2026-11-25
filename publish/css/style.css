@@ -924,11 +924,24 @@ html, body {
 .shop-deal:empty { display: none; }
 
 /* ================= 塔友榜 ================= */
-.board-panel { max-width: 384px; }
+.board-panel { max-width: 384px; --bd-cols: 20px 1fr 76px 30px 36px 54px; }
+/* 表头与数据行共用 --bd-cols：列宽只有一处定义，改宽窄不会出现「头是头、行是行」的错位。
+   1px 透明边 + 同样的左右内边距 = 与 .bd-row 的**内容盒**同宽，右对齐的层/步/用时才对得上。 */
+.bd-head {
+  display: grid;
+  grid-template-columns: var(--bd-cols);
+  gap: 4px;
+  align-items: center;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  font-size: var(--fs-tag);
+  letter-spacing: 0.5px;
+}
+.bd-head span { color: var(--dim); }
 .board-list { display: flex; flex-direction: column; gap: 3px; max-height: 40dvh; overflow-y: auto; }
 .bd-row {
   display: grid;
-  grid-template-columns: 20px 1fr 76px 30px 36px auto;
+  grid-template-columns: var(--bd-cols);
   gap: 4px;
   align-items: center;
   font-size: var(--fs-aux);
@@ -1521,11 +1534,17 @@ html, body {
   #log { height: 80px; font-size: var(--fs-tag); }
   #bottom { min-height: 80px; }
   #dpad { grid-template-columns: repeat(3, 34px); grid-template-rows: repeat(3, 34px); }
-  .bd-row { grid-template-columns: 18px 1fr 64px 26px 30px auto; font-size: var(--fs-tag); }
+  .board-panel { --bd-cols: 18px 1fr 64px 26px 30px 50px; }
+  .bd-row { font-size: var(--fs-tag); }
   .dlg-portrait { width: 68px; }
   .dlg-text { font-size: var(--fs-body); }
   .choice-card { min-height: 168px; }
   .cc-title { font-size: var(--fs-body); }
+}
+/* 320 屏（iPhone SE 一代及以下）：六列放不下，名字列被压到 30px。丢「步」列换名字可读。 */
+@media (max-width: 340px) {
+  .board-panel { --bd-cols: 18px 1fr 58px 24px 44px; }
+  .bd-steps { display: none; }
 }
 
 /* ---------- HP 残影（受伤后延迟收缩） ---------- */

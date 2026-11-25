@@ -1835,11 +1835,21 @@
     '第五位勇者·岩': '停在第 3 层',
     '第八位勇者·川': '剑断在第五层',
   };
+  // 表头：六格的顺序就是 boardRowHtml 的格子顺序，改一个必须改另一个（code-test 按类名序列比对）。
+  // 为什么要有：第三列写「未竟」「铁与霜」，第六列是「15分5秒」——没有表头时第三到第六列连成一串数字 + 词，
+  // 玩家读得出「5层/460步」，读不出哪列是结局、哪列是耗时（430 屏实测截图）。
+  // 标签取最短：面板内宽在 320 屏只剩 262px，两字以上就会被挤成换行。
+  const BOARD_HEAD = [
+    ['bd-rank', '位'], ['bd-name', '勇者'], ['bd-end', '结局'],
+    ['bd-floor', '层'], ['bd-steps', '步'], ['bd-time', '用时'],
+  ];
+  const boardHeadHtml = () => `<div class="bd-head">${BOARD_HEAD
+    .map(([cls, t]) => `<span class="${cls}">${t}</span>`).join('')}</div>`;
   // 一行榜单的 DOM：只做「模型 → 标签」的翻译，不带任何判断
   const boardRowHtml = (r) => `<div class="bd-row ${r.mine ? 'mine' : ''} ${r.rival ? 'rival' : ''}">
         <span class="bd-rank">${r.rank}</span>
         <span class="bd-name">${r.name}${r.note ? `<br><i class="bd-rnote">${r.note}</i>` : ''}${r.vowTag ? `<i class="bd-vowtag">${r.vowTag}</i>` : ''}</span>
-        <span class="bd-end ${r.ended ? 't' : ''}">${r.end}${r.margin
+        <span class="bd-end ${r.ended ? 't' : ''}" title="走到最顶层才有结局；「未竟」＝没走到塔顶">${r.end}${r.margin
       ? `<i class="bd-margin" title="决战余裕：打完碑魔剩下多少血">${r.margin}</i>`
       : ''}</span>
         <span class="bd-floor">${r.floor}层</span>
@@ -1871,8 +1881,12 @@
     $('boardTabs').querySelectorAll('.btab').forEach((b) => {
       b.addEventListener('click', () => { boardFilter = b.dataset.f; openBoard(); });
     });
+    // 表头只在有行时出（空榜挂一排「位 勇者 结局 层 步 用时」像坏掉的表格），
+    // 而且必须和行待在同一个滚动容器里：放在 `.board-list` 外面时，列表带出滚动条 + 行的 1px 透明边框，
+    // 表头就比行宽一截，右四列整体偏 23px（430/390/360/320 实测一致）。塞进来以后两者共享同一个内容宽。
     $('boardList').innerHTML = m.rows.length
-      ? (m.note ? `<div class="bd-note">${m.note}</div>` : '') + m.rows.map(boardRowHtml).join('')
+      ? (m.note ? `<div class="bd-note">${m.note}</div>` : '') + boardHeadHtml()
+        + m.rows.map(boardRowHtml).join('')
       : `<div class="bd-empty">${m.empty}</div>`;    const codeEl = $('myCode');
     codeEl.textContent = mine.length ? encodeChallenge(mine[0]) : '—— 通关后生成 ——';
     $('achCount').textContent = `成就 ${Achievements.count()}/${Achievements.DEFS.length}`;
