@@ -1046,6 +1046,21 @@ ok(V.endScoreModel({ mode: 'win', echoDone: 4 }).meta.includes('回响 4/4'), '�
 const dScore = V.endScoreModel({ mode: 'death', sealName: '折戟', sealDesc: '塔替你记下。', floor0: 0, kills: 7, time: 95, ember: 1 });
 ok(dScore.cls === 'fall' && dScore.meta === '败局 · 第 1 层 · 击杀 7 · 用时 1分35秒', '败局顶行：第 1 层（0 基进、1 基出）+ 用时分钟数');
 ok(V.endScoreModel({ mode: 'death', floor0: 4, time: 40 }).meta.includes('第 5 层'), '败局第 5 层不再偏 1');
+// 顶行排版契约：定性句必须独占整行。三件事挤一行（塔印 + 定性 + 余烬）时定性只剩 ~160px，
+// 胜局折成「…遗物 2 ·／锁环 0」的孤儿行、败局把「用时 0秒」从数字中间劈开（tools/out/adsdeath.png 为证）。
+// 这两条盯的是「结构」而不是像素：像素靠 6 张结算截图目检，结构在这里锁死，免得下次又被顺手改回一行。
+ok((mainSrc.match(/class="es-top"><span class="es-grade/g) || []).length === 2, '两页（胜/败）都把塔印名与余烬收进 .es-top，定性另起一行');
+ok(mainSrc.indexOf('<span class="es-meta">${score.meta}</span>\n      <span class="es-num">') < 0, '定性句不再夹在塔印名与余烬之间');
+const endScoreCss = (cssSrc.match(/\.end-score \{[\s\S]*?\n\}/) || [''])[0];
+ok(/flex-direction: column/.test(endScoreCss), '.end-score 竖排（上行塔印名+余烬，下行定性）');
+ok(/\.es-top \{[^}]*justify-content: space-between/.test(cssSrc), '.es-top 把塔印名与余烬分到两头');
+ok(/\.es-meta \{[^}]*word-break: keep-all/.test(cssSrc) && !/\.es-meta \{[^}]*flex: 1/.test(cssSrc),
+  '.es-meta 独占整行且只在「 · 」处断行（数字不许跟单位分家）');
+// 节奏守门（2026-11-26 06:5x 变体 6）：结算页是「≤4 个可交互元素」的顶格屏，
+// 顶行这条定性句是**唯一还在长的**地方——从「结局 · 回响」一路加塔心、遗物、锁环长到 5 段，
+// 才把 430 屏挤到折行。段数封顶后，下一件想上这行东西必须先挤掉一段，不能再靠换行解决。
+ok(wScore.meta.split(' · ').length <= 5, '胜局顶行 ≤5 段（4/4 顶格屏，加东西只能换，不能靠折行）');
+ok(dScore.meta.split(' · ').length <= 4, '败局顶行 ≤4 段');
 
 // 余烬明细：合计与余额都由 before 算出来，渲染层不许再加一遍
 const edm = V.emberDetailModel({ parts: [{ label: '走到结局', n: 5 }, { label: '念出第六个名字', n: 4 }], total: 9, before: 30 });
