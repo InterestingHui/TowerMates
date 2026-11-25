@@ -1505,6 +1505,102 @@ ok(mainSrc.indexOf("searchParams.set('rival'") < 0, 'main.js 不许自己拼链�
     '跨零点标记是局部变量，没挂进 sum（榜单存档里不许混入摘要专用字段）');
 }
 
+// 动效契约（2026-11-25 加练 美术 焦点C）：21 个浮层与图鉴详情条都有进场，只有结算页两块是硬切。
+// 浏览器侧的 motion-check 逐元素量；这里补一条**不依赖 Chrome** 的源码契约，
+// 顺带把「循环动效必须被 prefers-reduced-motion 豁免」也静态钉住（那条探针要开浏览器，静态这条永远跑）。
+{
+  const cssSrc = require('fs').readFileSync(require('path').join(__dirname, '..', 'css', 'style.css'), 'utf8');
+  const nc = stripComments(cssSrc);
+  const r1 = nc.match(/\.end-brief\.open \.brief-extra\s*\{([^}]*)\}/);
+  ok(!!r1, 'css 里找得到 .end-brief.open .brief-extra 规则');
+  ok(!!r1 && /animation:\s*fadeIn/.test(r1[1]),
+    `结算摘要展开有进场（此前是一帧蹦出来的胶囊）：${r1 ? r1[1].trim() : '—'}`);
+  const r2 = nc.match(/#endOverlay\.death-mode #endMemory\.open\s*\{([^}]*)\}/);
+  ok(!!r2, 'css 里找得到死亡页 #endMemory.open 规则');
+  ok(!!r2 && /animation:\s*fadeIn/.test(r2[1]),
+    `塔的记忆展开有进场（一整块要读的履历硬切）：${r2 ? r2[1].trim() : '—'}`);
+  // 两块都只做透明度、不做位移：它们紧贴上一行文字，translateY 会让两行字短暂叠在一起
+  const noShift = (s) => !/animation:\s*popIn/.test(s || '');
+  ok(noShift(r1 && r1[1]) && noShift(r2 && r2[1]), '两块只用 fadeIn（位移会压到上一行字）');
+
+  // 静态版 reduced-motion 覆盖：所有带 infinite 的 animation 选择器，都必须出现在某条
+  // `@media (prefers-reduced-motion: reduce)` 的 `animation: none` 里。
+  const mediaBlocks = [];
+  {
+    const re = /@media[^{]*prefers-reduced-motion[^{]*\{/g;
+    let m;
+    while ((m = re.exec(nc))) {
+      let i = m.index + m[0].length, depth = 1, start = i;
+      while (i < nc.length && depth > 0) {
+        if (nc[i] === '{') depth++;
+        else if (nc[i] === '}') depth--;
+        i++;
+      }
+      mediaBlocks.push(nc.slice(start, i - 1));
+    }
+  }
+  const silenced = new Set();
+  for (const b of mediaBlocks) {
+    for (const mm of b.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+      if (/animation[^;]*none/.test(mm[2])) {
+        mm[1].split(',').forEach((s) => silenced.add(s.trim().replace(/\s+/g, ' ')));
+      }
+    }
+  }
+  ok(mediaBlocks.length >= 3 && silenced.size >= 15,
+    `读到 ${mediaBlocks.length} 条 reduced-motion 块 / ${silenced.size} 个选择器（读不到下面那条就是假绿）`);
+  const uncovered = [];
+  let infCount = 0;
+  for (const mm of nc.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    const body = mm[2];
+    if (!/^[^@]*$/.test(mm[1]) || !/animation[^;]*infinite/.test(body)) continue;
+    infCount++;
+    for (const s of mm[1].split(',')) {
+      const k = s.trim().replace(/\s+/g, ' ');
+      if (!k || k[0] === '0' || k[0] === '1') continue;   // 跳过 @keyframes 里的 0%/100% 分帧
+      if (!silenced.has(k)) uncovered.push(k);
+    }
+  }
+  ok(infCount >= 18, `静态扫到 ${infCount} 条循环动效（少于 18 条说明扫漏了）`);
+  ok(uncovered.length === 0,
+    `每条循环动效都被 reduced-motion 关掉（漏：${uncovered.join(', ') || '无'}）`);
+
+  // 关键帧孤儿：@keyframes 定义了一堆没人用 = 死代码，也可能是「本来想做动效、忘了挂」。
+  const kfNames = Array.from(nc.matchAll(/@keyframes\s+([\w-]+)/g)).map((m) => m[1]);
+  const used = new Set();
+  for (const mm of nc.matchAll(/animation(?:-name)?\s*:\s*([^;}]+)/g)) {
+    for (const tok of mm[1].split(/[,\s]+/)) {
+      if (/^[A-Za-z_][\w-]*$/.test(tok)) used.add(tok);
+    }
+  }
+  const orphan = kfNames.filter((n) => !used.has(n));
+  ok(kfNames.length >= 39, `读到 ${kfNames.length} 个 @keyframes（读不到下面那条就是假绿）`);
+  ok(orphan.length === 0, `没有孤儿关键帧（未引用：${orphan.join(', ') || '无'}）`);
+
+  // 展开块登记：CSS 里每出现一条新的「.show/.on/.open + display」规则，必须在名单里登记，
+  // 否则就是一条绕过上面进场面体检的新硬切（浏览器探针 motion-check 只认名单里的那几块）。
+  // 对白背景层在名单里但不在探针登记表里：它容器只管显隐，内容动效挂在子 svg 上（下一条守着）。
+  const ALLOW = [
+    '.overlay.show',
+    '.dlg-scene.on',
+    '#endOverlay.death-mode #endMemory.open',
+    '.end-brief.open .brief-extra',
+    '.col-detail.show',
+  ];
+  const toggle = [];
+  for (const mm of nc.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    if (/^[^@]*$/.test(mm[1]) && /(^|;)\s*display\s*:/.test(';' + mm[2]) && /\.(show|on|open)\b/.test(mm[1])) {
+      toggle.push(mm[1].trim().replace(/\s+/g, ' '));
+    }
+  }
+  const unreg = toggle.filter((s) => ALLOW.indexOf(s) < 0);
+  ok(toggle.length >= 5, `读到 ${toggle.length} 条展开/显示的切换规则（少于 5 条说明扫漏了）`);
+  ok(unreg.length === 0, `展开块都已登记（未登记：${unreg.join(' | ') || '无'}）`);
+  // 对白背景层的进场在子 svg 上，容器本身只切 display —— 这条别让谁顺手删了
+  ok(/\.dlg-scene[^{}]*\{[^{}]*animation:\s*sceneIn/.test(nc),
+    '对白背景层的内容动效（.dlg-scene svg → sceneIn）还在');
+}
+
 console.log(`挑战码 / 触控 / 桥接 / 视图模型单测：${pass} 项通过${bad ? `，${bad} 项失败` : ''}`);
 
 process.exit(bad ? 1 : 0);

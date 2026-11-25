@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>动效进场自检</title>
+<style>html,body{margin:0;background:#05070c;color:#7ef0b2;font:12px/1.4 monospace}#out{white-space:pre-wrap;padding:8px}</style>
+</head>
+<body>
+<pre id="out">pending</pre>
+<div id="host" style="position:absolute;left:-30000px;top:0"></div>
+<script>
+// 动效进场自检（闸门用）—— 2026-11-25 加练 美术 焦点C（动效与转场）。
+//
+// 为什么要有这一把尺子：11-17 做过一次「20 个浮层逐个过」，靠人眼读 CSS，结论只活在日志里；
+// 之后再没量过。于是 11-24 一口气进了战前面板 / 面板场景 / 锁芯 / 深色变体怪四样新界面，
+// 谁也没有再回头看它们的进场。手读 CSS 的问题是「读过的会记得，没读过的不会有人提醒」。
+//
+// 本探针只管一件**只有浏览器能答**的事：靠 .show/.on/.open 插入视野的东西，
+// 出现的那一刻到底有没有动效（读 computed animationName + duration，不是读 CSS 文本）。
+//   ① 21 个浮层：加 .show 之后，自己或面板层必须有真在跑的 animation。
+//   ② 登记表里的展开块：在能看见它的那一屏去把类加上，同样要量到 animation。
+//
+// 不在本探针里的三件事（各有归口，别在这里做第二份实现）：
+//   · 关键帧孤儿 / 未登记的展开块 / 对白背景的内容动效 —— 纯 CSS 事实，归 tools/code-test.js（不用浏览器）
+//   · 循环动效在 prefers-reduced-motion 下必须停 —— 归 tools/rm-check.html（真开那个媒体开关去实测）
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const GATE = /[?&]gate=1/.test(location.search);
+const out = document.getElementById('out');
+const bits = [], lines = [];
+const ok = (yes, label, detail) => {
+  bits.push(yes ? '1' : '0');
+  lines.push((yes ? '✓ ' : '✗ ') + label + (detail ? '  ' + detail : ''));
+};
+
+// 展开块登记表：sel = 容器，add = 触发用的类，scene = 这一屏真能看到它
+// emptyOk：容器是空的（这一屏没有内容）时不判红，只留档——否则「什么都没装」会被误判成硬切。
+// 对白背景层就是这种：它只管显隐，内容动效在子元素 svg 上，由 code-test 的静态契约守着。
+const REG = [
+  { scene: 'codex',  sel: '.col-detail', add: 'show', name: '图鉴详情条' },
+  { scene: 'death1', sel: '#endMemory',  add: 'open', name: '塔的记忆（死亡页）' },
+  { scene: 'end',    sel: '.end-brief',  add: 'open', name: '结算摘要展开' },
+  { scene: 'dialog', sel: '.dlg-scene',  add: 'on',   name: '对白背景层', emptyOk: true },
+];
+
+function appDoc() {
+  const f = document.querySelector('#host iframe');
+  const inner = f && f.contentDocument && f.contentDocument.getElementById('f');
+  return inner && inner.contentDocument;
+}
+async function loadScene(scene) {
+  document.getElementById('host').innerHTML = '';
+  const f = document.createElement('iframe');
+  f.style.cssText = 'width:430px;height:900px;border:0;display:block';
+  f.src = '/tools/shot.html?scene=' + scene;
+  document.getElementById('host').appendChild(f);
+  await wait(1700);
+  const d = appDoc();
+  // 坑（本轮实测，浪费了两次假红）：shot.html 为了让截图稳定，往被测页注入了一条
+  // `*{animation:none!important;transition:none!important}`。量动效的探针走同一个入口时，
+  // 读到的是「所有元素 animation-name 都是 none」——21 个浮层会集体判成硬切。
+  // 所以进页面后先把那条注入摘掉再量（摘不到也不报错：说明 shot.html 换了实现，那时本探针要重看）。
+  if (d) {
+    for (const st of Array.from(d.querySelectorAll('style'))) {
+      if (/animation\s*:\s*none/.test(st.textContent || '')) st.remove();
+    }
+  }
+  return d;
+}
+function animOf(el) {
+  const cs = el.ownerDocument.defaultView.getComputedStyle(el);
+  return { name: cs.animationName || 'none', dur: parseFloat(cs.animationDuration) || 0 };
+}
+// 「出现时有动效」= 自己或后代里有一条真在跑的 animation（时长 > 0）
+function motionInside(el) {
+  const a = animOf(el);
+  if (a.name !== 'none' && a.dur > 0) return a.name;
+  for (const d of el.querySelectorAll('*')) {
+    const b = animOf(d);
+    if (b.name !== 'none' && b.dur > 0) return b.name;
+  }
+  return '';
+}
+
+(async () => {
+  // ── ① 21 个浮层，逐个 show 一次 ──
+  let doc = await loadScene('play');
+  if (!doc) { out.textContent = 'ERR no app doc'; document.title = 'done'; return; }
+  const ovs = Array.from(doc.querySelectorAll('[id$="Overlay"]')).filter((el) => el.classList.contains('overlay'));
+  const ovMiss = [], ovPlain = [];
+  for (const el of ovs) {
+    el.classList.add('show');
+    const a = animOf(el);
+    const has = (a.name !== 'none' && a.dur > 0) || !!motionInside(el);
+    if (!has) ovMiss.push(el.id);
+    // 面板层自己有没有 popIn —— 只留档不判红：幕布淡入已经算进场
+    const panel = el.firstElementChild;
+    if (panel) { const pa = animOf(panel); if (pa.name === 'none' || pa.dur <= 0) ovPlain.push(el.id); }
+    el.classList.remove('show');
+  }
+  ok(ovMiss.length === 0 && ovs.length >= 21, `① 浮层进场 ${ovs.length - ovMiss.length}/${ovs.length}`,
+    ovMiss.length ? '硬切: ' + ovMiss.join(', ') : '');
+
+  // ── ② 登记表里的四个展开块（各自在能看见它的那一屏里去点开）──
+  const blockMiss = [], blockNoEl = [];
+  for (const b of REG) {
+    const d = await loadScene(b.scene);
+    const el = d && d.querySelector(b.sel);
+    if (!el) { blockNoEl.push(b.name + '(' + b.scene + ')'); ok(false, `② ${b.name}`, '这一屏找不到 ' + b.sel); continue; }
+    if (b.emptyOk && el.children.length === 0) {
+      ok(true, `② ${b.name}`, '空容器（这一屏没有内容，跳过）');
+      continue;
+    }
+    el.classList.add(b.add);
+    const nm = motionInside(el);
+    const shown = d.defaultView.getComputedStyle(el).display !== 'none';
+    ok(!!nm && shown, `② ${b.name}`, shown ? (nm ? '进场 ' + nm : '硬切（display 直接跳变）') : 'class 加了但没显示出来');
+    if (!nm || !shown) blockMiss.push(b.name);
+    el.classList.remove(b.add);
+  }
+
+  const head = `OVERLAY=${ovs.length} OVMISS=${ovMiss.length} PANELPLAIN=${ovPlain.length} `
+    + `BLOCK=${REG.length} BLOCKMISS=${blockMiss.length + blockNoEl.length}`;
+  lines.unshift(head);
+  if (ovPlain.length) lines.push('· 面板层无 popIn（只有幕布淡入，不算缺陷，留档）: ' + ovPlain.join(', '));
+  lines.push((GATE ? 'ALLPASS|' : 'DUMP|') + bits.join(''));
+  out.textContent = lines.join('\n');
+  document.title = 'done';
+})();
+</script>
+</body>
+</html>

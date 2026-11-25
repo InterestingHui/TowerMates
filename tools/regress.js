@@ -847,6 +847,42 @@ if (!process.argv.includes('--no-shot')) {
           + (okContrast ? '' : (r.fails.length ? '\n   ' + r.fails.join('\n   ') : '')));
       }
 
+      // 动效进场自检：动效此前只在 11-17 被人眼读过一遍，结论只活在日志里；11-24 又进了四样新界面
+      // （战前面板 / 面板场景 / 锁芯 / 深色变体怪），没人回头看过。这里量「只有浏览器能答」的那一半：
+      // 21 个浮层与已知展开块，被插入视野的那一刻有没有真在跑的 animation。
+      // 纯 CSS 的那一半（孤儿关键帧 / reduced-motion 豁免 / 展开块登记）在 code-test 里，不重复实现。
+      let okMotion = true, motionLine = '';
+      {
+        const os = require('os');
+        const args = [
+          '--headless=new', '--disable-gpu', '--no-sandbox', '--no-first-run', '--disable-extensions',
+          '--user-data-dir=' + path.join(os.tmpdir(), 'tm-motion-' + process.pid),
+          '--virtual-time-budget=60000',
+          '--dump-dom', `http://127.0.0.1:${PORT}/tools/motion-check.html?gate=1`,
+        ];
+        const read = () => {
+          const p = spawnSync(chrome, args, { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+          const t = p.stdout || '';
+          const num = (k) => {
+            const m = new RegExp(k + '=(\\d+)').exec(t);
+            return m ? Number(m[1]) : -1;
+          };
+          const bits = /(?:ALLPASS|DUMP)\|([01]+)/.exec(t);
+          const fails = (t.match(/^✗[^<\n]+$/gm) || []).slice(0, 6).map((s) => s.replace(/^✗\s*/, ''));
+          return { bits: bits ? bits[1] : '', ov: num('OVERLAY'), blk: num('BLOCK'),
+            ovMiss: num('OVMISS'), blkMiss: num('BLOCKMISS'), fails };
+        };
+        let r = read();
+        if (!r.bits || r.ov < 0) r = read();
+        // 三条：①一位都不许是 0 ②浮层 / 展开块的**条数下限**跟着内容走
+        // （21 个浮层、4 个展开块——少了就是有人删了，或探针静默空跑）
+        okMotion = /^1+$/.test(r.bits || '') && r.ov >= 21 && r.blk >= 4;
+        motionLine = r.ov < 0 ? '读数失败'
+          : `${r.ov} 浮层 / ${r.blk} 展开块 · 硬切 浮层 ${r.ovMiss} · 展开块 ${r.blkMiss}`;
+        console.log((okMotion ? '✓' : '✗') + ' 动效进场 ' + motionLine
+          + (okMotion ? '' : (r.fails.length ? '\n   ' + r.fails.join('\n   ') : '')));
+      }
+
       // 音效自检：源码里出现的每个音效名都必须在预置表内（写错就是一个永久静音），
       // 外加「每个预置真发声 / 关掉开关真不响 / 三条关键路径点的名字对不对」
       let okSfx = true, sfxLine = '';
@@ -1063,8 +1099,8 @@ if (!process.argv.includes('--no-shot')) {
       const ui = run(process.execPath, ['tools/ui-test.js']);
       const okUi = ui.code === 0;
       console.log((okUi ? '✓' : '✗') + ' ui-test.js' + (okUi ? '' : '\n' + ui.out));
-      const all = okFuzz && okCheck && okSim && okSkip && okTest && okCode && okBsim && okOd && okUi && okProbe && okAds && okIntro && okWxb && okNew && okWx && okSwordGate && okPace && okDaily && okVowFirst && okZeal && okFinal && okTangle && okGuard && okThreat && okVp && okVm && okTap && okSfx && okRm && okErr && okSto && okTime && okTab && bad === 0;
-      if (!all) console.log('  闸门明细:', JSON.stringify({ okCheck, okSim, okSkip, okTest, okCode, okBsim, okOd, okUi, okProbe, probeA3, okAds, adsLine, okIntro, introLine, okWxb, wxbLine, okNew, newLine, okWx, okSwordGate, okPace, paceLine, okDaily, dailyLine, okVowFirst, vowFirstLine, okZeal, zealLine, okFinal, finalLine, okTangle, tangleLine, okGuard, guardLine, okThreat, threatLine, okVp, vpLine, okVm, vmLine, okTap, tapLine, okSfx, sfxLine, okRm, rmLine, okErr, errLine, okSto, stoLine, okTime, timeLine, okTab, tabLine, okFuzz, fzMax, bad }));
+      const all = okFuzz && okCheck && okSim && okSkip && okTest && okCode && okBsim && okOd && okUi && okProbe && okAds && okIntro && okWxb && okNew && okWx && okSwordGate && okPace && okDaily && okVowFirst && okZeal && okFinal && okTangle && okGuard && okThreat && okVp && okVm && okTap && okContrast && okMotion && okSfx && okRm && okErr && okSto && okTime && okTab && bad === 0;
+      if (!all) console.log('  闸门明细:', JSON.stringify({ okCheck, okSim, okSkip, okTest, okCode, okBsim, okOd, okUi, okProbe, probeA3, okAds, adsLine, okIntro, introLine, okWxb, wxbLine, okNew, newLine, okWx, okSwordGate, okPace, paceLine, okDaily, dailyLine, okVowFirst, vowFirstLine, okZeal, zealLine, okFinal, finalLine, okTangle, tangleLine, okGuard, guardLine, okThreat, threatLine, okVp, vpLine, okVm, vmLine, okTap, tapLine, okContrast, contrastLine, okMotion, motionLine, okSfx, sfxLine, okRm, rmLine, okErr, errLine, okSto, stoLine, okTime, timeLine, okTab, tabLine, okFuzz, fzMax, bad }));
       console.log(all ? '✓ 质量闸门通过' : '✗ 质量闸门有失败项');
       process.exit(all ? 0 : 1);
     })();
