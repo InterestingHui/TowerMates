@@ -1747,7 +1747,10 @@ body.at-start #bottom { visibility: hidden; }
 .mem-toggle:hover { background: rgba(174, 184, 198, 0.1); border-color: rgba(174, 184, 198, 0.55); }
 /* 收起时整个容器不占位（它自带边框和 padding，只藏子元素会留一条空框） */
 #endOverlay.death-mode #endMemory { display: none; }
-#endOverlay.death-mode #endMemory.open { display: block; }
+/* 展开时给一层淡入：这是一整块要读的履历，硬切等于「屏幕上凭空多出一段字」。
+   只做透明度不位移——它紧贴在结算数字下面，位移会把两行字短暂叠在一起。
+   （2026-11-25 动效体检：21 个浮层与图鉴详情条都有进场，只有结算页这两块是硬切。） */
+#endOverlay.death-mode #endMemory.open { display: block; animation: fadeIn 0.18s ease-out; }
 #endOverlay.death-mode #endMemory { margin: 0 0 9px; }
 .es-meta { flex: 1; font-size: var(--fs-tag); color: var(--muted); line-height: 1.5; }
 .es-num { font-size: var(--fs-sub); font-weight: 700; color: #fff; font-variant-numeric: tabular-nums; }
@@ -1856,7 +1859,9 @@ body.at-start #bottom { visibility: hidden; }
 }
 /* 摘要折叠：默认只亮 4 枚胶囊，其余点开；ⓘ 里放余裕的完整提示 */
 .end-brief .brief-extra { display: none; }
-.end-brief.open .brief-extra { display: inline; }
+/* 同上一处：点开「+N」时多出来的胶囊原来是一帧蹦出来的。胶囊是 flex 行里的项，
+   位移会越过上一行，所以同样只淡入（0.18s 与浮层幕布同一档）。 */
+.end-brief.open .brief-extra { display: inline; animation: fadeIn 0.18s ease-out; }
 .end-brief .brief-toggle {
   font-size: var(--fs-tag);
   color: #cbb997;
