@@ -39,6 +39,12 @@ const skipSim = run(process.execPath, ['tools/sim.js', '--skip-fights']);
 const skipPct = /真实终局[^\n]*（([\d.]+)%）/.exec(skipSim.out || '');
 const okSkip = skipSim.code === 0 && skipSim.out.includes('通关成功') && skipPct && Number(skipPct[1]) >= 70;
 console.log((okSkip ? '✓' : '✗') + ` 避战流 S 档可达 ${skipPct ? skipPct[1] + '%' : '读数失败'}（阈值 ≥70%）`);
+// 路线审计：把「全清拿余烬」与「避战拿 S」放在同一张表上，回答两条激励是否互斥。
+// 2026-11-25 13:2x 只凭一档读数就判了互斥、待办挂 12 天——这条断言就是防下一次同样的误读。
+const route = run(process.execPath, ['tools/route-audit.js', '--assert']);
+const okRoute = route.code === 0;
+const routeLine = (route.out.match(/路线审计 \d+\/\d+ 条[^\n]*/) || ['路线审计读数失败']).pop();
+console.log((okRoute ? '✓' : '✗') + ' ' + routeLine.trim() + (okRoute ? '' : '\n' + route.out));
 
 console.log('== 3/7 引擎单测 ==');
 const test = run(process.execPath, ['tools/engine-test.js']);
@@ -1099,8 +1105,8 @@ if (!process.argv.includes('--no-shot')) {
       const ui = run(process.execPath, ['tools/ui-test.js']);
       const okUi = ui.code === 0;
       console.log((okUi ? '✓' : '✗') + ' ui-test.js' + (okUi ? '' : '\n' + ui.out));
-      const all = okFuzz && okCheck && okSim && okSkip && okTest && okCode && okBsim && okOd && okUi && okProbe && okAds && okIntro && okWxb && okNew && okWx && okSwordGate && okPace && okDaily && okVowFirst && okZeal && okFinal && okTangle && okGuard && okThreat && okVp && okVm && okTap && okContrast && okMotion && okSfx && okRm && okErr && okSto && okTime && okTab && bad === 0;
-      if (!all) console.log('  闸门明细:', JSON.stringify({ okCheck, okSim, okSkip, okTest, okCode, okBsim, okOd, okUi, okProbe, probeA3, okAds, adsLine, okIntro, introLine, okWxb, wxbLine, okNew, newLine, okWx, okSwordGate, okPace, paceLine, okDaily, dailyLine, okVowFirst, vowFirstLine, okZeal, zealLine, okFinal, finalLine, okTangle, tangleLine, okGuard, guardLine, okThreat, threatLine, okVp, vpLine, okVm, vmLine, okTap, tapLine, okContrast, contrastLine, okMotion, motionLine, okSfx, sfxLine, okRm, rmLine, okErr, errLine, okSto, stoLine, okTime, timeLine, okTab, tabLine, okFuzz, fzMax, bad }));
+      const all = okFuzz && okCheck && okSim && okSkip && okRoute && okTest && okCode && okBsim && okOd && okUi && okProbe && okAds && okIntro && okWxb && okNew && okWx && okSwordGate && okPace && okDaily && okVowFirst && okZeal && okFinal && okTangle && okGuard && okThreat && okVp && okVm && okTap && okContrast && okMotion && okSfx && okRm && okErr && okSto && okTime && okTab && bad === 0;
+      if (!all) console.log('  闸门明细:', JSON.stringify({ okCheck, okSim, okSkip, okRoute, okTest, okCode, okBsim, okOd, okUi, okProbe, probeA3, okAds, adsLine, okIntro, introLine, okWxb, wxbLine, okNew, newLine, okWx, okSwordGate, okPace, paceLine, okDaily, dailyLine, okVowFirst, vowFirstLine, okZeal, zealLine, okFinal, finalLine, okTangle, tangleLine, okGuard, guardLine, okThreat, threatLine, okVp, vpLine, okVm, vmLine, okTap, tapLine, okContrast, contrastLine, okMotion, motionLine, okSfx, sfxLine, okRm, rmLine, okErr, errLine, okSto, stoLine, okTime, timeLine, okTab, tabLine, okFuzz, fzMax, bad }));
       console.log(all ? '✓ 质量闸门通过' : '✗ 质量闸门有失败项');
       process.exit(all ? 0 : 1);
     })();
