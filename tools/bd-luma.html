@@ -119,7 +119,8 @@ pre{white-space:pre-wrap}</style>
         });
       };
       img.onerror = () => res({ err: 'load' });
-      if (/^[\w./-]+\.(webp|png|jpg)$/.test(src)) {
+      // 2026-11-25：CG 的 URL 现在带 ?v=<asset 指纹>（换图即换 URL），文件判断要放行查询串
+      if (/^[\w./-]+\.(webp|png|jpg)(\?v=[\w.-]+)?$/.test(src)) {
         img.src = '../' + src;   // 本页在 /tools/ 下
         return;
       }

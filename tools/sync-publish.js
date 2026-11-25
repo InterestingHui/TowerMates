@@ -40,6 +40,21 @@ JS_FILES.forEach((f) => fs.writeFileSync(path.join(OUT, 'js', f), js[f]));
 fs.writeFileSync(path.join(OUT, 'css', 'style.css'), css);
 fs.writeFileSync(path.join(OUT, 'index.html'), outHtml);
 
+// CG 的指纹单走一套（2026-11-25）：上面的 build 只算 html+css+js，换一张 assets/cg/*.webp
+// 指纹一字不变 ⇒ 老玩家浏览器继续用缓存里的旧图（结局那张 dawn 已经换过一次）。
+// 把 assets/cg 的内容指纹写进 publish 那份 backdrops.js：换图即换 URL，不靠人记得 bump。
+const CG_DIR = path.join(ROOT, 'assets', 'cg');
+const cgFiles = fs.existsSync(CG_DIR)
+  ? fs.readdirSync(CG_DIR).filter((f) => /\.(webp|png|jpg)$/.test(f)).sort()
+  : [];
+const ah = crypto.createHash('md5');
+cgFiles.forEach((f) => { ah.update(f); ah.update(fs.readFileSync(path.join(CG_DIR, f))); });
+const assetV = ah.digest('hex').slice(0, 8);
+const bdSrcText = js['backdrops.js'].toString('utf8');
+const bdOut = bdSrcText.replace(/const ASSET_V = '[^']*';/, `const ASSET_V = '${assetV}';`);
+if (bdOut === bdSrcText) throw new Error('asset version injection failed: ASSET_V 那行不见了');
+fs.writeFileSync(path.join(OUT, 'js', 'backdrops.js'), bdOut);
+
 // 静态资产（立绘等）：整目录同步，避免 publish/ 缺图导致回落成 SVG
 function copyDir(src, dst) {
   if (!fs.existsSync(src)) return;
@@ -57,6 +72,7 @@ fs.writeFileSync(path.join(ROOT, 'index.html'), outHtml);
 
 const refs = outHtml.match(/\?v=[^"']+/g) || [];
 console.log('build:', build);
+console.log('assetV:', assetV, `(${cgFiles.length} 张 CG)`);
 console.log('versioned refs:', refs.length);
 console.log('synced files:', JS_FILES.length + 2);
 if (refs.some((r) => !r.includes(build))) throw new Error('version injection failed');

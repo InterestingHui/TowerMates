@@ -1766,6 +1766,45 @@ ok(mainSrc.indexOf("searchParams.set('rival'") < 0, 'main.js 不许自己拼链�
     '预热挂在 load 后且只挂一次（不预热＝每幕第一次出现先露矢量再啪地换图）');
 }
 
+// ---------- CG 换图必须能击穿缓存（2026-11-25 叙事轮）----------
+// 病根：build 指纹只算 html+css+js，换一张 assets/cg/*.webp 指纹一字不变 ⇒ 老玩家浏览器继续用旧图
+// （结局那张 dawn 已经换过一次，改的人以为上线了，回来的人看到的还是旧海崖）。
+// 修法：所有出图口子过 cgSrc（带 ?v=<ASSET_V>），publish 那份由 sync-publish 换成 assets/cg 的内容指纹。
+{
+  const fs3 = require('fs');
+  const path3 = require('path');
+  const crypto3 = require('crypto');
+  const bd = fs3.readFileSync(path3.join(__dirname, '..', 'js', 'backdrops.js'), 'utf8');
+  const noComment = bd.replace(/\/\/[^\n]*/g, '');
+  ok(/const ASSET_V = '[^']*';/.test(bd) && /const cgSrc = \(k\) => \{[^}]*'\?v=' \+ ASSET_V/.test(noComment),
+    'CG 的 URL 带资产指纹（cgSrc 拼 ?v=ASSET_V）');
+  // 四个出图口子：序章 imgTag / 上屏 layer / 预热 preload / 对外 cgUrl（量图工具读它）
+  const sites = [
+    [/return `<div class="bd-shot" style="background-image:url\(\$\{src\}\)"><\/div>`;/, 'imgTag'],
+    [/const src = cgSrc\(key\);/, 'layer'],
+    [/im\.src = cgSrc\(k\);/, 'preload'],
+    [/cgUrl: cgSrc,/, 'cgUrl 导出'],
+  ];
+  const missed = sites.filter(([re]) => !re.test(noComment)).map(([, n]) => n);
+  ok(missed.length === 0, `四处出图口子都过 cgSrc（漏：${missed.join(' / ') || '无'}）`);
+  // 反例护栏：不许再出现「直接把 IMG[...] 拼进 URL / 塞进 Image.src」的裸用法
+  ok(!/url\(\$\{IMG\[/.test(noComment) && !/\.src = IMG\[/.test(noComment),
+    '没有裸拼 IMG[...] 的 URL（那样换图不会换地址，缓存永远不击穿）');
+  // 真实效果：publish 那份的 ASSET_V 必须等于此刻 assets/cg 的内容指纹
+  // —— 改了图却忘了 sync，这条会红，比任何注释都可靠
+  const cgDir = path3.join(__dirname, '..', 'assets', 'cg');
+  const cgFiles = fs3.readdirSync(cgDir).filter((f) => /\.(webp|png|jpg)$/.test(f)).sort();
+  const ah = crypto3.createHash('md5');
+  cgFiles.forEach((f) => { ah.update(f); ah.update(fs3.readFileSync(path3.join(cgDir, f))); });
+  const want = ah.digest('hex').slice(0, 8);
+  const pubBd = fs3.readFileSync(path3.join(__dirname, '..', 'publish', 'js', 'backdrops.js'), 'utf8');
+  const got = (pubBd.match(/const ASSET_V = '([^']*)';/) || [])[1];
+  ok(got === want, `publish 的资产指纹与 assets/cg 现内容一致（线上 ${got} / 应为 ${want}——换图后没跑 sync-publish）`);
+  const pubAt = fs3.readFileSync(path3.join(__dirname, '..', 'tools', 'sync-publish.js'), 'utf8');
+  ok(/asset version injection failed/.test(pubAt) && /assets', 'cg'/.test(pubAt),
+    'sync-publish 负责把资产指纹写进 publish（注入失败要抛错，不许静默发旧图）');
+}
+
 console.log(`挑战码 / 触控 / 桥接 / 视图模型单测：${pass} 项通过${bad ? `，${bad} 项失败` : ''}`);
 
 process.exit(bad ? 1 : 0);

@@ -651,9 +651,15 @@
     intro1: 'assets/cg/intro1.webp', intro2: 'assets/cg/intro2.webp',
     intro3: 'assets/cg/intro3.webp', intro4: 'assets/cg/intro4.webp',
   };
+  // CG 换图没有指纹（2026-11-25 叙事轮收口）：js/css 走 build 指纹，可 build 只算 html+css+js，
+  // 换一张 assets/cg/dawn.webp 指纹不变 ⇒ 老玩家浏览器继续用旧图（结局那张已经换过一次了）。
+  // 源码里是 'dev'，publish 那份由 tools/sync-publish.js 换成 assets/cg 的内容指纹——
+  // 换图即换 URL，不靠人记得 bump。所有出图口子都必须走 cgSrc，别直接拼 IMG[k]。
+  const ASSET_V = 'dev';
+  const cgSrc = (k) => { const s = IMG[k]; return s ? s + '?v=' + ASSET_V : ''; };
   // 序章用：只取图片标签（矢量分镜由 scenes.js 自己拼在下面当兜底）
   function imgTag(key) {
-    const src = IMG[key];
+    const src = cgSrc(key);
     if (!src) return '';
     return `<div class="bd-shot" style="background-image:url(${src})"></div>`;
   }
@@ -678,7 +684,7 @@
   function layer(key, opt) {
     const base = svg(key, opt);
     if (!base) return '';
-    const src = IMG[key];
+    const src = cgSrc(key);
     return src ? base + `<div class="bd-shot" style="background-image:url(${src})"></div>` : base;
   }
 
@@ -738,7 +744,7 @@
     keys.forEach((k) => {
       const im = new Image();
       im.decoding = 'async';
-      im.src = IMG[k];
+      im.src = cgSrc(k);
     });
     return keys.length;
   }
@@ -754,7 +760,7 @@
     return FLOOR_SCENE[Math.max(0, Math.min(FLOOR_SCENE.length - 1, f))] || 'gate';
   }
 
-  window.Backdrops = { svg, layer, pick, imgTag, preload, cgUrl: (k) => IMG[k] || '', has: (k) => !!SCENES[k], FLOOR_SCENE, KEY_SCENE };
+  window.Backdrops = { svg, layer, pick, imgTag, preload, cgUrl: cgSrc, assetV: ASSET_V, has: (k) => !!SCENES[k], FLOOR_SCENE, KEY_SCENE };
 
   // 预热只跑一次：load 已过就直接排，否则等 load（once，避免重复挂监听）。
   if (typeof document !== 'undefined' && typeof window.Image === 'function') {
