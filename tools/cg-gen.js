@@ -55,8 +55,12 @@ const SCENES = {
     + 'dark cold night sky with heavy cloud and no dawn glow, no distant tower, no building exterior',
   core: 'the hidden heart of a tower, a circular stone mechanism of concentric rings around a stone pedestal, '
     + 'cold blue light rising from below, four tall lock columns at the corners',
-  dawn: 'a black tower on a sea cliff at dawn seen from outside, a thin warm light in its doorway, '
-    + 'calm dark sea below, cold sky',
+  // 2026-11-25 重出：原提示词写「at dawn」却给了「cold sky」，SDXL 出成阴夜海崖（实测 warm 0.00%）。
+  // 第一版重出又给了满天橙云（raw meanL 80 / lit 37%）——「黎明」不等于「天亮」，本作仍是暗色剪影，
+  // 暖光只能是一条窄缝：天空被黑云吃掉上 2/3，光留在地平线一道。
+  dawn: 'almost entirely black sea and sky, a single thin horizontal slit of golden dawn light at the horizon, '
+    + 'heavy black storm clouds filling the top two thirds, a black tower silhouette rising against the faint glow, '
+    + 'calm black water with one thin reflection',
   // 序章四幕（2026-11-25 补）：人物一律做成逆光剪影，避免 AI 画脸
   intro1: 'a ruined throne room, a huge horned demon rendered as a pure black silhouette stands before the throne, '
     + 'holding a small woman silhouette by the arm, cold moonlight behind them, dark red carpet, embers in the air, '

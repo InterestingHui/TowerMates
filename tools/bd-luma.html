@@ -21,10 +21,13 @@ pre{white-space:pre-wrap}</style>
 (function () {
   const KEYS = ['gate', 'corridor', 'market', 'passage', 'wolfhall', 'throne', 'ridge', 'empty', 'bell', 'namewall', 'carve', 'roof', 'core', 'dawn'];
   // 允许没有暖光的场景（冷光是有意的叙事选择，不是漏画）
+  // 2026-11-25 焦点A 复核：这份名单是「理由 + 豁免」，资产换了没人核 → 假绿。
+  // dawn 原来写着「结局黎明：全作唯一一次白昼」，而当时的 dawn.webp 是一张冷夜暴风海崖（实测 warm 0.00%），
+  // 豁免理由与画面相反，把「结局没有暖光」这条真缺陷按住了整整一天。已重出资产、撤掉条目。
+  // 下面那条「白名单没过期」断言就是为这件事加的：挂在名单上的图必须真的全冷。
   const COLD_ONLY = {
-    throne: '王座厅：三扇高窗冷光 + 空王座前一只倒下的烛台（火已熄）',
+    throne: '王座厅：三扇高窗冷光，空王座前一只倒下的烛台（火已熄）',
     roof: '塔顶：天光，塔已经在云上',
-    dawn: '结局黎明：全作唯一一次白昼',
     empty: '空廊：唯一的光是尽头那扇窗，冷光——这一层的叙事就是「什么都没有」',
   };
   const W = 430, H = 900, STEP = 2, BW = 40;
@@ -176,6 +179,11 @@ pre{white-space:pre-wrap}</style>
     // 暖光：只有白名单允许「全冷」
     const noWarm = KEYS.filter((k) => !ms[k].err && ms[k].warm <= 0 && !COLD_ONLY[k]);
     rec('每屏一盏暖光（冷光场景须在白名单里）', noWarm.length === 0, noWarm.length ? '无暖光 ' + noWarm.join(',') : '白名单 ' + Object.keys(COLD_ONLY).join('/'));
+    // 2026-11-25 焦点A：白名单本身就是一条「派生说法」。挂在上面却明明有暖光的图 = 理由过期，
+    // 会让人以为那屏是刻意全冷。资产重出后必须回头核对名单。
+    const staleCold = Object.keys(COLD_ONLY).filter((k) => ms[k] && !ms[k].err && ms[k].warm > 0.1);
+    rec('白名单里的图确实全冷（理由没过期）', staleCold.length === 0,
+      staleCold.length ? '名单过期 ' + staleCold.map((k) => k + '(' + ms[k].warm.toFixed(2) + '%)').join(',') : '3 条全部命中');
     // 2026-11-25 焦点D：上面那条只问「有没有暖像素」，不问「是不是同一盏灯」。三条新断言：
     //   ① 暖光色相要落在黄铜族（#e8c46a = 43°，实测 30–44 → 钉 26–46）
     //   ② 一屏之内不许混两种灯色（色相四分位距，实测 0–14 → 钉 16）
