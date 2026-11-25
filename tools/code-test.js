@@ -1068,11 +1068,23 @@ ok(edm.parts.length === 2 && edm.parts[1].html === '念出第六个名字 <b>+4<
 ok(edm.totalHtml === '合计 <b>+9</b>' && edm.balance === '✦ 30 → 39', '余额 = 落袋前 + 本局（不是随手拼两个数）');
 
 // 胜局摘要：顺序、条件项、门槛
-const briefOf = (o) => V.winBrief(Object.assign({ fx: { zealFull: () => 40 } }, o));
-const b1 = briefOf({ relicCount: 1, kills: 33, retries: 0, emberGain: 12 });
+const briefOf = (o) => V.winBrief(Object.assign({ fx: { zealFull: () => 40 } }, o));const b1 = briefOf({ relicCount: 1, kills: 33, retries: 0, emberGain: 12 });
 ok(b1[0] === '带走 1 件遗物 · 击杀 33 只', '没有今日一塔时第一句是「带走 N 件遗物」');
 ok(b1[1] === '一次没回头' && b1[b1.length - 1] === '✦ +12', '没回头写陈述句，余烬收尾');
 ok(briefOf({ relicCount: 0, kills: 0, retries: 3 })[1] === '重来本层 3 次', '重来过几次就报几次');
+// 提示排队过期（2026-11-26 06:2x 收口自检待办）：面板开着时攒下的提示到关面板早就不成立了。
+// 规则只有一处（View.hintSweep），泵每跳先扫；队列扫空就停泵 —— canSay() 长期为假不再空转。
+const TTL = V.HINT_TTL;
+ok(V.hintSweep([{ at: 1000 }, { at: 200000 }], TTL + 1001).dropped === 1, '排队超 TTL 的那条被丢掉');
+ok(V.hintSweep([{ at: 0 }], TTL).keep.length === 1, '正好 TTL 还播（边界是「超过」才算过期）');
+ok(V.hintSweep([{ at: 0 }], TTL + 1).dropped === 1, '过 1 毫秒就丢');
+ok(V.hintSweep([{ at: 10 }, { at: 0 }, { at: 8 }], 12, 5).keep.map((x) => x.at).join(',') === '10,8',
+  '留下那几条的相对顺序不变（不许把队列倒序）');
+ok(V.hintSweep([{}, { at: 'x' }, { at: NaN }], 0).dropped === 3, '没入队时间的按过期处理（宁可不播，不许很久以后突然插一句）');
+ok(V.hintSweep(null, 0).keep.length === 0 && V.hintSweep([]).dropped === 0, '空队列 / 脏入参不炸');
+ok(TTL >= 60000 && TTL <= 600000, 'TTL 在 1~10 分钟之间（太短会吞掉正常排队，太长等于没有）');
+ok(mainSrc.includes('View.hintSweep(hintQueue'), '泵每跳先扫过期（不是只判空）');
+ok(/hintQueue\.push\(\{[^}]*at: Date\.now\(\)/.test(mainSrc), '入队时间由 say() 一处盖戳，队列里不许各写各的');
 ok(briefOf({ dailyLabel: '11月16日', relicCount: 0, kills: 0 })[0] === '今日一塔 · 11月16日', '今日一塔排第一（藏着等于没写）');
 // 跨零点：摘要要把「这局算普通局」说清楚，否则玩家只会读成「今日榜没记上我」
 const crossed = briefOf({ dailyCrossed: true, relicCount: 0, kills: 0 });
