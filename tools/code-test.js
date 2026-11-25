@@ -189,6 +189,9 @@ ok(tie.rows[2].time === '1分40秒', '用时 100 秒渲染成 1分40秒');
   ok(m.rows.every((r) => r.end === '未竟' && r.ended === false), '影子勇者都写「未竟」（他们都没走到塔顶）');
   const sloppy = V.boardModel({ mine: [], rivals: [], shadows: [{ name: 'X', ending: 'plain', floor: 3 }], filter: 'all', todayKey: '2026-11-16', vows: VOWS, topFloor: top });
   ok(sloppy.rows[0].end === '未竟', '数据就算填错（3 层 + plain），读取侧也不许把它画成通关');
+  // 默认 13 只是 Node 单测的兜底：线上必须由 openBoard 注入真实塔层数，
+  // 否则将来加一层（结局改在第 14 层发生）时，所有通关行会被一律判成「未竟」——一个静默的、全榜级别的假话。
+  ok(mainSrc.indexOf('topFloor: D.floors.length') >= 0, '塔友榜拿真实塔层数（默认 13 只在单测兜底）');
 }
 
 // 10 行上限：总条数要如实报出来，页面上只画前 10 行（用朋友行测，自己只会占一行）
