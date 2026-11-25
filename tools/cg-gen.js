@@ -47,8 +47,12 @@ const SCENES = {
     + 'one blank patch in the lower right, a single torch lighting the carvings from the left',
   carve: 'a stone carving room, a long work table with chisels and a half-finished stone tablet, '
     + 'an empty chair, one low oil lamp on the table',
-  roof: 'the very top of a black tower above a sea of clouds at dawn, broken stone pillars, '
-    + 'an empty stone pedestal in the centre, cold blue sky with a thin warm band on the horizon',
+  // 2026-11-25 焦点D：原提示词「the very top of a black tower above a sea of clouds」被模型读成
+  // 「从外面远看一座塔」——塔身占满画面、没有石台，与 `dawn`（结局从外面看塔）几乎同构。
+  // 而 princessPlain 的台词是「一个人，追到塔顶」——玩家此刻站在塔顶，不该看见塔的外立面。
+  roof: 'camera standing on the flat rooftop of a black tower, broken stone pillars and a cracked parapet close in '
+    + 'the foreground, an empty stone pedestal in the centre of the roof, a sea of clouds far below the parapet, '
+    + 'dark cold night sky with heavy cloud and no dawn glow, no distant tower, no building exterior',
   core: 'the hidden heart of a tower, a circular stone mechanism of concentric rings around a stone pedestal, '
     + 'cold blue light rising from below, four tall lock columns at the corners',
   dawn: 'a black tower on a sea cliff at dawn seen from outside, a thin warm light in its doorway, '
@@ -57,8 +61,12 @@ const SCENES = {
   intro1: 'a ruined throne room, a huge horned demon rendered as a pure black silhouette stands before the throne, '
     + 'holding a small woman silhouette by the arm, cold moonlight behind them, dark red carpet, embers in the air, '
     + 'figures are flat black silhouettes only',
-  intro2: 'a grand empty palace hall at midnight, torn banners hanging from the columns, '
-    + 'moonlight through tall broken windows, a folded pale cloth on a stone pedestal in the foreground, dust',
+  // 2026-11-25 焦点D：原图（空荡拱廊 + 底部一片亮地板）有两个问题——② 第二幕的「帕」根本没画出来，
+  // 而这一幕就是授帕；③ 最亮处在 y≈87%，正好被对白框压住（量尺此前不查序章四幕，所以一直全绿）。
+  // 改成：光从高处破窗进来、帕放在中景矮石台上、地板留在暗里。
+  intro2: 'a grand ruined palace hall at midnight, torn banners hanging from tall columns, '
+    + 'moonlight pouring in high through broken windows near the ceiling, a low stone pedestal in the middle '
+    + 'foreground with a small folded pale cloth resting on it, dark stone floor in deep shadow, dust motes',
   intro3: 'a small stone altar in a dark chapel, a single candle burning on it as the only light, '
     + 'a folded grey cloth and a short sword laid on the stone, deep shadows all around',
   intro4: 'the gate of a black tower at dawn seen from outside, one small hooded figure rendered as a pure black '

@@ -73,7 +73,10 @@
     {
       "file": "assets/cg/roof.webp",
       "scene": "roof",
-      "prompt": "the very top of a black tower above a sea of clouds at dawn, broken stone pillars, an empty stone pedestal in the centre, cold blue sky with a thin warm band on the horizon"
+      "seed": 20261128,
+      "factor": 0.52,
+      "note": "2026-11-25 焦点D 重出：原图被模型读成「从外面远看一座塔」，与 dawn 同构，而 princessPlain 台词是「追到塔顶」",
+      "prompt": "camera standing on the flat rooftop of a black tower, broken stone pillars and a cracked parapet close in the foreground, an empty stone pedestal in the centre of the roof, a sea of clouds far below the parapet, dark cold night sky with heavy cloud and no dawn glow, no distant tower, no building exterior"
     },
     {
       "file": "assets/cg/core.webp",
@@ -93,7 +96,11 @@
     {
       "file": "assets/cg/intro2.webp",
       "scene": "intro2",
-      "prompt": "a grand empty palace hall at midnight, torn banners hanging from the columns, moonlight through tall broken windows, a folded pale cloth on a stone pedestal in the foreground, dust"
+      "seed": 20261130,
+      "factor": 0.86,
+      "crop": "tight 1060（收窄下缘，避免最亮的地板亮斑落在对白框后）",
+      "note": "2026-11-25 焦点D 重出：原图最亮处 y≈87% 被对白框压住；新图「帕」仍未画出（两次提示词都没出），待办记着",
+      "prompt": "a grand ruined palace hall at midnight, torn banners hanging from tall columns, moonlight pouring in high through broken windows near the ceiling, a low stone pedestal in the middle foreground with a small folded pale cloth resting on it, dark stone floor in deep shadow, dust motes"
     },
     {
       "file": "assets/cg/intro3.webp",
