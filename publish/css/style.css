@@ -1139,7 +1139,8 @@ html, body {
 .prep-opt .po-dmg small { font-size: var(--fs-tag); color: var(--dim); }
 .prep-opt.safe .po-dmg b { color: #9fd8ff; }
 .prep-hint { margin-top: 10px; text-align: center; font-size: var(--fs-tag); color: var(--muted); letter-spacing: 0.6px; }
-/* 「上次对这只……」（2026-11-24）：有记忆时这行比通用提示亮一档，因为它说的是这一只的事 */
+/* 「上次打这一种……」（2026-11-24 加练·叙事，11-25 改口径）：有记忆时这行比通用提示亮一档，
+   因为它是这一屏唯一说「塔记着你怎么打的」的地方（记忆按怪种存，不是按个体） */
 .prep-hint.has-last { color: #c9d3e2; }
 .prep-hint.has-last strong { color: var(--gold); font-weight: 600; }
 .prep-hint b { color: var(--gold); font-weight: 600; }

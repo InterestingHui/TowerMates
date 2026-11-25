@@ -2737,7 +2737,8 @@
     $('prepRounds').textContent = `共 ${pred.rounds} 回合`;
     $('prepName').textContent = m.name + (m.boss ? ' · 锁匠' : '');
     $('prepInfo').textContent = `你 ${Math.round(s.hp)} 血 · 它 ${m.hp} 血 · 攻 ${s.atk} / 防 ${s.def}`;
-    // 打法记忆（本局内）：上一次打这只用了什么、掉了多少血。没有就退回通用提示行。
+    // 打法记忆（本局内）：上一次打这一种用了什么、掉了多少血。没有就退回通用提示行。
+    // （引擎按怪种存 `tac_<ch>`，个体杀掉就不再出现——所以文案说「这一种」，见 View.lastTacticLine）
     const lastLine = View.lastTacticLine(Engine.lastTactic(ch));
     const hintEl = $('prepHint');
     if (hintEl) {

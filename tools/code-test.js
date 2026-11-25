@@ -822,11 +822,19 @@ ok(prep[3].sub.indexOf('多挨一轮') < 0, '副标题不重复卡名的后半�
 ok(prepSubs.every((s) => s.length <= 24),
   `四张卡的副标题都单行放得下（最长 ${Math.max.apply(null, prepSubs.map((s) => s.length))} 字 / 上限 24）`);
 ok(V.prepOptions(Object.assign({}, prepF, { hasBlock: false })).length === 3, '不会格挡时不摆格挡卡');
-// 战前面板的「上次对这只」：只说发生过的事（打法 + 实际掉血），没有就不出现
+// 战前面板的「上次打这一种」：只说发生过的事（打法 + 实际掉血），没有就不出现
 ok(V.lastTacticLine(null) === '', '没有上次记录时不写记忆行');
 const lastB = V.lastTacticLine({ p: 'b', d: 176 });
 ok(lastB.indexOf('格挡') >= 0 && lastB.indexOf('176') >= 0, '记忆行写出上次的打法与掉血');
 ok(V.lastTacticLine({ p: 'n' }).indexOf('直接打') >= 0, '没有掉血数时只写打法');
+// 记忆行的身份口径（2026-11-25 16:2x 加练·叙事）：引擎按**怪种**存 `flags['tac_' + ch]`，
+// 而同一只怪被打死就从图上消失、永远不会再遇见 ⇒「上次对这只」每次出现时指的都是**另一只**，
+// 最刺眼的是后半塔（无面者第 8–13 层各一只，玩家在第 12 层读到的却是第 8 层那只的成绩）。
+// 这行是「塔记着你是怎么打的」这条主题唯一的出口，说错身份比不说更糟。
+ok(lastB.indexOf('这一种') >= 0 && !/这一?只/.test(lastB),
+  `记忆行说的是「这一种」而不是「这只」（实测「${lastB}」）`);
+ok(stripComments(viewSrc).indexOf('上次对这只') < 0,
+  'view.js 里不再出现「上次对这只」（说错身份的那份文案）');
 ok(V.prepOptions(Object.assign({}, prepF, { nonTrivial: false, floor: 0 })).length === 1, '杂兵小架只留「直接开打」');
 // 「只有格挡能活」的那一场（blockSave）：这一档里引擎会强制替玩家挡（main 的 autoBlock），
 // 所以「直接开打」写着「撑不住」却没有对应后果、「缠斗」的多挨一轮与经验也拿不到（格挡优先）。
@@ -1063,6 +1071,22 @@ const _sandbox = { window: {} };
 _vm.createContext(_sandbox);
 _vm.runInContext(_fs.readFileSync(require('path').join(__dirname, '..', 'js', 'data.js'), 'utf8'), _sandbox);
 const GD = _sandbox.window.GAME_DATA;
+
+// 「这一种」不是保险说法（同上：战前记忆行的身份口径）——同种怪跨层重复才是常态，
+// 无面者第 8–13 层各一只、锁虫 8/9/10/13、灰烬祭司 8/10/11/13。哪天地图真的改成
+// 「每种只出现一次」，那句话才该改回「这只」；在那之前这条数据锚必须绿。
+const _speciesFloors = {};
+GD.floors.forEach((f) => {
+  const seen = new Set();
+  f.map.join('').split('').forEach((ch) => {
+    const m = GD.monsters[ch];
+    if (m && !m.boss && !m.ghost) seen.add(ch);
+  });
+  seen.forEach((ch) => { _speciesFloors[ch] = (_speciesFloors[ch] || 0) + 1; });
+});
+const _spread = Object.keys(_speciesFloors).filter((ch) => _speciesFloors[ch] >= 2);
+ok(_spread.length >= 6,
+  `同种怪跨层重复是常态（实测 ${_spread.length} 种出现在 ≥2 层）——「这一种」有数据支撑`);
 
 // 祭坛：文案按层分界（第 5 层起换另一堆），空堆走「只剩灰」
 const a0 = V.altarModel({ floor: 0, choices: ['steel', 'thrift', 'vigor'], relics: GD.relics });
