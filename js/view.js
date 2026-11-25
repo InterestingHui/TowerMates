@@ -40,6 +40,20 @@
     return (mine || []).some((r) => sameRun(r, rec));
   }
 
+  // 收下朋友那一局之后该说哪句话：「谁走得更远」是两边成绩算出来的，不能写死。
+  // 旧实现（main.js 贴码那条路）无条件接一句「爬得比他更高」——朋友贴来第 12 层的码也照说，
+  // 而紧跟着画出来的榜把他排在第一行；一局没打过的玩家同样被告知「比他高」。
+  // 只比层数（cmpBoard 的第一关键字）：同层就是同层，不给一样深的人编胜负。
+  const VERDICT_NONE = '你先走一局，才知道谁走得更远。';
+  function rivalVerdict(rec, mine) {
+    const floor = (rec && rec.floor) || 0;
+    const best = (mine || []).reduce((m, r) => Math.max(m, (r && r.floor) || 0), 0);
+    if (!best) return { id: 'none', gap: 0, text: VERDICT_NONE };
+    if (best > floor) return { id: 'higher', gap: best - floor, text: `你在第 ${best} 层——比他高 ${best - floor} 层。` };
+    if (best < floor) return { id: 'lower', gap: floor - best, text: `他比你高 ${floor - best} 层（你在第 ${best} 层）——去追。` };
+    return { id: 'tie', gap: 0, text: `和你一样深（第 ${floor} 层）。` };
+  }
+
   // 档位按誓约难度序排（不立誓 → 慈悲 → 贪婪 → 苦行 → 铁壁 → 无名）；
   // 这张表是全集合的唯一来源——加一条誓约必须同时加一档，否则那批局只能淹在「全部」里
   const BOARD_TABS = [
@@ -1096,7 +1110,7 @@
     altarModel, echoModel, eventModel, shortfallText,
     endScoreModel, emberDetailModel, winBrief, deathBrief, briefModel,
     sealOf, nextSealHint, sealTarget, emberModel,
-    cmpBoard, fmtTime, endName, marginRank, sameRun, isMine, RUN_KEYS,
+    cmpBoard, fmtTime, endName, marginRank, sameRun, isMine, RUN_KEYS, rivalVerdict, VERDICT_NONE,
     deathStatsModel, winStatsModel, memModel, floorNo, migrateFloors,
     foeName, traitNote, threatModel, blockModel, guardModel, tangleModel, prepOptions, lastTacticLine, PREP_FIRST, PREP_HINT,
     hintPicked, HINT_PICK, HINT_AUTO,

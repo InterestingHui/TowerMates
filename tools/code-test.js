@@ -244,6 +244,23 @@ const rawRec = { floor: 7, steps: 10, time: 90 };
 V.boardModel({ mine: [rawRec], rivals: [], shadows: [], filter: 'all', todayKey: '2026-11-16', vows: VOWS });
 ok(rawRec.mine === undefined, '模型不改写入参记录');
 
+// ---------- 收码后那句话：谁走得更远只能由两边成绩算，不能写死 ----------
+// 旧实现无条件接「爬得比他更高」：朋友贴来更深的码，紧跟着画出来的榜却把他排第一行。
+const vNone = V.rivalVerdict({ floor: 9 }, []);
+ok(vNone.id === 'none' && V.rivalVerdict({ floor: 9 }, null).id === 'none' && vNone.text === V.VERDICT_NONE,
+  '自己一局没打：不判胜负，只请先走一局');
+const vHi = V.rivalVerdict({ floor: 3 }, [{ floor: 5 }, { floor: 9 }]);
+ok(vHi.id === 'higher' && vHi.gap === 6 && vHi.text.indexOf('比他高 6 层') >= 0,
+  '自己更深：说「比他高 N 层」并报出差值（取自己最好那局，不是最后那局）');
+const vLo = V.rivalVerdict({ floor: 12 }, [{ floor: 4 }]);
+ok(vLo.id === 'lower' && vLo.gap === 8 && /他比你高 8 层/.test(vLo.text) && vLo.text.indexOf('去追') >= 0,
+  '朋友更深：照实说「他比你高 N 层」，不许说成自己领先');
+const vTie = V.rivalVerdict({ floor: 7 }, [{ floor: 7 }]);
+ok(vTie.id === 'tie' && /一样深/.test(vTie.text), '同层就说同层，不给一样深的人编胜负');
+ok([vNone, vHi, vLo, vTie].every((v) => v.text.length <= 24), '判定句一律 ≤24 字（与战前卡副标题同一档单行上限）');
+ok(!/比他高/.test(vNone.text) && !/比他高|爬得比/.test(vLo.text), '无语境（无自己成绩 / 自己落后）时不许出现「比他高」');
+// 源码契约（「不许写死」与「两条入口都走它」）挪到 stripComments 之后，见下方同名小节
+
 // ---------- 商店模型：明码取舍的每一句话现在可以算给你看 ----------
 const mkFx = (over) => Object.assign({
   price: (i) => i.price,
@@ -404,6 +421,23 @@ ok(stripComments(wxSrc).indexOf('slice(0, 12)') < 0 && wxSrc.indexOf('capRivals'
   '微信好友榜那条写者与贴码共用同一份上限（不许第二份 12）');
 ok(mainSrc.indexOf('if (!saved.ok)') >= 0 && mainSrc.indexOf('if (!kept.ok)') >= 0,
   '两条入口（贴码 / 落地收下）在存储失败时改口，不许说「进榜了」');
+// 收码那句「谁更远」只有一处定义（view.js 的 rivalVerdict），两条入口共用同一句（rivalHint）
+const mainCode = stripComments(mainSrc);
+ok(!/爬得比他更高|爬得比他深/.test(mainCode), 'main.js 不许再写死「爬得比他更高」（注释里提到不算）');
+ok(/function rivalHint\(/.test(mainCode) && (mainCode.match(/View\.rivalVerdict\(/g) || []).length === 1,
+  '判定句只在 rivalHint 里取一次，别处不许自造一份「谁更远」');
+ok((mainCode.match(/rivalHint\(/g) || []).length >= 3, '贴码与落地收码两条入口都走 rivalHint（+1 处定义）');
+// 顶部提示条 #warnPill 是 nowrap + 92vw + ellipsis：实测 45 字 = 431px，430 屏可用 364px、320 屏只有 262px。
+// 所以判定句与「名录满」这类尾巴只能落在榜面板那行（会换行），提示条只报「层 + 用时」。
+const landWarn = mainCode.match(/`收下了挑战[^`]*`/g) || [];
+ok(landWarn.length === 2 && landWarn.every((s) => !/今天这座|比他高|去追|rivalVerdict|sameDay/.test(s)),
+  '落地提示条只报层/用时/挤人（判定与今日标归面板那行，提示条放不下会被省略号吃掉）');
+ok(landWarn.some((s) => /挤掉最早那条/.test(s)), '挤掉名录里别人时提示条当面说清');
+// 字数上限按实测校准：同样写法 26 字 = 227px、23 字（挤人那句）= 241px；320 屏可用 262px ⇒ 上限 26 字
+ok(landWarn.length === 2 && landWarn.every((s) => s.replace(/\$\{[^}]*\}/g, '12').length <= 26),
+  `落地提示条 ≤26 字（320 屏 262px 的实测上限；实得 ${landWarn.map((s) => s.replace(/\$\{[^}]*\}/g, '12').length).join('/')} 字）`);
+const pasteWarn = mainCode.match(/warn\(dup \?[^\n]*?\);/g) || [];
+ok(pasteWarn.length === 1 && !/名录满|evictTag/.test(pasteWarn[0]), '贴码提示条同样不带长尾（名录满那句在面板里说）');
 
 // ---------- 漏斗缓冲：只许写「关键节点」（2026-11-24 自检） ----------
 // 缓冲 200 条、write 时 slice(-200)，而漏斗页的跨局读数（加载→开局 / 首局→二局 / 逐层到达）

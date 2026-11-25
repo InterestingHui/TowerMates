@@ -119,7 +119,8 @@ const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-ui-'));
     `满员时收下第 13 位，名录仍是 12 条且新那条在（实测 ${out.rivalCapLen} 条 / 新条在=${out.rivalCapKept}）`);
   ok(out.rivalCapEvictedOldest === true,
     `被挤掉的是最早那条（seed11 在 / seed0 不在 = ${out.rivalCapEvictedOldest}）`);
-  ok(String(out.rivalCapWarn).indexOf('名录满') >= 0,
+  // 2026-11-25：提示条只剩 ~262px 预算，挤人那句改成「（挤掉最早那条）」，全句（含「名录满」）落在榜面板那行
+  ok(String(out.rivalCapWarn).indexOf('挤掉最早那条') >= 0,
     `挤掉别人的时候当面说清（实测「${out.rivalCapWarn}」）`);
   ok(out.rivalNoCodeCopied === null && String(out.rivalNoCodePill).indexOf('先打完一局') >= 0 && out.rivalNoCodeBtn === true,
     `还没通关时不拼垃圾链接，提示条 + 按钮都说清原因（复制到「${out.rivalNoCodeCopied}」/ 提示「${out.rivalNoCodePill}」）`);

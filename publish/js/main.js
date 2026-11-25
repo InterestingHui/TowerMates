@@ -1887,11 +1887,19 @@
     }
     el.boardOverlay.classList.add('show');
   }
+  // 收码之后那句完整的话（榜面板里的提示，会换行、读得完整句）：贴码与落地两条入口共用一处，
+  // 否则同一个「谁更远」会被两条路各说一遍、迟早说岔。
+  function rivalHint(rec, opt) {
+    const o = opt || {};
+    const head = (o.dup ? '已更新「挑战·朋友」：' : '「挑战·朋友」进榜：')
+      + `第 ${rec.floor} 层 · 用时 ${fmtTime(rec.time)}${o.sameDay ? ' · 今天这座' : ''}。`;
+    return head + View.rivalVerdict(rec, o.mine || []).text + (o.evicted ? '（名录满，最早那条让位）' : '');
+  }
   // 贴码：解码 → 查重 → 以幽灵行进榜
   function pasteChallenge() {
     const input = $('pasteCode');
     const code = (input.value || '').trim();
-    const hint = $('pasteCode') && input.closest('.board-panel').querySelector('.code-hint');
+    const hint = $('boardHint');
     if (!code) { warn('先贴进一个挑战码'); return; }
     const rec = decodeChallenge(code);
     if (!rec) { warn('这个码读不出来——让朋友复制完整的挑战码'); return; }
@@ -1903,14 +1911,11 @@
     input.value = '';
     // 带日签的码能判出「他走的是不是今天这座」，同塔的成绩才进得了「今日」档
     const sameDay = !!rec.daily && rec.daily === Daily.keyOf(Date.now());
-    const dayTag = sameDay ? ' · 今天这座' : '';
-    const evictTag = saved.evicted ? '（名录满，最早那条让位）' : '';
     // 存不进去（隐私模式 / 配额满）时不许说「进榜了」——榜上根本没有这一行
     if (!saved.ok) { warn('收到了，但存不进本地（浏览器存储被禁用）'); return; }
-    if (hint) hint.textContent = (dup
-      ? `已更新「挑战·朋友」：第 ${rec.floor} 层 · 用时 ${fmtTime(rec.time)}${dayTag}`
-      : `「挑战·朋友」进榜：第 ${rec.floor} 层 · 用时 ${fmtTime(rec.time)}${dayTag}。爬得比他更高。`) + evictTag;
-    warn((dup ? '朋友的最新成绩已更新' : `挑战·朋友 第 ${rec.floor} 层，进榜了`) + evictTag);
+    if (hint) hint.textContent = rivalHint(rec, { dup, sameDay, evicted: saved.evicted, mine: loadBoard() });
+    // 顶部提示条一句话只有 ~262px 预算（320 屏 92vw−32px），放不下判定句——判定只走面板里那行
+    warn(dup ? '朋友的最新成绩已更新' : `挑战·朋友 第 ${rec.floor} 层，进榜了`);
     Sound.play('ach');
     boardFilter = 'all';
     openBoard();
@@ -5047,7 +5052,15 @@
         // 存不进去 / 名录满了把别人挤掉，都要在收下的那句话说清——那句提示是玩家唯一的信息来源
         if (!kept.ok) warn('这个挑战收下了，但存不进本地（浏览器存储被禁用）');
         else {
-          warn(`收下了挑战·朋友：第 ${rrec.floor} 层 · 用时 ${fmtTime(rrec.time)}${sameDay ? ' · 今天这座' : ''}${kept.evicted ? '（名录满，最早那条让位）' : ''}`);
+          // 同一个句子（rivalHint）落进榜面板那行：会换行，判定句与「名录满」全句都读得完整。
+          // 顶部提示条只有 ~262px 预算（320 屏 92vw−32px）：只说「层 + 用时」，
+          // 挤掉名录里那条时优先说挤人（一句 241px 装得下）。
+          // 旧实现把整句塞进提示条：实测 45 字 = 431px > 430 屏可用 364px，尾半句从来读不到。
+          const bh = $('boardHint');
+          if (bh) bh.textContent = rivalHint(rrec, { sameDay, evicted: kept.evicted, mine: loadBoard() });
+          warn(kept.evicted
+            ? `收下了挑战·朋友：第 ${rrec.floor} 层（挤掉最早那条）`
+            : `收下了挑战·朋友：第 ${rrec.floor} 层 · 用时 ${fmtTime(rrec.time)}`);
           // 塔友榜第 2 局起才露脸（首局摆榜单会挤占开屏预算）——老玩家就顺手把榜打开
           if (!isFirstRun()) openBoard();
         }
@@ -5122,6 +5135,8 @@
     // 战前面板（headless 探针用）：open 判断面板在不在，pick 等同玩家点卡（none/block/guard/tangle）
     prepOpen: () => !!prepKeyPick,
     prepPick: (id) => { if (!prepKeyPick) return false; prepKeyPick(id); return true; },
+    // 收码那条真路径（截图探针用）：解码 → 查重 → 进名录 → 榜面板那行回执，与玩家贴码走同一段代码
+    pasteCode: (code) => { const i = $('pasteCode'); if (!i) return false; i.value = String(code || ''); pasteChallenge(); return true; },
     testRelicShowcase: () => { const st = Engine.state(); if (st) relicShowcase(st.x, st.y); },
     openEcho, chooseRing, closeEcho, resumePendingRing, setChapterColor, refreshCfg,
     // 提示系统：自动化可验证「加粗渲染 + 角色提示对白」

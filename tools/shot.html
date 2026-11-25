@@ -542,6 +542,25 @@
         sD.over = true; sD.hp = 0; sD.floor = 2; sD.flags.killCount = 7;
         T.showDeath({ name: '墨妖' }, 620);
         await wait(500);
+      } else if (scene === 'challenge') {
+        // 收码回执：这一屏是「谁走得更远」唯一现形的地方。2026-11-25 之前那句话无条件写
+        // 「爬得比他更高」——而这张图里朋友第 12 层、我第 6 层，他明明排在我前面。
+        // 走真路径（__tm.pasteCode → pasteChallenge），贴的是 Challenge.encode 现编的码。
+        d.getElementById('btnNew').click();
+        await wait(200);
+        const _vc3 = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
+        if (_vc3) _vc3.click();
+        await wait(260);
+        try {
+          localStorage.setItem('towermates_board', JSON.stringify([
+            { ending: 'plain', floor: 6, level: 9, steps: 320, time: 640, seal: '', goals: 0, vow: 'none' },
+          ]));
+        } catch (e) {}
+        T.pasteCode(w.Challenge.encode({
+          ending: 'plain', vow: 'guard', floor: 12, level: 16, steps: 700, time: 252, seal: 'name', goals: 6,
+        }));
+        await wait(420);
+        q2push('chHint=' + d.getElementById('boardHint').textContent.replace(/\s+/g, ' ').trim());
       } else if (scene === 'board') {
         d.getElementById('btnNew').click();
         await wait(200);
