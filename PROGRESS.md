@@ -107,7 +107,7 @@
 - [ ] **减弱动效只有 OS 媒体查询一条路，游戏内没有开关（2026-11-26 15:4x，迁移前置）**：`Settings`（`towermates_cfg_v2`）无动效字段，`prefers-reduced-motion` 是唯一入口；小游戏渲染色画布、无 CSS 引擎 ⇒ 该查询与 44+72 条 CSS 动效一并失效，目标平台上没有任何降载手段。
   | 复现：设置页四组开关（音乐 / 音效 / 快战 / 方向键）里没有动效项 | 影响：迁移后「火光 / 雾 / 呼吸」18 处循环动效无条件常开 | 优先级：中。
   **改法**：补 `Settings.fx`，H5 侧取「媒体查询 OR 开关」，动效开关权回到游戏逻辑。
-- [ ] **输入收口清单（C 批唯一不依赖 A 批的先手活，2026-11-26 定）**：把 DOM 事件绑定盘成表（`js/` 里 addEventListener 与 inline onclick 各几处、分别绑在什么节点、有无依赖 `e.target` 结构），产出「单点委托」改造顺序。只出清单，不改代码（迁移期冻结）。
+- [x] **输入收口清单（C 批唯一不依赖 A 批的先手活，2026-11-26 15:5x 出表 → `docs/migration-input-audit.md`）**：盘点实测 `main.js` 108 条 `addEventListener`（52 条在 `bindInput()` 静态接线、~30 条散在 15 个 render/open 函数里随面板重建、4 条 `_tipBound` 懒绑、12 条全局）、`index.html` 零 inline `onclick`、`el.onclick=` 15 处、`innerHTML` 66 处；棋盘触控已收口在单个 `canvas`（`touch.js` 7 条）＝ 已是目标形态。改造顺序：先做「节点→命中矩形→动作 id」表 → 面板内改 `data-act` 整屏委托 → `touch.js` 只换事件源 → 键盘整组降级（已有点击等价入口）。**唯一没量过的点**：`innerHTML` 在 wxadapter shim 下可用性，需实测一次再排期。本轮只出表，不改代码（迁移期冻结）。
 
 ### 报错/阻断
 - （无。11-12 回归全套绿：check ✓ / engine-test 187 ✓ / code-test 37 ✓ / regress 截图 ✓ / sim 可通关）
@@ -1950,4 +1950,28 @@
   ②`ui-check` 的 `namelessEmpty` 探针改收空档原文，`ui-test` 两种说法都认、见到「还锁着」必验价目（旧断言指望唯一那句，正是被改掉的行为）。
   闸门：check ✓ / code **629** / engine 未动 / sim 未跑（文案与视图模型层）/ regress 全套绿（59 图 / 可读性 1549·0 违规 / 元素预算 14/14 / 首局 63.1s 未变）。
   部署 build **468ded04b6**（assetV 339e0112 未变）。｜加练：未跑（第 1 段已走叙事）｜变体：诊断（第 1 段）+ 本段收口其发现｜薄弱层：表层｜阻塞：无
+
+- 2026-11-26 15:5x（**用户点名两处美术返工**：「开局的CG是魔王牵着公主的手，完全没有胁迫感」「后面两页也没有看到国王」「公主画得充分好看一点，要有白丝」）
+  **根因有两条，第二条是硬 bug**：
+  ① 剪影构图下「抓」和「牵」的外轮廓同形——intro1 的 prompt 明明写的是 `gripping the forearm` + `lifting slightly off the ground`，
+  但两人全压成纯黑剪影后模型没有内部结构可依，只能走最高频先验（垂手递手 + 她站得笔直）；`slightly` 在剪影里等于没离地（站直比悬空好收敛）；
+  构图又是两人同高同大、各自重心落在自己脚下 = 并肩同行的语法。
+  ② **`STYLE` 结尾硬写了 `no people, no characters, no text`，而 `genScene` 一律拼它** —— 序章后几页根本不允许出现人。
+  intro2 想画「国王递绣帕」、intro3 想画「收剑出发」，出来的都是空镜（石台上一方布 / 祭坛上一块布），
+  不是模型不听话，是人被提示词禁掉了。intro1 能出人是因为正文里 `exactly two figures` 压过了前半段。
+  **修法（`tools/cg-gen.js`）**：拆 `STYLE_FIG`（只去掉 no people 那半句）+ `FIG_NEG`（负向去掉 people/face/hands，
+  再加 holding hands / child / deformed hands）+ `FIG_SCENES = {intro1..4}` 走分支；空镜场景一个字没动。
+  重写三幕：**intro1** 只压三个硬指标——**手臂绷直**（剪影里唯一可靠的「被拽」信号）、**双脚明确悬空 + 掉一只鞋在红毯上**、**低机位让魔王吃掉左侧三分之二**；
+  公主白丝留一道月光勾边当全图唯一高光（既保住剪影张力，也让人物立得住）。**intro2** 改**勇者第一人称**：老王戴冠、一手抖着把绣帕朝镜头递、
+  一手摊开哀求（一个人+一只手+一个物件，比「两人交接」稳得多，FLUX 画多人互动失败率高）。**intro3** 改勇者背影跪在阶下、
+  一攥绣帕在胸前、剑盾搁在膝边（同时收掉 13:2x 诊断里那条「幕3 白布与幕2 帕同形、连播读成帕还在桌上」的歧义）。
+  **公主立绘三轮迭代**（这条记下来，避免下次重走）：第一版 30+（法令纹/脸颊凹/两坨腮红/灰白辫子）→ 第二版矫枉过正成 14 岁甜妹
+  （`soft full cheeks` + 蜜色辫子 + 微笑 = 幼态特征全齐）→ 第三版拿掉幼态特征、换 `slim jaw` + `defined cheekbones` + 闭嘴 + `regal bearing`，
+  两个方向同时上负向词（老：nasolabial folds/aged/grey hair；幼：childish/baby face/grinning），才落到 22 岁。
+  另按查证结论改写法：**不写 beautiful/perfect/stunning**（反而推向千篇一律 AI 脸），改成堆具体五官 + 泪痣当辨识钉 + 85mm 浅景深。
+  白丝靠 `skirt slit high on the left thigh` + `sheer white silk stockings` 实现；立绘风格单开 `PORTRAIT_STYLE_CLEAR`（three-quarter body），
+  其余八角色继续用低头压阴影那版，一个没动。
+  **闸门**：check ✓ / code **631** / regress 全套绿（59 图 / 可读性 1564·0 违规 / 触控 80/80 / 弹层 116/116）。build **c5f3880af0** / assetV **5f709d4f**。
+  **清理**：`tools/art-test/Cinematic_dark_fantasy_game_ba_2026-11-25T02-57-57.png` 是 11-25 的孤儿图（ComfyUI 默认前缀），
+  被 cg-post 按目录全扫当成场景处理进了 `assets/cg/`，已删掉产物 webp；源 png 不是本轮建的，留着没动。｜阻塞：无
 
