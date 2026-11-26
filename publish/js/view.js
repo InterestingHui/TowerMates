@@ -383,6 +383,11 @@
     return `锁环 ${echoDone}/4 · 回头 ${retries} 次——四章全拿且一次不回头可换「${target}」`;
   }
 
+  // 余烬的击杀单价：每 EMBER_KILL_STEP 只记 1 点。**单价只有这一个来源**——
+  // emberModel 拿它算明细，结算页空态那句「还差 N 只」也拿它拼句子。
+  // 此前 10 只埋在 emberModel 的算式里，渲染层想说清「差多少」只能再写一个 10（第二份单价）。
+  const EMBER_KILL_STEP = 10;
+
   // 余烬明细：按这一局留下的东西逐项累加（不再绕分数换算）。
   // 全部外部事实都由调用方注入——「带着哪枚环」「某誓约首通了没」这些只有引擎/Meta 知道；
   // 搬进来的是「哪些条目算、各算多少、合计多少」这套规则。
@@ -405,7 +410,7 @@
     const winOnly = (id) => !death && has(id);
     const parts = death ? [] : [{ label: '走到结局', n: 5 }];
     if (s.ending === 'true') parts.push({ label: '念出第六个名字', n: 4 });
-    const kills = Math.floor((flags.killCount || 0) / 10);
+    const kills = Math.floor((flags.killCount || 0) / EMBER_KILL_STEP);
     if (kills) parts.push({ label: `击杀 ${flags.killCount} 只`, n: kills });
     if (flags.heart === 'left') parts.push({ label: '塔心留在原处', n: 3 });
     // 决战余裕 S（打完碑魔还剩 70% 以上）：替「打得干净」记一笔，只此一档
@@ -480,7 +485,13 @@
     // 保底 1 点：走到结局本身就值一点，0 会让「本局余烬 +0」看着像没算。
     // 折戟不给保底——「一进塔就倒」也能领 1 点的话，那就成了刷余烬的最快路径。
     const total = list.reduce((a, p) => a + p.n, 0);
-    return { total: death ? total : Math.max(1, total), parts: list };
+    // killCount / killStep 一起带出去：空态那句「还差几只」必须与上面那条算式同源
+    return {
+      total: death ? total : Math.max(1, total),
+      parts: list,
+      killCount: flags.killCount || 0,
+      killStep: EMBER_KILL_STEP,
+    };
   }
 
   // ---------- 战斗面板：三把打法各自的读数（2026-11-16 09:xx 切边界第三刀） ----------
@@ -863,16 +874,42 @@
   }
 
   // 余烬明细：逐项 + 合计 + 「之前 → 现在」。余额这一句必须由 before 算，别在渲染层再加一遍
+  // 2026-11-27 加练·美术焦点B：一件都没算上时（死在半路、击杀不足一档），这一行原先只剩
+  // 「合计 +0」和「✦ 0 → 0」——三个没名没姓的 0 并排，玩家读不出「为什么是 0」「差多少才有一点」。
+  // 空态改一句说清差多少；余额换成「余额 ✦ N」（0 → 0 这个箭头在空态没有信息量）。
   function emberDetailModel(input) {
     const o = input || {};
     const before = o.before || 0;
     const total = o.total || 0;
+    const step = o.killStep || EMBER_KILL_STEP;
+    const killCount = o.killCount || 0;
+    const parts = (o.parts || []).map((p) => ({ label: p.label, n: p.n, html: `${p.label} <b>+${p.n}</b>` }));
+    const empty = parts.length === 0;
+    const note = empty
+      ? (killCount > 0
+        ? `每 ${step} 只记 1 点 · 本局 ${killCount} 只，还差 ${step - (killCount % step)} 只`
+        : `每 ${step} 只怪记 1 点 · 本局还没打够`)
+      : '';
     return {
-      parts: (o.parts || []).map((p) => ({ label: p.label, n: p.n, html: `${p.label} <b>+${p.n}</b>` })),
-      total,
+      parts, total, empty, note,
       totalHtml: `合计 <b>+${total}</b>`,
       balance: `✦ ${before} → ${before + total}`,
+      balanceNow: `余额 ✦ ${before + total}`,
     };
+  }
+
+  // 结算页那一行的 HTML：胜局与折戟共用（此前两处各拼一遍，改一句文案得记着改两处）
+  function emberDetailHtml(input) {
+    const m = emberDetailModel(input);
+    const head = '<span class="eed-title">本局余烬</span>';
+    if (m.empty) {
+      return head + `<span class="eed-note">${m.note}</span>`
+        + `<span class="eed-total">${m.balanceNow}</span>`;
+    }
+    return head
+      + m.parts.map((p) => `<span>${p.html}</span>`).join('')
+      + `<span class="eed-sum">${m.totalHtml}</span>`
+      + `<span class="eed-total">${m.balance}</span>`;
   }
 
   // 胜局「这一局的几条账」：顺序就是玩家读的顺序，第一句必须是「哪座塔」（今日一塔藏着等于没写）
@@ -1239,7 +1276,7 @@
     boardModel, shopModel, codexModel, lossModel, CODEX_CHARS,
     rivalLink, withoutRival, rivalFromSearch, RIVAL_CAP, capRivals, dedupeRivals, personKey,
     altarModel, echoModel, eventModel, shortfallText,
-    endScoreModel, emberDetailModel, winBrief, deathBrief, briefModel, hintSweep, HINT_TTL,
+    endScoreModel, emberDetailModel, emberDetailHtml, winBrief, deathBrief, briefModel, hintSweep, HINT_TTL,
     sealOf, nextSealHint, sealTarget, emberModel,
     cmpBoard, fmtTime, endName, marginRank, sameRun, isMine, RUN_KEYS, rivalVerdict, VERDICT_NONE,
     deathStatsModel, winStatsModel, memModel, floorNo, migrateFloors,

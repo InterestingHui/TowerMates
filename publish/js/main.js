@@ -2515,11 +2515,11 @@
     // （「死在半路也有收获」这件事，此前只能靠立誓页那句反着说「通关留下的」去猜）
     const ed = $('endEmberDetail');
     if (ed) {
-      const em = View.emberDetailModel({ parts: ember.parts, total: emberGain, before: Meta.ember });
-      ed.innerHTML = `<span class="eed-title">本局余烬</span>`
-        + em.parts.map((p) => `<span>${p.html}</span>`).join('')
-        + `<span class="eed-sum">${em.totalHtml}</span>`
-        + `<span class="eed-total">${em.balance}</span>`;
+      // 明细与胜局同一块、同一个拼装函数：空态（死在半路、击杀不足一档）由 View 交代「差几只」
+      ed.innerHTML = View.emberDetailHtml({
+        parts: ember.parts, total: emberGain, before: Meta.ember,
+        killCount: ember.killCount, killStep: ember.killStep,
+      });
     }
     $('endTag').textContent = score.tag;
     // 首局没立过誓（面板只给确认卡）：结算页给一张「下一局预告」卡
@@ -3479,12 +3479,11 @@
     $('endScore').title = score.title;
     const ed = $('endEmberDetail');
     if (ed) {
-      // 与开局立誓的余额行呼应：结算这一刻「之前 → 现在」，落袋看得见
-      const em = View.emberDetailModel({ parts: ember.parts, total: emberGain, before: Meta.ember });
-      ed.innerHTML = `<span class="eed-title">本局余烬</span>`
-        + em.parts.map((p) => `<span>${p.html}</span>`).join('')
-        + `<span class="eed-sum">${em.totalHtml}</span>`
-        + `<span class="eed-total">${em.balance}</span>`;
+      // 明细的整行 HTML 由 View 一处拼（与折戟共用）：改文案/空态只动 view.js
+      ed.innerHTML = View.emberDetailHtml({
+        parts: ember.parts, total: emberGain, before: Meta.ember,
+        killCount: ember.killCount, killStep: ember.killStep,
+      });
     }
     $('endTag').textContent = score.tag;
     renderNextVow((Meta.memory.runs || 0) === 1);

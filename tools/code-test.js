@@ -1220,6 +1220,23 @@ const edm = V.emberDetailModel({ parts: [{ label: '走到结局', n: 5 }, { labe
 ok(edm.parts.length === 2 && edm.parts[1].html === '念出第六个名字 <b>+4</b>', '明细逐项带增量');
 ok(edm.totalHtml === '合计 <b>+9</b>' && edm.balance === '✦ 30 → 39', '余额 = 落袋前 + 本局（不是随手拼两个数）');
 
+// 空态（2026-11-27 加练·美术焦点B）：一件都没算上时，原来整行只剩「合计 +0」与「✦ 0 → 0」——
+// 三个没名没姓的 0，玩家读不出「为什么是 0、差多少」。改成一句说清差几只，阈值与 emberModel 同源。
+const edEmpty = V.emberDetailModel({ parts: [], total: 0, before: 12, killCount: 7, killStep: 10 });
+ok(edEmpty.empty === true && edEmpty.note.indexOf('还差 3 只') > 0, '空态说清「还差几只才有一点」');
+ok(edEmpty.balanceNow === '余额 ✦ 12' && edEmpty.balance.indexOf('✦ 12 → 12') === 0, '空态余额只报现值（0 → 0 那个箭头没有信息量）');
+const edEmpty0 = V.emberDetailModel({ parts: [], total: 0, before: 0, killCount: 0, killStep: 10 });
+ok(edEmpty0.note.indexOf('还没打够') > 0 && edEmpty0.note.indexOf('还差') < 0, '一只没打时不说「还差」（那会读成差一步就到手）');
+const edHtmlEmpty = V.emberDetailHtml({ parts: [], total: 0, before: 12, killCount: 7, killStep: 10 });
+ok(edHtmlEmpty.indexOf('eed-note') > 0 && edHtmlEmpty.indexOf('合计') < 0, '空态不出现「合计 +0」（那是把空态画成读数）');
+ok(V.emberDetailHtml({ parts: edm.parts, total: 9, before: 30 }).indexOf('eed-sum') > 0, '非空态仍给合计与「之前 → 现在」');
+// 单价只许一个来源：emberModel 算它、空态句子拼它也用它；view.js 里出现第二个 `/ 10` 即红
+const vSrc = viewSrc;
+ok(/EMBER_KILL_STEP\s*=\s*10/.test(vSrc), '击杀单价有唯一常量 EMBER_KILL_STEP');
+ok(!/killCount \|\| 0\) \/ 10/.test(vSrc), '算式里不许再写死 10（改单价漏一处就漂）');
+const edmBody = vSrc.slice(vSrc.indexOf('function emberDetailModel'), vSrc.indexOf('function emberDetailHtml'));
+ok(edmBody.indexOf('10') < 0, '空态句子不许自带一个 10（单价走参数）');
+
 // 胜局摘要：顺序、条件项、门槛
 const briefOf = (o) => V.winBrief(Object.assign({ fx: { zealFull: () => 40 } }, o));const b1 = briefOf({ relicCount: 1, kills: 33, retries: 0, emberGain: 12 });
 ok(b1[0] === '带走 1 件遗物 · 击杀 33 只', '没有今日一塔时第一句是「带走 N 件遗物」');
@@ -1303,8 +1320,11 @@ const endStr = ['<div>深度 <b>', '进塔 ${', '决战余裕最好 ${', '名册
   '回响 ${', '塔心带走', '上 S 有两条路', '一次没回头', '决战余裕 <b>'];
 const endHit = endStr.filter((w) => mainSrc.indexOf(w) >= 0);
 ok(endHit.length === 0, `结算标签与摘要只在 view.js 拼（main.js 命中：${endHit.join(',') || '无'}）`);
-const sumCalls = ['View.endScoreModel', 'View.emberDetailModel', 'View.briefModel', 'View.winBrief', 'View.deathBrief'];
+const sumCalls = ['View.endScoreModel', 'View.emberDetailHtml', 'View.briefModel', 'View.winBrief', 'View.deathBrief'];
 ok(sumCalls.every((w) => mainSrc.indexOf(w) >= 0), 'main.js 必须走这五个入口（不许绕过）');
+// 余烬明细那一行的 span 也只许在 view.js 拼：胜局 / 折戟两处此前各拼一遍，空态文案一改就得改两处
+ok(mainSrc.indexOf('eed-') < 0, 'main.js 不许自己拼余烬明细的 span（走 View.emberDetailHtml）');
+ok(mainSrc.split('View.emberDetailHtml').length - 1 === 2, '结算两处（胜 / 折戟）都走同一个拼装函数');
 ok(mainSrc.indexOf('data-seal="fall"') < 0, '败局顶行的 data-seal 也由模型给（不再手写第二份）');
 ok(mainSrc.indexOf('再折戟 1 次') < 0, '折戟预告的那两句只在 view.js（原先 += 拼在渲染层）');
 ok(mainSrc.indexOf('lastFallFloor || 0) + 1') < 0, '折戟层不再在展示端 +1（账本已是 1 基，+1 就成了谎）');
