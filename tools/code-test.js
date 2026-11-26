@@ -1927,8 +1927,32 @@ ok(mainSrc.indexOf("searchParams.set('rival'") < 0, 'main.js 不许自己拼链�
     'sync-publish 负责把资产指纹写进 publish（注入失败要抛错，不许静默发旧图）');
 }
 
-// 榜单表头（2026-11-26 加练·美术 焦点B）：六列里有三列玩家读不出来——「未竟」是什么、第三到第六列
-// 哪一列是耗时。补表头之后最容易坏的不是表头本身，而是「表头与数据行各写一份列宽/列序」：
+// ---------- 分享卡（og:image）此前没有任何闸门（2026-11-26 加练·社交）----------
+// 病根：`assets/share-card.png` 是「分享出去的第一眼」，但它不在 build 指纹里、不在任何探针里，
+// 换掉整批美术后卡片仍是 11-17 那张纯黑底纯文字（11-26 重出时才被发现）。三条都要能咬住：
+// 图丢了 / 尺寸不是 1:1 / URL 没版本串（微信与浏览器会一直用缓存里的旧卡，改的人以为上线了）。
+{
+  const fs4 = require('fs');
+  const path4 = require('path');
+  const idxSrc = fs4.readFileSync(path4.join(__dirname, '..', 'index.html'), 'utf8');
+  const m = idxSrc.match(/<meta property="og:image" content="([^"]+)"/);
+  ok(!!m, 'index.html 有 og:image（分享落地卡）');
+  const url = m ? m[1] : '';
+  ok(/sharecode=/.test(url), 'og:image 带 sharecode（裸域 403，卡片会裂成空图）');
+  ok(/[?&]v=/.test(url), 'og:image 带版本串（换卡不换地址＝微信继续用旧卡）');
+  const card = path4.join(__dirname, '..', 'assets', 'share-card.png');
+  ok(fs4.existsSync(card), '分享卡文件在（assets/share-card.png）');
+  if (fs4.existsSync(card)) {
+    const head = fs4.readFileSync(card).subarray(0, 24);
+    const w = head.readUInt32BE(16);   // PNG IHDR：宽高固定在第 16–23 字节
+    const h = head.readUInt32BE(20);
+    ok(w === 1200 && h === 1200, `分享卡是 1200×1200 正方（实测 ${w}×${h}——1:1 居中裁切不丢字的唯一尺寸）`);
+    const kb = Math.round(fs4.statSync(card).size / 1024);
+    ok(kb > 200, `分享卡不是空图/旧纯字卡（${kb}KB）`);
+  }
+}
+
+// 榜单表头（2026-11-26 加练·美术 焦点B）：六列里有三列玩家读不出来——「未竟」是什么、第三到第六列// 哪一列是耗时。补表头之后最容易坏的不是表头本身，而是「表头与数据行各写一份列宽/列序」：
 // 改宽只改一处就错位，改序只改一处就串列。分四件事量：列序同源 / 列宽同源 / 空榜不挂 / 表头不在滚动容器里。
 {
   const CELLS = ['bd-rank', 'bd-name', 'bd-end', 'bd-floor', 'bd-steps', 'bd-time'];

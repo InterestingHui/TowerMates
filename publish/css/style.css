@@ -182,6 +182,12 @@ html, body {
 .hero-portrait .pt { width: 100%; }
 .hero-portrait .pt-aura { inset: -10% -20% -4%; opacity: 0.4; filter: none; animation: none; }
 .hero-portrait .pt-svg { filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.7)); animation: none; }
+/* 2026-11-26：HUD 换成 CG 立绘后，58×72 的槽里暗部糊成一块——提亮 15% + 加一点对比，
+   只提这一处（对白槽 84px 更大，不需要）。呼吸动画在 HUD 里停掉，和 .pt-svg 一致。 */
+.hero-portrait .pt-img {
+  filter: brightness(1.15) contrast(1.06) saturate(1.04) drop-shadow(0 2px 6px rgba(0, 0, 0, 0.7));
+  animation: none;
+}
 .hero-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
 .hero-id { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
 .hero-id b {

@@ -8,8 +8,12 @@
   用法：chrome --headless=new --screenshot=assets/share-card.png --window-size=1200,1200
         --force-device-scale-factor=1 tools/sharecard.html
   依赖：tools/sharecard-qr.png（由根目录「towermates-二维码.png」临时复制，生成后即可删）。
-  为什么自己做一张而不是直接拿「扫码即玩-分享图.png」：那张是 3:4 竖图，
-  按 1:1 居中裁会切掉标题上半（魔塔二字），且底部 CTA 全丢。
+
+  2026-11-26：改版——底图换成 assets/cg/gate.webp（第一期 CG 的塔门，火把 + 铁栅 + 一束光），
+  原版是纯黑底 + 纯文字，等于「分享出去的卡片和进去看到的不是同一个游戏」。
+  这条链上只有一个「首触点」，卡上必须有游戏画面，否则没人知道点开是什么。
+  版式只动两处：①底图 + 上下压暗（中段留一条看得见铁栅的亮带）；②二维码从 360 收到 300，
+  给标题留高度。字、价、CTA 一个字没改——改的是「这张卡长什么样」，不是「这张卡说什么」。
 -->
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -18,88 +22,108 @@
     background: #07090f;
     font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", sans-serif;
     color: #e8ecf5;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
     position: relative;
   }
-  /* 一层极淡的塔砖网格：跟游戏里地板同一语言，不做花 */
-  body::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background-image:
-      linear-gradient(rgba(120, 140, 180, 0.055) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(120, 140, 180, 0.055) 1px, transparent 1px);
-    background-size: 60px 60px;
+  /* 底图：竖图塞进正方，取 42% 高度那条（铁栅中段 + 火把余光），不许裁到只剩地板 */
+  .bg {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    object-fit: cover; object-position: 50% 46%;
+    display: block;
   }
-  /* 单一暖光：从正上方压下来，塔门缝里那道光 */
-  body::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(60% 42% at 50% 6%, rgba(255, 206, 120, 0.16), rgba(0, 0, 0, 0) 70%);
+  /* 压暗：上 26% 给标题（穹顶砖是暗的，但还压一层保险）、中段 34%–52% 留亮、
+     下 40% 一路压到接近纯黑给二维码。二维码框自己是浅色，压得再黑也扫得出来 */
+  .scrim {
+    position: absolute; inset: 0;
+    background:
+      linear-gradient(180deg,
+        rgba(7, 9, 15, 0.90) 0%,
+        rgba(7, 9, 15, 0.74) 15%,
+        rgba(7, 9, 15, 0.44) 30%,
+        rgba(7, 9, 15, 0.52) 45%,
+        rgba(7, 9, 15, 0.74) 60%,
+        rgba(7, 9, 15, 0.88) 74%,
+        rgba(7, 9, 15, 0.93) 100%),
+      radial-gradient(76% 54% at 50% 46%, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.34) 100%);
   }
-  .wrap { position: relative; z-index: 1; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding-bottom: 18px; }
+  /* 单一暖光：火把那点火在左上，卡面只留一点点空气感，不压过文字 */
+  .warm {
+    position: absolute; inset: 0;
+    background: radial-gradient(38% 26% at 22% 30%, rgba(255, 190, 110, 0.13), rgba(0, 0, 0, 0) 72%);
+  }
+  .wrap {
+    position: relative; z-index: 2;
+    width: 100%; height: 100%;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding-bottom: 6px;
+  }
   .brand {
-    font-size: 30px;
-    letter-spacing: 15px;
-    color: #b9a06a;
-    text-indent: 15px;
+    font-size: 28px;
+    letter-spacing: 14px;
+    color: #c2ab7c;
+    text-indent: 14px;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.9);
   }
   .title {
-    margin-top: 22px;
-    font-size: 132px;
+    margin-top: 16px;
+    font-size: 112px;
     font-weight: 700;
-    letter-spacing: 20px;
-    text-indent: 20px;
+    letter-spacing: 18px;
+    text-indent: 18px;
     color: #ffd98a;
-    text-shadow: 0 0 42px rgba(255, 190, 90, 0.34);
-    line-height: 1.08;
+    text-shadow: 0 0 40px rgba(255, 190, 90, 0.4), 0 4px 22px rgba(0, 0, 0, 0.92);
+    line-height: 1.06;
   }
   .sub {
-    margin-top: 18px;
-    font-size: 40px;
-    color: #dfe6f2;
+    margin-top: 16px;
+    font-size: 36px;
+    color: #e6ebf5;
     letter-spacing: 3px;
+    text-shadow: 0 2px 14px rgba(0, 0, 0, 0.95);
   }
   .sub2 {
     margin-top: 12px;
-    font-size: 28px;
-    color: #8f9bb0;
+    font-size: 26px;
+    color: #98a4b8;
     letter-spacing: 2px;
+    text-shadow: 0 2px 12px rgba(0, 0, 0, 0.95);
   }
   .qrbox {
-    margin-top: 46px;
-    width: 360px;
-    height: 360px;
+    margin-top: 44px;
+    width: 300px;
+    height: 300px;
     background: #f4f1e8;
-    border-radius: 26px;
+    border-radius: 24px;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.62);
+    box-shadow: 0 22px 64px rgba(0, 0, 0, 0.72), 0 0 0 1px rgba(255, 217, 138, 0.22);
   }
-  .qrbox img { width: 300px; height: 300px; display: block; image-rendering: pixelated; }
+  .qrbox img { width: 250px; height: 250px; display: block; image-rendering: pixelated; }
   .cta {
-    margin-top: 40px;
-    padding: 18px 52px;
+    margin-top: 34px;
+    padding: 16px 50px;
     border-radius: 999px;
     background: #f2c96b;
     color: #191307;
-    font-size: 36px;
+    font-size: 34px;
     font-weight: 700;
     letter-spacing: 5px;
+    text-indent: 5px;
+    box-shadow: 0 10px 30px rgba(242, 201, 107, 0.24);
   }
   .foot {
-    margin-top: 22px;
-    font-size: 24px;
-    color: #6d7789;
+    margin-top: 20px;
+    font-size: 23px;
+    color: #758094;
     letter-spacing: 2px;
   }
 </style>
 </head>
 <body>
+  <img class="bg" src="../assets/cg/gate.webp" alt="">
+  <div class="scrim"></div>
+  <div class="warm"></div>
   <div class="wrap">
     <div class="brand">TOWERMATES</div>
     <div class="title">魔塔</div>

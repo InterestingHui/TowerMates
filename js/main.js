@@ -4678,8 +4678,11 @@
       let foot = '';
       if (locked) {
         const short = Math.max(0, (v.ember || 0) - Meta.ember);
+        // 首局五张锁卡的价格是五个不同的数，但「走完一局后可解锁」是同一句话——
+        // 顶行已经说过一次（「走完一局，塔会记住你」），再在五张卡上各写一遍，
+        // 首屏读到的是五扇关着的门 + 六遍同一句。首局只留价目，解锁时机留在顶行说一次。
         foot = firstRun
-          ? `<span class="vc-unlock">🔒 ${v.ember} ✦ · 走完一局后可解锁</span>`
+          ? `<span class="vc-unlock">🔒 ${v.ember} ✦</span>`
           : affordable
             ? `<span class="vc-unlock ok">🔒 ${v.ember} ✦ · 点一下买下</span>`
             : `<span class="vc-unlock">🔒 ${v.ember} ✦ · 还差 ${short} ✦</span>`;
