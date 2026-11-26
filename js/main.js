@@ -1832,7 +1832,6 @@
   const endName = View.endName;
 
   let boardFilter = 'all';
-  const VOW_TABS = View.BOARD_TABS;
 
   // 影子勇者的脚注：名字后面带一句他们的终点——川那句与断剑小传、薇拉台词三方互证
   const RIVAL_NOTE = {
@@ -4814,10 +4813,14 @@
   // 决定；「今日之约」再按日期钉一条固定誓约（同一天所有人同一条，所以比得出来；跨天换，所以
   // 每天的开局不一样）。地图那层只改「看到什么」，一个数值都不动。
   // 2026-11-26 起誓约要靠 ✦ 买：今天轮到的那条还没买下时，本局回落到「不立誓」并在入口说明。
+  // 「要不要买」的判据是 vows[id].ember 有没有价目，不是 `Meta.has`——开局三条主路是**免费**的，
+  // 从不写进 unlocked，用 unlocked 判会把这三天全判成「还没解锁」、天天回落不立誓（白改池子）。
   function dailyTie() {
     const key = Daily.keyOf(Date.now());
     const want = Daily.vowOf(key);
-    const owned = want === 'none' || Meta.has(want);
+    const v = D.vows[want];
+    const paid = !!(v && v.ember);
+    const owned = !paid || Meta.has(want);
     return { key, id: owned ? want : 'none', want, locked: !owned };
   }
   function dailyVowDef() {

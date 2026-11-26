@@ -54,12 +54,21 @@
     return { id: 'tie', gap: 0, text: `和你一样深（第 ${floor} 层）。` };
   }
 
-  // 档位按誓约难度序排（不立誓 → 慈悲 → 贪婪 → 苦行 → 铁壁 → 无名）；
-  // 这张表是全集合的唯一来源——加一条誓约必须同时加一档，否则那批局只能淹在「全部」里
+  // 档位 = 两条公共档（全部 / 今日）+ 三条主路（不立誓 / 利齿 / 重压）+ 一格「助力」（2026-11-26 三路改版后）
+  // 为什么助力合成一格：三路免费、人人都会走，一格一条才比得出「同一条路上谁走得远」；
+  // 五条助力要花 ✦ 买下，首月绝大多数玩家一条都没有——一格一条的话，五格里四格永远在解释价目，
+  // 十格 chip 还会把面板挤成三行、可见榜单只剩七行。合成一格后六格正好两行。
   const BOARD_TABS = [
-    ['all', '全部'], ['daily', '今日'], ['none', '不立誓'], ['mercy', '慈悲'],
-    ['greed', '贪婪'], ['ascetic', '苦行'], ['guard', '铁壁'], ['nameless', '无名'],
+    ['all', '全部'], ['daily', '今日'], ['none', '不立誓'], ['dmg10', '利齿'],
+    ['dmg20', '重压'], ['aid', '助力'],
   ];
+  // 「助力」档收哪几条：凡 vows 里带 ember 价目（＝要花 ✦ 买下）的都算。
+  // 不写死 id 列表——将来加第六条助力时这张表不必跟着改。
+  // （11-26 之前的教训：把 `ascetic` 这类 id 抄进断言，那一刻它就从闸门变成了快照。）
+  const isAid = (id, vows) => {
+    const v = (vows || {})[id];
+    return !!(v && v.ember);
+  };
   const BOARD_CAP = 10;
   const NOTE_DAILY = '这一座塔每天零点换一次：同一天走进来的人遇到的是同一座，所以「今天谁走得远」是能比的。贴进来的朋友码只要也是今天这座，就会进这一档。';
   const NOTE_CRUSHED = '影子勇者都停在前五层。你已经走到他们没到过的地方。';
@@ -67,6 +76,10 @@
   // 锁着的档位不能喊「去立一条誓约」——那条誓约得先花 ✦ 买下（11-26 誓约改纯增益 + 逐级买之后，
   // 首局玩家点开「无名」档，看到的是一句自己当下做不到的指路，属「看不懂下一步」的弱形态）
   const EMPTY_LOCKED = (name, cost) => `这一档还锁着：「${name}」要 ✦ ${cost} 解锁。`;
+  // 「助力」是聚合档，没有单一的「这一条誓约」可报价——分成买过 / 没买过两种说法：
+  // 没买过时喊「去立一条誓约」是做不到的动作（那五条只能用 ✦ 买），所以先说要花什么。
+  const EMPTY_AID_OWNED = '这一档还没有人带着助力走完一局。';
+  const EMPTY_AID_LOCKED = '这一档是花 ✦ 买下的助力（回血 / 金币 / 经验 / 减伤 / 刻名）。先在塔里攒 ✦。';
   // 名录里那个人怎么称呼。微信好友榜带回的是**昵称**（wxbridge.normalize 已滤过引号尖括号、截 16 字），
   // 贴码那条路码里只有成绩没有名字 → 退回「挑战·朋友」。旧实现一律写死这五个字，于是贴三位朋友
   // 就是三行同名：知道谁爬得高，不知道超过的是谁——异步竞争（E-11）的前提正是「知道超过了谁」。
@@ -114,7 +127,9 @@
     all.sort(cmpBoard);
     const rows = filter === 'daily'
       ? all.filter((r) => r.daily === o.todayKey)
-      : filter === 'all' ? all : all.filter((r) => (r.vow || 'none') === filter);
+      : filter === 'all' ? all
+        : filter === 'aid' ? all.filter((r) => isAid(r.vow || 'none', vows))
+          : all.filter((r) => (r.vow || 'none') === filter);
     // 榜单是「人」的榜，不是「局」的榜：同一个人只占一行，取这一档里他最好那局（rows 已按 cmpBoard 排好）。
     // 旧实现把 loadBoard() 存的 30 条历史全倒进来（都是 mine），打到十几局以后前十行全是「你」，
     // 影子勇者与贴码朋友一个都看不见——社交榜退化成自己的成绩单。去重放在**筛选之后**：
@@ -150,6 +165,12 @@
     // 空档的说法分两种：立得起的（指路去立）／还没买下的（先说要花多少）。
     // `hasVow` 不传＝按「能立」算，老调用方（含单测）行为不变。
     const emptyFor = (id) => {
+      if (id === 'aid') {
+        // 不传 hasVow＝按「能立」算：老调用方（含单测）只关心有没有话，不关心买没买
+        if (typeof o.hasVow !== 'function') return EMPTY_AID_OWNED;
+        const owns = Object.keys(vows).some((k) => isAid(k, vows) && o.hasVow(k));
+        return owns ? EMPTY_AID_OWNED : EMPTY_AID_LOCKED;
+      }
       const v = vows[id];
       const paid = v && v.ember ? v.ember : 0;
       if (paid && typeof o.hasVow === 'function' && !o.hasVow(id)) return EMPTY_LOCKED(v.name, paid);
@@ -163,7 +184,9 @@
         // 幽灵行不再把楼层写进名字里：同一行的「N层」列就是那个数，写两遍只是噪音
         name: r.mine ? '你' : (plainName(r.name) || NAME_FALLBACK),
         note: (!r.mine && !r.rival && notes[r.name]) || '',
-        vowTag: v.name === '不立誓' ? '' : (v.tag || '').charAt(0),
+        // 徽记取 tag 的**末字**：首字会撞——「重压之誓」与「重金之誓（贪婪）」首字都是「重」，
+        // 榜上一行「你 重 11层」读不出这局走的是哪条路。末字（齿/压/羽/金/行/色/名）全不相同。
+        vowTag: v.name === '不立誓' ? '' : (v.tag || '').slice(-1),
         mine: !!r.mine,
         rival: !!r.rival,
         end: endName(ending),
@@ -1202,7 +1225,7 @@
     deathStatsModel, winStatsModel, memModel, floorNo, migrateFloors,
     foeName, traitNote, threatModel, blockModel, guardModel, tangleModel, prepOptions, lastTacticLine, coreRingLine, PREP_FIRST, PREP_HINT,
     hintPicked, HINT_PICK, HINT_AUTO,
-    BOARD_TABS, BOARD_CAP, SHOP_CORE, SEALS, CHAPTERS,
+    BOARD_TABS, BOARD_CAP, SHOP_CORE, SEALS, CHAPTERS, isAid,
     NOTE_DAILY, NOTE_CRUSHED, EMPTY_OTHER, TIP_BLOCK, TIP_SHARD,
     MEM_NOTE_DEATH, MEM_NOTE_WIN, BRIEF_SHOW,
     ALTAR_DESC_EARLY, ALTAR_DESC_LATE, ALTAR_EMPTY,

@@ -85,19 +85,28 @@ const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-ui-'));
     `爬过朋友后再开榜，同一行当场改口（${out.hintAfterClimb}）`);
   ok(out.hintThreeFloors === true, '再爬一层句子跟着动（不是只切一次档）');
   ok(out.hintStillChases === true, '成绩落在朋友下面时仍念「去追」（改口不是单向的）');
-  ok(out.tabIds === 'all,daily,none,mercy,greed,ascetic,guard,nameless' && out.tabCount === 8,
-    `榜单档位覆盖全部六条誓约 + 全部 / 今日（实测 ${out.tabIds}）`);
-  ok(out.hasAscTab === true && out.ascOnly === true,
-    `「苦行」档只筛出苦行的局（实测 ${out.ascRows} 行）`);
-  // 2026-11-26 12:5x：空档从「一句话」变两句话（锁着 / 已解锁）——探针收原文，这里两种都认，但都要说清
-  {
-    const et = out.namelessEmptyText || '';
-    const locked = /还锁着/.test(et);
-    ok(out.hasNamelessTab === true && out.namelessRows === 0 && (locked || /还没有人/.test(et)),
-      `没走过的誓约档给出解释而不是空白（实测 ${out.namelessRows} 行 /「${et.slice(0, 20)}」）`);
-    ok(locked ? /✦\s*\d+/.test(et) : true,
-      `锁着的档说清价目（实测「${et.slice(0, 24)}」）`);
-  }
+  // 档位表不再是「抄一遍当时的真值」：右值从 GAME_DATA.vows 现算——
+  // 免费主路（没有 ember 价目）各要一档，付费助力（有 ember）合并进「助力」档。
+  // 11-26 之前这里硬编码了 8 个 id，誓约从 4 条加到 6 条、再从 6 条改成三路时闸门一声不响。
+  const tabSet = String(out.tabIds || '').split(',');
+  const freeIds = out.vowFree || [];
+  const paidIds = out.vowPaid || [];
+  ok(freeIds.length > 0 && freeIds.every((id) => tabSet.indexOf(id) >= 0),
+    `每条免费主路都有自己的档（数据 ${freeIds.join('/')} → 实测 ${out.tabIds}）`);
+  ok(paidIds.length > 0 && tabSet.indexOf('aid') >= 0,
+    `买下的助力合并进「助力」一格（数据 ${paidIds.length} 条 → 实测 ${out.tabIds}）`);
+  ok(out.tabCount === 2 + freeIds.length + (paidIds.length ? 1 : 0),
+    `档位数由数据算出：全部/今日 2 + 主路 ${freeIds.length} + 助力 ${paidIds.length ? 1 : 0}（实测 ${out.tabCount}：${out.tabIds}）`);
+  // 空档的说法：没走过的档要给一句解释（不是空白），免费主路喊「去立一条誓约」
+  ok(out.hasHeavyTab === true && out.heavyEmptyRows === 0 && /还没有人/.test(out.heavyEmptyText || ''),
+    `没走过的免费主路档给出解释而不是空白（重压档实测 ${out.heavyEmptyRows} 行 /「${(out.heavyEmptyText || '').slice(0, 20)}」）`);
+  // 助力档不该把免费主路的局混进来（榜上此刻有慈悲/苦行两条助力局，没有利齿局）
+  ok(out.hasAidTab === true && out.aidEmptyRows >= 1 && out.aidNoFree === true,
+    `「助力」档只收带价目的誓约（实测 ${out.aidEmptyRows} 行 / 不含免费主路 ${out.aidNoFree}）`);
+  ok(out.aidOnly === true,
+    `贴进来的苦行码进「助力」档（实测 ${out.aidRows} 行：「${(out.aidTextAfter || '').slice(0, 40)}」）`);
+  ok(out.hasFangTab === true && out.fangRows === 1 && out.fangOnly === true,
+    `免费主路档只筛出同一条路的局（利齿档实测 ${out.fangRows} 行 / ${out.fangOnly}）`);
   ok(out.allRowsAfterVowTabs >= 4, `「全部」档仍列全部行（实测 ${out.allRowsAfterVowTabs} 行）`);
   // 自己贴自己的码：这条判据原先按「重编码比字符串」写（誓约写死成 none），誓约不是 none 时会漏
   ok(out.selfWarn.indexOf('自己') >= 0, `贴自己的码 → 明说这是自己的成绩（实测「${out.selfWarn}」）`);

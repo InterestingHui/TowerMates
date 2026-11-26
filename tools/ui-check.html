@@ -366,30 +366,75 @@ async function run() {
     out.selfRivalRows = selfRows.filter(function (r) { return r.classList.contains('rival'); }).length;
     out.selfPasteCleared = inp4.value === '';
 
-    // 榜单誓约档：六条誓约各有一档（此前只覆盖 4 条，苦行 / 无名两档的局在榜上无处可看）
+    // 榜单档位：三路主路各一档 + 五条助力合并一格（2026-11-26 三路改版）
+    // 旧探针按「六条誓约各一档」写，新体系下 mercy/greed/ascetic/guard/nameless 五格全没了、
+    // dmg10/dmg20 两格是新的——档位表变了，探针必须跟着换，否则它测的是上一版界面。
     var tabIds = [].map.call(d.querySelectorAll('#boardTabs .btab'), function (b) { return b.dataset.f; });
     out.tabIds = tabIds.join(',');
     out.tabCount = tabIds.length;
+    // 数据侧现算「应该有几档」：免费主路（没有 ember 价目）各要一档，付费助力（有 ember）合并进「助力」。
+    // 这一条是 11-26 的教训——以前 ui-test 把 8 个 id 抄成字面量，誓约从 4 条加到 6 条、
+    // 再从 6 条改成三路时闸门一声不响；右值必须从 D.vows 现算，抄下来的那一刻它就只是快照。
+    try {
+      var dv = (w.GAME_DATA && w.GAME_DATA.vows) || {};
+      out.vowFree = Object.keys(dv).filter(function (k) { return !dv[k].ember; });
+      out.vowPaid = Object.keys(dv).filter(function (k) { return !!dv[k].ember; });
+    } catch (e) { out.vowFree = null; out.vowPaid = null; }
+    // 切档要点一下 tab ——但每次点完 openBoard 会整块重画 tab，旧引用立刻失效（点了不会再触发），
+    // 所以这里每次重新查一次（旧探针把引用存下来复用，实际一直停在「全部」档上测）
+    function clickTab(id) {
+      var t = d.querySelector('#boardTabs .btab[data-f="' + id + '"]');
+      if (t) t.click();
+      return !!t;
+    }
+    var emptyText = function () {
+      var e = d.querySelector('#boardList .bd-empty');
+      return e ? (e.textContent || '').replace(/\s+/g, ' ').trim() : '';
+    };
+    // ① 空态通路：重压档此刻没有局，应走 .bd-empty 说「这一档还没有人」（不是空白）
+    out.hasHeavyTab = clickTab('dmg20');
+    out.heavyEmptyRows = d.querySelectorAll('#boardList .bd-row').length;
+    out.heavyEmptyText = emptyText();
+    // ② 助力档只收带价目的誓约：榜上此刻有一条慈悲（9层 500步）＋一条苦行（7层 300步），
+    //    但没有一条免费主路的局——所以这里出现「利」字就是漏筛
+    out.hasAidTab = clickTab('aid');
+    out.aidTabOn = (d.querySelector('#boardTabs .btab.on') || {}).dataset
+      ? d.querySelector('#boardTabs .btab.on').dataset.f : '';
+    out.aidEmptyRows = d.querySelectorAll('#boardList .bd-row').length;
+    out.aidRowTexts = [].map.call(d.querySelectorAll('#boardList .bd-row'), function (r) {
+      return (r.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 26);
+    }).join(' || ');
+    var dvAll = (w.GAME_DATA && w.GAME_DATA.vows) || {};
+    var freeMarks = Object.keys(dvAll).filter(function (k) { return !dvAll[k].ember; })
+      .map(function (k) { return String(dvAll[k].tag || '').slice(-1); }).filter(Boolean);
+    out.freeMarks = freeMarks.join('');
+    // 免费主路的徽记一个字都不许出现在「助力」档里（现算，不抄 '利'/'重' 这类字面量）
+    out.aidNoFree = freeMarks.every(function (m) { return out.aidRowTexts.indexOf(m) < 0; });
+    out.aidEmptyText = emptyText();
+    // ② 助力档收「买下的那几条」：贴一条苦行的码，切助力档应只剩它（不按条分档，所以这条不会被漏掉）
     var ascCode = w.Challenge.encode({ ending: 'plain', vow: 'ascetic', floor: 7, level: 10, steps: 300, time: 260 });
     var inp3 = d.getElementById('pasteCode');
     inp3.value = ascCode;
     d.getElementById('btnPasteCode').click();
-    var atabA = d.querySelector('#boardTabs .btab[data-f="ascetic"]');
-    out.hasAscTab = !!atabA;
-    if (atabA) atabA.click();
-    var ascRows = d.querySelectorAll('#boardList .bd-row');
-    out.ascRows = ascRows.length;
-    out.ascOnly = ascRows.length === 1 && /7\s*层/.test(ascRows[0].textContent)
-      && /苦/.test(ascRows[0].textContent);
-    var ntab = d.querySelector('#boardTabs .btab[data-f="nameless"]');
-    out.hasNamelessTab = !!ntab;
-    if (ntab) ntab.click();
-    out.namelessRows = d.querySelectorAll('#boardList .bd-row').length;
-    // 空档的说法分两种（锁着 → 说清价目；已解锁 → 指路去立），探针只收原文，判定交给 ui-test
-    out.namelessEmptyText = ((d.getElementById('boardList').textContent || '').replace(/\s+/g, ' ')).trim();
-    out.namelessEmpty = out.namelessEmptyText.indexOf('这一档还没有人') >= 0;
-    var atab3 = d.querySelector('#boardTabs .btab[data-f="all"]');
-    if (atab3) atab3.click();
+    clickTab('aid');
+    var aidRows = d.querySelectorAll('#boardList .bd-row');
+    out.aidRows = aidRows.length;
+    out.aidTextAfter = [].map.call(aidRows, function (r) {
+      return (r.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 26);
+    }).join(' || ');
+    out.aidOnly = aidRows.length >= 1 && /行/.test(out.aidTextAfter)
+      && /7\s*层/.test(out.aidTextAfter);
+    // ③ 主路档：贴一条利齿（dmg10）的码，切「利齿」档应只剩它——三路是所有人都会走的，
+    // 一格一条才比得出「同一条路上谁走得远」
+    var fangCode = w.Challenge.encode({ ending: 'plain', vow: 'dmg10', floor: 9, level: 12, steps: 420, time: 300 });
+    inp3.value = fangCode;
+    d.getElementById('btnPasteCode').click();
+    out.hasFangTab = clickTab('dmg10');
+    var fangRows = d.querySelectorAll('#boardList .bd-row');
+    out.fangRows = fangRows.length;
+    out.fangOnly = fangRows.length === 1 && /9\s*层/.test(fangRows[0].textContent)
+      && /齿/.test(fangRows[0].textContent);
+    clickTab('all');
     out.allRowsAfterVowTabs = d.querySelectorAll('#boardList .bd-row').length;
 
     // 点一次远处的怪物：应自动走到跟前并直接开打，不需要第二次点击

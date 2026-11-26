@@ -1910,11 +1910,16 @@ ok(Daily.seedOf(dayA) === dSeed, '同一天必得同一颗种子');
 ok(Daily.seedOf('2026-11-15') !== dSeed && Daily.seedOf('2026-11-13') !== dSeed, '换一天就是另一颗种子');
 ok(Daily.label(dayA) === '11月14日' && Daily.label('乱码') === '', '面板短标签：2026-11-14 → 11月14日，脏输入给空');
 
-// 今日之约：日期种子再钉一条固定誓约。同一天必同一条（榜单可比），跨天会换（每天开局不一样），
-// 池子固定四条基础誓约——苦行/无名是更贵的解锁，不能靠换个日子白玩；
-// 玩家还没买下当天那条时，main.dailyTie 会回落到「不立誓」并在入口说明。
+// 今日之约：日期种子再钉一条固定誓约。同一天必同一条（榜单可比），跨天会换（每天开局不一样）。
+// 池子＝**全部免费主路**（vows 里没有 ember 价目的那几条）：零门槛，首周余额 0 的玩家
+// 也不会撞上「今日轮到 X（还没解锁）」。11-26 之前池子是 none/mercy/greed/guard，三条都要花 ✦ 买。
 ok(Daily.vowOf(dayA) === Daily.vowOf(dayA), '同一天必守同一条誓约');
-ok(Daily.VOW_POOL.join(',') === 'none,mercy,greed,guard', '今日之约池只有四条基础誓约（不含苦行 / 无名）');
+{
+  const freeIds = Object.keys(D.vows).filter((k) => !D.vows[k].ember);
+  ok(Daily.VOW_POOL.slice().sort().join(',') === freeIds.slice().sort().join(','),
+    `今日之约池＝全部免费主路（数据 ${freeIds.join('/')}，池 ${Daily.VOW_POOL.join('/')}）`);
+  ok(Daily.VOW_POOL.every((id) => !D.vows[id].ember), '池里没有一条要花 ✦ 的（否则首周天天「还没解锁」）');
+}
 {
   const seen = {};
   let bad = '';
@@ -1927,18 +1932,26 @@ ok(Daily.VOW_POOL.join(',') === 'none,mercy,greed,guard', '今日之约池只有
     if (v === prev) { run++; if (run > maxRun) maxRun = run; } else { run = 1; prev = v; }
   }
   ok(!bad, '400 天里没有一条越界的今日之约');
-  ok(Object.keys(seen).length === 4, '四条誓约在 400 天里都轮到过（不是只挑一条）');
-  ok(maxRun <= 3, '同一条誓约最多连庄 3 天（否则「今天更难」会变成连着好几天一样）');
+  ok(Object.keys(seen).length === Daily.VOW_POOL.length, `${Daily.VOW_POOL.length} 条誓约在 400 天里都轮到过（不是只挑一条）`);
+  // 相邻两天必换：日期种子取模会在 400 天里撞出 4 天连庄（实测 maxRun=4），
+  // 那四天的「今日之约」是同一条，等于这四天的塔没换过——它存在的意义就是每天不一样。
+  ok(maxRun === 1, `相邻两天必定换一条誓约，不会连庄（实测最长 ${maxRun} 天）`);
+  // 三条均分：轮转若相位写错，会出现某一条 400 天只轮到几次
+  {
+    const lo = Math.min.apply(null, Object.keys(seen).map((k) => seen[k]));
+    const hi = Math.max.apply(null, Object.keys(seen).map((k) => seen[k]));
+    ok(hi - lo <= 20, `三条誓约在 400 天里轮得均匀（最少 ${lo} / 最多 ${hi}）`);
+  }
 }
 // 引擎侧：日签与誓约一起落档，规则真的按这条誓约走（纯增益，照常能格挡）
-const guardDay = (() => { for (let i = 0; i < 400; i++) { const k = Daily.keyOf(new Date(2026, 0, 1 + i)); if (Daily.vowOf(k) === 'guard') return k; } return null; })();
-ok(!!guardDay, '能造出「今日铁壁」这一天（供下面两条用）');
-E.newGame('guard', { seed: Daily.seedOf(guardDay), daily: guardDay });
-ok(E.vow() === 'guard' && E.state().flags.daily === guardDay, '今日一塔也能带誓约：日签与誓约一起落档');
+const heavyDay = (() => { for (let i = 0; i < 400; i++) { const k = Daily.keyOf(new Date(2026, 0, 1 + i)); if (Daily.vowOf(k) === 'dmg20') return k; } return null; })();
+ok(!!heavyDay, '能造出「今日重压」这一天（供下面两条用）');
+E.newGame('dmg20', { seed: Daily.seedOf(heavyDay), daily: heavyDay });
+ok(E.vow() === 'dmg20' && E.state().flags.daily === heavyDay, '今日一塔也能带誓约：日签与誓约一起落档');
 E.grantBlock();
-ok(E.canBlock(), '今日之约是铁壁时，格挡照常可用（规则不是罚款单）');
-E.newGame('mercy', { seed: dSeed, daily: dayA });
-ok(E.vow() === 'mercy' && E.priceOf(D.shop.find((x) => x.id === 'atk')) === 60, '换一条誓约（慈悲）照常生效，且不带物价惩罚');
+ok(E.canBlock(), '今日之约是重压时，格挡照常可用（规则不是罚款单）');
+E.newGame('dmg10', { seed: dSeed, daily: dayA });
+ok(E.vow() === 'dmg10' && E.priceOf(D.shop.find((x) => x.id === 'atk')) === 60, '换一条誓约（利齿）照常生效，且不带物价惩罚');
 
 const dailyA = E.newGame('none', { seed: dSeed, daily: dayA });
 const mapA = dailyA.maps[0].join('|');

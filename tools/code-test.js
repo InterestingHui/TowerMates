@@ -161,7 +161,7 @@ ok(crushed.rows[0].name === '你' && crushed.rows[0].rank === 1, '自己的局�
 ok(crushed.note === V.NOTE_CRUSHED, '压过全部影子时才出「走到他们没到过的地方」');
 ok(crushed.rows[1].name === '第五位勇者·岩' && crushed.rows[2].name === '第二位勇者·鸦', '影子按层数从深到浅');
 ok(crushed.rows[2].note === '停在第 2 层', '影子脚注挂在对应名字上');
-ok(crushed.rows[0].vowTag === '轻', '誓约徽记取 tag 首字');
+ok(crushed.rows[0].vowTag === '羽', '誓约徽记取 tag 末字（首字会撞：重压/重金）');
 ok(crushed.rows[2].vowTag === '' || crushed.rows[2].vowTag, '不立誓行不挂徽记（影子强制 none）');
 
 // 排序口径：同层先看结局，再看决战余裕，最后才是用时
@@ -287,7 +287,7 @@ const byVow = V.boardModel({
   mine: [{ floor: 4, vow: 'ascetic' }, { floor: 3, vow: 'none' }],
   rivals: [], shadows: [], filter: 'ascetic', todayKey: '2026-11-16', vows: VOWS,
 });
-ok(byVow.rows.length === 1 && byVow.rows[0].vowTag === '苦', '苦行档只出苦行局');
+ok(byVow.rows.length === 1 && byVow.rows[0].vowTag === '行', '苦行档只出苦行局');
 const noVow = V.boardModel({
   mine: [{ floor: 3, vow: 'none' }], rivals: [], shadows: [],
   filter: 'none', todayKey: '2026-11-16', vows: VOWS,
@@ -316,9 +316,59 @@ ok(allTabVow.note.indexOf('今日之约') < 0, '「全部」档不写今日之�
 const emptyDay = V.boardModel({ mine: [], rivals: [], shadows, filter: 'daily', todayKey: '2026-11-16', dayLabel: '11月16日', vows: VOWS });
 ok(emptyDay.empty.indexOf('11月16日') >= 0, '今日档空档要写出是哪一天的塔');
 
-// 档位表：全集合唯一来源。以后加誓约忘了加档，这条会直接红
-ok(V.BOARD_TABS.map((t) => t[0]).join(',') === 'all,daily,none,mercy,greed,ascetic,guard,nameless', '榜单档位全集合 8 档');
-ok(V.BOARD_TABS.filter((t) => t.on).length === 0 && V.boardModel({ filter: 'mercy', vows: VOWS, mine: [], shadows: [] }).tabs.filter((t) => t.on)[0].id === 'mercy', '当前档位标记唯一');
+// 档位表：全集合唯一来源。右值从**真实数据表**现算（vm 里跑一遍 data.js，取 GAME_DATA.vows）——
+// 免费主路（无 ember 价目）各一档、付费助力合并进「aid」。
+// 以前这里抄了 8 个 id 作字面量：誓约从 4→6 条、再从 6 条改成三路，断言都「看起来是绿的」。
+const REAL_VOWS = (() => {
+  const vm = require('vm');
+  const w = {};
+  vm.runInNewContext(require('fs').readFileSync(require('path').join(__dirname, '..', 'js', 'data.js'), 'utf8'), { window: w });
+  return (w.GAME_DATA || {}).vows || {};
+})();
+{
+  const tabIds = V.BOARD_TABS.map((t) => t[0]);
+  const freeIds = Object.keys(REAL_VOWS).filter((k) => !REAL_VOWS[k].ember);
+  const paidIds = Object.keys(REAL_VOWS).filter((k) => !!REAL_VOWS[k].ember);
+  ok(freeIds.length > 0 && freeIds.every((id) => tabIds.indexOf(id) >= 0),
+    `每条免费主路都有自己的档（数据 ${freeIds.join('/')} → 表 ${tabIds.join('/')}）`);
+  ok(paidIds.length > 0 && paidIds.every((id) => V.isAid(id, REAL_VOWS)) && !V.isAid('none', REAL_VOWS),
+    `「助力」覆盖集＝带价目的那几条（${paidIds.join('/')}）`);
+  ok(tabIds.length === 2 + freeIds.length + (paidIds.length ? 1 : 0),
+    `档位数由数据算出：全部/今日 2 + 主路 ${freeIds.length} + 助力 ${paidIds.length ? 1 : 0}（实测 ${tabIds.length}）`);
+  // 徽记只放一个字，所以这一个字必须能把所有誓约分开。11-26 实测：「重压」与「重金」首字都是「重」，
+  // 榜上「你 重 11层」读不出走的是哪条路——取末字（齿/压/羽/金/行/色/名）才互不相同。
+  const marks = Object.keys(REAL_VOWS)
+    .map((k) => ({ id: k, m: String(REAL_VOWS[k].tag || '').slice(-1) }))
+    .filter((x) => x.m);
+  ok(new Set(marks.map((x) => x.m)).size === marks.length,
+    `徽记一个字就能分开所有誓约（${marks.map((x) => x.id + '=' + x.m).join('/')}）`);
+}
+// 「助力」档的行为要用能分出免费/付费的样本（上面那份 VOWS 是三条精简样本，既没有三路也没有价目）
+{
+  const paid = {
+    none: { name: '不立誓', tag: '' },
+    dmg10: { name: '利齿之誓', tag: '利齿' },
+    ascetic: { name: '苦行之誓', tag: '苦行', ember: 24 },
+  };
+  const aidBoard = V.boardModel({
+    mine: [{ floor: 5, vow: 'ascetic' }, { floor: 4, vow: 'dmg10' }, { floor: 3, vow: 'none' }],
+    rivals: [], shadows: [], filter: 'aid', todayKey: '2026-11-16', vows: paid,
+  });
+  ok(aidBoard.rows.length === 1 && aidBoard.rows[0].vowTag === '行', '助力档只出买下的那几条誓约的局');
+  // 一条助力都没买时不能喊「去立一条誓约」（那是做不到的动作）
+  const aidLocked = V.boardModel({
+    mine: [], rivals: [], shadows: [], filter: 'aid', todayKey: '2026-11-16', vows: paid,
+    hasVow: () => false,
+  });
+  ok(/✦/.test(aidLocked.empty) && aidLocked.empty.indexOf('去立一条誓约') < 0,
+    `没买过助力时空档说清要花 ✦（实测「${aidLocked.empty.slice(0, 20)}」）`);
+  const aidOwned = V.boardModel({
+    mine: [], rivals: [], shadows: [], filter: 'aid', todayKey: '2026-11-16', vows: paid,
+    hasVow: (id) => id === 'ascetic',
+  });
+  ok(aidOwned.empty.indexOf('这一档还没有人') >= 0, '买过助力但还没走过：空档指路去走一局');
+}
+ok(V.BOARD_TABS.filter((t) => t.on).length === 0 && V.boardModel({ filter: 'dmg10', vows: VOWS, mine: [], shadows: [] }).tabs.filter((t) => t.on)[0].id === 'dmg10', '当前档位标记唯一');
 
 // 纯函数：不该把调用方传进来的记录改写（原实现 map 时就地套了 mine:true）
 const rawRec = { floor: 7, steps: 10, time: 90 };

@@ -53,14 +53,25 @@
     return isToday(k, now) ? k : '';
   }
 
-  // 今日之约：日期种子挑一条基础誓约。
-  // 池子固定为「不立誓 + 三条早期誓约」，保证同一天所有人算出来是同一条、榜单可比；
-  // 玩家还没买下这条时，开局回落到「不立誓」并在入口说明（见 main.dailyTie）。
-  // 苦行 / 无名不在池内：它们是更贵的解锁，不能靠换个日子白玩。
-  const VOW_POOL = ['none', 'mercy', 'greed', 'guard'];
+  // 今日之约：按「日序」轮转，相邻两天必定换一条。
+  // 为什么不用日期种子取模：400 天里会撞出 4 天连庄（实测 maxRun=4，概率约 1/3³×400），
+  // 那四天的誓约是重复的「今日之约」——它存在的意义就是每天不一样。
+  // 轮转会让节奏偏规律（三天一循环），所以每 29 天再多错一格：跨段相位跳，不是死板的三天循环。
+  // 同一天所有人算出来仍是同一条（纯日期函数），榜单可比性不变。
+  // 池子＝「开局三条免费主路」：三条都是零门槛（11-26 起三路免费、难度递增），
+  // 首周余额 0 的玩家也不会撞上「今天这条还没解锁」。
+  // 五条助力不进池：它们要花 ✦ 6/14/24/36/48 买下，放进来就等于按日期白送或按日期锁人。
+  const DAY0 = Date.UTC(2026, 0, 1);
+  function dayOrdinal(key) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(key == null ? '' : key));
+    if (!m) return 0;
+    return Math.floor((Date.UTC(+m[1], +m[2] - 1, +m[3]) - DAY0) / DAY);
+  }
+  const VOW_POOL = ['none', 'dmg10', 'dmg20'];
   function vowOf(key) {
-    const s = seedOf(key);
-    return VOW_POOL[s % VOW_POOL.length];
+    const n = VOW_POOL.length;
+    const d = dayOrdinal(key);
+    return VOW_POOL[((d + Math.floor(d / 29)) % n + n) % n];
   }
 
   return { keyOf, seedOf, label, isToday, tagAtSettle, vowOf, VOW_POOL, DAY };
