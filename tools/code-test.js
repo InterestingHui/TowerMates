@@ -127,6 +127,31 @@ const emptyAll = V.boardModel({ mine: [], rivals: [], shadows: [], filter: 'all'
 ok(emptyAll.rows.length === 0 && emptyAll.empty === V.EMPTY_OTHER, '空榜给「这一档还没有人」，不是空白');
 ok(emptyAll.note === '' && emptyAll.total === 0, '空榜不出脚注');
 
+// 空档的两种说法（2026-11-26 12:5x 自动轮 · 变体1 诊断发现）：锁着的档不能喊「去立一条誓约」——
+// 那条要花 ✦ 买下，喊了就是让玩家去做一件当下做不到的事。四态：锁着 / 已买 / 老调用方不传 / 不立誓档。
+{
+  const VV = {
+    none: { name: '不立誓', tag: '无誓' },
+    nameless: { name: '无名之誓', tag: '无名', ember: 48 },
+  };
+  const base = { mine: [], rivals: [], shadows: [], filter: 'nameless', todayKey: '2026-11-16', vows: VV };
+  const locked = V.boardModel(Object.assign({ hasVow: () => false }, base));
+  ok(/还锁着/.test(locked.empty) && /✦ 48/.test(locked.empty) && locked.empty !== V.EMPTY_OTHER,
+    `锁着的档说清价目（实测「${locked.empty}」）`);
+  const bought = V.boardModel(Object.assign({ hasVow: (id) => id === 'nameless' }, base));
+  ok(bought.empty === V.EMPTY_OTHER, '已买下、只是还没人跑 → 仍指路去立');
+  const legacy = V.boardModel(base);
+  ok(legacy.empty === V.EMPTY_OTHER, '不传 hasVow 的老调用方行为不变（不许凭空说锁着）');
+  const freeTab = V.boardModel({ mine: [], rivals: [], shadows: [], filter: 'none', todayKey: '2026-11-16', vows: VV, hasVow: () => false });
+  ok(freeTab.empty === V.EMPTY_OTHER, '「不立誓」档没有价目，hasVow 说没有也不许说锁着');
+  // 接线也要咬住：`boardModel` 本身能分辨，但只有把 Meta.has 注进去才分得出锁没锁。
+  // 断言必须限定在 `View.boardModel({...})` 那次调用里——`hasVow` 在 main.js 另有一处（誓约面板），
+  // 全库搜一遍会「匹配到别人」而永远绿（本条第一版就是这么假绿的）。
+  const bmCall = (mainSrc.match(/View\.boardModel\(\{([\s\S]{0,700}?)\}\)/) || [])[1] || '';
+  ok(bmCall.length > 100 && /hasVow: \(id\) => Meta\.has\(id\)/.test(bmCall),
+    'main.js 把 Meta.has 注进 boardModel 那次调用（不然空态永远说「去立」）');
+}
+
 // 每局 8 层 > 影子最高 3 层 → 「你已经走到他们没到过的地方」那句必须出，且自己排第一
 const crushed = V.boardModel({
   mine: [{ floor: 8, steps: 300, time: 600, vow: 'mercy' }], rivals: [], shadows,

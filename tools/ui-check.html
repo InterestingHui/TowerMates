@@ -385,7 +385,9 @@ async function run() {
     out.hasNamelessTab = !!ntab;
     if (ntab) ntab.click();
     out.namelessRows = d.querySelectorAll('#boardList .bd-row').length;
-    out.namelessEmpty = (d.getElementById('boardList').textContent || '').indexOf('这一档还没有人') >= 0;
+    // 空档的说法分两种（锁着 → 说清价目；已解锁 → 指路去立），探针只收原文，判定交给 ui-test
+    out.namelessEmptyText = ((d.getElementById('boardList').textContent || '').replace(/\s+/g, ' ')).trim();
+    out.namelessEmpty = out.namelessEmptyText.indexOf('这一档还没有人') >= 0;
     var atab3 = d.querySelector('#boardTabs .btab[data-f="all"]');
     if (atab3) atab3.click();
     out.allRowsAfterVowTabs = d.querySelectorAll('#boardList .bd-row').length;

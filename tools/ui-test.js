@@ -89,8 +89,15 @@ const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-ui-'));
     `榜单档位覆盖全部六条誓约 + 全部 / 今日（实测 ${out.tabIds}）`);
   ok(out.hasAscTab === true && out.ascOnly === true,
     `「苦行」档只筛出苦行的局（实测 ${out.ascRows} 行）`);
-  ok(out.hasNamelessTab === true && out.namelessRows === 0 && out.namelessEmpty === true,
-    `没走过的誓约档给出「这一档还没有人」而不是空白（实测 ${out.namelessRows} 行）`);
+  // 2026-11-26 12:5x：空档从「一句话」变两句话（锁着 / 已解锁）——探针收原文，这里两种都认，但都要说清
+  {
+    const et = out.namelessEmptyText || '';
+    const locked = /还锁着/.test(et);
+    ok(out.hasNamelessTab === true && out.namelessRows === 0 && (locked || /还没有人/.test(et)),
+      `没走过的誓约档给出解释而不是空白（实测 ${out.namelessRows} 行 /「${et.slice(0, 20)}」）`);
+    ok(locked ? /✦\s*\d+/.test(et) : true,
+      `锁着的档说清价目（实测「${et.slice(0, 24)}」）`);
+  }
   ok(out.allRowsAfterVowTabs >= 4, `「全部」档仍列全部行（实测 ${out.allRowsAfterVowTabs} 行）`);
   // 自己贴自己的码：这条判据原先按「重编码比字符串」写（誓约写死成 none），誓约不是 none 时会漏
   ok(out.selfWarn.indexOf('自己') >= 0, `贴自己的码 → 明说这是自己的成绩（实测「${out.selfWarn}」）`);

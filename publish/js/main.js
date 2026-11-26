@@ -1896,6 +1896,8 @@
       // 「今日之约」当天是不立誓时不写——那本来是默认状态，写出来只是噪音
       dayVowName: dailyVowDef().name === '不立誓' ? '' : dailyVowDef().name,
       vows: D.vows,
+      // 空档的说法要看这条誓约买没买下（`EMPTY_OTHER` 喊「去立一条誓约」，锁着时那是做不到的动作）
+      hasVow: (id) => Meta.has(id),
       rivalNotes: RIVAL_NOTE,
     });
     boardFilter = m.filter;

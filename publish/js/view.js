@@ -64,6 +64,9 @@
   const NOTE_DAILY = '这一座塔每天零点换一次：同一天走进来的人遇到的是同一座，所以「今天谁走得远」是能比的。贴进来的朋友码只要也是今天这座，就会进这一档。';
   const NOTE_CRUSHED = '影子勇者都停在前五层。你已经走到他们没到过的地方。';
   const EMPTY_OTHER = '这一档还没有人。去立一条誓约，回来占第一位。';
+  // 锁着的档位不能喊「去立一条誓约」——那条誓约得先花 ✦ 买下（11-26 誓约改纯增益 + 逐级买之后，
+  // 首局玩家点开「无名」档，看到的是一句自己当下做不到的指路，属「看不懂下一步」的弱形态）
+  const EMPTY_LOCKED = (name, cost) => `这一档还锁着：「${name}」要 ✦ ${cost} 解锁。`;
   // 名录里那个人怎么称呼。微信好友榜带回的是**昵称**（wxbridge.normalize 已滤过引号尖括号、截 16 字），
   // 贴码那条路码里只有成绩没有名字 → 退回「挑战·朋友」。旧实现一律写死这五个字，于是贴三位朋友
   // 就是三行同名：知道谁爬得高，不知道超过的是谁——异步竞争（E-11）的前提正是「知道超过了谁」。
@@ -144,6 +147,14 @@
       ? NOTE_DAILY + (o.dayVowName ? `<br>今日之约：${o.dayVowName}——同一天走进塔的人守的都是这一条。` : '')
         + (offBoard ? `<br>${offBoard}` : '')
       : (offBoard || (crushed ? NOTE_CRUSHED : ''));
+    // 空档的说法分两种：立得起的（指路去立）／还没买下的（先说要花多少）。
+    // `hasVow` 不传＝按「能立」算，老调用方（含单测）行为不变。
+    const emptyFor = (id) => {
+      const v = vows[id];
+      const paid = v && v.ember ? v.ember : 0;
+      if (paid && typeof o.hasVow === 'function' && !o.hasVow(id)) return EMPTY_LOCKED(v.name, paid);
+      return EMPTY_OTHER;
+    };
     const out = people.slice(0, cap).map((r, i) => {
       const v = vows[r.vow] || vows.none || { name: '不立誓', tag: '' };
       const ending = endOf(r);
@@ -167,7 +178,7 @@
       filter,
       tabs: BOARD_TABS.map(([id, label]) => ({ id, label, on: id === filter })),
       note,
-      empty: rows.length ? '' : (filter === 'daily' ? dailyEmpty(o.dayLabel || '') : EMPTY_OTHER),
+      empty: rows.length ? '' : (filter === 'daily' ? dailyEmpty(o.dayLabel || '') : emptyFor(filter)),
       rows: out,
       total: people.length,
     };
