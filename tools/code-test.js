@@ -1987,6 +1987,26 @@ ok(mainSrc.indexOf("searchParams.set('rival'") < 0, 'main.js 不许自己拼链�
     '预热挂在 load 后且只挂一次（不预热＝每幕第一次出现先露矢量再啪地换图）');
 }
 
+// ---------- publish 镜像的孤儿（2026-11-26 22:5x 自动轮）----------
+// 上面那组只量「表 → 源目录 → 镜像」这条**正向**链：表里有的，三处都得有。反过来不成立——
+// 镜像里比仓库多出来的文件不落在任何集合里，谁也看不见。实测 publish/assets 多 5 个死文件
+// （297KB：2 张 FLUX 调试残留 + 3 张立绘换 id 之后的孤儿），全都在 git 里，跟着包体一起发上线。
+// 部署目录是仓库根，所以「镜像干净」不是洁癖，是包体预算的一部分。这里改成双向闭合。
+{
+  const fs5 = require('fs');
+  const path5 = require('path');
+  const root = path5.join(__dirname, '..');
+  const walk = (dir, base) => fs5.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+    const p = path5.join(dir, e.name);
+    return e.isDirectory() ? walk(p, base) : [path5.relative(base, p).split(path5.sep).join('/')];
+  });
+  const pubFiles = walk(path5.join(root, 'publish', 'assets'), path5.join(root, 'publish', 'assets'));
+  const srcFiles = new Set(walk(path5.join(root, 'assets'), path5.join(root, 'assets')));
+  const orphans = pubFiles.filter((p) => !srcFiles.has(p));
+  ok(orphans.length === 0,
+    `publish/assets 无孤儿（仓库里不存在却会发上线的：${orphans.join(' / ') || '无'}）`);
+}
+
 // ---------- 句级取景表（2026-11-26）----------
 // 用户报障「对话和背景板不相称」：段级映射让「帕子飘下海崖」配着塔顶的图。
 // 修法是 LINE_SCENE（每段逐句配景）。这张表最大的风险是**改剧本后错位**——
@@ -2128,6 +2148,26 @@ ok(mainSrc.indexOf("searchParams.set('rival'") < 0, 'main.js 不许自己拼链�
     const kb = Math.round(fs4.statSync(card).size / 1024);
     ok(kb > 200, `分享卡不是空图/旧纯字卡（${kb}KB）`);
   }
+  // 2026-11-26 22:5x 补洞：上面五条都咬不住「换了 CG 却没重出卡」——那张卡是**手动**截的
+  // （chrome --headless --screenshot），不在 build 指纹里、也不在任何同步流程里。
+  // 所以让卡自己记着底图指纹：换图不重出 ⇒ 指纹对不上，这里先红，别等分享出去才发现。
+  const shSrc = fs4.readFileSync(path4.join(__dirname, '..', 'tools', 'sharecard.html'), 'utf8');
+  const bgTag = (shSrc.match(/<img class="bg"[\s\S]{0,400}?>/) || [''])[0];
+  const bgSrc = (bgTag.match(/src="([^"]+)"/) || [])[1] || '';
+  const bgSha = (bgTag.match(/data-bg-sha="([0-9a-f]{64})"/) || [])[1] || '';
+  ok(bgSrc === '../assets/cg/gate.webp', `分享卡底图仍是塔门 CG（现为 ${bgSrc || '无'}）`);
+  ok(bgSha.length === 64, '分享卡在 sharecard.html 里记着自己的底图指纹（data-bg-sha）');
+  if (bgSrc && bgSha) {
+    const realSha = require('crypto').createHash('sha256')
+      .update(fs4.readFileSync(path4.join(__dirname, '..', 'assets', 'cg', 'gate.webp'))).digest('hex');
+    ok(realSha === bgSha,
+      '分享卡底图指纹与 gate.webp 现内容一致（换图后要重出卡并更新 data-bg-sha）');
+  }
+  // 卡是 og:image 直读的那张；漏同步 = 分享出去全是旧脸，而源文件改动在本地看不出来
+  const pubCard = path4.join(__dirname, '..', 'publish', 'assets', 'share-card.png');
+  ok(fs4.existsSync(pubCard) && fs4.existsSync(card)
+    && Buffer.compare(fs4.readFileSync(pubCard), fs4.readFileSync(card)) === 0,
+    'publish 的分享卡与源逐字节一致（og:image 读的是线上这一份）');
 }
 
 // 榜单表头（2026-11-26 加练·美术 焦点B）：六列里有三列玩家读不出来——「未竟」是什么、第三到第六列// 哪一列是耗时。补表头之后最容易坏的不是表头本身，而是「表头与数据行各写一份列宽/列序」：
