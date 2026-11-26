@@ -164,6 +164,29 @@ ok(crushed.rows[2].note === '停在第 2 层', '影子脚注挂在对应名字�
 ok(crushed.rows[0].vowTag === '羽', '誓约徽记取 tag 末字（首字会撞：重压/重金）');
 ok(crushed.rows[2].vowTag === '' || crushed.rows[2].vowTag, '不立誓行不挂徽记（影子强制 none）');
 
+// 「榜上没有我」这两种情况都要有一句话（2026-11-27 加练社交）。
+// 影子勇者的行一直在，所以「一局都没通关」的玩家**永远看不到空态**：他看见三位影子 + 贴码朋友，
+// 找不到自己、也没有一个字解释——第一次打开塔友榜的人多数正处在这个状态（名录只记通关那局）。
+// 11-18 修的是「被前十截掉」那种（offBoard），这两种更常见的沉默一直没修。
+{
+  const noRun = V.boardModel({ mine: [], rivals: [], shadows, filter: 'all', todayKey: '2026-11-16', vows: VOWS });
+  ok(noRun.rows.length > 0 && noRun.note === V.NOTE_NO_RUN,
+    `一局都没有时说清「榜上还没有你」（实测「${noRun.note}」）`);
+  ok(/通关/.test(V.NOTE_NO_RUN), '那句必须说明怎么才能上榜（通关一次），不是只报「没有」');
+  const mineOtherVow = { mine: [{ floor: 8, steps: 300, time: 600, vow: 'mercy' }], rivals: [], shadows, todayKey: '2026-11-16', vows: VOWS };
+  const tabbed = V.boardModel(Object.assign({ filter: 'none' }, mineOtherVow));
+  ok(tabbed.rows.length > 0 && tabbed.note === V.NOTE_NO_MINE_TAB,
+    '档位把我的局筛掉时说「这一档里还没有你的局」，不是留一片沉默');
+  const onBoard = V.boardModel(Object.assign({ filter: 'all' }, mineOtherVow));
+  ok(onBoard.note !== V.NOTE_NO_RUN && onBoard.note !== V.NOTE_NO_MINE_TAB, '我在榜上时不许说「还没有你」');
+  const dailyRival = V.boardModel({
+    mine: [], rivals: [{ code: 'c1', name: '阿箬', floor: 5, time: 300, rival: true, daily: '2026-11-16' }],
+    shadows: [], filter: 'daily', todayKey: '2026-11-16', vows: VOWS,
+  });
+  ok(dailyRival.note.indexOf(V.NOTE_NO_RUN) >= 0, '「今日」档同样要解释为什么没有我');
+  ok(V.NOTE_NO_RUN !== V.NOTE_NO_MINE_TAB, '两句不许写成同一句（一个是没通关，一个是这一档没有）');
+}
+
 // 排序口径：同层先看结局，再看决战余裕，最后才是用时
 // 用 rivals 而不是 mine 来测：榜单上一人一行（见「同一个人只占一行」那条），
 // 三条 mine 会被折叠成一行——排序口径就只能拿三位朋友来验了。

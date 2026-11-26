@@ -84,6 +84,10 @@ async function run() {
       out.rivalFloorCell = rc ? rc.textContent.replace(/\s+/g, '') : null;
       out.rivalNameCell = rn ? rn.textContent.replace(/\s+/g, '') : null;
       out.rivalNameNoFloor = !!rn && rn.textContent.indexOf('层') < 0;
+      // 榜上没有我时，脚注必须当面说清（2026-11-27 加练社交）：这一刻 mine 是空的（开局刚清过
+      // towermates_board），行里只有影子 + 刚收下的朋友 ⇒ 正好是「一局都没通关」那一屏。
+      var bnote = d.querySelector('#boardList .bd-note');
+      out.boardNoMineNote = bnote ? bnote.textContent.replace(/\s+/g, ' ').trim() : '';
     }
 
     // 今日一塔：朋友贴进来的码带了今天的日签，才该进「今日」档

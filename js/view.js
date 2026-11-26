@@ -72,6 +72,12 @@
   const BOARD_CAP = 10;
   const NOTE_DAILY = '这一座塔每天零点换一次：同一天走进来的人遇到的是同一座，所以「今天谁走得远」是能比的。贴进来的朋友码只要也是今天这座，就会进这一档。';
   const NOTE_CRUSHED = '影子勇者都停在前五层。你已经走到他们没到过的地方。';
+  // 「榜上没有我」是一句话，不能靠玩家自己猜。它有两个人：①一局都还没通关——名录只记走到塔顶的那局
+  // （`saveBoard` 只在 showEnd 调），所以榜上永远只有三位影子和贴码进来的朋友；②这一档把我的局筛掉了。
+  // 前者才是多数人的第一屏：打了五局全折在半路，打开榜找不到自己，也没有一个字解释。
+  // 11-18 修的是「被前十截掉」那种（offBoard），更常见的这两种一直没人说话。
+  const NOTE_NO_RUN = '榜上还没有你——名录只记走到塔顶的那一局，通关一次它就在这儿了。';
+  const NOTE_NO_MINE_TAB = '这一档里还没有你的局——换个档，或者再走一局。';
   const EMPTY_OTHER = '这一档还没有人。去立一条誓约，回来占第一位。';
   // 锁着的档位不能喊「去立一条誓约」——那条誓约得先花 ✦ 买下（11-26 誓约改纯增益 + 逐级买之后，
   // 首局玩家点开「无名」档，看到的是一句自己当下做不到的指路，属「看不懂下一步」的弱形态）
@@ -168,11 +174,17 @@
         .filter((r) => r && r.daily && r.daily !== o.todayKey)
         .map((r) => String(r.code || ''))).size
       : 0;
+    // 影子的行一直在，所以「一局都没有」的玩家永远看不到空态——得有一句解释垫在行前面。
+    // 只在真有行时出（空榜那屏已经有「这一档还没有人／今天还没走完一局」，别再叠一句同义的）。
+    const noMineNote = rows.length
+      ? (!mine.length ? NOTE_NO_RUN : (myIdx < 0 ? NOTE_NO_MINE_TAB : ''))
+      : '';
     const note = filter === 'daily'
       ? NOTE_DAILY + (o.dayVowName ? `<br>今日之约：${o.dayVowName}——同一天走进塔的人守的都是这一条。` : '')
         + (staleRivals ? `<br>${NOTE_STALE(staleRivals)}` : '')
         + (offBoard ? `<br>${offBoard}` : '')
-      : (offBoard || (crushed ? NOTE_CRUSHED : ''));
+        + (noMineNote ? `<br>${noMineNote}` : '')
+      : (offBoard || noMineNote || (crushed ? NOTE_CRUSHED : ''));
     // 空档的说法分两种：立得起的（指路去立）／还没买下的（先说要花多少）。
     // `hasVow` 不传＝按「能立」算，老调用方（含单测）行为不变。
     const emptyFor = (id) => {
@@ -1283,7 +1295,7 @@
     foeName, traitNote, threatModel, blockModel, guardModel, tangleModel, prepOptions, lastTacticLine, coreRingLine, PREP_FIRST, PREP_HINT,
     hintPicked, HINT_PICK, HINT_AUTO,
     BOARD_TABS, BOARD_CAP, SHOP_CORE, SEALS, CHAPTERS, isAid,
-    NOTE_DAILY, NOTE_STALE, NOTE_CRUSHED, EMPTY_OTHER, TIP_BLOCK, TIP_SHARD,
+    NOTE_DAILY, NOTE_STALE, NOTE_CRUSHED, NOTE_NO_RUN, NOTE_NO_MINE_TAB, EMPTY_OTHER, TIP_BLOCK, TIP_SHARD,
     MEM_NOTE_DEATH, MEM_NOTE_WIN, BRIEF_SHOW,
     ALTAR_DESC_EARLY, ALTAR_DESC_LATE, ALTAR_EMPTY,
     ECHO_REWARD_PENDING, ECHO_REWARD_TAKEN, ECHO_HINT_PICK, ECHO_HINT_EMPTY, ECHO_REWARD_EMPTY,
