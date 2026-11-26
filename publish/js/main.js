@@ -4704,20 +4704,28 @@
       </button>`;
     }).join('');
 
+    // 首局的灰卡是「展柜」不是「货架」：余烬一定是 0（余烬只从这一局里赚），五张卡点了
+    // 只会各弹一句同义的「余烬不够」。保留内容可见（用户 11-26 定稿：不许有看不到内容的誓约），
+    // 但第一局里把「点一下」这条路封掉——文字改成「打完这局攒」，第二局起恢复可买。
+    const firstRun = isFirstRun();
+
     const poolCards = pool.map((id) => {
       const v = D.vows[id];
       const locked = !Meta.has(id);
-      const affordable = locked && Meta.ember >= (v.ember || 0);
+      const shelf = locked && firstRun;
+      const affordable = locked && !shelf && Meta.ember >= (v.ember || 0);
       // 档位签只写短签（轻羽/重金/…）：卡序与价目已经说清档位，小签不再塞序号
       const tier = `<span class="vc-tier ${v.tier || ''}">${v.tag}</span>`;
       // 上局用的誓约标角标：重开的人一眼认出自己那条（焦点 B：重复认卡是纯劳动）
       const lastMark = (Meta.memory.lastVow || '') === id ? '<span class="vc-last">上局</span>' : '';
       // 锁着的只报价目：余额就在上方，五张卡各写一遍「还差 N」是同一句话的五遍回声
       const foot = locked
-        ? `<span class="vc-unlock ${affordable ? 'ok' : ''}">🔒 ${v.ember} ✦${affordable ? ' · 点一下买下' : ''}</span>`
+        ? (shelf
+          ? `<span class="vc-unlock shelf">🔒 ${v.ember} ✦ · 打完这局攒</span>`
+          : `<span class="vc-unlock ${affordable ? 'ok' : ''}">🔒 ${v.ember} ✦${affordable ? ' · 点一下买下' : ''}</span>`)
         : `<span class="vc-unlock owned">✓ 已解锁</span>`;
       const acc = v.accent || '#e8c46a';
-      return `<button class="vow-card ${locked ? 'locked dim' : ''}" data-vow="${id}" style="--vy:${acc};--vy-soft:${acc}66;--vy-wash:${acc}1a">
+      return `<button class="vow-card ${locked ? 'locked dim' : ''}${shelf ? ' shelf' : ''}" data-vow="${id}" style="--vy:${acc};--vy-soft:${acc}66;--vy-wash:${acc}1a">
         <span class="vc-head">${VowIcons.icon(id, 26, v.accent)}${tier}${lastMark}</span>
         <span class="vc-name">${v.name}</span>
         <span class="vc-desc">${v.desc}</span>
@@ -4731,6 +4739,8 @@
       <div class="vow-sect"><b>誓约</b><span>${sectLabel} · ${owned}/${pool.length}</span></div>
       <div class="vow-pool">${poolCards}</div>`;
     el.vowCards.querySelectorAll('.vow-card').forEach((b) => {
+      // 展柜卡（首局的锁卡）不接点击：点它只有一句「余烬不够」，连点三张就是三遍同一句话
+      if (b.classList.contains('shelf')) return;
       b.addEventListener('click', () => chooseVow(b.dataset.vow));
     });
   }
@@ -4776,6 +4786,8 @@
     // 只有「用 ✦ 解锁的助力」有锁；开局三路（无誓 / 利齿 / 重压）永远可走。
     // 点一下买下、再点一下立誓：多这一步，避免误触把币花掉还立刻开局。
     if (v.ember && !Meta.has(id)) {
+      // 首局余烬必为 0：这里兜住键盘 Enter 与任何未来入口，话术指出去处而不是报差额
+      if (isFirstRun()) { warn(`「${v.name}」要打完这一局才有 ✦——先走这一趟`, 2600); return; }
       const r = Meta.buy(id, v.ember);
       if (r === 'poor') { warn(`余烬不够：还差 ${v.ember - Meta.ember} ✦`); return; }
       if (r === 'ok') {

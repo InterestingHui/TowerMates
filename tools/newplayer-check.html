@@ -325,9 +325,12 @@ function load(url) {
       const locked0 = d.querySelectorAll('#vowCards .vow-card.locked');
       const none0 = d.querySelector('#vowCards .vow-card[data-vow="none"]');
       // 2026-11-26 用户要求：第一次进塔只能选「不立誓」，其余五条锁着但内容全看得见
-      rec('F2 首局八张卡：三条路都能走，五条助力锁着', cards0.length === 8 && locked0.length === 5
+      // 2026-11-27：首局余烬必为 0 ⇒ 五张锁卡改「展柜」（不接点击，价目旁写清打完这局再来）；
+      // 内容仍然全看得见，卡数不变（元素登记仍是 8 张）。
+      const shelf0 = d.querySelectorAll('#vowCards .vow-card.locked.shelf');
+      rec('F2 首局八张卡：三条路能走，五条助力是展柜', cards0.length === 8 && locked0.length === 5 && shelf0.length === 5
         && none0 && !none0.classList.contains('locked'),
-        `卡 ${cards0.length} / 锁 ${locked0.length} / 不立誓可选=${!!none0 && !none0.classList.contains('locked')}`);
+        `卡 ${cards0.length} / 锁 ${locked0.length} / 展柜 ${shelf0.length} / 不立誓可选=${!!none0 && !none0.classList.contains('locked')}`);
       const em0 = d.getElementById('vowEmber'), en0 = d.getElementById('vowEmberNote');
       // 有锁着的誓约，就得说明 ✦ 是什么（不然价目上的「8 ✦」是个没有来路的符号）
       rec('F3 首局写明余烬行与注释', em0.hidden === false && en0.hidden === false, `余额 hidden=${em0.hidden} 注释 hidden=${en0.hidden}`);

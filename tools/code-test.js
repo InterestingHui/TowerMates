@@ -370,6 +370,22 @@ const REAL_VOWS = (() => {
 }
 ok(V.BOARD_TABS.filter((t) => t.on).length === 0 && V.boardModel({ filter: 'dmg10', vows: VOWS, mine: [], shadows: [] }).tabs.filter((t) => t.on)[0].id === 'dmg10', '当前档位标记唯一');
 
+// 立誓页首局的锁卡是「展柜」（2026-11-27 自动轮）：内容照旧全看得见（用户 11-26 定稿），
+// 但第一局的余烬必为 0，点它只会各弹一句同义的「余烬不够」⇒ 不接点击、价目旁写清出处。
+{
+  const vowFn = mainSrc.slice(mainSrc.indexOf('function renderVowPanel'), mainSrc.indexOf('function openVow'));
+  ok(vowFn.indexOf('const firstRun = isFirstRun();') >= 0 && vowFn.indexOf('const shelf = locked && firstRun;') >= 0,
+    '首局锁卡走 shelf 分支（isFirstRun 同源，别另造一份首局判定）');
+  ok(vowFn.indexOf("classList.contains('shelf')") > 0 && vowFn.indexOf("b.addEventListener('click'") > vowFn.indexOf("classList.contains('shelf')"),
+    '展柜卡不接点击事件（先判 shelf 再绑 click）');
+  ok(/打完这局攒/.test(vowFn), '展柜卡的价目旁要写清「打完这局攒」，不能只有一把锁');
+  // 键盘 Enter 绕开点击绑定，守卫必须落在 chooseVow 里
+  const chooseFn = mainSrc.slice(mainSrc.indexOf('function chooseVow'));
+  ok(chooseFn.indexOf('if (isFirstRun()) { warn(') >= 0 && chooseFn.indexOf('if (isFirstRun()) { warn(') < chooseFn.indexOf('Meta.buy('),
+    'chooseVow 在花 ✦ 之前拦下首局（键盘 Enter 也走这里）');
+  ok(/\.vow-card\.locked\.shelf \{ cursor: default; \}/.test(cssSrc), '展柜卡不给手型（能亮的才是能点的）');
+}
+
 // 纯函数：不该把调用方传进来的记录改写（原实现 map 时就地套了 mine:true）
 const rawRec = { floor: 7, steps: 10, time: 90 };
 V.boardModel({ mine: [rawRec], rivals: [], shadows: [], filter: 'all', todayKey: '2026-11-16', vows: VOWS });

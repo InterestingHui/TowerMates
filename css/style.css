@@ -2631,6 +2631,10 @@ body.at-start #bottom { visibility: hidden; }
   border-color: rgba(232, 196, 106, 0.4);
   border-top-color: rgba(232, 196, 106, 0.4);
 }
+/* 首局的锁卡是展柜（点不动）：不给悬停高亮、不给手型——能亮的是能点的，别让手指先答应 */
+.vow-card.locked.shelf { cursor: default; }
+.vow-card.locked.shelf:hover { border-color: rgba(126, 136, 154, 0.3); border-top-color: rgba(126, 136, 154, 0.3); }
+.vow-card.locked .vc-unlock.shelf { color: #6f7787; }
 /* 三路是横排：主色挪到左边那条脊上，顶边回到普通 1px，别横着再压一条 3px */
 .vow-card.vow-path { border-top-width: 1px; border-top-color: rgba(232, 196, 106, 0.22); }
 
