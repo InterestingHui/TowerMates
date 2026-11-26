@@ -2242,6 +2242,51 @@ ok(mainSrc.indexOf("searchParams.set('rival'") < 0, 'main.js 不许自己拼链�
     '方向键默认收起这条前提仍在（若改成默认展开，上面那句就该恢复成「方向键 / 点击格子」）');
 }
 
+// 誓约的回声（2026-11-27 加练·叙事）：玩家开局十一秒立的那条誓，必须在叙事上有回音。
+// 此前全塔只有 NPC 有——守誓之盾那句「立过的誓，我守到了」是别人的誓，玩家自己那条
+// 走到结算连一句都没被认下（「誓」这条母题有回音，回音却没落在玩家身上）。
+// 六条一起守：八条都有 / 单句 ≤30 字 / 互不相同 / 不写数值 / 胜败两个出口都念且只念一处。
+{
+  const ids = Object.keys(GD.vows);
+  const text = (id) => String((GD.vows[id] || {}).echo || '').trim();
+  const missing = ids.filter((id) => !text(id));
+  ok(ids.length === 8 && missing.length === 0, `八条誓约都有结算回声（缺：${missing.join('/') || '无'}）`);
+  const chars = (t) => Array.from(t).length;
+  const long = ids.filter((id) => chars(text(id)) > 30);
+  ok(long.length === 0, `回声单句 ≤30 字，后日谈末尾挂得住（超的：${long.join('/') || '无'}）`);
+  ok(new Set(ids.map(text)).size === ids.length, '八条回声互不相同（复制粘贴同一句＝只有一条誓约被认下）');
+  // 数值只许写在 desc 一处：echo 里再写一遍必然与 dmgMul / 回血比例漂（11-19 起的老账）
+  const numbered = ids.filter((id) => /[0-9０-９%％]/.test(text(id)));
+  ok(numbered.length === 0, `回声不写具体数值（越界：${numbered.join('/') || '无'}）`);
+  const fnBody = (name) => {
+    const i = mainSrc.indexOf(`function ${name}(`);
+    if (i < 0) return '';
+    const rest = mainSrc.slice(i + 10);
+    const j = rest.indexOf('\n  function ');
+    return rest.slice(0, j < 0 ? rest.length : j);
+  };
+  const winBody = fnBody('showEnd');
+  const deathBody = fnBody('showDeath');
+  // 数「行」不数「次」：同一行里写 `cond ? ' '+x : ''` 会命中两次，那是拼接不是两次念
+  const echoLines = (src) => src.split('\n').filter((l) => /vowDef( && vowDef)?\.echo/.test(l)).length;
+  ok(echoLines(winBody) === 1 && winBody.includes('vowLine'),
+    `胜局出口：回声只在 showEnd 定义一次并接进后日谈（实测 ${echoLines(winBody)} 行）`);
+  ok(echoLines(deathBody) === 1,
+    `败局出口：同一句照念且只念一处（实测 ${echoLines(deathBody)} 行）`);
+}
+
+// 层灯满 13 盏＝收集到底，那一格不许再画一个永远 disabled 的按钮（2026-11-27 变体1 诊断）。
+// 老玩家的最后一屏留着一个点不动的控件，属「点了没反应」的弱形态；同族的 warn('十三盏灯都亮了')
+// 因按钮 disabled 而不可达——写了没人听。两条契约：满灯时不渲染 lamp-btn / 必须有一句终态交代。
+{
+  const i = mainSrc.indexOf('const lampRow = !memView.lockedVow');
+  const seg = i < 0 ? '' : mainSrc.slice(i, i + 900);
+  ok(i > 0 && /lampFull/.test(seg), '层灯那一格得有满灯判据（lampFull）');
+  ok(seg.indexOf('Meta.lamps >= LAMP_MAX') < 0 || seg.indexOf("'disabled'") < 0,
+    '满灯不许再用 disabled 按钮糊过去（disabled 只留给「余烬不够」）');
+  ok(/十三盏都亮了/.test(seg), '满灯后必须有一句终态交代（不是留个点不动的控件）');
+}
+
 console.log(`挑战码 / 触控 / 桥接 / 视图模型单测：${pass} 项通过${bad ? `，${bad} 项失败` : ''}`);
 
 process.exit(bad ? 1 : 0);

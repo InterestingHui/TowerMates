@@ -560,39 +560,51 @@ window.GAME_DATA = (function () {
   // ② 另外五条是「用 ✦ 买下的助力」，永久可选；它们让路好走，所以**不再额外给 ✦**
   //    （否则「又强又赚」会盖过挑战路，三路的取舍就没了）。
   // ③ 三路的难度只由一个数控制（dmgMul＝怪物伤害乘区），desc 里的百分比必须与它同源。
+  // ④ `echo`＝结算页后日谈末尾那句回声，按走了哪条路取（2026-11-27 加练·叙事补）：
+  //    此前「誓」这条母题全塔只有 NPC 有回音（story.js 守誓之盾那句「立过的誓，我守到了」是别人的誓），
+  //    玩家开局十一秒做的那次选择在叙事上完全孤立。八条各一句、不许出现数字与百分比——
+  //    数值一旦写进文案就会与 dmgMul / 回血比例漂，口径只许留在 `desc`（code-test 有断言守着）。
   const vows = {
     none: {
       name: '不立誓', emoji: '○', tag: '无誓', tier: 't-normal', accent: '#9fb6d8', path: true, diff: 1,
       desc: '塔是什么样就什么样', reward: 2,
+      echo: '你没立誓。塔不催人，它只把每一层摆在那儿。',
     },
     dmg10: {
       name: '利齿之誓', emoji: '🦷', tag: '利齿', tier: 't-fang', accent: '#d9925c', path: true, diff: 2, dmgMul: 1.1,
       desc: '塔里每只怪的伤害 +10%', reward: 6,
+      echo: '你立过利齿：塔里的牙都更利，你照样往里走。',
     },
     dmg20: {
       name: '重压之誓', emoji: '🪨', tag: '重压', tier: 't-crush', accent: '#e0745e', path: true, diff: 3, dmgMul: 1.2,
       desc: '塔里每只怪的伤害 +20%', reward: 12,
+      echo: '你立过重压：每一击都压实了，塔数着你挨过的。',
     },
     mercy: {
       name: '慈悲之誓', emoji: '🕊️', tag: '轻羽', tier: 't-easy', accent: '#7ec9a2',
       desc: '每上一层回复 12% 生命', reward: 0, ember: 6,
+      echo: '你立过慈悲：每次上楼，伤口先替你收一寸。',
     },
     greed: {
       name: '贪婪之誓', emoji: '🪙', tag: '重金', tier: 't-hard', accent: '#e0b56a',
       desc: '击杀金币 +50%', reward: 0, ember: 14,
+      echo: '你立过贪婪：塔的金子给得爽快，账记得也清楚。',
     },
     ascetic: {
       name: '苦行之誓', emoji: '🪵', tag: '苦行', tier: 't-ascetic', accent: '#c8a978',
       desc: '战斗经验 +40%', reward: 0, ember: 24,
+      echo: '你立过苦行：别人捡钱的时候你在练，它看见了。',
     },
     guard: {
       name: '铁壁之誓', emoji: '🛡️', tag: '铁色', tier: 't-nightmare', accent: '#e07a6a',
       desc: '每场战斗承伤 −12%', reward: 0, ember: 36,
+      echo: '你立过铁壁：每一场都少挨一点，攒成你站的地方。',
     },
     // 最贵的一条：四处刻痕各长一寸——四位锁匠倒下时，塔把你的名字刻得更深
     nameless: {
       name: '无名之誓', emoji: '🕳️', tag: '无名', tier: 't-abyss', accent: '#a99cf0',
       desc: '每击败一位锁匠：攻击/防御 +2、生命上限 +200，并回复 25% 生命', reward: 0, ember: 48,
+      echo: '你立过无名：你把名字押上去，塔记着这笔押。',
     },
   };
 

@@ -2496,7 +2496,9 @@
     $('endTitle').textContent = '塔收下了你';
     $('endDesc').textContent = `你倒在了${monster ? monster.name : '塔里'}的手里。塔把这一局的余烬收进墙上，等下一个人。`;
     $('endBody').textContent = '';
-    $('endEpi').textContent = `第 ${s.floor + 1} 层 · 挨了 ${damage} 点。塔不怪你——它只是照章办事。`;
+    // 立过誓的局，死法也带一句誓的回声（文案仍只有 data.js 那一份，与胜局同源）
+    $('endEpi').textContent = `第 ${s.floor + 1} 层 · 挨了 ${damage} 点。塔不怪你——它只是照章办事。`
+      + (vowDef.echo ? ' ' + vowDef.echo : '');
     const score = View.endScoreModel({
       mode: 'death', sealName: sealDef.name, sealDesc: sealDef.desc,
       ending: s.ending, floor0: s.floor, kills: s.flags.killCount || 0,
@@ -3350,6 +3352,10 @@
     const s = Engine.state();
     const E = s.ending === 'true' ? S.endingTrue : S.endingPlain;
     const sum = Engine.summary();
+    // 誓约定义取一次：后日谈的誓约回声（下方 vowLine）与余烬明细、vowId 反查都用这一份。
+    // 2026-11-27：原先它在函数后半段声明，回声那句排在前面就直接踩 TDZ（ReferenceError），
+    // 整块结算面板跟着抛错——regress 的 ui-check 一口气红了 61 项才暴露（headless 探针在同一页里串跑）。
+    const vowDef = D.vows[s.flags.vow] || D.vows.none;
     // 今日一塔的日签跟着结算走：榜单「🗓 今日」按这个字段归堆，普通局是 null。
     // 零点前开、零点后结算的局带的是昨天的键 —— 过期就按普通局记账（判定在 Daily 里，与败局上报同源），
     // 否则榜单「今日」档筛不到它，玩家只看见「我打了今日一塔、榜上却没有我」。
@@ -3382,6 +3388,11 @@
       : signed
         ? '你把签好的盾谱留在了塔里。名字还没有传出去，但招式会。'
         : '';
+    // 誓约的回声（2026-11-27 加练·叙事）：玩家开局十一秒立的那条誓，此前全塔只有 NPC 有回音
+    // （守誓之盾「立过的誓，我守到了」是别人的誓）。这一句按走了哪条路取，**压在后日谈最后**——
+    // 接在正文中段会被两段长句吞掉（首版实测：它夹在结局正文与断剑之间，读起来像插叙）；
+    // 文案在 data.js `vows[*].echo` 一处定义，败局同一句照念，不许在这儿再抄一份。
+    const vowLine = (vowDef && vowDef.echo) || '';
     $('endEpi').textContent = (E.epilogue || '') + (heartLine ? ' ' + heartLine : '');
     // 先清掉上一局可能插入的动态行（秤的纸条 / 断剑去处）——textContent 重写不会移除兄弟节点
     el.endOverlay.querySelectorAll('.end-epi-scale, .end-epi-sword').forEach((n) => n.remove());
@@ -3393,6 +3404,8 @@
         : '那半截断剑，你熔灯的那天一起投进了火里。灯座上多刻了一个「川」字——剑沉，灯座要厚一点才稳。')
       : '';
     if (swordLine) $('endEpi').textContent += ' ' + swordLine;
+    // 誓约回声收在这段最后：前面是「塔后来怎样了」，这一句把话头拉回玩家自己立的那条誓
+    if (vowLine) $('endEpi').textContent += ' ' + vowLine;
     // 秤的告别：第八位勇者的军需官跟了你一路，结局这一刻他的账清了。
     // 真结局才亮（普通结局没人替川收尾）；带过断剑时，纸条直接写给他等了八十年的人。
     const scaleNote = s.ending === 'true' && s.flags.relic_edge
@@ -3421,7 +3434,6 @@
     const relicIds = Engine.ownedRelics();
     const relics = relicIds.map((id) => D.relics[id].short).join(' ') || '无';
     sum.vow = s.flags.vow || 'none';
-    const vowDef = D.vows[s.flags.vow] || D.vows.none;
     const ringList = Engine.rings();
     // 回响数 = 拿到的锁环覆盖的章数（击败 Boss 即得，四章全拿 = 满回响）
     const echoDone = [1, 2, 3, 4].filter((i) => s.flags['echo_' + i]).length;
@@ -3515,9 +3527,16 @@
       memWrap.classList.remove('open');
       const paint = () => {
         // 誓约全解锁后，余烬改去点亮层灯：一层一盏，纯收藏，不加战力
+        // 十三盏全亮＝收集到底（2026-11-27 变体1 诊断补终态）：此前这一格仍是
+        // 一颗 `disabled` 的「点亮一盏（20 ✦）」，点不动也不说为什么——老玩家最后一屏
+        // 留着一个死控件。满灯后改成一句交代，按钮不再渲染（下面那个 'full' 分支就成了兜底）。
+        const lampFull = Meta.lamps >= LAMP_MAX;
         const lampRow = !memView.lockedVow
-          ? `<div class="mem-lamps"><span>✦ ${Meta.ember} · 层灯 ${Meta.lamps}/${LAMP_MAX}</span>
-              <button class="lamp-btn" data-lamp="1" ${Meta.ember < LAMP_COST || Meta.lamps >= LAMP_MAX ? 'disabled' : ''}>点亮一盏（${LAMP_COST} ✦）</button></div>`
+          ? `<div class="mem-lamps"><span>✦ ${Meta.ember} · 层灯 ${Meta.lamps}/${LAMP_MAX}</span>`
+            + (lampFull
+              ? '<span>十三盏都亮了——余烬留着，塔记得。</span>'
+              : `<button class="lamp-btn" data-lamp="1" ${Meta.ember < LAMP_COST ? 'disabled' : ''}>点亮一盏（${LAMP_COST} ✦）</button>`)
+            + '</div>'
           : '';
         renderMemory(memView, lampRow);
       };
