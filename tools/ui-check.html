@@ -1639,8 +1639,14 @@ async function run() {
         E.newGame();
         var s9 = E.state();
         s9.floor = 2; s9.hp = 0; s9.over = true;
+        // 败局余烬明细（2026-11-27 自检轮）：此前这一块被清空，只留一个总数
+        s9.flags.killCount = 40;
         w.__tm.resetDeath();
         w.__tm.showDeath({ name: '墨妖' }, 500);
+        var edD = d.getElementById('endEmberDetail');
+        out.deathEmberDetail = !!edD && edD.textContent.indexOf('击杀 40 只') >= 0
+          && edD.textContent.indexOf('合计') >= 0 && edD.textContent.indexOf('本局余烬') >= 0;
+        out.deathEmberNum = ((d.querySelector('#endScore .es-num') || {}).textContent || '').replace(/\s+/g, '');
         out.adNoBtn = !d.getElementById('btnAdRevive');
         // 桩模式：按钮显形 → 点击 → 视频回调 → 原地复活（over 复位、血回到四成）
         w.Ads.debug();

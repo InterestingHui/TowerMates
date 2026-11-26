@@ -755,6 +755,39 @@ ok(ePlain.total === 5 && ePlain.parts.length === 1, '普通结局零战果 = 走
 ok(ePlain.parts.reduce((a, p) => a + p.n, 0) === ePlain.total, '合计 = 明细相加');
 const eTrue = V.emberModel({ s: eBase, echoDone: 4, vowDef: {}, vowId: 'none', fx: emberFx() });
 ok(eTrue.total === 9, '真结局 = 5 + 4（念出第六个名字）');
+// 折戟走同一份模型（2026-11-27 自检轮）：main.js 原先另算 `floor(击杀/5)`，三处跟着偏。
+// 四条契约：击杀单价与胜局同源 / 通关专属锁环不给 / 局内做过的事照算 / 零战果不给保底。
+const dBase = (flags) => V.emberModel({
+  s: { ending: null, gold: 0, flags: flags || {} },
+  echoDone: 0, mode: 'death', vowDef: { name: '不立誓', reward: 3 }, vowId: 'none', fx: emberFx(),
+});
+const dKill40 = dBase({ killCount: 40 });
+ok(dKill40.total === 4 && dKill40.parts.some((p) => p.label === '击杀 40 只' && p.n === 4),
+  `折戟击杀与胜局同价（40 只 → +4，实测 ${dKill40.total}）`);
+ok(dBase({ killCount: 0 }).total === 0, '折戟零战果 = 0（不给保底，否则「一进塔就倒」成了刷余烬的最快路径）');
+ok(dBase({ killCount: 0 }).parts.length === 0, '折戟零战果时明细为空（不许留一行「走到结局 +0」）');
+ok(!dBase({ killCount: 40 }).parts.some((p) => p.label === '走到结局'), '折戟不给「走到结局」那 5 点');
+const dShard = V.emberModel({
+  s: { ending: null, gold: 0, flags: { killCount: 10, heartShard: true } },
+  echoDone: 0, mode: 'death', vowDef: { name: '不立誓' }, vowId: 'none', fx: emberFx(),
+});
+ok(dShard.total === 9 && dShard.parts.some((p) => p.n === 8), '塔心碎片「结算时 +8」在折戟也兑现（实测合计 ' + dShard.total + '）');
+const dRing = (id) => V.emberModel({
+  s: { ending: null, gold: 300, flags: { killCount: 30, retries: 0 } },
+  echoDone: 0, mode: 'death', vowDef: { name: '不立誓' }, vowId: 'none',
+  fx: emberFx({ hasRing: (k) => k === id }),
+});
+ok(dRing('ledger').total === 6, '名册之环（击杀翻倍）在折戟照算（30 只 → 3 + 3）');
+['quill', 'seventh', 'hour', 'oath', 'pace', 'chisel', 'finale', 'clean'].forEach((id) => {
+  ok(dRing(id).total === 3, `通关型锁环 ${id} 在折戟不给（只留击杀那 3 点）`);
+});
+// 源码契约：败局出口不许再长出第二份「击杀 ÷ N」的实现（这次漂移就是这么来的）
+{
+  const i = mainSrc.indexOf('function showDeath(');
+  const body = i < 0 ? '' : mainSrc.slice(i, i + 2200);
+  ok(i > 0 && /emberOf\(s, 0, vowDef, 'death'\)/.test(body), '败局余烬走 emberOf(..., death)');
+  ok(!/killCount \|\| 0\) \/ 5/.test(body), '败局不许再手算 floor(击杀/5)');
+}
 const eKill = V.emberModel({ s: { ending: 'true', flags: { killCount: 37 } }, echoDone: 4, vowDef: {}, vowId: 'none', fx: emberFx() });
 ok(eKill.total === 12 && eKill.parts.some((p) => p.label === '击杀 37 只' && p.n === 3), '击杀每 10 只 +1（37 只 → +3）');
 const eLedger = V.emberModel({
@@ -829,7 +862,7 @@ ok(eClean.parts.some((p) => p.n === 6 && p.label.indexOf('清了 3 只') > 0), '
 
 // 源码契约：判定与文案只在 view.js 一处定义——main.js 里再出现一份手写门槛就会各说各话
 ok(mainSrc.indexOf('function sealOf') < 0 && mainSrc.indexOf('const SEALS = {') < 0
-  && mainSrc.indexOf('function emberOf(s, echoDone, vowDef) {\n    const parts') < 0,
+  && mainSrc.indexOf('function emberModel') < 0,
   '塔印判定/余烬明细只在 view.js 定义（main.js 只注入事实）');
 ok(mainSrc.indexOf('View.emberModel') >= 0 && mainSrc.indexOf('firstWin:') >= 0,
   'main.js 必须把首通/持环等外部事实注入余烬模型');
@@ -2338,6 +2371,29 @@ ok(mainSrc.indexOf("searchParams.set('rival'") < 0, 'main.js 不许自己拼链�
   ok(seg.indexOf('Meta.lamps >= LAMP_MAX') < 0 || seg.indexOf("'disabled'") < 0,
     '满灯不许再用 disabled 按钮糊过去（disabled 只留给「余烬不够」）');
   ok(/十三盏都亮了/.test(seg), '满灯后必须有一句终态交代（不是留个点不动的控件）');
+}
+
+// 浮层 ⇄ 「盖住整屏就别走人」名单（2026-11-27 自检第 1 面）。
+// 这一类 bug 在本项目反复出现（速查卡 / 重置确认 / 祭坛都漏过）：整屏浮层开着，方向键照旧把人带走，
+// 而那一页可能已经停止保存（「另一页在玩」）⇒ 走了的路全丢。名单在 main.js，浮层在 index.html，
+// 两边各写一份就一定会漂。这里**从源码现算两边**，只留两条有真分支的例外（它们自己接管键盘）。
+{
+  const htmlIds = (htmlSrc.match(/id="([A-Za-z]+Overlay)"/g) || [])
+    .map((t) => t.slice(4, -1));
+  const uniq = htmlIds.filter((v, i) => htmlIds.indexOf(v) === i);
+  const i0 = mainSrc.indexOf('const FULL_OVERLAYS = [');
+  const i1 = i0 < 0 ? -1 : mainSrc.indexOf('];', i0);
+  const listSrc = i0 < 0 || i1 < 0 ? '' : mainSrc.slice(i0, i1);
+  const listed = (listSrc.match(/'([A-Za-z]+Overlay)'/g) || []).map((t) => t.slice(1, -1));
+  // 例外：Boss 登场字幕与立绘放大——它们叠在对白之上，键盘在 keydown 开头就整段 return
+  const EXEMPT = ['bossIntroOverlay', 'portraitOverlay'];
+  ok(uniq.length >= 18 && listed.length >= 18, `浮层名单与页面都能读出来（页面 ${uniq.length} / 名单 ${listed.length}）`);
+  const missing = uniq.filter((id) => listed.indexOf(id) < 0 && EXEMPT.indexOf(id) < 0);
+  ok(missing.length === 0, `每个整屏浮层都在「别走人」名单里（漏登记：${missing.join(' / ') || '无'}）`);
+  const ghost = listed.filter((id) => uniq.indexOf(id) < 0);
+  ok(ghost.length === 0, `名单里没有页面已删的浮层（多余：${ghost.join(' / ') || '无'}）`);
+  const noGuard = EXEMPT.filter((id) => mainSrc.indexOf(`if (el.${id}.classList.contains('show'))`) < 0);
+  ok(noGuard.length === 0, `免登记的两条必须自己接管键盘（缺分支：${noGuard.join(' / ') || '无'}）`);
 }
 
 console.log(`挑战码 / 触控 / 桥接 / 视图模型单测：${pass} 项通过${bad ? `，${bad} 项失败` : ''}`);

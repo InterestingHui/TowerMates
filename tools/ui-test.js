@@ -283,6 +283,8 @@ const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-ui-'));
   ok(out.adDefaultOff === true, '激励视频接口默认恒不可用（提审前不接 SDK）');
   ok(Array.isArray(out.adSlots) && out.adSlots.length === 2 && out.adSlots.indexOf('revive') >= 0 && out.adSlots.indexOf('ember') >= 0, '只留两个卡点槽位（复活 / 余烬翻倍），不做插屏横幅');
   ok(out.adImmediateFalse === true && out.adBadSlot === true, '不可用或非法槽位时立刻回调 false，不挂起调用方');
+  ok(out.deathEmberDetail === true, '败局结算逐项展示本局余烬来源（不再只给一个总数）');
+  ok(out.deathEmberNum === '✦4余烬', `败局余烬总数 = 明细合计（40 只 → +4，实测 ${out.deathEmberNum}）`);
   ok(out.adNoBtn === true, '默认状态下死亡页不出现广告按钮');
   ok(out.adBtnShown === true && out.adBtnPending === true, '桩模式下按钮显形且点击后进入等待态');
   ok(out.adRevived === true && out.adRevivedHp > 0 && out.adReviveFlag === true, '看完视频原地复活：血回四成、over 复位、次数入档');

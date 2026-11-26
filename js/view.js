@@ -396,7 +396,14 @@
     const vowId = o.vowId || 'none';
     const fx = o.fx || {};
     const has = (id) => !!fx.hasRing && fx.hasRing(id);
-    const parts = [{ label: '走到结局', n: 5 }];
+    // 折戟（2026-11-27 自检轮）：败局原先在 main.js 另算一条 `floor(击杀/5)`——同一件事两份实现，
+    // 三处跟着走偏：①击杀单价变 2 倍（胜局每 10 只 1 点、败局每 5 只 1 点 ⇒ 送死比打完更划算）
+    // ②锁环（名册/墨账的击杀余烬）在败局一分不算，而那几张环的说明里没有「通关才给」
+    // ③塔心碎片写着「结算时化为余烬 +8」，死在第 13 层就一分没有（承诺落空）。
+    // 现在两条出口共用这一份：death 只关掉「结算/通关」那一类，局内真做过的事照算。
+    const death = o.mode === 'death';
+    const winOnly = (id) => !death && has(id);
+    const parts = death ? [] : [{ label: '走到结局', n: 5 }];
     if (s.ending === 'true') parts.push({ label: '念出第六个名字', n: 4 });
     const kills = Math.floor((flags.killCount || 0) / 10);
     if (kills) parts.push({ label: `击杀 ${flags.killCount} 只`, n: kills });
@@ -424,14 +431,14 @@
     }
     if (has('ledger') || has('ash') || has('ledger2')) parts.push({ label: '锁环·击杀余烬翻倍', n: kills });
     // 第七格：保底 +3，一次没回头（没重来本层）再 +3——与「刻刀」的稳定 +4 形成「稳 vs 冒险」
-    if (has('seventh')) {
+    if (winOnly('seventh')) {
       const clean = !flags.retries;
       parts.push({ label: clean ? '锁环·第七格（一次没回头）' : '锁环·第七格', n: clean ? 6 : 3 });
     }
     // 落笔之环：保底 +2，剩下的金币每 100 再 +1（上限 6）。
     // 曾按「每 100 金 +1、上限 5」做过，sim 验证是陷阱：留 500 金会少 28 点攻，终局血量从 66.6% 掉到 48.5%，
     // 却只换到 2 余烬——保底把它拉回「稳定小收益」。
-    if (has('quill')) {
+    if (winOnly('quill')) {
       const byGold = 2 + Math.min(4, Math.floor((s.gold || 0) / 100));
       parts.push({ label: `锁环·落笔（剩 ${s.gold} 金）`, n: byGold });
     }
@@ -441,37 +448,39 @@
       if (nNew > 0) parts.push({ label: `锁环·落款（图鉴新收录 ${nNew} 件）`, n: nNew });
     }
     // 通关型锁环各有触发条件，逐条列出来源（不再是「锁环加成」一笔带过）
-    if (has('pace')) parts.push({ label: '锁环·更漏', n: 2 });
-    if (has('chisel')) parts.push({ label: '锁环·刻刀', n: 4 });
-    if (has('hour')) {
+    if (winOnly('pace')) parts.push({ label: '锁环·更漏', n: 2 });
+    if (winOnly('chisel')) parts.push({ label: '锁环·刻刀', n: 4 });
+    if (winOnly('hour')) {
       const mins = Math.round(((fx.timeSec && fx.timeSec()) || 0) / 60);
       if (mins > 0 && mins <= 20) parts.push({ label: `锁环·时辰（${mins} 分钟内通关）`, n: 4 });
       else parts.push({ label: '锁环·时辰', n: 2 });
     }
-    if (has('oath')) {
+    if (winOnly('oath')) {
       const withVow = (flags.vow || 'none') !== 'none';
       parts.push({ label: withVow ? `锁环·守誓（${vowDef.name || '誓约'}）` : '锁环·守誓', n: withVow ? 5 : 3 });
     }
-    if (has('heart') && flags.heart === 'left') parts.push({ label: '锁环·塔心（放下）', n: 3 });
+    if (winOnly('heart') && flags.heart === 'left') parts.push({ label: '锁环·塔心（放下）', n: 3 });
     // 拾柴之环：每击败一位锁匠 +2（与击杀数无关，奖励推进度）
     if (has('ash')) {
       const bossesDown = ['N', 'Z', 'Y', 'U'].filter((c) => flags['bossKilled_' + c]).length;
       if (bossesDown > 0) parts.push({ label: `锁环·拾柴（${bossesDown} 位锁匠）`, n: bossesDown });
     }
     // 终章之环：四位锁匠全倒才给（要求把四位都打完，比拾柴更严格）
-    if (has('finale')) {
+    if (winOnly('finale')) {
       const allBosses = ['N', 'Z', 'Y', 'U'].every((c) => flags['bossKilled_' + c]);
       if (allBosses) parts.push({ label: '锁环·终章（四锁匠全倒）', n: 3 });
     }
     // 净芯之环：锁芯层清掉的怪（折算在引擎，四只封顶）——最后一层「打不打角落那四只」的答案
-    if (has('clean')) {
+    if (winOnly('clean')) {
       const ce = (fx.cleanEmber && fx.cleanEmber()) || 0;
       const nk = Math.min(4, flags.clean_kills || 0);
       if (ce > 0) parts.push({ label: `锁环·净芯（锁芯层清了 ${nk} 只）`, n: ce });
     }
     const list = parts.filter((p) => p.n > 0);
-    // 保底 1 点：走到结局本身就值一点，0 会让「本局余烬 +0」看着像没算
-    return { total: Math.max(1, list.reduce((a, p) => a + p.n, 0)), parts: list };
+    // 保底 1 点：走到结局本身就值一点，0 会让「本局余烬 +0」看着像没算。
+    // 折戟不给保底——「一进塔就倒」也能领 1 点的话，那就成了刷余烬的最快路径。
+    const total = list.reduce((a, p) => a + p.n, 0);
+    return { total: death ? total : Math.max(1, total), parts: list };
   }
 
   // ---------- 战斗面板：三把打法各自的读数（2026-11-16 09:xx 切边界第三刀） ----------

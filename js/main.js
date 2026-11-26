@@ -2491,7 +2491,10 @@
     const sum = Engine.summary();
     const seal = 'fall';
     const sealDef = SEALS[seal];
-    const emberGain = Math.floor((s.flags.killCount || 0) / 5);
+    // 败局余烬也走 view.emberModel（mode:'death'）：此前这里是 `floor(击杀/5)` 的第二份实现，
+    // 与胜局口径各算各的（单价 2 倍、锁环不算、塔心碎片 +8 落空）。见 view.js emberModel 顶部。
+    const ember = emberOf(s, 0, vowDef, 'death');
+    const emberGain = ember.total;
     $('endEmoji').textContent = '💀';
     $('endTitle').textContent = '塔收下了你';
     $('endDesc').textContent = `你倒在了${monster ? monster.name : '塔里'}的手里。塔把这一局的余烬收进墙上，等下一个人。`;
@@ -2508,7 +2511,16 @@
       <span class="es-num">${score.num}</span></span>
       <span class="es-meta">${score.meta}</span>`;
     $('endScore').title = score.title;
-    $('endEmberDetail').innerHTML = '';
+    // 明细与胜局同一块：只给一个总数，玩家读不出「这 7 点是哪来的」——而败局恰恰最需要
+    // （「死在半路也有收获」这件事，此前只能靠立誓页那句反着说「通关留下的」去猜）
+    const ed = $('endEmberDetail');
+    if (ed) {
+      const em = View.emberDetailModel({ parts: ember.parts, total: emberGain, before: Meta.ember });
+      ed.innerHTML = `<span class="eed-title">本局余烬</span>`
+        + em.parts.map((p) => `<span>${p.html}</span>`).join('')
+        + `<span class="eed-sum">${em.totalHtml}</span>`
+        + `<span class="eed-total">${em.balance}</span>`;
+    }
     $('endTag').textContent = score.tag;
     // 首局没立过誓（面板只给确认卡）：结算页给一张「下一局预告」卡
     renderNextVow((Meta.memory.runs || 0) === 0);
@@ -3326,11 +3338,14 @@
   const nextSealHint = (seal, s, echoDone) => View.nextSealHint(seal, runShape(s, echoDone));
   // 余烬：按这一局留下的东西逐项累加，返回明细供结局页展示（不再绕分数换算）
   // 「带着哪枚环」「某誓约首通了没」这些只有引擎/Meta 知道，一律注入
-  function emberOf(s, echoDone, vowDef) {
+  function emberOf(s, echoDone, vowDef, mode) {
     return View.emberModel({
       s,
       echoDone,
       vowDef,
+      // mode: 'death' 时只算「局内真做过的事」（击杀 / 锁环 / 塔心碎片 / 路遇），
+      // 关掉「走到结局 / 誓约奖励 / 首通 / 通关型锁环」那几类——详见 view.js emberModel 顶部注释
+      mode: mode || 'win',
       // 按 vowDef 反查 id，不用 s.flags.vow，避免结算与自动化取到不同口径
       vowId: Object.keys(D.vows).find((k) => D.vows[k] === vowDef) || (s.flags && s.flags.vow) || 'none',
       fx: {
@@ -4651,7 +4666,11 @@
 
   // 遮罩是否完全盖住画布（盖住时暂停重绘）
   const FULL_OVERLAYS = ['startOverlay', 'dialogOverlay', 'shopOverlay', 'boardOverlay',
-    'codexOverlay', 'cfgOverlay', 'hintBookOverlay', 'choiceOverlay', 'altarOverlay', 'heartOverlay', 'vowOverlay', 'eventOverlay', 'gateOverlay', 'echoOverlay', 'endOverlay', 'resetConfirmOverlay', 'collectionOverlay', 'prepOverlay'];
+    'codexOverlay', 'cfgOverlay', 'hintBookOverlay', 'choiceOverlay', 'altarOverlay', 'heartOverlay', 'vowOverlay', 'eventOverlay', 'gateOverlay', 'echoOverlay', 'endOverlay', 'resetConfirmOverlay', 'collectionOverlay', 'prepOverlay',
+    // 「另一页在玩」：整屏遮罩 + 两个按钮，与速查卡 / 重置确认同一类。
+    // 它从加进 index.html 那天就漏登记了——页面这时已经停止保存，方向键却还替玩家往前走，
+    // 走了的路一条都进不了档（进度丢失）。加新浮层一律先看这份名单。
+    'tabOverlay'];
   function covered() {
     for (const id of FULL_OVERLAYS) {
       if (el[id] && el[id].classList.contains('show')) return true;
