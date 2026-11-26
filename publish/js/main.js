@@ -4745,6 +4745,12 @@
     vowFlashTimer = setTimeout(() => box.classList.remove('show'), 3400);
   }
 
+  // 「刚买下」到「可以立誓」之间要留一拍：买下那一下会原地重画卡片（renderVowPanel 换掉整块
+  // innerHTML），于是连击的第二下点中的是**新**节点——它已经解锁，chooseVow 直接 startGame。
+  // 一次双击就花掉 ✦ 并立刻开局，正是「点一下买下、再点一下立誓」想防的那种误触。
+  // 400ms 只盖住同一手势的第二下；读完那句提示行再抬手（人手 ≥400ms）不受影响。
+  const VOW_BUY_HOLD = 400;
+  let vowBoughtAt = 0;
   function chooseVow(id) {
     const v = D.vows[id];
     if (!v) return;
@@ -4758,10 +4764,14 @@
         vibrate([10, 24, 10]);
         warn(`**塔记住了你**：解锁「**${v.name}**」——再点一下就能立它`, 5200);
         vowFocus = -1;   // 卡片重画了：旧的键盘高亮不再指向任何一格
+        vowBoughtAt = Date.now();
         renderVowPanel();
       }
       return;
     }
+    // 连击的第二下落在刚买下的那张卡上：这一下是「同一次手势」，不是「再点一下立誓」。
+    // 只吞掉这一下——既不重复扣币（币已经扣过了），也不开局。
+    if (Date.now() - vowBoughtAt < VOW_BUY_HOLD) return;
     el.vowOverlay.classList.remove('show');
     Sound.play('choose');
     vibrate([8, 14, 8]);

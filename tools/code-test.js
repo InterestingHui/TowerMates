@@ -1952,6 +1952,24 @@ ok(mainSrc.indexOf("searchParams.set('rival'") < 0, 'main.js 不许自己拼链�
     '分节标题随解锁进度换词（全解锁后不再写「用 ✦ 解锁」）');
 }
 
+// ---------- 立誓屏：买下与开局不许落在同一次连击里 ----------
+// 2026-11-26 22:0x 自检（逻辑六问 · 连点重复结算）：买下那一下 renderVowPanel 换掉整块 innerHTML，
+// 于是连击的第二下点中的是**新**节点——它已经解锁，chooseVow 直接 startGame。一次双击花掉 ✦ 并立刻
+// 开局，正是「点一下买下、再点一下立誓」想防的误触。headless 复现：修前 runAfter=true（开局了），
+// 修后 runAfter=false（只买下）；隔 800ms 故意再点一下仍能开局（VOW_BUY_HOLD 只盖同一手势）。
+// 这条按源码顺序钉：守卫必须**在 startGame 之前**、时间戳必须在买下成功那一支里落。
+{
+  const body = (/function chooseVow\(id\) \{([\s\S]*?)\n  \}/.exec(mainSrc) || [])[1] || '';
+  const holdDef = /const VOW_BUY_HOLD = (\d+);/.exec(mainSrc);
+  const holdMs = holdDef ? Number(holdDef[1]) : 0;
+  ok(holdMs > 0 && holdMs <= 600, `立誓连击守卫有一个 ≤600ms 的窗口（读到 ${holdMs || '无'}）`);
+  ok(/vowBoughtAt = Date\.now\(\);/.test(body), '买下成功那一支落时间戳（不是每一下都落）');
+  const guardAt = body.indexOf('Date.now() - vowBoughtAt < VOW_BUY_HOLD');
+  const startAt = body.indexOf('startGame(');
+  ok(guardAt > 0 && startAt > guardAt, '连击守卫排在 startGame 之前（否则吞晚了等于没吞）');
+  ok(/Meta\.buy\(id, v\.ember\)/.test(body), '买下仍走 Meta.buy（守卫不是把买下这条路一起关掉）');
+}
+
 
 // 漏同步到 publish/ 的后果是线上静默回落到矢量图，没有任何报错——所以按文件系统量，不按注释量。
 {
