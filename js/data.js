@@ -555,37 +555,44 @@ window.GAME_DATA = (function () {
     },
   ];
 
-  // 开局六誓：给整局多一条助力，**不带任何代价**（2026-11-26 用户要求：去掉全部负面影响）。
-  // 解锁：第一次进塔只能「不立誓」；其余五条要用通关留下的 ✦ 逐条买下，解锁后永久可选。
-  // 排序按「给这一局多大助力」从低到高（续航 < 金币 < 成长 < 减伤 < 终局成长），
-  // 价目与通关额外余烬 reward 都随阶位递增——越贵的那条，摊开的手牌也越强。
-  // 解锁线仍按单局 18~30 ✦ 的量级：最便宜的一条一局就能买，最贵的约两到三局。
+  // 开局三路 + 五条助力（2026-11-26 用户定稿）：
+  // ① 开局三路免费、难度递增、通关额外 ✦ 也递增——越难走，塔记得越深。
+  // ② 另外五条是「用 ✦ 买下的助力」，永久可选；它们让路好走，所以**不再额外给 ✦**
+  //    （否则「又强又赚」会盖过挑战路，三路的取舍就没了）。
+  // ③ 三路的难度只由一个数控制（dmgMul＝怪物伤害乘区），desc 里的百分比必须与它同源。
   const vows = {
-    // 不立誓：基线。它永远可选，也不需要买——第一次进塔只有它。
     none: {
-      name: '不立誓', emoji: '○', tag: '无誓', tier: 't-normal', accent: '#9fb6d8',
-      desc: '塔是什么样就什么样。第一次爬塔只能选它。', reward: 2,
+      name: '不立誓', emoji: '○', tag: '无誓', tier: 't-normal', accent: '#9fb6d8', path: true, diff: 1,
+      desc: '塔是什么样就什么样', reward: 2,
+    },
+    dmg10: {
+      name: '利齿之誓', emoji: '🦷', tag: '利齿', tier: 't-fang', accent: '#d9925c', path: true, diff: 2, dmgMul: 1.1,
+      desc: '塔里每只怪的伤害 +10%', reward: 6,
+    },
+    dmg20: {
+      name: '重压之誓', emoji: '🪨', tag: '重压', tier: 't-crush', accent: '#e0745e', path: true, diff: 3, dmgMul: 1.2,
+      desc: '塔里每只怪的伤害 +20%', reward: 12,
     },
     mercy: {
-      name: '慈悲之誓', emoji: '🕊️', tag: '轻羽', rank: '一阶', tier: 't-easy', accent: '#7ec9a2',
-      desc: '每上一层回复 12% 生命', reward: 3, ember: 6,
+      name: '慈悲之誓', emoji: '🕊️', tag: '轻羽', tier: 't-easy', accent: '#7ec9a2',
+      desc: '每上一层回复 12% 生命', reward: 0, ember: 6,
     },
     greed: {
-      name: '贪婪之誓', emoji: '🪙', tag: '重金', rank: '二阶', tier: 't-hard', accent: '#e0b56a',
-      desc: '击杀金币 +50%', reward: 5, ember: 14,
+      name: '贪婪之誓', emoji: '🪙', tag: '重金', tier: 't-hard', accent: '#e0b56a',
+      desc: '击杀金币 +50%', reward: 0, ember: 14,
     },
     ascetic: {
-      name: '苦行之誓', emoji: '🪵', tag: '苦行', rank: '三阶', tier: 't-ascetic', accent: '#c8a978',
-      desc: '战斗经验 +40%', reward: 8, ember: 24,
+      name: '苦行之誓', emoji: '🪵', tag: '苦行', tier: 't-ascetic', accent: '#c8a978',
+      desc: '战斗经验 +40%', reward: 0, ember: 24,
     },
     guard: {
-      name: '铁壁之誓', emoji: '🛡️', tag: '铁色', rank: '四阶', tier: 't-nightmare', accent: '#e07a6a',
-      desc: '每场战斗承伤 −12%', reward: 12, ember: 36,
+      name: '铁壁之誓', emoji: '🛡️', tag: '铁色', tier: 't-nightmare', accent: '#e07a6a',
+      desc: '每场战斗承伤 −12%', reward: 0, ember: 36,
     },
     // 最贵的一条：四处刻痕各长一寸——四位锁匠倒下时，塔把你的名字刻得更深
     nameless: {
-      name: '无名之誓', emoji: '🕳️', tag: '无名', rank: '五阶', tier: 't-abyss', accent: '#a99cf0',
-      desc: '每击败一位锁匠：攻击/防御 +2、生命上限 +200，并回复 25% 生命', reward: 18, ember: 48,
+      name: '无名之誓', emoji: '🕳️', tag: '无名', tier: 't-abyss', accent: '#a99cf0',
+      desc: '每击败一位锁匠：攻击/防御 +2、生命上限 +200，并回复 25% 生命', reward: 0, ember: 48,
     },
   };
 

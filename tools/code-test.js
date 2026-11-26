@@ -703,6 +703,17 @@ const eVow = V.emberModel({
   vowDef: { name: '不立誓', reward: 1, ember: 0 }, vowId: 'none', fx: emberFx(),
 });
 ok(eVow.parts.some((p) => p.label === '无誓通关' && p.n === 1), '不立誓写成「无誓通关」，不写成「「不立誓」+1」');
+const eDeathVow = V.emberModel({
+  s: { over: true, hp: 0, ending: null, flags: { killCount: 3 } }, echoDone: 0,
+  vowDef: { name: '重压之誓', reward: 12, ember: 0 }, vowId: 'dmg20', fx: emberFx(),
+});
+ok(!eDeathVow.parts.some((p) => p.label === '「重压之誓」' && p.n === 12), '折戟不结算誓约奖励（否则高难誓约送死就能刷 ✦）');
+const eDeathFirst = V.emberModel({
+  s: { over: true, hp: 0, ending: null, flags: {} }, echoDone: 0,
+  vowDef: { name: '无名之誓', reward: 0, ember: 48 }, vowId: 'nameless',
+  fx: emberFx({ firstWin: () => false }),
+});
+ok(!eDeathFirst.parts.some((p) => p.label.indexOf('首通') === 0), '折戟也不领「首通」回本（解锁成本只退给真的走完一局的人）');
 const eFirst = V.emberModel({
   s: { ending: 'true', flags: { vow: 'ascetic' } }, echoDone: 4,
   vowDef: { name: '苦行之誓', reward: 2, ember: 40 }, vowId: 'ascetic',
@@ -1849,19 +1860,19 @@ ok(mainSrc.indexOf("searchParams.set('rival'") < 0, 'main.js 不许自己拼链�
     '对白背景层的内容动效（.dlg-scene svg → sceneIn）还在');
 }
 
-// ---------- 立誓屏档位色阶：六条誓约各有各的颜色，不许静默降级成基础灰 ----------
+// ---------- 立誓屏档位色阶：每条誓约各有各的颜色，不许静默降级成基础灰 ----------
 // 病根（2026-11-25 11:0x 发现）：main.js 里是 4 条 tag→类名映射，苦行 / 无名的 tag 不在表里，
 // `|| ''` 把它们落到 .vc-tier 的基础灰 #9aa4b5 —— 而这两条恰好是唯一要余烬解锁、实测最难的两档。
 {
   const cssVow = require('fs').readFileSync(require('path').join(__dirname, '..', 'css', 'style.css'), 'utf8');
   const ids = Object.keys(GD.vows);
-  ok(ids.length === 6, `誓约表读到 ${ids.length} 条（少于 6 条说明扫漏了）`);
+  ok(ids.length === 8, `誓约表读到 ${ids.length} 条（少于 8 条说明扫漏了）`);
   const noTier = ids.filter((k) => !GD.vows[k].tier);
   ok(noTier.length === 0, `每条誓约都自带档位类名（缺：${noTier.join(' / ') || '无'}）`);
   const tiers = ids.map((k) => GD.vows[k].tier);
   const noRule = [...new Set(tiers)].filter((t) => cssVow.indexOf('.vc-tier.' + t) < 0);
   ok(noRule.length === 0, `档位类名在 style.css 里真有规则（缺：${noRule.join(' / ') || '无'}）`);
-  ok(new Set(tiers).size === tiers.length, '六条誓约的档位色互不重复（两条同色等于把难度说成一样）');
+  ok(new Set(tiers).size === tiers.length, '八条誓约的档位色互不重复（两条同色等于把难度说成一样）');
   ok(mainSrc.replace(/\/\/[^\n]*/g, '').indexOf("'轻羽': 't-easy'") < 0,
     'main.js 里不许再有写死的 tag→类名映射（改回去就红）');
 }

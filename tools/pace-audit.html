@@ -164,7 +164,7 @@ function click(w, d, sel) {
     const w = f.contentWindow, d = f.contentDocument;
     click(w, d, '#btnNew');
     await wait(1200);
-    snap('B 立誓', '6 张誓约卡（首局只有「不立誓」可选，其余锁着但内容与价目全可见）');
+    snap('B 立誓', '三条路 + 五条助力（助力锁着置灰，内容与价目全可见）');
     await wait(16000);
     click(w, d, '.vow-card[data-vow="none"]');
     await wait(900);

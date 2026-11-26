@@ -60,7 +60,6 @@ let s = {
   damageTaken: 0,
 };
 
-if (VOW === 'mercy') s.atk = Math.max(1, s.atk - 3);
 if (hasRing('vitality')) { s.maxHp += 240; s.hp += 240; }
 const NO_EVENT = false;
 
@@ -72,6 +71,16 @@ const NO_EVENT = false;
 })();
 
 const hasRelic = (id) => USE_RELIC && !!s.flags['relic_' + id];
+// 誓约乘区（2026-11-26 与引擎同序）：铁壁 ×0.88 → 三路 dmgMul（利齿 ×1.1 / 重压 ×1.2）。
+// 旧版那套「慈悲攻−3 / 铁壁×1.18 / 苦行回血 / 物价惩罚」已经全部作废，别再照着旧读数调平衡。
+const VOWDEF = D.vows[VOW] || D.vows.none;
+const DMG_MUL = VOWDEF.dmgMul || 1;
+function applyVow(d) {
+  let x = d;
+  if (x > 0 && VOW === 'guard') x = Math.max(1, Math.round(x * 0.88));
+  if (x > 0 && DMG_MUL !== 1) x = Math.max(1, Math.round(x * DMG_MUL));
+  return x;
+}
 
 function predict(ch) {
   const m = D.monsters[ch];
@@ -92,15 +101,16 @@ function predict(ch) {
     const hitsT = hits + TANGLE_HIT;
     let dmgT = hitsT * per;
     if (hasRelic('ward')) dmgT = Math.max(1, Math.floor(dmgT * 0.88));
-    if (VOW === 'guard') dmgT = Math.round(dmgT * 1.18);
+    dmgT = applyVow(dmgT);
     tangled = TANGLE_SAFE ? dmgT <= s.maxHp * 0.6 : s.hp > dmgT;
   }
   if (tangled) hits += TANGLE_HIT;
   let damage = hits * per;
   if (damage > 0 && hasRelic('ward')) damage = Math.max(1, Math.floor(damage * 0.88));
   if (damage > 0 && hasRing('bell') && m.boss) damage = Math.round(damage * 0.92);
-  // 铁壁之誓：真实承伤 ×1.18，生死判定与引擎一致（放行的战斗必然存活）
-  const real = VOW === 'guard' && damage > 0 ? Math.round(damage * 1.18) : damage;
+  // 誓约乘区写进基础承伤（与引擎 predictBase 同源），生死判定与面板读的是同一个数
+  damage = applyVow(damage);
+  const real = damage;
   // 战意：只影响「真实承伤」与生死判定，不进 predict 的 damage——
   // 否则格挡触发阈值（按原始承伤判）会被它压低，反而少挡一次，得不偿失
   const zeal = m.finalBoss ? ((s.flags.killCount || 0) >= 40 ? 0.64 : (s.flags.killCount || 0) >= 25 ? 0.84 : 1) : 1;
@@ -168,8 +178,6 @@ function priceOf(item) {
   const step = item.step || 0;
   let price = item.price + (s.flags['buy_' + item.id] || 0) * step;
   if (USE_RELIC && s.flags.relic_thrift) price = Math.max(1, Math.round(price * 0.75));
-  if (VOW === 'greed') price = Math.max(1, Math.round(price * 1.45));
-  if (VOW === 'nameless') price = Math.max(1, Math.round(price * 1.4));
   return price;
 }
 // 这一层的货摊摆什么（与引擎 shopStock 同口径）：minFloor 是上架层
@@ -413,7 +421,6 @@ function floorLoop(fi) {
     const isBoss = !!m.boss;
     // 格挡：Boss 层留给 Boss；普通层已把「本层最疼的怪」排到最前，够疼就挡
     let take = t.damage;
-    if (VOW === 'guard') take = Math.round(take * 1.18);
     // --spread：一进门就架盾（摊平），额度一层一次，此后本层每场都吃 0.85。
     // 架盾吃掉那一记额度 → 不再走单场格挡（引擎里就是同一次额度）
     const spreadKey = 'spread_f' + s.floor;
@@ -445,9 +452,14 @@ function floorLoop(fi) {
     // 后面「把余钱换成药水」不影响难度，别用它当难度指标
     if (isBoss && m.kind === '锁' && fi === D.floors.length - 2) s.lastBattle = { hp: s.hp, maxHp: s.maxHp };
     // 缠斗的收益：这一战经验翻倍（金币/击杀计数照常，与引擎一致）
-    s.exp += t.tangled ? Math.round(m.exp * TANGLE_EXP) : m.exp;
+    s.exp += Math.round((t.tangled ? Math.round(m.exp * TANGLE_EXP) : m.exp) * (VOW === 'ascetic' ? 1.4 : 1));
     s.gold += VOW === 'greed' ? Math.round(m.gold * 1.5) : m.gold;
     s.flags.killCount = (s.flags.killCount || 0) + 1;
+    // 无名之誓：每倒一位锁匠，攻防 +2 / 上限 +200 / 回 25%
+    if (m.chapter && VOW === 'nameless') {
+      s.atk += 2; s.def += 2; s.maxHp += 200;
+      s.hp = Math.min(s.maxHp, s.hp + Math.round(s.maxHp * 0.25));
+    }
     if (hasRelic('ember') && !m.boss) {
       const heal = Math.min(Math.max(4, Math.floor(s.maxHp * 0.02)), Math.max(0, s.maxHp - s.hp));
       s.hp += heal;
@@ -494,7 +506,6 @@ function climb() {
     if (r === false) { console.log('\n✗ 卡住'); return; }
     if (r === 'win') { console.log('\n✓ 通关成功'); report(); return; }
     if (VOW === 'mercy') s.hp = Math.min(s.maxHp, s.hp + Math.round(s.maxHp * 0.12));
-    if (VOW === 'ascetic' || VOW === 'nameless') s.hp = Math.min(s.maxHp, s.hp + Math.round(s.maxHp * 0.10));
     const ringPct = (hasRing('lamp') ? 0.05 : 0) + (hasRing('stair') ? 0.04 : 0);
     if (ringPct > 0) s.hp = Math.min(s.maxHp, s.hp + Math.round(s.maxHp * ringPct));
     const next = s.maps[fi + 1];

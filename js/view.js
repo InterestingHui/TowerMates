@@ -377,13 +377,15 @@
     if (bareRun && !(fx.bareUnlocked && fx.bareUnlocked())) parts.push({ label: '一口空气（首次）', n: 5 });
     if (flags.eventEmber) parts.push({ label: '路遇里的选择', n: flags.eventEmber });
     if (flags.heartShard) parts.push({ label: '塔心碎片', n: 8 });
-    // 誓约奖励：其他誓约用「誓约名」（那是玩家主动立的），不立誓改成陈述句
-    if (vowDef.reward) {
+    // 誓约奖励：其他誓约用「誓约名」（那是玩家主动立的），不立誓改成陈述句。
+    // 只在「走到结局」时结算——否则选最难的 +20% 立刻送死就能刷 ✦（30 秒一趟）。
+    if (vowDef.reward && s.ending) {
       const vowLabel = vowId === 'none' ? '无誓通关' : `「${vowDef.name}」`;
       parts.push({ label: vowLabel, n: vowDef.reward });
     }
-    // 解锁誓约第一次通关：额外给解锁成本的一半，让「解锁 → 真的用它」当场回本一半
-    if (vowDef.ember && !(fx.firstWin && fx.firstWin(vowId))) {
+    // 解锁誓约第一次通关：额外给解锁成本的一半，让「解锁 → 真的用它」当场回本一半。
+    // 同样只在走到结局时给——折戟不算「用过」，否则每次送死都能领一次回本。
+    if (vowDef.ember && s.ending && !(fx.firstWin && fx.firstWin(vowId))) {
       parts.push({ label: `首通「${vowDef.name}」`, n: Math.round(vowDef.ember / 2) });
     }
     if (has('ledger') || has('ash') || has('ledger2')) parts.push({ label: '锁环·击杀余烬翻倍', n: kills });

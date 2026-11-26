@@ -710,6 +710,21 @@ else ok(true, '（该事件没有花钱选项）');
 E.newGame(null, { seed: 0 });
 ok(E.vow() === 'none', '默认不立誓');
 
+// 2026-11-26：开局三路的难度乘区（利齿 +10% / 重压 +20%），预测与实战必须同源
+E.newGame();
+s = E.state();
+s.hp = 9000; s.x = 2; s.y = 3;
+const baseDmg = E.predict('A').damage;
+E.newGame('dmg10');
+s = E.state();
+s.hp = 9000; s.x = 2; s.y = 3;
+ok(E.predict('A').damage === Math.round(baseDmg * 1.1), '利齿之誓：预计承伤 +10%');
+ok(E.fight(0, -1).damage === Math.round(baseDmg * 1.1), '利齿之誓：实战与预判同源');
+E.newGame('dmg20');
+s = E.state();
+s.hp = 9000; s.x = 2; s.y = 3;
+ok(E.predict('A').damage === Math.round(baseDmg * 1.2), '重压之誓：预计承伤 +20%');
+
 E.newGame('mercy', { seed: 0 });
 s = E.state();
 ok(E.vow() === 'mercy' && s.atk === 10, '慈悲之誓：开局攻击不再扣（10）');

@@ -807,6 +807,9 @@
     if (damage > 0 && hasRelic('ward')) damage = Math.max(1, Math.floor(damage * 0.88));
     // 铁壁之誓：每场承伤 −12%。写进基础承伤，预测 / 实战 / 缠斗账读的是同一个数
     if (damage > 0 && vow() === 'guard') damage = Math.max(1, Math.round(damage * 0.88));
+    // 开局三路的难度乘区（利齿 +10% / 重压 +20%）：只加怪物伤害，同样写进基础承伤
+    const vd = D.vows[vow()];
+    if (damage > 0 && vd && vd.dmgMul && vd.dmgMul !== 1) damage = Math.max(1, Math.round(damage * vd.dmgMul));
     return {
       win: s.hp > damage,
       reason: s.hp > damage ? '' : '生命不足，这场战斗会要你的命',
@@ -851,6 +854,8 @@
       let dmg = hits * per;
       if (dmg > 0 && hasRelic('ward')) dmg = Math.max(1, Math.floor(dmg * 0.88));
       if (dmg > 0 && vow() === 'guard') dmg = Math.max(1, Math.round(dmg * 0.88));
+      const vdm = D.vows[vow()];
+      if (dmg > 0 && vdm && vdm.dmgMul && vdm.dmgMul !== 1) dmg = Math.max(1, Math.round(dmg * vdm.dmgMul));
       return dmg;
     };
     const base = calc(s.atk, s.def);

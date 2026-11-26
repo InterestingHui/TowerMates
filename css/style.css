@@ -2268,13 +2268,11 @@ body.at-start #bottom { visibility: hidden; }
 }
 /* hidden 属性要被尊重：否则 display:inline-block 会盖掉 UA 的 display:none，留下一个空胶囊 */
 .vow-ember[hidden] { display: none; }
-/* 卡数不定：首局 1 张确认卡、解锁无名之誓前 5 张——固定两列会在右边留空格。
-   改用居中换行：两列排，落单的最后一张居中；只有 1 张时铺满整行当「开始」按钮。 */
-.vow-cards { display: flex; flex-wrap: wrap; justify-content: center; gap: 9px; }
-/* 首局确认卡只有一张：铺满整行，读作一个「开始」按钮，而不是半宽悬在中间 */
-.vow-card:only-child { flex: 1 1 100%; }
+/* 两段式：上面三条路整行铺开（难度点 → 回报一眼读完），下面五条助力两列成组。
+   2026-11-26 用户要求「布局精美」：卡数从 8 张同形卡改成 3 行 + 2 列，视线先看难度再看价钱。 */
+.vow-cards { display: flex; flex-direction: column; gap: 10px; width: 100%; }
+.vow-paths { display: flex; flex-direction: column; gap: 7px; }
 .vow-card {
-  flex: 0 1 calc(50% - 4.5px);
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -2287,8 +2285,63 @@ body.at-start #bottom { visibility: hidden; }
   color: var(--text);
   font-family: inherit;
   cursor: pointer;
+  position: relative;
   transition: transform 0.16s cubic-bezier(0.2, 0.9, 0.25, 1), border-color 0.2s, box-shadow 0.22s;
 }
+/* 三条路：整行 = 徽记 + 名字/规则 + 难度点/回报；左侧一条主色脊，像三档刻度 */
+.vow-card.vow-path {
+  flex-direction: row;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 13px 10px 12px;
+  text-align: left;
+  /* 左端一层主色薄雾：三档不用读字就能按颜色分开 */
+  background:
+    linear-gradient(90deg, var(--vy-wash, rgba(232, 196, 106, 0.13)), rgba(0, 0, 0, 0) 16%),
+    linear-gradient(180deg, rgba(30, 28, 24, 0.95), rgba(11, 11, 15, 0.96));
+}
+.vow-card.vow-path::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 10px; bottom: 10px;
+  width: 2px; border-radius: 2px;
+  background: var(--vy);
+  opacity: 0.9;
+}
+.vp-glyph { flex: none; }
+.vp-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.vp-name { font-size: var(--fs-aux); font-weight: 700; color: var(--vy); letter-spacing: 0.5px; }
+.vp-desc { font-size: var(--fs-tag); color: var(--muted); }
+.vp-side { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.vp-diff { display: flex; gap: 3px; }
+.vp-diff i {
+  display: block;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+}
+.vp-diff i.on { background: var(--vy); border-color: var(--vy); box-shadow: 0 0 5px var(--vy-soft); }
+.vp-reward { font-size: var(--fs-aux); font-weight: 700; color: var(--gold-bright); letter-spacing: 0.4px; white-space: nowrap; }
+/* 段标题：两把尺子（难度 / 价格）之间的一道细线 */
+.vow-sect {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 3px 2px -1px;
+  font-size: var(--fs-tag);
+  color: #7f8a9c;
+  letter-spacing: 1.6px;
+}
+.vow-sect::before, .vow-sect::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(232, 196, 106, 0.24), transparent);
+}
+.vow-sect b { color: #b9a06a; font-weight: 600; }
+/* 五条助力：两列；最后一条（最贵的无名）横跨两列，读作压轴 */
+.vow-pool { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.vow-pool .vow-card:last-child { grid-column: 1 / -1; }
 .vow-card:hover { transform: translateY(-3px); border-color: rgba(232, 196, 106, 0.62); box-shadow: 0 14px 34px rgba(232, 196, 106, 0.14); }
 /* 键盘高亮（← → / ↑ ↓ / 数字键）：一档比 hover 更重，形状与 .choice-card.focus 同族，
    过渡复用卡片自身的 0.16s transform / 0.2s border —— 键盘切卡不许「闪一下」 */
@@ -2339,6 +2392,9 @@ body.at-start #bottom { visibility: hidden; }
 /* 第 4 / 第 6 档（苦行 / 无名）：此前没有类名，静默落到基础灰（旧裸值，现统一 --muted） */
 .vc-tier.t-ascetic { color: #c8a978; border-color: rgba(200, 169, 120, 0.45); background: rgba(200, 169, 120, 0.09); }
 .vc-tier.t-abyss { color: #a99cf0; border-color: rgba(169, 156, 240, 0.45); background: rgba(169, 156, 240, 0.09); }
+/* 开局三路的第 2 / 第 3 档：尖牙的铜橙 / 重压的暗红——与助力的琥珀、铁色分开 */
+.vc-tier.t-fang { color: #dda06b; border-color: rgba(221, 160, 107, 0.45); background: rgba(221, 160, 107, 0.09); }
+.vc-tier.t-crush { color: #e0785f; border-color: rgba(224, 120, 95, 0.5); background: rgba(224, 120, 95, 0.1); }
 .vow-card .vc-name { font-size: var(--fs-aux); font-weight: 700; color: var(--gold); letter-spacing: 0.5px; }
 .vow-card .vc-desc { font-size: var(--fs-tag); line-height: 1.55; color: var(--muted); min-height: 31px; }
 .vow-card .vc-mul { font-size: var(--fs-tag); color: #7f8a9c; border: 1px solid rgba(255,255,255,0.12); border-radius: 20px; padding: 1px 7px; }
@@ -2346,6 +2402,8 @@ body.at-start #bottom { visibility: hidden; }
 /* 锁着的誓约：卡底一行写清价目 / 还差多少 / 点一下买下——内容不藏，价位也不藏 */
 .vow-card .vc-unlock { font-size: var(--fs-tag); color: #cfa46e; letter-spacing: 0.3px; }
 .vow-card .vc-unlock.ok { color: var(--gold-bright); }
+/* 已解锁也留一行：同排两张卡高度一致，且不用猜「没写价格是买过了还是漏了」 */
+.vow-card .vc-unlock.owned { color: #7fae92; }
 .vow-card.hero { border-color: rgba(232, 196, 106, 0.45); }
 .vow-hint { margin-top: 13px; font-size: var(--fs-tag); color: var(--muted); letter-spacing: 1px; }
 
@@ -2386,8 +2444,10 @@ body.at-start #bottom { visibility: hidden; }
 /* 「余烬是什么」注释：只要还有锁着的誓约就显示（全解锁后自动收掉） */
 .vow-ember-note { font-size: var(--fs-tag); line-height: 1.6; color: var(--muted); margin: -4px 0 10px; }
 @media (max-width: 380px) {
-  .vow-cards { gap: 7px; }
-  .vow-card { padding: 10px 6px; flex-basis: calc(50% - 3.5px); }
+  .vow-cards { gap: 8px; }
+  .vow-card { padding: 10px 6px; }
+  .vow-card.vow-path { gap: 8px; padding: 9px 10px; }
+  .vow-pool { gap: 6px; }
   .vow-card .vc-name { font-size: var(--fs-aux); }
 }
 
@@ -2550,16 +2610,29 @@ body.at-start #bottom { visibility: hidden; }
   color: var(--muted);
 }
 .daily-hint b { color: #d8bf85; font-weight: 600; }
-.vow-card.locked { opacity: 0.92; border-style: dashed; }
-.vow-card.locked .vow-glyph { filter: grayscale(0.6) brightness(0.8); }
-.vow-card .vc-lock {
-  font-size: var(--fs-tag);
-  color: #ffb08a;
-  border: 1px solid rgba(255, 150, 110, 0.35);
-  background: rgba(255, 120, 80, 0.1);
-  border-radius: 20px;
-  padding: 1px 7px;
+/* 未解锁：整张压灰（用户报障「都一样亮，看不出没解锁」）。
+   做法不是把不透明度一降了事（文字会跟着糊）：底色压暗 + 斜纹 + 灰字 + 灰徽记 + 虚线边，
+   价目留一点暖色——那是这张卡上唯一还能做的事。 */
+.vow-card.locked {
+  border-style: dashed;
+  border-color: rgba(126, 136, 154, 0.3);
+  border-top-color: rgba(126, 136, 154, 0.3);
+  background:
+    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.015) 0 5px, rgba(0, 0, 0, 0) 5px 11px),
+    linear-gradient(180deg, rgba(19, 20, 26, 0.96), rgba(8, 9, 12, 0.97));
 }
+.vow-card.locked .vow-glyph { filter: grayscale(1) brightness(0.55); }
+.vow-card.locked .vc-name { color: #7d8595; }
+.vow-card.locked .vc-desc { color: #6f7787; }
+.vow-card.locked .vc-tier { color: #6f7787; border-color: rgba(120, 130, 150, 0.26); background: rgba(255, 255, 255, 0.015); }
+.vow-card.locked .vc-unlock { color: #9a875f; }
+.vow-card.locked .vc-unlock.ok { color: #d8bf85; }
+.vow-card.locked:hover, .vow-card.locked.focus {
+  border-color: rgba(232, 196, 106, 0.4);
+  border-top-color: rgba(232, 196, 106, 0.4);
+}
+/* 三路是横排：主色挪到左边那条脊上，顶边回到普通 1px，别横着再压一条 3px */
+.vow-card.vow-path { border-top-width: 1px; border-top-color: rgba(232, 196, 106, 0.22); }
 
 /* ---------- 层阶之钥（跳层） ---------- */
 #gateOverlay {

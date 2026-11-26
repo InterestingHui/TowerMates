@@ -2453,7 +2453,7 @@
     const ids = ['mercy', 'greed', 'ascetic', 'guard', 'nameless'];
     box.innerHTML = `<div class="nv-title">下一局开局可以立誓</div>`
       + `<div class="nv-chips">${ids.map((id) => `<span class="nv-chip">${VowIcons.icon(id, 14)} ${D.vows[id].name.replace('之誓', '')}</span>`).join('')}</div>`
-      + `<p class="nv-note">这局留下的 ✦ 可以在立誓页买下一条——解锁后永久可选，每条只给助力，不带代价。</p>`;
+      + `<p class="nv-note">开局三条路越难走、留下的 ✦ 越多；这些助力用 ✦ 解锁，永久可选。</p>`;
   }
 
   // 结算标签：View 出数据（哪几行、各是什么数），这里只翻译成标签——
@@ -4654,49 +4654,60 @@
     cards.forEach((c, idx) => c.classList.toggle('focus', idx === vowFocus));
   }
 
-  // 只画卡（重画不改漏斗、不改提示）：买下一条后原地刷新，玩家不用重开面板
+  // 只画卡（重画不改漏斗、不改提示）：买下一条后原地刷新，玩家不用重开面板。
+  // 2026-11-26 用户定稿：开局三路（免费、难度递增）与五条助力（用 ✦ 解锁）分开摆——
+  // 它们回答的是两个问题：上面是「这局走多难」，下面是「要买哪件让路好走的东西」。
+  // 混成一张网，玩家会以为「难度」和「价格」是同一把尺子。
   function renderVowPanel() {
-    const firstRun = isFirstRun();
     const all = Object.keys(D.vows);
-    const lockedCount = all.filter((id) => id !== 'none' && !Meta.has(id)).length;
+    const paths = all.filter((id) => id === 'none' || D.vows[id].path);
+    const pool = all.filter((id) => id !== 'none' && !D.vows[id].path);
+    const owned = pool.filter((id) => Meta.has(id)).length;
     // 余额行只显示数量本身（用户要求：展示余烬后不加乱七八糟的文字）
     const emberLine = $('vowEmber');
     if (emberLine) { emberLine.textContent = `✦ ${Meta.ember}`; emberLine.hidden = false; }
-    // 「✦ 是什么」：只要还有锁着的誓约就要解释（首局尤其），全解锁后自动收掉
+    // 「✦ 是什么」：只要还有锁着的助力就要解释，全解锁后自动收掉
     const emberNote = $('vowEmberNote');
-    if (emberNote) emberNote.hidden = lockedCount === 0;
-    el.vowCards.innerHTML = all.map((id) => {
+    if (emberNote) emberNote.hidden = owned === pool.length;
+
+    // 难度点：三点里亮几颗就是第几档，比写「一阶」更省字，也不受小字体 CJK 回退的牵连
+    const pips = (n) => `<span class="vp-diff" title="难度 ${n}/3">${[1, 2, 3]
+      .map((i) => `<i class="${i <= n ? 'on' : ''}"></i>`).join('')}</span>`;
+
+    const pathRows = paths.map((id) => {
       const v = D.vows[id];
-      const locked = id !== 'none' && !Meta.has(id);
+      const acc = v.accent || '#e8c46a';
+      return `<button class="vow-card vow-path" data-vow="${id}" style="--vy:${acc};--vy-soft:${acc}66;--vy-wash:${acc}1a">
+        <span class="vp-glyph">${VowIcons.icon(id, 32, v.accent)}</span>
+        <span class="vp-body"><span class="vp-name">${v.name}</span><span class="vp-desc">${v.desc}</span></span>
+        <span class="vp-side">${pips(v.diff || 1)}<b class="vp-reward">+${v.reward} ✦</b></span>
+      </button>`;
+    }).join('');
+
+    const poolCards = pool.map((id) => {
+      const v = D.vows[id];
+      const locked = !Meta.has(id);
       const affordable = locked && Meta.ember >= (v.ember || 0);
-      // 档位签只写短签（轻羽/重金/…）：价格与卡序已经把「从小助力到大助力」写清楚，
-      // 2026-11-26 实测把「一阶 · 轻羽」塞进小签会让部分无头 Chrome 在收尾时崩渲染进程。
+      // 档位签只写短签（轻羽/重金/…）：卡序与价目已经说清档位，小签不再塞序号
       const tier = `<span class="vc-tier ${v.tier || ''}">${v.tag}</span>`;
       // 上局用的誓约标角标：重开的人一眼认出自己那条（焦点 B：重复认卡是纯劳动）
       const lastMark = (Meta.memory.lastVow || '') === id ? '<span class="vc-last">上局</span>' : '';
-      // 首局把「第一次来」直接顶掉档位签：一行只放得下两个小签
-      const headTag = (firstRun && id === 'none') ? '<span class="vc-tier t-easy">第一次来 · 唯一可选</span>' : tier;
-      // 锁着的卡：价目与能不能买写在卡底，别让人点下去才知道差多少
-      let foot = '';
-      if (locked) {
-        const short = Math.max(0, (v.ember || 0) - Meta.ember);
-        // 首局五张锁卡的价格是五个不同的数，但「走完一局后可解锁」是同一句话——
-        // 顶行已经说过一次（「走完一局，塔会记住你」），再在五张卡上各写一遍，
-        // 首屏读到的是五扇关着的门 + 六遍同一句。首局只留价目，解锁时机留在顶行说一次。
-        foot = firstRun
-          ? `<span class="vc-unlock">🔒 ${v.ember} ✦</span>`
-          : affordable
-            ? `<span class="vc-unlock ok">🔒 ${v.ember} ✦ · 点一下买下</span>`
-            : `<span class="vc-unlock">🔒 ${v.ember} ✦ · 还差 ${short} ✦</span>`;
-      }
+      // 锁着的只报价目：余额就在上方，五张卡各写一遍「还差 N」是同一句话的五遍回声
+      const foot = locked
+        ? `<span class="vc-unlock ${affordable ? 'ok' : ''}">🔒 ${v.ember} ✦${affordable ? ' · 点一下买下' : ''}</span>`
+        : `<span class="vc-unlock owned">✓ 已解锁</span>`;
       const acc = v.accent || '#e8c46a';
-      return `<button class="vow-card ${id === 'none' ? 'hero' : ''} ${locked ? 'locked' : ''}" data-vow="${id}" style="--vy:${acc};--vy-soft:${acc}66">
-        <span class="vc-head">${VowIcons.icon(id, 30, v.accent)}${headTag}${lastMark}</span>
+      return `<button class="vow-card ${locked ? 'locked dim' : ''}" data-vow="${id}" style="--vy:${acc};--vy-soft:${acc}66;--vy-wash:${acc}1a">
+        <span class="vc-head">${VowIcons.icon(id, 26, v.accent)}${tier}${lastMark}</span>
         <span class="vc-name">${v.name}</span>
         <span class="vc-desc">${v.desc}</span>
         ${foot}
       </button>`;
     }).join('');
+
+    el.vowCards.innerHTML = `<div class="vow-paths">${pathRows}</div>
+      <div class="vow-sect"><b>誓约</b><span>用 ✦ 解锁 · ${owned}/${pool.length}</span></div>
+      <div class="vow-pool">${poolCards}</div>`;
     el.vowCards.querySelectorAll('.vow-card').forEach((b) => {
       b.addEventListener('click', () => chooseVow(b.dataset.vow));
     });
@@ -4709,9 +4720,7 @@
     const desc = document.querySelector('#vowOverlay .vow-desc');
     const hint = document.querySelector('#vowOverlay .vow-hint');
     if (kicker) kicker.textContent = '立 誓';
-    if (desc) desc.textContent = isFirstRun()
-      ? '第一次进塔：只有「不立誓」。走完一局，塔会记住你。'
-      : '誓约只给助力、不带代价；按助力从小到大排，用 ✦ 买下的永久可选。';
+    if (desc) desc.textContent = '选一条路进塔：越难走，通关留下的 ✦ 越多';
     if (hint) hint.textContent = '点一张开始 · 或 ← → 切换、Enter 确认';
     renderVowPanel();
     el.vowOverlay.classList.add('show');
@@ -4736,13 +4745,9 @@
   function chooseVow(id) {
     const v = D.vows[id];
     if (!v) return;
-    // 锁着的誓约：首局一律拦下（第一次进塔只有「不立誓」）；之后点一下就用 ✦ 买下，
-    // 买完停在原面板刷新——多一下「再点一次立它」，避免误触把币花掉还立刻开局。
-    if (id !== 'none' && !Meta.has(id)) {
-      if (isFirstRun()) {
-        warn('第一次进塔只能不立誓——走完一局，塔才记得你。', 4200);
-        return;
-      }
+    // 只有「用 ✦ 解锁的助力」有锁；开局三路（无誓 / 利齿 / 重压）永远可走。
+    // 点一下买下、再点一下立誓：多这一步，避免误触把币花掉还立刻开局。
+    if (v.ember && !Meta.has(id)) {
       const r = Meta.buy(id, v.ember);
       if (r === 'poor') { warn(`余烬不够：还差 ${v.ember - Meta.ember} ✦`); return; }
       if (r === 'ok') {

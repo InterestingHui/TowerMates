@@ -330,30 +330,40 @@ if (global.STORY) {
   console.log(`✓ 叙事可达性：${lore.keys} 段有主（弱引用 ${lore.weak.length} 段走 data 字段代播）`);
 }
 
-// ---------- 跨局余烬经济：解锁线不能掐断循环 ----------
-// 2026-11-26 起：不立誓之外的五条全部要用 ✦ 买，价目必须随档位（对象键序）严格递增。
-// 一局常规通关约 16~30 余烬，最便宜的一条一局内就该买得起，最贵的约三局。
+// ---------- 誓约经济：三条路「难度↑ = 回报↑」，五条助力「价目↑」 ----------
+// 2026-11-26 定稿：开局三路免费（不立誓 / 利齿 +10% / 重压 +20%），难度与通关额外 ✦ 同向递增；
+// 另外五条是用 ✦ 买的助力，价目必须递增，且不再额外给 ✦（否则「又强又赚」会盖过挑战路）。
 const RUN_EMBER = 16;
 const vowIds = Object.keys(D.vows);
-const paidVows = vowIds.filter((id) => id !== 'none');
-paidVows.forEach((id) => {
+const pathVows = vowIds.filter((id) => id === 'none' || D.vows[id].path);
+const buffVows = vowIds.filter((id) => id !== 'none' && !D.vows[id].path);
+if (pathVows.length !== 3) err(`开局路必须正好 3 条（实测 ${pathVows.length}）`);
+pathVows.forEach((id, i) => {
   const v = D.vows[id];
-  if (typeof v.reward !== 'number' || v.reward < 0) err(`誓约 ${id} 缺通关额外余烬`);
-  if (!v.ember) err(`「${v.name}」没有解锁价——除不立誓外每条都要能用 ✦ 买`);
+  if (v.ember) err(`「${v.name}」是开局路，不该有解锁价`);
+  if (typeof v.reward !== 'number' || v.reward <= 0) err(`「${v.name}」缺通关额外余烬`);
+  const mul = id === 'none' ? 1 : (v.dmgMul || 1);
+  if (i === 0) {
+    if (id !== 'none' || mul !== 1) err('第一条路必须是不立誓、不加任何难度');
+    return;
+  }
+  const prev = D.vows[pathVows[i - 1]];
+  const prevMul = pathVows[i - 1] === 'none' ? 1 : (prev.dmgMul || 1);
+  if (!(mul > prevMul)) err(`「${v.name}」难度 ×${mul} 没有高于前一条「${prev.name}」（×${prevMul}）`);
+  if (!(v.reward > prev.reward)) err(`「${v.name}」通关余烬 ${v.reward} 没有高于前一条「${prev.name}」（${prev.reward}）`);
+  const pct = Math.round((mul - 1) * 100);
+  if (v.desc.indexOf('+' + pct + '%') < 0) err(`「${v.name}」desc 没写出 +${pct}%——文案必须与 dmgMul 同源`);
+});
+buffVows.forEach((id) => {
+  const v = D.vows[id];
+  if (!v.ember) err(`「${v.name}」没有解锁价`);
+  if (v.reward) err(`「${v.name}」是助力，不该再给通关余烬（会把三条路的取舍压平）`);
   if (v.ember > RUN_EMBER * 3) err(`「${v.name}」解锁成本 ${v.ember} 超过 3 局常规通关（${RUN_EMBER}×3）`);
 });
-for (let i = 1; i < paidVows.length; i++) {
-  const prev = D.vows[paidVows[i - 1]], cur = D.vows[paidVows[i]];
-  if (!(cur.ember > prev.ember)) err(`「${cur.name}」解锁价 ${cur.ember} 没有高于前一档「${prev.name}」（${prev.ember}）——档位与价目必须同向递增`);
-  if (!(cur.reward > prev.reward)) err(`「${cur.name}」通关余烬 ${cur.reward} 没有高于前一档「${prev.name}」（${prev.reward}）`);
+for (let i = 1; i < buffVows.length; i++) {
+  const prev = D.vows[buffVows[i - 1]], cur = D.vows[buffVows[i]];
+  if (!(cur.ember > prev.ember)) err(`「${cur.name}」解锁价 ${cur.ember} 没有高于前一条「${prev.name}」（${prev.ember}）`);
 }
-// 回报次序与档位次序完全一致（D.vows 键序即档位序）
-const sorted = vowIds.slice().sort((a, b) => (D.vows[a].reward || 0) - (D.vows[b].reward || 0));
-const rewardRank = new Map(sorted.map((id, i) => [id, i]));
-vowIds.forEach((id, i) => {
-  const v = D.vows[id];
-  if (rewardRank.get(id) !== i) err(`「${v.name}」回报 ${v.reward} 与档位序不一致（应排第 ${i + 1}，实际第 ${rewardRank.get(id) + 1}）`);
-});
 
 console.log(bad === 0 ? '\n✓ 地图校验通过' : `\n✗ 共 ${bad} 个问题`);
 

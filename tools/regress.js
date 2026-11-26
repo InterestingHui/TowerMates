@@ -456,18 +456,18 @@ if (!process.argv.includes('--no-shot')) {
         };
         let r = readPace();
         if (r.vow < 0 || r.floor1 < 0 || r.modals < 0 || r.hud < 0 || !r.bits) r = readPace(); // 偶发空 DOM 重试一次
-        // 立誓屏：2026-11-24 用户要求首局就摆出全部可选誓约（4 条可选 + 2 条锁着 = 6 个可点项），
-        // 这条预算随之从 1 放到 6——它改的是「开局有没有得选」，不是新增机制。
+        // 立誓屏：2026-11-26 起是「三条路（免费）+ 五条助力（用 ✦ 买）」= 8 个可点项，
+        // 这条预算从 6 放到 8——它改的是「开局有没有得选」，不是新增机制。
         // 第 1 层（教练卡态）≤4（含画布）；可操作态 ≤3；
         // 前 3 分钟教学弹窗（教练卡 + 盾谱小传）≤2——超过就是同一机制/同一句话在重复打断
         // 首战 ≤70s：60 秒是「1 个核心动词」预算，探针含 10 秒模拟犹豫，留 10 秒余量
         const ffOk = r.firstFight > 0 && r.firstFight <= 70;
         const gateOk = /^1+$/.test(r.bits || '');
         okPace = r.start >= 0 && r.start <= 1 && r.hud === 1
-          && r.vow >= 0 && r.vow <= 6 && r.floor1 >= 0 && r.floor1 <= 4 && r.ready >= 0 && r.ready <= 3
+          && r.vow >= 0 && r.vow <= 8 && r.floor1 >= 0 && r.floor1 <= 4 && r.ready >= 0 && r.ready <= 3
           && r.modals >= 0 && r.modals <= 2 && ffOk && gateOk;
         paceLine = `首屏 ${r.start} / HUD隐藏 ${r.hud} / 立誓 ${r.vow} / 首层 ${r.floor1} / 可操作 ${r.ready} / 教学弹窗 ${r.modals} / 首战 ${r.firstFight < 0 ? '—' : r.firstFight + 's'}`;
-        console.log((okPace ? '✓' : '✗') + ' 首局节奏 ' + paceLine + '（预算 1 / 1 / ≤6 / 4 / 3 / ≤2 / ≤70s）');
+        console.log((okPace ? '✓' : '✗') + ' 首局节奏 ' + paceLine + '（预算 1 / 1 / ≤8 / 4 / 3 / ≤2 / ≤70s）');
         const gBits = r.bits || '';
         console.log((gateOk ? '✓' : '✗') + ` 全屏元素预算 ${(gBits.match(/1/g) || []).length}/${gBits.length || 0} 项`
           + (gateOk ? '' : '\n   超预算：' + (r.gfail.length ? r.gfail.join(' / ') : '读数失败（探针没跑到断言行）')));
@@ -542,7 +542,7 @@ if (!process.argv.includes('--no-shot')) {
         if (outV.indexOf('VOWFIRST') < 0) outV = readV();
         const fm = /VOWFIRST cards=(\d+) uniqAccent=(\d+) kicker=([^<\n]+)/.exec(outV);
         if (fm) {
-          // 首局也是六张卡：只有「不立誓」可选，其余锁着但内容全可见（2026-11-26 用户要求）
+          // 首局是「三条路 + 五条助力」八张卡：助力锁着置灰，内容与价目全可见（2026-11-26 用户要求）
           okVowFirst = Number(fm[1]) >= 4 && Number(fm[2]) >= 4 && fm[3].indexOf('立誓') >= 0;
           vowFirstLine = `${fm[1]} 张卡 / ${fm[2]} 种主色 / 标题 ${fm[3]}`;
         }

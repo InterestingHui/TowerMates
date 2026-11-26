@@ -325,7 +325,7 @@ function load(url) {
       const locked0 = d.querySelectorAll('#vowCards .vow-card.locked');
       const none0 = d.querySelector('#vowCards .vow-card[data-vow="none"]');
       // 2026-11-26 用户要求：第一次进塔只能选「不立誓」，其余五条锁着但内容全看得见
-      rec('F2 首局六张卡：只有「不立誓」可选，其余五条锁着', cards0.length === 6 && locked0.length === 5
+      rec('F2 首局八张卡：三条路都能走，五条助力锁着', cards0.length === 8 && locked0.length === 5
         && none0 && !none0.classList.contains('locked'),
         `卡 ${cards0.length} / 锁 ${locked0.length} / 不立誓可选=${!!none0 && !none0.classList.contains('locked')}`);
       const em0 = d.getElementById('vowEmber'), en0 = d.getElementById('vowEmberNote');
@@ -342,7 +342,7 @@ function load(url) {
       const b1b = d.getElementById('btnBoard');
       w.__tm.openVow();
       await wait(300);
-      rec('F4 第二局起恢复塔友榜与六张誓约', b1b.style.display !== 'none' && d.querySelectorAll('#vowCards .vow-card').length === 6, `顶栏=${b1b.style.display || '显示'} 卡 ${d.querySelectorAll('#vowCards .vow-card').length}`);
+      rec('F4 第二局起恢复塔友榜与八张誓约', b1b.style.display !== 'none' && d.querySelectorAll('#vowCards .vow-card').length === 8, `顶栏=${b1b.style.display || '显示'} 卡 ${d.querySelectorAll('#vowCards .vow-card').length}`);
       // F7 本地漏斗：首局开始 / 结束各记一条（接 SDK 前先把节点跑通）
       w.localStorage.removeItem('towermates_meta');
       w.localStorage.removeItem('towermates_funnel');
