@@ -57,6 +57,7 @@ function load(url) {
       const raw = JSON.parse(w.localStorage.getItem('towermates_meta') || '{}');
       raw.memory = Object.assign({}, raw.memory || {}, { runs: 1 });
       raw.ember = 12;
+      raw.unlocked = [];          // 稳定的起点：五条誓约都没买
       w.localStorage.setItem('towermates_meta', JSON.stringify(raw));
       await load('/index.html?dev=1&p=d2');
       w = f.contentWindow; d = f.contentDocument;
@@ -68,12 +69,13 @@ function load(url) {
       const emberLine = d.getElementById('vowEmber');
       const txt = emberLine && !emberLine.hidden ? emberLine.textContent.trim() : '';
       rec('A1 立誓面板余额只显示数量', /^✦\s*\d+$/.test(txt), `显示「${txt}」`);
-      // 锁条 chip：没解锁的人能看到「🔒 苦行之誓 · 还差 N ✦」——数量出处可循
-      const chip = d.querySelector('.vow-chip');
-      rec('A2 锁定誓约 chip 有数量指引', !!chip && /还差 \d+ ✦|可解锁 \d+ ✦/.test(chip.textContent), chip ? chip.textContent.trim() : '缺失');
-      // 新手注释（vowEmberNote）：runs=1 时应隐藏——但注释隐藏后 ✦ 12 的「✦」还剩多少解释力？
+      // 锁着的誓约也摆成整张卡：内容、价目、「还差 N ✦」全写在脸上（2026-11-26 起没有锁定 chip）
+      const lockedCards = Array.from(d.querySelectorAll('#vowCards .vow-card.locked'));
+      const priceLine = lockedCards.map((c) => (c.querySelector('.vc-unlock') || {}).textContent || '').join(' | ');
+      rec('A2 锁定誓约是整张卡，价目可循', lockedCards.length === 5 && /还差 \d+ ✦|点一下买下/.test(priceLine), priceLine || '缺失');
+      // 新手注释（vowEmberNote）：只要还有锁着的誓约就该解释 ✦ 是什么
       const note = d.getElementById('vowEmberNote');
-      rec('A3 老玩家不再看「余烬是什么」注释', note && note.hidden === true, note ? 'hidden=' + note.hidden : '缺失');
+      rec('A3 有锁着的誓约时解释 ✦ 来源', note && note.hidden === false, note ? 'hidden=' + note.hidden : '缺失');
     }
 
     // ===== B. 战意：战斗中首见能不能自解释 =====
@@ -287,7 +289,7 @@ function load(url) {
         await wait(350);
         const nv0 = d.getElementById('nextVow');
         const chips0 = nv0 ? nv0.querySelectorAll('.nv-chip') : [];
-        rec('E10 首局死亡结算有「下一局可立誓」预告卡', !!nv0 && !nv0.hidden && /下一局开局可以立誓/.test(nv0.textContent) && chips0.length === 4, `hidden=${nv0 ? nv0.hidden : '缺失'} chips=${chips0.length}`);
+        rec('E10 首局死亡结算有「下一局可立誓」预告卡', !!nv0 && !nv0.hidden && /下一局开局可以立誓/.test(nv0.textContent) && chips0.length === 5, `hidden=${nv0 ? nv0.hidden : '缺失'} chips=${chips0.length}`);
         // 造一个「已经进过 3 次塔」的档案再死一次：这句提示不该再出现
         w.__tm.Meta.memory.runs = 3;
         const s2 = w.Engine.state();
@@ -320,15 +322,16 @@ function load(url) {
       w.__tm.openVow();
       await wait(300);
       const cards0 = d.querySelectorAll('#vowCards .vow-card');
-      const chips0 = d.querySelectorAll('#vowLocked .vow-chip');
-      // 2026-11-24 用户要求：首局不再只有一张确认卡，一次摆出全部可选誓约（4 条 + 2 条锁着）
-      rec('F2 首局摆出全部可选誓约', cards0.length === 4 && chips0.length === 2
-        && Array.prototype.some.call(cards0, (c) => c.dataset.vow === 'none'),
-        `卡 ${cards0.length} / chip ${chips0.length}`);
+      const locked0 = d.querySelectorAll('#vowCards .vow-card.locked');
+      const none0 = d.querySelector('#vowCards .vow-card[data-vow="none"]');
+      // 2026-11-26 用户要求：第一次进塔只能选「不立誓」，其余五条锁着但内容全看得见
+      rec('F2 首局六张卡：只有「不立誓」可选，其余五条锁着', cards0.length === 6 && locked0.length === 5
+        && none0 && !none0.classList.contains('locked'),
+        `卡 ${cards0.length} / 锁 ${locked0.length} / 不立誓可选=${!!none0 && !none0.classList.contains('locked')}`);
       const em0 = d.getElementById('vowEmber'), en0 = d.getElementById('vowEmberNote');
-      // 有锁着的誓约，就得说明 ✦ 是什么（不然 chip 上的「还差 10 ✦」是个没有来路的符号）
+      // 有锁着的誓约，就得说明 ✦ 是什么（不然价目上的「8 ✦」是个没有来路的符号）
       rec('F3 首局写明余烬行与注释', em0.hidden === false && en0.hidden === false, `余额 hidden=${em0.hidden} 注释 hidden=${en0.hidden}`);
-      // 造一份「进过塔」的档 → 塔友榜与四张誓约回来
+      // 造一份「进过塔」的档 → 塔友榜回来；誓约仍要逐条买（六张卡都在，只是不锁的仍只有不立誓）
       const raw0 = JSON.parse(w.localStorage.getItem('towermates_meta') || '{}');
       raw0.memory = Object.assign({}, raw0.memory || {}, { runs: 1 });
       w.localStorage.setItem('towermates_meta', JSON.stringify(raw0));
@@ -339,7 +342,7 @@ function load(url) {
       const b1b = d.getElementById('btnBoard');
       w.__tm.openVow();
       await wait(300);
-      rec('F4 第二局起恢复塔友榜与四张誓约', b1b.style.display !== 'none' && d.querySelectorAll('#vowCards .vow-card').length === 4, `顶栏=${b1b.style.display || '显示'} 卡 ${d.querySelectorAll('#vowCards .vow-card').length}`);
+      rec('F4 第二局起恢复塔友榜与六张誓约', b1b.style.display !== 'none' && d.querySelectorAll('#vowCards .vow-card').length === 6, `顶栏=${b1b.style.display || '显示'} 卡 ${d.querySelectorAll('#vowCards .vow-card').length}`);
       // F7 本地漏斗：首局开始 / 结束各记一条（接 SDK 前先把节点跑通）
       w.localStorage.removeItem('towermates_meta');
       w.localStorage.removeItem('towermates_funnel');

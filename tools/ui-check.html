@@ -1205,9 +1205,12 @@ async function run() {
         // 余烬经济四项：明细 / 近 3 局平均 / 解锁誓约首通 / 全解锁后的层灯出口
         var M = w.__tm.Meta;
         M.add(200);
-        // 解锁成本随平衡调整会变（现为 10/48）：从数据表取，别把旧价硬编码进测试
-        M.buy('ascetic', w.GAME_DATA.vows.ascetic.ember || 24);
-        M.buy('nameless', w.GAME_DATA.vows.nameless.ember || 48);
+        // 解锁成本随平衡调整会变（现为 6/14/24/36/48）：从数据表取，而且必须把五条全买下——
+        // 层灯那行只在「没有锁着的誓约」时出现（main.js 的 lockedVow 判据）
+        Object.keys(w.GAME_DATA.vows).forEach(function (id) {
+          var vv = w.GAME_DATA.vows[id];
+          if (vv.ember) M.buy(id, vv.ember);
+        });
         M.memory.lamps = 0;
         M.memory.firstVowWin = {};
         var eA = w.__tm.emberOf(E.state(), 0, w.GAME_DATA.vows.ascetic);
@@ -1399,6 +1402,15 @@ async function run() {
         // ②速查卡/重置确认/祭坛开着时方向键会在背后走人（能撞怪、能上楼）；③Esc 只覆盖 5 个浮层；
         // ④在过滤框里按 ← 光标移不动（被全局 keydown preventDefault）、按 d/a/s/w 人会走。
         out.kbd = (function () {
+          // 2026-11-26：誓约改为「先买后选」，键盘面测的是卡片导航——
+          // 先把五条全买下、并把履历补到第 3 局，否则 ←/→ 落到锁卡上会被拦在购买步。
+          var MMk = w.__tm.Meta;
+          MMk.add(500);
+          Object.keys(w.GAME_DATA.vows).forEach(function (id) {
+            var vv = w.GAME_DATA.vows[id];
+            if (vv.ember) MMk.buy(id, vv.ember);
+          });
+          MMk.memory.runs = Math.max(3, MMk.memory.runs || 0);
           var k = function (key) { w.dispatchEvent(new w.KeyboardEvent('keydown', { key: key, bubbles: true, cancelable: true })); };
           var clean = function () {
             d.querySelectorAll('.overlay.show').forEach(function (o) { o.classList.remove('show'); });

@@ -234,11 +234,13 @@ const mExp = D.monsters.A.exp;
 const rRip = E.fight(0, -1, { block: true });
 ok(rRip.blocked === true && rRip.riposte > 0 && s.exp === expBefore + rRip.riposte + mExp, '格挡反击：卸掉的伤三成化为经验');
 ok(rRip.damage === Math.round(rawPred.damage * 0.42), '承伤按 42% 结算');
-// 铁壁之誓不能格挡：商店不卖，拾取也学不会
+// 2026-11-26：誓约全部改为纯增益，没有任何一条再禁格挡——铁壁也能买盾谱、也能拾取
 E.newGame('guard');
 s = E.state();
 s.gold = 300;
-ok(E.buy('blockbook').type === 'refuse', '铁壁之誓：买盾谱被拒');
+ok(E.buy('blockbook').type === 'buy' && s.flags.hasBlock === true, '铁壁之誓：盾谱照买，学会格挡');
+E.newGame('guard');
+s = E.state();
 const gjPos = (() => {
   const m = s.maps[1];
   for (let y = 0; y < 11; y++) for (let x = 0; x < 11; x++) if (m[y][x] === 'j') return { x, y };
@@ -246,7 +248,7 @@ const gjPos = (() => {
 })();
 s.floor = 1; s.x = gjPos.x - 1; s.y = gjPos.y;
 const gjEv = E.tryMove(1, 0);
-ok(gjEv.good === false && !s.flags.hasBlock, '铁壁之誓：拾取盾谱也学不会');
+ok(gjEv.type === 'pickup' && s.flags.hasBlock === true, '铁壁之誓：地图上的盾谱也学得会');
 
 // ---------- 7. 战斗结算 ----------
 E.newGame();
@@ -389,20 +391,36 @@ s.flags.maxFloor = 0;
 s.floor = 0;
 ok(E.visitedMax() === 0, '旧存档没有 maxFloor 时按当前层算');
 
-// ---------- 9k. 余烬誓约（苦行 / 无名） ----------
+// ---------- 9k. 纯增益誓约（苦行 / 无名） ----------
 E.newGame('ascetic');
 s = E.state();
 E.grantBlock();
-ok(E.vow() === 'ascetic' && !E.canBlock(), '苦行之誓：学了也不给格挡');
+ok(E.vow() === 'ascetic' && E.canBlock(), '苦行之誓：格挡照常可用（不再禁挡）');
 s.hp = 400; s.x = 8; s.y = 8;
 ev = E.tryMove(0, 1);
-ok(ev.type === 'floor' && ev.at.heal === Math.round(s.maxHp * 0.10), '苦行之誓：每上一层回 10% 生命');
+ok(ev.type === 'floor' && ev.at.heal === 0, '苦行之誓：不再靠上楼回血');
+E.newGame('ascetic');
+s = E.state();
+s.hp = 99999; s.x = 2; s.y = 3;
+const ascRes = E.fight(0, -1);
+ok(ascRes.exp === Math.round(D.monsters.A.exp * 1.4), '苦行之誓：战斗经验 +40%');
 
 E.newGame('nameless');
 s = E.state();
 E.grantBlock();
-ok(!E.canBlock(), '无名之誓：学了也不给格挡');
-ok(E.priceOf(D.shop.find((x) => x.id === 'atk')) === 84, '无名之誓：物价 +40%（60 → 84）');
+ok(E.canBlock(), '无名之誓：格挡照常可用');
+ok(E.priceOf(D.shop.find((x) => x.id === 'atk')) === 60, '无名之誓：物价不再加价（60）');
+E.newGame('nameless');
+s = E.state();
+s.atk = 400; s.def = 300; s.hp = 5000; s.maxHp = 10000;
+s.level = D.levelExp.length + 1; s.exp = 0;   // 经验封顶：这一战的账里只剩誓约的 +200
+s.floor = 2; s.x = 5; s.y = 6; s.flags['boss_seen_N'] = true;
+E.beginFloor();
+const nmMax = s.maxHp;
+const rNm = E.fight(0, -1);
+ok(rNm.type === 'fight' && s.maxHp === nmMax + 200, '无名之誓：锁匠倒下后生命上限 +200');
+ok(s.atk === 402 && s.def === 302, '无名之誓：同一刻攻防各 +2');
+ok(rNm.heal === Math.round((nmMax + 200) * 0.25), '无名之誓：同一刻回复 25% 生命');
 
 // ---------- 9j. 路遇：按层分池 / 深层事件 / 钥匙门槛 ----------
 ok(E.eventPool(0).every((e) => (e.tier || 'a') === 'a'), '浅层只出温和事件');
@@ -511,11 +529,11 @@ E.grantBlock();
 s.flags['block_n2'] = 1;
 const shUsed = E.eventShortfall(ventOpt);
 ok(!!shUsed && shUsed.kind === 'block' && shUsed.why === 'used' && shUsed.msg === '这一层的格挡已经用掉了', '额度用光时拒选并说明「这一层已经用掉了」');
-// 铁壁 / 苦行 / 无名三条誓约根本学不到盾谱：理由要说誓约，别拿「还没学」糊过去
+// 2026-11-26：没有禁挡誓约了——铁壁没学盾谱时，理由照实写「还没学会」
 E.newGame('guard'); s = E.state();
 s.floor = 2;
 const shVow = E.eventShortfall(ventOpt);
-ok(!!shVow && shVow.why === 'vow' && shVow.msg === '这条誓约不能格挡', '禁挡誓约下理由写「这条誓约不能格挡」');
+ok(!!shVow && shVow.why === 'unlearned' && shVow.msg === '还没学会格挡', '铁壁没学盾谱时理由写「还没学会格挡」');
 ok(E.eventShortfall({ effect: { atk: 1 } }) === null, '不带 useBlock 的选项不受格挡门槛影响');
 
 E.newGame(); s = E.state();
@@ -687,14 +705,14 @@ const poorIdx = D.events.find((x) => x.id === ev2.eventId).options.findIndex((o)
 if (poorIdx >= 0) ok(E.resolveEvent(ev2.eventId, poorIdx).type === 'refuse', '金币不够时该选项被拒绝');
 else ok(true, '（该事件没有花钱选项）');
 
-// ---------- 9h. 开局三誓 ----------
+// ---------- 9h. 开局誓约（纯增益） ----------
 // 用种子 0 锁定原版布局（连拾取物都原位）：下面几段踩的是固定坐标，不许被随机换位碰
 E.newGame(null, { seed: 0 });
 ok(E.vow() === 'none', '默认不立誓');
 
 E.newGame('mercy', { seed: 0 });
 s = E.state();
-ok(E.vow() === 'mercy' && s.atk === 7, '慈悲之誓：开局攻击 −3');
+ok(E.vow() === 'mercy' && s.atk === 10, '慈悲之誓：开局攻击不再扣（10）');
 s.hp = 500; s.x = 8; s.y = 8;
 ev = E.tryMove(0, 1);
 ok(ev.type === 'floor' && ev.at.heal === Math.round(s.maxHp * 0.12), '慈悲之誓：上一层回 12% 生命');
@@ -881,37 +899,38 @@ ok(ev.at.heal === Math.round(s.maxHp * 0.13), '三枚回血环叠加：首访回
   ok(/四位锁匠全倒/.test(D.rings.finale.desc), '终章之环：条件写明四位锁匠');
 }
 
+E.newGame();
+s = E.state();
+s.hp = 5000; s.x = 2; s.y = 3;
+const noVowDmg = E.predict('A').damage;
+
 E.newGame('guard');
 s = E.state();
 E.grantBlock();
-ok(!E.canBlock(), '铁壁之誓：学了也不给格挡');
+ok(E.canBlock(), '铁壁之誓：格挡照常可用');
 s.hp = 5000; s.x = 2; s.y = 3;
-const guardRaw = E.predict('A').damage;
+const guardPred = E.predict('A').damage;
+ok(guardPred === Math.max(1, Math.round(noVowDmg * 0.88)), '铁壁之誓：预计承伤 −12%');
 const gRes = E.fight(0, -1);
-ok(gRes.damage === Math.round(guardRaw * 1.18), '铁壁之誓：承伤按 +18% 结算');
+ok(gRes.damage === guardPred, '铁壁之誓：实战承伤与预判同一个数（乘区不再分裂）');
 
-// ---------- 9h+. 铁壁生死口径：真实承伤超出预判时必须拦住（防负血走塔） ----------
-// 数值全部现算（连击系数/锈犬数值调整后不再失效）：raw=守誓后承伤，夹缝取 raw < hp < raw×1.18
+// ---------- 9h+. 生死口径：预判与实战同源 ----------
+// 誓约乘区现在都写进 predictBase，预判与实际扣血不会再出现「差一截」的夹缝。
 E.newGame('guard');
 s = E.state();
-s.flags.relic_ward = true;            // 借守誓之盾造出「raw < hp < raw×1.18」的夹缝
+s.flags.relic_ward = true;
 s.atk = 57; s.def = 37;
 s.maps[s.floor][3][2] = 'I'; s.x = 2; s.y = 4;
-const rawWard = E.predict('I').damage;    // 守誓后承伤（如 523）
-s.hp = rawWard + 20;                      // 夹缝内：raw < hp < raw×1.18
-const gapPred = E.predictOpt('I', true);
-ok(gapPred.win === false, '铁壁夹缝：预判用真实承伤，不放行（' + s.hp + ' < ' + rawWard + '×1.18）');
-const gapFight = E.fight(0, -1);
-ok(gapFight.type === 'refuse', '铁壁夹缝：fight 拒绝，不会把玩家打进负血');
-s.hp = Math.round(rawWard * 1.18) + 1;    // 真实承伤也扛得住
+const rawWard = E.predict('I').damage;
+s.hp = rawWard + 1;
 const okPred = E.predictOpt('I', true);
-ok(okPred.win === true, '血过真实承伤线后预判放行');
+ok(okPred.win === true, '血量过预判线时放行');
 const okFight = E.fight(0, -1);
 ok(okFight.type === 'fight' && s.hp > 0 && !s.over, '放行后正常结算，血不为负');
 
 E.newGame('greed');
 s = E.state();
-ok(E.priceOf(D.shop.find((x) => x.id === 'atk')) === 87, '贪婪之誓：价目 +45%（60 → 87）');
+ok(E.priceOf(D.shop.find((x) => x.id === 'atk')) === 60, '贪婪之誓：价目不再加价（60）');
 s.hp = 5000; s.x = 2; s.y = 3;
 const goldBefore = s.gold;
 const greedRes = E.fight(0, -1);
@@ -978,12 +997,14 @@ s = E.state();
 s.flags.hasBlock = true;
 ok(E.blockLimit() === 1 && E.blockLeft() === 1, '没有双挡之环时每层仍只有一次');
 
-// 不能格挡的誓约不会抽到靠格挡吃饭的环（抽到就是白拿一张）
-E.newGame('guard');
-s = E.state();
-const guardPool2 = E.ringChoices(2);
-ok(guardPool2.length === 3 && guardPool2.indexOf('parry') < 0 && guardPool2.indexOf('twice') < 0,
-  `铁壁之誓不抽格挡环（实测 ${guardPool2.join('/')}）`);
+// 2026-11-26：没有禁挡誓约——铁壁也照常抽得到靠格挡吃饭的环
+let guardSeenBlockRing = 0;
+for (let k = 0; k < 60; k++) {
+  E.newGame('guard');
+  const pool = E.ringChoices(2);
+  if (pool.indexOf('parry') >= 0 || pool.indexOf('twice') >= 0) guardSeenBlockRing++;
+}
+ok(guardSeenBlockRing > 0, `铁壁之誓照常抽得到格挡环（60 次里 ${guardSeenBlockRing} 次）`);
 
 // ---------- 9h. 残血格挡换命（predictOpt） ----------
 // 血量撑不到打完，但挡完能活：不能再用"会要你的命"拦住玩家
@@ -1874,10 +1895,11 @@ ok(Daily.seedOf(dayA) === dSeed, '同一天必得同一颗种子');
 ok(Daily.seedOf('2026-11-15') !== dSeed && Daily.seedOf('2026-11-13') !== dSeed, '换一天就是另一颗种子');
 ok(Daily.label(dayA) === '11月14日' && Daily.label('乱码') === '', '面板短标签：2026-11-14 → 11月14日，脏输入给空');
 
-// 今日之约：日期种子再钉一条固定誓约。同一天必同一条（榜单可比），跨天会换（难度不再是天天一样），
-// 池子里只许有不需要余烬解锁的誓约——苦行(10)/无名(20) 不能当今日任务塞给还没解锁的人。
+// 今日之约：日期种子再钉一条固定誓约。同一天必同一条（榜单可比），跨天会换（每天开局不一样），
+// 池子固定四条基础誓约——苦行/无名是更贵的解锁，不能靠换个日子白玩；
+// 玩家还没买下当天那条时，main.dailyTie 会回落到「不立誓」并在入口说明。
 ok(Daily.vowOf(dayA) === Daily.vowOf(dayA), '同一天必守同一条誓约');
-ok(Daily.VOW_POOL.join(',') === 'none,mercy,greed,guard', '今日之约池只有四条基础誓约（不含要余烬解锁的两条）');
+ok(Daily.VOW_POOL.join(',') === 'none,mercy,greed,guard', '今日之约池只有四条基础誓约（不含苦行 / 无名）');
 {
   const seen = {};
   let bad = '';
@@ -1889,18 +1911,19 @@ ok(Daily.VOW_POOL.join(',') === 'none,mercy,greed,guard', '今日之约池只有
     seen[v] = (seen[v] || 0) + 1;
     if (v === prev) { run++; if (run > maxRun) maxRun = run; } else { run = 1; prev = v; }
   }
-  ok(!bad, '400 天里没有一条越界的今日之约（含未解锁誓约）');
+  ok(!bad, '400 天里没有一条越界的今日之约');
   ok(Object.keys(seen).length === 4, '四条誓约在 400 天里都轮到过（不是只挑一条）');
   ok(maxRun <= 3, '同一条誓约最多连庄 3 天（否则「今天更难」会变成连着好几天一样）');
 }
-// 引擎侧：日签与誓约一起落档，规则真的按这条誓约走（铁壁＝不能格挡）
+// 引擎侧：日签与誓约一起落档，规则真的按这条誓约走（纯增益，照常能格挡）
 const guardDay = (() => { for (let i = 0; i < 400; i++) { const k = Daily.keyOf(new Date(2026, 0, 1 + i)); if (Daily.vowOf(k) === 'guard') return k; } return null; })();
 ok(!!guardDay, '能造出「今日铁壁」这一天（供下面两条用）');
 E.newGame('guard', { seed: Daily.seedOf(guardDay), daily: guardDay });
 ok(E.vow() === 'guard' && E.state().flags.daily === guardDay, '今日一塔也能带誓约：日签与誓约一起落档');
-ok(E.vowForbidsBlock() === true, '今日之约是铁壁时，格挡真的被禁（规则不是贴纸）');
+E.grantBlock();
+ok(E.canBlock(), '今日之约是铁壁时，格挡照常可用（规则不是罚款单）');
 E.newGame('mercy', { seed: dSeed, daily: dayA });
-ok(E.vow() === 'mercy' && !E.vowForbidsBlock(), '换一条誓约（慈悲）照常生效，且不误禁格挡');
+ok(E.vow() === 'mercy' && E.priceOf(D.shop.find((x) => x.id === 'atk')) === 60, '换一条誓约（慈悲）照常生效，且不带物价惩罚');
 
 const dailyA = E.newGame('none', { seed: dSeed, daily: dayA });
 const mapA = dailyA.maps[0].join('|');
@@ -2041,20 +2064,17 @@ s.gold = 100;
   for (let k = 0; k < 40; k++) { E.newGame('none'); if (E.ringChoices(1).indexOf('spare') >= 0) seenNoShield++; }
   ok(seenNoShield === 0, '没学盾谱时第 1 章候选池里不出现惜挡之环（40 次抽取 0 次）');
 }
-// 不能格挡的三条誓约：拿不到，且候选池里直接不出现（抽到就是白拿一张）
+// 2026-11-26：没有禁挡誓约——铁壁学了盾谱、整层没挡，同样拿得到这笔钱
 E.newGame('guard');
 s = E.state();
 s.flags.rings = ['spare'];
 s.flags.hasBlock = true;
 s.gold = 100;
-ok(climbUp().at.gold === 0 && s.gold === 100, '铁壁之誓：整层没格挡也拿不到这笔钱（它本来就不能挡）');
+ok(climbUp().at.gold === 90 && s.gold === 190, '铁壁之誓：整层没格挡照常拿到惜挡钱（+90）');
 {
   let seen = 0;
   for (let k = 0; k < 40; k++) { E.newGame('guard'); E.state().flags.hasBlock = true; if (E.ringChoices(1).indexOf('spare') >= 0) seen++; }
-  ok(seen === 0, '铁壁之誓第 1 章候选池里不出现惜挡之环（40 次抽取 0 次）');
-  let seenFree = 0;
-  for (let k = 0; k < 40; k++) { E.newGame('none'); E.state().flags.hasBlock = true; if (E.ringChoices(1).indexOf('spare') >= 0) seenFree++; }
-  ok(seenFree > 0, `学了盾谱、没立禁挡誓约时能正常抽到（40 次里出现 ${seenFree} 次）`);
+  ok(seen > 0, `铁壁之誓第 1 章候选池照常出现惜挡之环（40 次里 ${seen} 次）`);
 }
 
 // ---------- 缠斗：第 2 章起的第三把打法（多挨一轮 ↔ 这一战经验 ×2）----------
@@ -2242,7 +2262,7 @@ s.flags.hasBlock = true;
 ok(E.floorMonsterCount() === 1, '（前提）本层只剩这一只');
 ok(E.canGuard() === false, '只剩最后一只时不出现架盾');
 
-// 没学盾谱 / 三条禁挡誓约：架盾跟单场格挡一起消失
+// 没学盾谱：架盾跟单场格挡一起消失；学了之后任何誓约都不再禁它
 E.newGame();
 s = E.state();
 s.floor = 3;
@@ -2252,7 +2272,7 @@ s.maps[3][3][3] = 'A';
 ok(E.canGuard() === false, '没学盾谱时不能架盾');
 s.flags.hasBlock = true;
 E.state().flags.vow = 'guard';
-ok(E.canGuard() === false, '铁壁之誓（不能格挡）也架不了盾');
+ok(E.canGuard() === true, '铁壁之誓照常能架盾（不再禁挡）');
 E.state().flags.vow = 'none';
 
 // 双挡之环：架盾吃掉 1 次，剩下的那一记还能补在同一场（0.85 × 0.55）——
@@ -2647,7 +2667,7 @@ ok(Array.isArray(E.load().flags.rings), 'rings 不是数组：归一成空列表
     owned: (i) => !!((i.codex && s.flags.codex) || (i.relic && E.hasRelic(i.relic))
       || (i.block && s.flags.hasBlock) || (i.heartShard && s.flags.heartShard)),
     relicDesc: (id) => D.relics[id].desc,
-    forbidsBlock: () => E.vowForbidsBlock(),
+    forbidsBlock: () => false,
     floorsLeft: () => E.floorMonsterCount(),
     monsterDefByName: () => null,
     potionHeal: (n) => E.potionHeal(n),

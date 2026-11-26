@@ -29,7 +29,7 @@
     document.head.appendChild(st2);
   }
   const src = {
-    // 首局立誓页（runs=0 只出 1 张确认卡）：不带 dev=1——dev 会强制全量，正好是用户看不到的形态
+    // 首局立誓页（runs=0）：只有「不立誓」可选，其余五条锁着但内容全可见——不带 dev=1，正是用户看到的形态
     vowfirst: base,
     floor5: base + '?dev=1#demo=4,2,8',
     battle: base + '?dev=1#demo=0,2,3',
@@ -77,14 +77,15 @@
       cfg0.dpad = true;
       localStorage.setItem('towermates_cfg_v2', JSON.stringify(cfg0));
     }
-    // 今日一塔相关场景要「老玩家」态：首局（runs=0）入口是故意藏起来的，不预置就截不到
+    // 今日一塔相关场景要「老玩家」态：首局（runs=0）入口是故意藏起来的，不预置就截不到；
+    // 2026-11-26 起誓约要先买：今日之约只演示已解锁的三条（苦行/无名不在日历池里）
     if (scene.indexOf('daily') === 0) {
       localStorage.setItem('towermates_meta', JSON.stringify({
-        ember: 12, unlocked: [], resets: 0,
+        ember: 12, unlocked: ['mercy', 'greed', 'guard'], resets: 0,
         memory: { runs: 3, deepest: 9, endings: { plain: 2 }, vowWins: {}, fullChapters: 1, heartTaken: 1, heartLeft: 0 },
       }));
     }
-    // vowfirst 场景要「首局」态：清掉一切履历（runs=0）→ 立誓页只出 1 张确认卡
+    // vowfirst 场景要「首局」态：清掉一切履历（runs=0）→ 立誓页只有「不立誓」可选，其余五条锁着
     if (scene === 'vowfirst') {
       localStorage.removeItem('towermates_meta');
       localStorage.removeItem('towermates_save');
@@ -344,6 +345,12 @@
         // 立誓回执：选完那一刻顶端要亮一条「誓约已立 · 名字 + 这局改了什么」
         d.getElementById('btnNew').click();
         await wait(320);
+        // 2026-11-26：慈悲要先用 ✦ 买下才可选——探针先替玩家买掉再点（首局态不许立誓，履历也补一局）
+        T.Meta.memory.runs = Math.max(1, T.Meta.memory.runs || 0);
+        T.Meta.add(w.GAME_DATA.vows.mercy.ember || 6);
+        T.Meta.buy('mercy', w.GAME_DATA.vows.mercy.ember || 6);
+        T.openVow();
+        await wait(260);
         const vc = d.querySelector('#vowCards .vow-card[data-vow="mercy"]');
         if (vc) vc.click();
         await wait(620);
@@ -654,19 +661,22 @@
         T.openGate();
         await wait(500);
       } else if (scene === 'vowbuy') {
+        // 2026-11-26：锁着的誓约也是整张卡（内容与价目全可见），点一下用 ✦ 买下
+        T.Meta.memory.runs = Math.max(3, T.Meta.memory.runs || 0);
         T.Meta.add(200);
         d.getElementById('btnNew').click();
         await wait(400);
-        // 锁着的誓约现在是底部小 chip（不占卡片位），点它解锁后才变成卡
-        const chipA = d.querySelector('#vowLocked .vow-chip[data-lock="ascetic"]');
-        const before = d.querySelector('#vowCards .vow-card[data-vow="ascetic"]');
-        if (chipA) chipA.click();
+        const cardA = d.querySelector('#vowCards .vow-card[data-vow="ascetic"]');
+        const beforeLocked = !!cardA && cardA.classList.contains('locked');
+        const priceTxt = cardA ? (cardA.querySelector('.vc-unlock') || {}).textContent || '' : '';
+        if (cardA) cardA.click();
         await wait(400);
         const meta = JSON.parse(localStorage.getItem('towermates_meta') || '{}');
         const cardB = d.querySelector('#vowCards .vow-card[data-vow="ascetic"]');
-        errBox.textContent = 'chipBefore=' + !!chipA + ' cardBefore=' + !!before
+        errBox.textContent = 'cardBefore=' + !!cardA + ' lockedBefore=' + beforeLocked
+          + ' price="' + priceTxt.trim() + '"'
           + ' emberLeft=' + meta.ember + ' unlocked=' + (meta.unlocked || []).join('|')
-          + ' cardAfter=' + !!cardB
+          + ' cardAfter=' + !!cardB + ' lockedAfter=' + (!!cardB && cardB.classList.contains('locked'))
           + ' vowOverlay=' + d.getElementById('vowOverlay').classList.contains('show')
           + ' err=' + (errs.length ? errs.join('|') : 'none');
         return;

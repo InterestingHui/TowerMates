@@ -542,7 +542,7 @@ if (!process.argv.includes('--no-shot')) {
         if (outV.indexOf('VOWFIRST') < 0) outV = readV();
         const fm = /VOWFIRST cards=(\d+) uniqAccent=(\d+) kicker=([^<\n]+)/.exec(outV);
         if (fm) {
-          // 首局至少 4 条可选誓约；每条卡有自己的主色（可区分），标题仍是「立誓」
+          // 首局也是六张卡：只有「不立誓」可选，其余锁着但内容全可见（2026-11-26 用户要求）
           okVowFirst = Number(fm[1]) >= 4 && Number(fm[2]) >= 4 && fm[3].indexOf('立誓') >= 0;
           vowFirstLine = `${fm[1]} 张卡 / ${fm[2]} 种主色 / 标题 ${fm[3]}`;
         }

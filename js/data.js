@@ -266,7 +266,7 @@ window.GAME_DATA = (function () {
     // 刻痕之章的主题是「规矩与计数」，这枚环让「忍住不挡」有价：
     // 一层里一次格挡都没动，上楼时补 90 金。它不改任何数值，只把
     // 「盾留给哪一场」这道判断从「保命」扩成「保命还是换钱」。
-    // 没学盾谱 / 不能格挡的三条誓约拿不到这笔钱，所以候选池里直接滤掉。
+    // 没学盾谱拿不到这笔钱，所以候选池里直接滤掉（2026-11-26 起没有禁挡誓约）。
     spare:    { cat: 'rule', name: '惜挡之环', emoji: '✋', short: '惜', chapter: 1, desc: '一整层没动用格挡，上楼时 +90 金币' },
 
     // ---- 第六轮扩容（第 3 章 9→10）：最后一程唯一的「打多少算够」是一道明账 ——
@@ -555,39 +555,37 @@ window.GAME_DATA = (function () {
     },
   ];
 
-  // 开局六誓：给整局换一套规则。越难走的那条，通关时留下的余烬越多
-  // reward = 每局通关「额外」余烬（跨局解锁用，不加战力）；ember = 解锁这条誓约要花的余烬
-  // 解锁线按单局实测量级定：常规一局约 18~30 余烬，两条解锁分别约 1~2 局 / 再 2 局，
-  // 不再是老分数制时代遗留的 60/120（那条线要 7~20 局，等于把跨局循环掐断）。
+  // 开局六誓：给整局多一条助力，**不带任何代价**（2026-11-26 用户要求：去掉全部负面影响）。
+  // 解锁：第一次进塔只能「不立誓」；其余五条要用通关留下的 ✦ 逐条买下，解锁后永久可选。
+  // 排序按「给这一局多大助力」从低到高（续航 < 金币 < 成长 < 减伤 < 终局成长），
+  // 价目与通关额外余烬 reward 都随阶位递增——越贵的那条，摊开的手牌也越强。
+  // 解锁线仍按单局 18~30 ✦ 的量级：最便宜的一条一局就能买，最贵的约两到三局。
   const vows = {
-    // 六条誓约按 2026-11-13「真实终局血量比」实测难度升序排列，reward 严格随难度递增：
-    //   mercy 70.6% < none 70.2% < greed 66.2% < ascetic 65.7% < guard 50.4% < nameless 34.6%
-    // （口径：打完碑魔剩血/maxHp，全清贪心路线，tools/sim.js --vow=X 尾行）
-    // 不立誓不是零难度——它要求不靠任何规则兜底，比慈悲（回血兜底）略难，所以也有奖励。
+    // 不立誓：基线。它永远可选，也不需要买——第一次进塔只有它。
     none: {
-      name: '不立誓', emoji: '○', tag: '无名之分', tier: 't-normal', accent: '#9fb6d8',
-      desc: '塔是什么样就什么样。第一次爬塔就选它。', reward: 2,
+      name: '不立誓', emoji: '○', tag: '无誓', tier: 't-normal', accent: '#9fb6d8',
+      desc: '塔是什么样就什么样。第一次爬塔只能选它。', reward: 2,
     },
     mercy: {
-      name: '慈悲之誓', emoji: '🕊️', tag: '轻羽', tier: 't-easy', accent: '#7ec9a2',
-      desc: '攻击 −3；每上一层回复 12% 生命', reward: 3,
+      name: '慈悲之誓', emoji: '🕊️', tag: '轻羽', rank: '一阶', tier: 't-easy', accent: '#7ec9a2',
+      desc: '每上一层回复 12% 生命', reward: 3, ember: 6,
     },
     greed: {
-      name: '贪婪之誓', emoji: '🪙', tag: '重金', tier: 't-hard', accent: '#e0b56a',
-      desc: '击杀金币 +50%；秤的价目 +45%', reward: 5,
+      name: '贪婪之誓', emoji: '🪙', tag: '重金', rank: '二阶', tier: 't-hard', accent: '#e0b56a',
+      desc: '击杀金币 +50%', reward: 5, ember: 14,
     },
     ascetic: {
-      name: '苦行之誓', emoji: '🪵', tag: '苦行', tier: 't-ascetic', accent: '#c8a978',
-      desc: '不能格挡；每上一层回复 10% 生命', reward: 8, ember: 10,
+      name: '苦行之誓', emoji: '🪵', tag: '苦行', rank: '三阶', tier: 't-ascetic', accent: '#c8a978',
+      desc: '战斗经验 +40%', reward: 8, ember: 24,
     },
     guard: {
-      name: '铁壁之誓', emoji: '🛡️', tag: '铁色', tier: 't-nightmare', accent: '#e07a6a',
-      desc: '不能格挡；每场战斗承伤 +18%', reward: 12,
+      name: '铁壁之誓', emoji: '🛡️', tag: '铁色', rank: '四阶', tier: 't-nightmare', accent: '#e07a6a',
+      desc: '每场战斗承伤 −12%', reward: 12, ember: 36,
     },
-    // 以下一条要用余烬解锁（塔的记忆）：最陡的规则，反馈也最高
+    // 最贵的一条：四处刻痕各长一寸——四位锁匠倒下时，塔把你的名字刻得更深
     nameless: {
-      name: '无名之誓', emoji: '🕳️', tag: '无名', tier: 't-abyss', accent: '#a99cf0',
-      desc: '不能格挡、物价 +40%；每上一层回复 10% 生命', reward: 18, ember: 20,
+      name: '无名之誓', emoji: '🕳️', tag: '无名', rank: '五阶', tier: 't-abyss', accent: '#a99cf0',
+      desc: '每击败一位锁匠：攻击/防御 +2、生命上限 +200，并回复 25% 生命', reward: 18, ember: 48,
     },
   };
 

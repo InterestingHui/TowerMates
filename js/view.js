@@ -734,7 +734,7 @@
     const need = lockedVow ? Math.max(0, (vows[lockedVow].ember || 0) - (o.ember || 0)) : 0;
     const vowGoal = () => (need > 0
       ? `再攒 ${need} ✦ 解锁「${vows[lockedVow].name}」`
-      : `「${vows[lockedVow].name}」已可解锁——下一局开局选它`);
+      : `「${vows[lockedVow].name}」已可解锁——下一局开局买下它`);
     const chapterGoal = `把回响拿满的章推进到 ${(mem.fullChapters || 0) + 1}/${CHAPTERS}`;
     const endGoal = () => (!(endings.true || 0) ? '去念出第六个名字'
       : (!(endings.plain || 0) ? '试试另一条路：铁与霜' : null));
@@ -748,8 +748,8 @@
       if (eg) goals.push(eg);
     } else {
       if (lockedVow) goals.push(vowGoal());
-      // 还没带着走过结局的誓约（解锁过的才算——锁着的已经在上一句里了）
-      const unWon = Object.keys(vows).filter((id) => id !== 'none' && !vows[id].ember && !((mem.vowWins || {})[id]));
+      // 已经买下、还没带着走过结局的誓约（锁着的已经在上一句里了）
+      const unWon = Object.keys(vows).filter((id) => id !== 'none' && (o.hasVow && o.hasVow(id)) && !((mem.vowWins || {})[id]));
       if (unWon.length) goals.push(`带着「${vows[unWon[0]].name}」走到一次结局`);
       // 决战余裕还没拿过 S：把「避战流」钉进前三，别让这条隐藏策略永远没人试
       if (!(mc.S || 0)) goals.splice(2, 0, '拿一次决战余裕 S：清塔攒战意，或绕道省血');
