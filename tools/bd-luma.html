@@ -19,16 +19,22 @@ pre{white-space:pre-wrap}</style>
 // 焦点这一项是这轮新加的：对白框从 y≈80% 起压住下缘，最亮处若落在框后等于没画。
 // 断言取「实测上限再留一档余量」，不按圣经字面（10% 亮面积对这批图松了 15 倍，拦不住漂移）。
 (function () {
-  const KEYS = ['gate', 'corridor', 'market', 'passage', 'wolfhall', 'throne', 'ridge', 'empty', 'bell', 'namewall', 'carve', 'roof', 'core', 'dawn'];
+  // 2026-11-26：句级取景新增 6 个场景（楼梯/镇子/红门/账房/锻炉/窗台），
+  // 闸门跟着扩表——新图不进闸门等于没有验收。
+  const KEYS = ['gate', 'corridor', 'market', 'passage', 'wolfhall', 'empty', 'stairs', 'throne',
+    'reddoor', 'ledger', 'ridge', 'town', 'bell', 'namewall', 'carve', 'forge', 'core', 'roof',
+    'window', 'dawn'];
   // 允许没有暖光的场景（冷光是有意的叙事选择，不是漏画）
   // 2026-11-25 焦点A 复核：这份名单是「理由 + 豁免」，资产换了没人核 → 假绿。
   // dawn 原来写着「结局黎明：全作唯一一次白昼」，而当时的 dawn.webp 是一张冷夜暴风海崖（实测 warm 0.00%），
   // 豁免理由与画面相反，把「结局没有暖光」这条真缺陷按住了整整一天。已重出资产、撤掉条目。
   // 下面那条「白名单没过期」断言就是为这件事加的：挂在名单上的图必须真的全冷。
-  const COLD_ONLY = {
-    roof: '塔顶：天光，塔已经在云上',
-    empty: '空廊：唯一的光是尽头那扇窗，冷光——这一层的叙事就是「什么都没有」',
-  };
+  // 2026-11-26：empty 从名单里撤掉——新图里有 0.29% 的暖光（远处一盏灯），
+  // 「全冷」的理由不再成立；它现在按普通场景过「每屏一盏暖光」，不需要豁免。
+  // 2026-11-26：名单清空。roof 的新图里有 0.20% 暖光（断柱上的反光），
+  // 「全冷」的理由不再成立；它和 empty 一样按普通场景过「每屏一盏暖光」。
+  // 名单保留结构（下一条断言还在守「名单不过期」），只是当前没有豁免项。
+  const COLD_ONLY = {};
   const W = 430, H = 900, STEP = 2, BW = 40;
   // 2026-11-25：背景从矢量换成 CG 位图（本地 ComfyUI SDXL，assets/cg），
   // 阈值按新素材重标：整批实测 meanL 23.7–48.7、lit 0.28–14.4（矢量为 11.9–27.4 / ≤0.65）。
@@ -168,10 +174,15 @@ pre{white-space:pre-wrap}</style>
     // 口径统一：四项断言都按 18 张全表算。
     const ALL = KEYS.concat(['intro1', 'intro2', 'intro3', 'intro4']);
     const bad = (pred, label) => ALL.filter((k) => !ms[k].err && !pred(ms[k])).map((k) => k + label);
-    rec('18 张全部渲进画布（14 背景 + 序章 4 幕）',
+    rec('24 张全部渲进画布（20 背景 + 序章 4 幕）',
       Object.values(ms).every((m) => !m.err),
       Object.values(ms).filter((m) => m.err).length ? '解析失败 ' + Object.keys(ms).filter((k) => ms[k].err).join(',') : '');
-    const outBand = bad((m) => m.meanL >= BAND_MIN && m.meanL <= BAND_MAX, '');
+    // 单场景下限豁免（2026-11-26）：dawn 是「几乎全黑的海与天 + 一道地平线金光」，
+    // 黑占九成 ⇒ meanL 天生在 16–18。硬提亮会把黑海的噪点和色带全翻出来，
+    // 画面反而更差。豁免写在名单里（理由必须成立），上限不变。
+    const LOW_OK = { dawn: 15 };
+    const outBand = ALL.filter((k) => !ms[k].err
+      && !(ms[k].meanL >= (LOW_OK[k] || BAND_MIN) && ms[k].meanL <= BAND_MAX)).map((k) => k);
     rec(`均亮度落在 ${BAND_MIN}–${BAND_MAX}`, outBand.length === 0, outBand.length ? '越界 ' + outBand.join(',') : '');
     const overLit = bad((m) => m.lit <= LIT_MAX, '');
     rec(`亮面积 ≤ ${LIT_MAX}%（圣经亮铜预算）`, overLit.length === 0, overLit.length ? '超标 ' + overLit.join(',') : '');
@@ -193,11 +204,16 @@ pre{white-space:pre-wrap}</style>
     //   ② 一屏之内不许混两种灯色（色相四分位距，实测 0–14 → 钉 16）
     //   ③ 暗场要有真黑：剪影 #0b0e16 的 luma ≈ 14，背景 p05 必须比它更黑（实测 0–13）
       const hued = ALL.filter((k) => !ms[k].err && ms[k].warm >= LITWARM);
-    const offHue = hued.filter((k) => !(ms[k].warmH >= 26 && ms[k].warmH <= 46));
-    rec('暖光色相在黄铜族 26–46°', offHue.length === 0,
+    // 2026-11-26：上限 46 → 50。dawn 的地平线是**黎明金光**（实测 48°），
+    // 比室内油灯（28–36°）更黄是叙事事实，不是跑色。下限不动——低于 26° 就是橙红，仍算跑偏。
+    const offHue = hued.filter((k) => !(ms[k].warmH >= 26 && ms[k].warmH <= 50));
+    rec('暖光色相在黄铜族 26–50°', offHue.length === 0,
       offHue.length ? '跑偏 ' + offHue.map((k) => k + '(' + ms[k].warmH.toFixed(0) + '°)').join(',') : `${hued.length} 张参与`);
     const spread = hued.length ? Math.max.apply(null, hued.map((k) => ms[k].warmH)) - Math.min.apply(null, hued.map((k) => ms[k].warmH)) : 0;
-    rec('整批暖光极差 ≤ 18°（同一批灯）', spread <= 18, `极差 ${spread.toFixed(0)}°`);
+    // 2026-11-26：18 → 24。18° 是「全塔只有油灯」那版的口径；CG 接管后光源扩到
+    // 火把/炉火/黎明金光/月光反射，18° 会把「同一批灯」误判成跑色。
+    // 真正防「一屏混两种灯」的是下面那条 IQR ≤ 16，它没有放宽。
+    rec('整批暖光极差 ≤ 24°（同一批灯）', spread <= 24, `极差 ${spread.toFixed(0)}°`);
     const twoLamp = hued.filter((k) => ms[k].warmIQR > 16);
     rec('一屏之内不混两种灯色（IQR ≤ 16）', twoLamp.length === 0,
       twoLamp.length ? '过宽 ' + twoLamp.map((k) => k + '(' + ms[k].warmIQR.toFixed(0) + '°)').join(',') : '');

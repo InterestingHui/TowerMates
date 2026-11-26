@@ -548,7 +548,8 @@
       return;
     }
     if (!window.Backdrops || typeof t.floor !== 'number') { hide(); return; }
-    const bid = Backdrops.pick({ key: t.key, floor: t.floor });
+    // idx 一并传下去：句级取景表按「这一段第几句」取画（2026-11-26）
+    const bid = Backdrops.pick({ key: t.key, floor: t.floor, idx: t.idx | 0 });
     if (!bid) { hide(); return; }
     // 锁芯场景多一个参数：已得几枚锁环就点亮几道（其余场景忽略）
     let opt = null;
@@ -562,6 +563,13 @@
     if (ov) ov.classList.add('scene-on');
     if (cur !== 'bd:' + bid + idTail) paint('bd:' + bid + idTail, Backdrops.layer(bid, opt));
     else box.classList.add('on');
+    // 预取下两句的景：换景时那张图已经在缓存里，不会白一下
+    if (Backdrops.prefetch) {
+      [1, 2].forEach((d) => {
+        const nx = Backdrops.pick({ key: t.key, floor: t.floor, idx: (t.idx | 0) + d });
+        if (nx) Backdrops.prefetch(nx);
+      });
+    }
   }
 
   window.Scenes = { sync, hide };

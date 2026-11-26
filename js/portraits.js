@@ -301,9 +301,11 @@
 
   // 位图立绘（2026-11-13 接入）：assets/portraits/*.webp，640px 高、带透明通道。
   // 注意 KEY 里「炎魔」「魔王」都映射到 torch，所以位图必须按中文名（who）取，不能按 id。
+  // CG 立绘（2026-11-26）：assets/portraits/<id>.webp，768×960，四周已做 alpha 渐隐。
+  // 文件名与 tools/cg-gen.js 的 PORTRAITS 键一致（yan/duo/heng），别再另起一套拼音缩写。
   const IMG = {
     烛: 'candle', 炎魔: 'yanmo', 魔王: 'mowang', 薇拉: 'vera',
-    秤: 'cheng', 墨妖: 'moyao', 钟妖: 'zhongyao', 碑魔: 'beimo',
+    秤: 'cheng', 墨妖: 'yan', 钟妖: 'duo', 碑魔: 'heng', 勇者: 'hero',
   };
 
   // 四位锁匠：rim 2px + 眼神提亮（普通怪 1.2px）
@@ -380,9 +382,11 @@
           ${rim.rim}
         </svg>`;
     const imgName = IMG[who];
-    // 默认走 SVG：对白槽只有 68–84px，位图细节不可见反而更糊。
-    // 只有显式传 size='lg'（Boss 出场 / 图鉴大图等 ≥200px 的场合）才用位图，失败自动回落 SVG。
-    const useImg = imgName && size === 'lg';
+    // 2026-11-26：一律先用 CG 位图。上一版「对白槽 84px 只给 SVG 剪影」的理由是
+    // 「位图细节看不见反而更糊」——那是 SDXL 430×900 时代的结论；FLUX 出的 768×960 立绘
+    // 缩到 84px 后，明暗关系仍比纯黑剪影清楚一个档（用户要求「立绘也换成小 CG」）。
+    // 位图 404 / 解码失败时 onerror 会把 .is-fail 挂上，CSS 自动露出下面那张 SVG。
+    const useImg = !!imgName;
     const media = useImg
       ? `<img class="pt-img" src="assets/portraits/${imgName}.webp" alt="${who}" draggable="false"
              onerror="this.classList.add('is-fail')">${svg}`

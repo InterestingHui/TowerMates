@@ -639,6 +639,58 @@
     afterChoicePlain: 'dawn', afterChoiceTrue: 'dawn',
   };
 
+  // ---------- 句级取景（2026-11-26） ----------
+  // 用户报障「对话和背景板不相称」：上一版是**段级**映射（一段 4–7 句共用一个场景），
+  // 于是「祭坛」「密道」「名墙」被反复借用，句子说到「帕子从窗台飘下海崖」时背景还停在塔顶。
+  // 这张表把每一句对到它自己说的那个地方——下标就是 STORY[key] 的行号，长度必须与剧本一致
+  // （tools/code-test.js 有断言：表长 ≠ 剧本行数 = 红，防止改剧本后错位）。
+  // 原则：① 说哪里就画哪里；② 同段内不连续三句同景（视觉会腻）；③ 转折句换景当「翻页」。
+  const LINE_SCENE = {
+    candle1: ['corridor', 'corridor', 'corridor', 'stairs'],
+    ch2: ['passage', 'stairs', 'passage', 'core'],
+    candle2: ['passage', 'roof', 'core', 'reddoor'],
+    candle3: ['stairs', 'town', 'core', 'throne'],
+    ch3: ['ridge', 'town', 'ridge', 'bell', 'town', 'ridge'],
+    ch4: ['namewall', 'namewall', 'forge', 'namewall', 'namewall', 'carve', 'carve'],
+    journal: ['ledger', 'core', 'core', 'core', 'town', 'ledger', 'roof'],
+
+    merchant: ['market', 'market', 'market', 'market', 'market', 'market'],
+    merchant2: ['empty', 'empty', 'empty'],
+    merchant3: ['carve', 'carve', 'carve'],
+    merchant4: ['core', 'core', 'core'],
+
+    eighthSword: ['wolfhall', 'wolfhall', 'wolfhall'],
+    gateLore: ['passage', 'passage', 'passage'],
+    wardLore: ['passage', 'passage'],
+    blockLore: ['corridor', 'corridor', 'corridor', 'corridor'],
+    blockLore2: ['core', 'core', 'core'],
+    coinBagLore: ['bell', 'bell', 'bell'],
+    stele: ['gate', 'gate'],
+
+    solitude: ['stairs', 'stairs', 'wolfhall'],
+    candle4: ['ridge', 'namewall', 'bell', 'bell'],
+    candle5: ['carve', 'namewall', 'namewall', 'namewall', 'carve'],
+
+    bossYan: ['ledger', 'ledger', 'town', 'ledger', 'ledger', 'market'],
+    afterYan: ['ledger', 'namewall', 'throne', 'ledger'],
+    bossJu: ['throne', 'throne', 'stairs', 'town', 'stairs', 'throne', 'throne'],
+    afterJu: ['throne', 'throne', 'stairs', 'core', 'stairs'],
+    bossDuo: ['bell', 'bell', 'bell', 'bell', 'bell', 'bell'],
+    afterDuo: ['bell', 'bell', 'carve', 'bell'],
+    bossHeng: ['carve', 'carve', 'namewall', 'carve', 'namewall', 'carve', 'carve'],
+    afterHeng: ['carve', 'carve', 'carve', 'carve'],
+
+    core: ['core', 'core', 'core'],
+    heartTake: ['core', 'core'],
+    heartLeave: ['core', 'core'],
+
+    princessPlain: ['roof', 'roof', 'core', 'window', 'roof'],
+    princessPlainSword: ['roof', 'wolfhall', 'core', 'window', 'roof'],
+    princessTrue: ['roof', 'ledger', 'core', 'core', 'core', 'core', 'roof', 'roof'],
+    afterChoicePlain: ['roof', 'namewall', 'core'],
+    afterChoiceTrue: ['ledger', 'namewall', 'core', 'core', 'roof', 'roof', 'roof', 'dawn'],
+  };
+
   // 2026-11-25：CG 接管。14 张背景改用本地 ComfyUI（SDXL）生成的位图（assets/cg/*.webp，430×900，合计 416KB），
   // 矢量版退为兜底：图没到/加载失败时它就是底图，不会出现黑屏。管线与提示词见 tools/cg-gen.js。
   const IMG = {
@@ -647,6 +699,9 @@
     ridge: 'assets/cg/ridge.webp', empty: 'assets/cg/empty.webp', bell: 'assets/cg/bell.webp',
     namewall: 'assets/cg/namewall.webp', carve: 'assets/cg/carve.webp', roof: 'assets/cg/roof.webp',
     core: 'assets/cg/core.webp', dawn: 'assets/cg/dawn.webp',
+    // 2026-11-26 句级取景新增：楼梯、镇子夜景、红门、账房、锻炉、窗台
+    stairs: 'assets/cg/stairs.webp', town: 'assets/cg/town.webp', reddoor: 'assets/cg/reddoor.webp',
+    ledger: 'assets/cg/ledger.webp', forge: 'assets/cg/forge.webp', window: 'assets/cg/window.webp',
     // 序章四幕也用 CG（矢量分镜退为兜底）：挑一张「誓约之后第一批看到」的图最要紧
     intro1: 'assets/cg/intro1.webp', intro2: 'assets/cg/intro2.webp',
     intro3: 'assets/cg/intro3.webp', intro4: 'assets/cg/intro4.webp',
@@ -655,7 +710,7 @@
   // 换一张 assets/cg/dawn.webp 指纹不变 ⇒ 老玩家浏览器继续用旧图（结局那张已经换过一次了）。
   // 源码里是 'dev'，publish 那份由 tools/sync-publish.js 换成 assets/cg 的内容指纹——
   // 换图即换 URL，不靠人记得 bump。所有出图口子都必须走 cgSrc，别直接拼 IMG[k]。
-  const ASSET_V = '463e930a';
+  const ASSET_V = '339e0112';
   const cgSrc = (k) => { const s = IMG[k]; return s ? s + '?v=' + ASSET_V : ''; };
   // 序章用：只取图片标签（矢量分镜由 scenes.js 自己拼在下面当兜底）
   function imgTag(key) {
@@ -683,9 +738,12 @@
   // 上屏用：矢量打底 + CG 覆盖（图没到/没图时，露出的就是下面那张矢量）
   function layer(key, opt) {
     const base = svg(key, opt);
-    if (!base) return '';
     const src = cgSrc(key);
-    return src ? base + `<div class="bd-shot" style="background-image:url(${src})"></div>` : base;
+    // 2026-11-26：新加的场景（stairs/town/reddoor/ledger/forge/window）只有 CG、没有矢量底图。
+    // 旧写法「没有 base 就 return ''」会让这些场景整块消失——垫一层同色底，图没到也不亮出棋盘。
+    if (!src) return base;
+    const under = base || '<svg class="bd-under" viewBox="0 0 430 900" preserveAspectRatio="none" aria-hidden="true"><rect width="430" height="900" fill="#070a10"/></svg>';
+    return under + `<div class="bd-shot" style="background-image:url(${src})"></div>`;
   }
 
   // 锁芯：因为需要独立的动画层，单独拼一次。lit = 已得锁环数（0~4）。
@@ -743,6 +801,18 @@
   // 先露出下面的矢量底图，等 webp 解码完再「啪」地换上去，读起来像背景闪了一下。
   // 做法：页面 load 后空闲时把 18 张图各 new Image() 一次，序章四张排最前（最先被看到）；
   // 只是预热缓存，不挂 DOM、不改任何一屏的内容。
+  // 单张预取（去重）：换句时提前拉下一张，避免「说到哪儿了、图还在转圈」。
+  // 不做全量预加载——33 张 860×1800 是 4MB+，开屏就下完等于把首屏堵死。
+  const preloading = {};
+  function prefetch(key) {
+    const src = cgSrc(key);
+    if (!src || preloading[src]) return;
+    preloading[src] = true;
+    const im = new Image();
+    im.decoding = 'async';
+    im.src = src;
+  }
+
   function preload() {
     const keys = Object.keys(IMG).sort((a, b) => (/^intro/.test(a) ? 0 : 1) - (/^intro/.test(b) ? 0 : 1));
     keys.forEach((k) => {
@@ -755,16 +825,26 @@
 
   function pick(ctx) {
     const k = ctx && ctx.key;
+    // ① 句级：这一段逐句配过景就按行号取——这是「说到哪画到哪」的唯一通道
+    if (k && LINE_SCENE[k]) {
+      const arr = LINE_SCENE[k];
+      const i = Math.max(0, Math.min(arr.length - 1, (ctx.idx | 0)));
+      const hit = arr[i];
+      if (hit) return hit;
+      if (hit === null) return null;    // 显式留空：这一句就该没有背景
+    }
+    // ② 段级：整段一个景（没有逐句登记的老剧本）
     if (k && Object.prototype.hasOwnProperty.call(KEY_SCENE, k)) {
       const hit = KEY_SCENE[k];
       if (hit) return hit;
       return null;
     }
+    // ③ 楼层：连 key 都没有的对白（提示句、数组脚本）
     const f = ctx && typeof ctx.floor === 'number' ? ctx.floor : 0;
     return FLOOR_SCENE[Math.max(0, Math.min(FLOOR_SCENE.length - 1, f))] || 'gate';
   }
 
-  window.Backdrops = { svg, layer, pick, imgTag, preload, cgUrl: cgSrc, assetV: ASSET_V, has: (k) => !!SCENES[k], FLOOR_SCENE, KEY_SCENE };
+  window.Backdrops = { svg, layer, pick, imgTag, preload, prefetch, cgUrl: cgSrc, assetV: ASSET_V, has: (k) => !!(SCENES[k] || IMG[k]), FLOOR_SCENE, KEY_SCENE, LINE_SCENE };
 
   // 预热只跑一次：load 已过就直接排，否则等 load（once，避免重复挂监听）。
   if (typeof document !== 'undefined' && typeof window.Image === 'function') {

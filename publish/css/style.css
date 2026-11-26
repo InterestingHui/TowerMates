@@ -2337,8 +2337,9 @@ body.at-start #bottom { visibility: hidden; }
 .vow-card .vc-desc { font-size: var(--fs-tag); line-height: 1.55; color: var(--muted); min-height: 31px; }
 .vow-card .vc-mul { font-size: var(--fs-tag); color: #7f8a9c; border: 1px solid rgba(255,255,255,0.12); border-radius: 20px; padding: 1px 7px; }
 .vow-card .vc-mul small { font-size: var(--fs-tag); color: #9aa4b5; margin-left: 3px; }
-/* 代价行：誓约让你失去什么，选之前就该看见 */
-.vow-card .vc-cost { font-size: var(--fs-tag); color: #d98a86; letter-spacing: 0.3px; }
+/* 锁着的誓约：卡底一行写清价目 / 还差多少 / 点一下买下——内容不藏，价位也不藏 */
+.vow-card .vc-unlock { font-size: var(--fs-tag); color: #cfa46e; letter-spacing: 0.3px; }
+.vow-card .vc-unlock.ok { color: var(--gold-bright); }
 .vow-card.hero { border-color: rgba(232, 196, 106, 0.45); }
 .vow-hint { margin-top: 13px; font-size: var(--fs-tag); color: var(--muted); letter-spacing: 1px; }
 
@@ -2376,22 +2377,7 @@ body.at-start #bottom { visibility: hidden; }
 .vow-flash .vf-body { display: flex; flex-direction: column; gap: 1px; min-width: 0; text-align: left; }
 .vow-flash .vf-body b { font-size: var(--fs-tag); letter-spacing: 1.4px; color: var(--vy, var(--gold)); font-weight: 700; }
 .vow-flash .vf-body i { font-style: normal; font-size: var(--fs-tag); line-height: 1.45; color: var(--muted); }
-/* 锁着的誓约：不占卡片，收成一排小 chips——首屏只留能选的那几张 */
-.vow-locked { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 10px; }
-.vow-chip {
-  font-family: inherit;
-  font-size: var(--fs-tag);
-  color: var(--dim);
-  border: 1px dashed var(--line-strong);
-  background: rgba(255, 255, 255, 0.02);
-  border-radius: 20px;
-  padding: 8px 14px; /* 触屏热区：上下 8px，指尖点得住 */
-  cursor: pointer;
-  transition: color 0.15s, border-color 0.15s;
-}
-.vow-chip:hover { color: var(--gold); border-color: rgba(232, 196, 106, 0.45); }
-.vow-chip.poor { opacity: 0.62; }
-/* 「余烬是什么」注释：只给没通关过的人看 */
+/* 「余烬是什么」注释：只要还有锁着的誓约就显示（全解锁后自动收掉） */
 .vow-ember-note { font-size: var(--fs-tag); line-height: 1.6; color: var(--muted); margin: -4px 0 10px; }
 @media (max-width: 380px) {
   .vow-cards { gap: 7px; }
@@ -2558,7 +2544,7 @@ body.at-start #bottom { visibility: hidden; }
   color: var(--muted);
 }
 .daily-hint b { color: #d8bf85; font-weight: 600; }
-.vow-card.locked { opacity: 0.72; border-style: dashed; }
+.vow-card.locked { opacity: 0.92; border-style: dashed; }
 .vow-card.locked .vow-glyph { filter: grayscale(0.6) brightness(0.8); }
 .vow-card .vc-lock {
   font-size: var(--fs-tag);

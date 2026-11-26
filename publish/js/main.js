@@ -1423,7 +1423,7 @@
     // 还没学格挡时，把「学格挡」作为第三个解法一起给出——尤其血量型卡关。
     // 2026-11-24：第一层不再提格挡（用户要求）——那时玩家连盾谱都没见过，
     // 说「学了能省三成血」只是让他去记一个当层用不上的词。从第 2 层起才提。
-    const blockTip = !s.flags.hasBlock && !Engine.vowForbidsBlock() && s.floor >= 1 && s.floor <= 4;
+    const blockTip = !s.flags.hasBlock && s.floor >= 1 && s.floor <= 4;
     // 卡关条也要有说话人：无主语的「卡在墨妖这儿？」会被读成怪自己开口（2026-11-20 用户反馈）。
     // 诊断数字归秤（他是管账的），与点开后的 stuckDef/stuckHp 对白同一口径。
     renderRich(el.stuckText, defBreak
@@ -2441,17 +2441,17 @@
   // 败局不借用胜局的金色面板：endOverlay 挂 death-mode，整块转铁灰冷调；
   // 「折戟」塔印只在此处出现，不参与 bestSeal 竞争。履历/目标照常给出——败局也有下一局。
   let deathShown = false;
-  // 首局结算：把「下一局可以立誓」做成一张小卡。只写一行提示玩家记不住，
-  // 但也不能把刚压短的结算页再堆长——四条规矩只出名字，不写规则。
+  // 首局结算：把「下一局可以立誓」做成一张小卡。只写名字与解锁方式，
+  // 具体规则在立誓页每张卡上写全——这里不重复六段文案。
   function renderNextVow(first) {
     const box = $('nextVow');
     if (!box) return;
     box.hidden = !first;
     if (!first) { box.innerHTML = ''; return; }
-    const ids = ['none', 'mercy', 'greed', 'guard'];
+    const ids = ['mercy', 'greed', 'ascetic', 'guard', 'nameless'];
     box.innerHTML = `<div class="nv-title">下一局开局可以立誓</div>`
       + `<div class="nv-chips">${ids.map((id) => `<span class="nv-chip">${VowIcons.icon(id, 14)} ${D.vows[id].name.replace('之誓', '')}</span>`).join('')}</div>`
-      + `<p class="nv-note">一条规矩换一种走法；越难走，通关留下的 ✦ 越多。</p>`;
+      + `<p class="nv-note">这局留下的 ✦ 可以在立誓页买下一条——解锁后永久可选，每条只给助力，不带代价。</p>`;
   }
 
   // 结算标签：View 出数据（哪几行、各是什么数），这里只翻译成标签——
@@ -2871,12 +2871,7 @@
       Renderer.shake(130, 2.5);
       if (m.boss) {
         const shop = nearestShopFloor(s.floor);
-        // 铁壁之誓打到塔顶：给专属台词——烛认得这条誓约，点明「没有格挡」的真实代价
-        if (m.finalBoss && Engine.vow() === 'guard') {
-          const fd = Engine.fightDamage(ch, false);
-          warn(`**碑魔** · 你没有格挡，要 **${fd ? fd.damage : '?'}** 点血才接得下`);
-          sayHint('tooStrongBossGuard', { n: shop, need: fd ? fd.damage + 1 : '?' });
-        } else if (Tips.mark('toostrong')) sayHint('tooStrongBoss', { n: shop });
+        if (Tips.mark('toostrong')) sayHint('tooStrongBoss', { n: shop });
         else warn(`烛：打不过，**回第 ${shop} 层找秤**`);
         log(`打不过${m.name}——塔里还有没清完的怪，或者回第 ${shop} 层找秤。`, 'warn');
       } else {
@@ -3032,7 +3027,7 @@
         relicDesc: (id) => D.relics[id].desc,
         // 药水回复量有干粮之环 ×1.3：货架上的数字必须走引擎同一个出口
         potionHeal: (n) => Engine.potionHeal(n),
-        forbidsBlock: () => Engine.vowForbidsBlock(),
+        forbidsBlock: () => false,   // 2026-11-26 起没有禁挡誓约；商店的置灰分支保留给后续规则扩
         floorsLeft: () => Engine.floorMonsterCount(),
         monsterDefByName: (name) => {
           const bk = Object.keys(D.monsters).find((k) => D.monsters[k].name === name);
@@ -3662,14 +3657,17 @@
       // 而「今日之约」每天都换，只写日期等于把「今天更难」这件事藏起来。
       const dvDef = dailyVowDef();
       bd.textContent = `今日一塔 · ${Daily.label(Daily.keyOf(Date.now()))} · ${dvDef.name}`;
-      // 誓约改的是规则（不能格挡 / 承伤 +18% …），名字本身不解释规则——
-      // 所以按钮下面那一行把这条约的规矩原样写出来，进塔前就能看清今天要守什么。
+      // 誓约改的是这一局的走法（回血 / 金币 / 经验 …），名字本身不解释规则——
+      // 所以按钮下面那一行把这条约的加成一字不改写出来，进塔前就能看清今天多了什么。
+      const dt = dailyTie();
       const dh = $('dailyHint');
       if (dh) {
         dh.style.display = metaOn ? 'block' : 'none';
-        dh.innerHTML = dvDef.name === '不立誓'
-          ? '今天不立誓：塔是什么样就什么样 · 零点换下一座'
-          : `今日之约 <b>${dvDef.name}</b>：${dvDef.desc} · 零点换下一座`;
+        dh.innerHTML = dt.locked
+          ? `今日轮到 <b>${D.vows[dt.want].name}</b>（还没解锁）——今天不立誓 · 零点换下一座`
+          : dvDef.name === '不立誓'
+            ? '今天不立誓：塔是什么样就什么样 · 零点换下一座'
+            : `今日之约 <b>${dvDef.name}</b>：${dvDef.desc} · 零点换下一座`;
       }
     }
     // 首次进塔不显示徽章：新人先看到「开始游戏」，收藏品等玩过一局再露脸
@@ -4641,10 +4639,9 @@
   }
 
   // ---------- 立誓 ----------
-  // 2026-11-24 用户报障：首局只给一张「先进塔看看」，等于没有选择。
-  // 现在首局和之后一样，一次摆出全部可选誓约（+ 锁着的收成一排 chip），
-  // 每条誓约各有自己的徽记 / 主色 / 代价行，选完立刻在画面顶端回一张
-  // 「誓约已立」的小条（名字 + 这一局改了什么），然后才进塔。
+  // 2026-11-26 用户裁定：誓约不再带任何负面代价，全部改成「给整局多一条助力」；
+  // 第一次进塔只能「不立誓」，其余五条要用 ✦ 逐条买下——但锁着的卡也必须把
+  // 名字 / 档位 / 规则 / 价目全写在脸上（不许有看不到内容的誓约）。
   const isFirstRun = () => !((Meta.memory && Meta.memory.runs) || 0);
 
   // 立誓页的键盘高亮：只标一格，不改任何选中状态（选中＝Enter，见 keydown 的 vow 分支）
@@ -4655,6 +4652,51 @@
     cards.forEach((c, idx) => c.classList.toggle('focus', idx === vowFocus));
   }
 
+  // 只画卡（重画不改漏斗、不改提示）：买下一条后原地刷新，玩家不用重开面板
+  function renderVowPanel() {
+    const firstRun = isFirstRun();
+    const all = Object.keys(D.vows);
+    const lockedCount = all.filter((id) => id !== 'none' && !Meta.has(id)).length;
+    // 余额行只显示数量本身（用户要求：展示余烬后不加乱七八糟的文字）
+    const emberLine = $('vowEmber');
+    if (emberLine) { emberLine.textContent = `✦ ${Meta.ember}`; emberLine.hidden = false; }
+    // 「✦ 是什么」：只要还有锁着的誓约就要解释（首局尤其），全解锁后自动收掉
+    const emberNote = $('vowEmberNote');
+    if (emberNote) emberNote.hidden = lockedCount === 0;
+    el.vowCards.innerHTML = all.map((id) => {
+      const v = D.vows[id];
+      const locked = id !== 'none' && !Meta.has(id);
+      const affordable = locked && Meta.ember >= (v.ember || 0);
+      // 档位签只写短签（轻羽/重金/…）：价格与卡序已经把「从小助力到大助力」写清楚，
+      // 2026-11-26 实测把「一阶 · 轻羽」塞进小签会让部分无头 Chrome 在收尾时崩渲染进程。
+      const tier = `<span class="vc-tier ${v.tier || ''}">${v.tag}</span>`;
+      // 上局用的誓约标角标：重开的人一眼认出自己那条（焦点 B：重复认卡是纯劳动）
+      const lastMark = (Meta.memory.lastVow || '') === id ? '<span class="vc-last">上局</span>' : '';
+      // 首局把「第一次来」直接顶掉档位签：一行只放得下两个小签
+      const headTag = (firstRun && id === 'none') ? '<span class="vc-tier t-easy">第一次来 · 唯一可选</span>' : tier;
+      // 锁着的卡：价目与能不能买写在卡底，别让人点下去才知道差多少
+      let foot = '';
+      if (locked) {
+        const short = Math.max(0, (v.ember || 0) - Meta.ember);
+        foot = firstRun
+          ? `<span class="vc-unlock">🔒 ${v.ember} ✦ · 走完一局后可解锁</span>`
+          : affordable
+            ? `<span class="vc-unlock ok">🔒 ${v.ember} ✦ · 点一下买下</span>`
+            : `<span class="vc-unlock">🔒 ${v.ember} ✦ · 还差 ${short} ✦</span>`;
+      }
+      const acc = v.accent || '#e8c46a';
+      return `<button class="vow-card ${id === 'none' ? 'hero' : ''} ${locked ? 'locked' : ''}" data-vow="${id}" style="--vy:${acc};--vy-soft:${acc}66">
+        <span class="vc-head">${VowIcons.icon(id, 30, v.accent)}${headTag}${lastMark}</span>
+        <span class="vc-name">${v.name}</span>
+        <span class="vc-desc">${v.desc}</span>
+        ${foot}
+      </button>`;
+    }).join('');
+    el.vowCards.querySelectorAll('.vow-card').forEach((b) => {
+      b.addEventListener('click', () => chooseVow(b.dataset.vow));
+    });
+  }
+
   function openVow(force) {
     vowFocus = -1;
     Funnel.push('vow_open', { first: isFirstRun() ? 1 : 0 });
@@ -4663,67 +4705,10 @@
     const hint = document.querySelector('#vowOverlay .vow-hint');
     if (kicker) kicker.textContent = '立 誓';
     if (desc) desc.textContent = isFirstRun()
-      ? '第一次进塔。定一条规矩——也可以不立。'
-      : '定一条规矩，选了改不回来。也可以不立。';
+      ? '第一次进塔：只有「不立誓」。走完一局，塔会记住你。'
+      : '誓约只给助力、不带代价；按助力从小到大排，用 ✦ 买下的永久可选。';
     if (hint) hint.textContent = '点一张开始 · 或 ← → 切换、Enter 确认';
-    const all = Object.keys(D.vows);
-    const lockedIds = all.filter((id) => D.vows[id].ember && !Meta.has(id));
-    const shown = all.filter((id) => lockedIds.indexOf(id) < 0);
-    // 余额一行：当前有多少 ✦。锁着的才补一句「还差 N」，够换的直接写「可解锁」
-    const emberLine = $('vowEmber');
-    if (emberLine) {
-      if (Meta.ember > 0 || lockedIds.length) {
-        // 只显示数量本身，不带任何附注（用户要求：展示余烬后不加乱七八糟的文字）
-        emberLine.textContent = `✦ ${Meta.ember}`;
-        emberLine.hidden = false;
-      } else {
-        emberLine.hidden = true;
-      }
-    }
-    // 「余烬是什么」注释：只在还没通关过时显示（Meta.memory.runs === 0），
-    // 通关过的人已经从结算页见过它落袋，不再解释
-    const emberNote = $('vowEmberNote');
-    if (emberNote) {
-      const played = (Meta.memory && Meta.memory.runs) || 0;
-      emberNote.hidden = played > 0 || !lockedIds.length;
-    }
-    el.vowCards.innerHTML = shown.map((id) => {
-      const v = D.vows[id];
-      // 用户明确要求：开局不展示每局预计余烬收益——那是结算页才该出现的数字
-      // 2026-11-25：档位色阶改由数据自带（data.js vows[*].tier）。此前这里是 4 条写死的 tag→类名映射，
-      // 「苦行」「无名」两条不在表里 ⇒ 落到基础灰，而这两条恰好是唯一要余烬解锁、实测最难的两档。
-      const tier = `<span class="vc-tier ${v.tier || ''}">${v.tag}</span>`;
-      // 上局用的誓约标角标：重开的人一眼认出自己那条（焦点 B：重复认卡是纯劳动）
-      const lastMark = (Meta.memory.lastVow || '') === id ? '<span class="vc-last">上局</span>' : '';
-      // 代价高亮：desc 里「不能 / −N」这类负面词挑出来染红，选之前先看见失去什么
-      const costRe = /不能[^；;]*|攻击 −\d+|物价 \+\d+%|(?:秤的)?价目 \+\d+%/g;
-      const cost = (v.desc.match(costRe) || []).join(' · ');
-      const rest = cost ? v.desc.split(costRe).map((p) => p.replace(/^[；;、]+|[；;、]+$/g, '').trim()).filter(Boolean).join('；') : v.desc;
-      // 首局把「第一次来」直接顶掉档位签：一行只放得下两个小签，三个就挤成一条
-      const headTag = (isFirstRun() && id === 'none') ? '<span class="vc-tier t-easy">第一次来 · 推荐</span>' : tier;
-      const acc = v.accent || '#e8c46a';
-      return `<button class="vow-card ${id === 'none' ? 'hero' : ''}" data-vow="${id}" style="--vy:${acc};--vy-soft:${acc}66">
-        <span class="vc-head">${VowIcons.icon(id, 30, v.accent)}${headTag}${lastMark}</span>
-        <span class="vc-name">${v.name}</span>
-        <span class="vc-desc">${rest}</span>
-        ${cost ? `<span class="vc-cost">${cost}</span>` : ''}
-      </button>`;
-    }).join('');
-    const lockBox = $('vowLocked');
-    if (lockBox) {
-      lockBox.hidden = !lockedIds.length;
-      lockBox.innerHTML = lockedIds.map((id) => {
-        const v = D.vows[id];
-        const short = Math.max(0, v.ember - Meta.ember);
-        return `<button class="vow-chip ${short > 0 ? 'poor' : ''}" data-lock="${id}" title="${v.desc}">🔒 ${v.name} · ${short > 0 ? `还差 ${short} ✦` : `可解锁 ${v.ember} ✦`}</button>`;
-      }).join('');
-      lockBox.querySelectorAll('.vow-chip').forEach((b) => {
-        b.addEventListener('click', () => chooseVow(b.dataset.lock));
-      });
-    }
-    el.vowCards.querySelectorAll('.vow-card').forEach((b) => {
-      b.addEventListener('click', () => chooseVow(b.dataset.vow));
-    });
+    renderVowPanel();
     el.vowOverlay.classList.add('show');
   }
 
@@ -4745,15 +4730,23 @@
 
   function chooseVow(id) {
     const v = D.vows[id];
-    if (v && v.ember && !Meta.has(id)) {
+    if (!v) return;
+    // 锁着的誓约：首局一律拦下（第一次进塔只有「不立誓」）；之后点一下就用 ✦ 买下，
+    // 买完停在原面板刷新——多一下「再点一次立它」，避免误触把币花掉还立刻开局。
+    if (id !== 'none' && !Meta.has(id)) {
+      if (isFirstRun()) {
+        warn('第一次进塔只能不立誓——走完一局，塔才记得你。', 4200);
+        return;
+      }
       const r = Meta.buy(id, v.ember);
-      if (r === 'poor') { warn(`余烬不够：还差 ${v.ember - Meta.ember} 点`); return; }
+      if (r === 'poor') { warn(`余烬不够：还差 ${v.ember - Meta.ember} ✦`); return; }
       if (r === 'ok') {
         Sound.play('relic');
         vibrate([10, 24, 10]);
-        warn(`**塔记住了你**：解锁「**${v.name}**」`, 5200);
+        warn(`**塔记住了你**：解锁「**${v.name}**」——再点一下就能立它`, 5200);
+        vowFocus = -1;   // 卡片重画了：旧的键盘高亮不再指向任何一格
+        renderVowPanel();
       }
-      openVow();
       return;
     }
     el.vowOverlay.classList.remove('show');
@@ -4809,18 +4802,26 @@
   // ---------- 今日一塔 ----------
   // 同一天走进来的人拿到的是同一座塔：地图换位、路遇串、锁环与祭坛候选、Boss 台词全部由日期种子
   // 决定；「今日之约」再按日期钉一条固定誓约（同一天所有人同一条，所以比得出来；跨天换，所以
-  // 难度不再天天一样）。地图那层只改「看到什么」，一个数值都不动——难度全部来自已模拟过的誓约规则。
+  // 每天的开局不一样）。地图那层只改「看到什么」，一个数值都不动。
+  // 2026-11-26 起誓约要靠 ✦ 买：今天轮到的那条还没买下时，本局回落到「不立誓」并在入口说明。
+  function dailyTie() {
+    const key = Daily.keyOf(Date.now());
+    const want = Daily.vowOf(key);
+    const owned = want === 'none' || Meta.has(want);
+    return { key, id: owned ? want : 'none', want, locked: !owned };
+  }
   function dailyVowDef() {
-    const v = D.vows[Daily.vowOf(Daily.keyOf(Date.now()))];
+    const v = D.vows[dailyTie().id];
     return v || D.vows.none;
   }
   function startDaily() {
-    const key = Daily.keyOf(Date.now());
-    const vow = Daily.vowOf(key);
-    const v = D.vows[vow] || D.vows.none;
-    startGame(vow, { seed: Daily.seedOf(key), daily: key });
-    const tie = vow === 'none' ? '今日不立誓' : `今日之约：${v.name} · ${v.desc}`;
-    warn(`今日一塔 · ${Daily.label(key)}：${tie}。今天走进塔的人，遇到的都是同一座。零点换下一座。`, 6800);
+    const t = dailyTie();
+    const v = D.vows[t.id] || D.vows.none;
+    startGame(t.id, { seed: Daily.seedOf(t.key), daily: t.key });
+    const tie = t.locked
+      ? `今日轮到「${D.vows[t.want].name}」，你还没解锁——今天不立誓`
+      : (t.id === 'none' ? '今日不立誓' : `今日之约：${v.name} · ${v.desc}`);
+    warn(`今日一塔 · ${Daily.label(t.key)}：${tie}。今天走进塔的人，遇到的都是同一座。零点换下一座。`, 6800);
   }
   function enterDaily() {
     if (Engine.hasSave()) {

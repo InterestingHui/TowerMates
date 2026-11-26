@@ -120,7 +120,6 @@
     // 开新局是玩家的明确选择：这一页从此拥有这一档，哪怕另一页刚写过（那次写会把它顶掉）
     saveConflict = false;
     forceNextWrite = true;
-    if (v === 'mercy') s.atk = Math.max(1, s.atk - 3);
     // 前 3 层「先走哪边、先捡什么」每局都不同（今日一塔=同一天同一座塔）：
     // 第 1 层用主种子（工具场景传 seed 0 即原版布局），第 2/3 层各派生一颗子种子。
     shufflePickups(s.maps[0], mapSeed);
@@ -470,7 +469,7 @@
   // 它补的是「战斗外的取舍」缺的那半边：名墙（第 10 层）那一层清到什么程度，
   // 原来只能凭感觉（战意看不见、碑魔多重也不知道），现在两头都是数。
   // white 已经是「含誓约 / 锁环 / 战意乘区」的真实白打（fightDamage 同源），
-  // block 是「这一场的格挡还留着」时能压到的数（没盾谱 / 已用光 / 禁挡誓约 → null）。
+  // block 是「这一场的格挡还留着」时能压到的数（没盾谱 / 已用光 → null）。
   const FINAL_KEY = (function () {
     const k = Object.keys(D.monsters).find((kk) => D.monsters[kk].finalBoss);
     return k || 'U';
@@ -502,7 +501,7 @@
     // 一句「撑不过」会把本来能过关的玩家劝退。
     // 缠斗不在这份账里：它多挨一轮，只会让这一场更贵——把它排进「最省的一招」
     // 是老版本「抢攻」留下的错误口径（那个按钮当时是省血的），别再加回来。
-    // 格挡只在「这一场真能用」时给数：没学、用光、禁挡誓约都不给，否则就是画饼
+    // 格挡只在「这一场真能用」时给数：没学、用光都不给，否则就是画饼
     if (canBlock()) {
       const b = fightDamage(FINAL_KEY, true);
       if (b && b.damage !== null) {
@@ -533,7 +532,6 @@
     if (!p || p.damage === null) return null;
     const m = D.monsters[ch];
     let dmg = p.damage;
-    if (vow() === 'guard') dmg = Math.round(dmg * 1.18);
     if (hasRing('ward2')) dmg = Math.round(dmg * 0.94);
     if (hasRing('bell') && m && m.boss) dmg = Math.round(dmg * 0.85);
     const spread = blockSpreadActive();
@@ -590,16 +588,11 @@
   }
 
   // 章末回响：击败 Boss 必得，直接开锁环三选一（塔规已移除，不再设门槛）
-  // 靠格挡吃饭的环：铁壁/苦行/无名三条誓约不能格挡，抽到就是白抽一张
-  const BLOCK_RINGS = ['parry', 'twice', 'spare'];
+  // 没学盾谱时「惜挡之环」是废卡（它奖励的是「忍住不挡」，而你根本挡不了）：直接不进候选池
   function ringChoices(ch) {
     const owned = rings();
-    const noBlock = vowForbidsBlock();
-    // 没学盾谱时「惜挡之环」是废卡（它奖励的是「忍住不挡」，而你根本挡不了）：
-    // 与禁挡誓约同样的口径，直接不进候选池
     const noShield = !s.flags.hasBlock;
     const pool = (D.ringPools[ch] || []).filter((id) => owned.indexOf(id) < 0
-      && !(noBlock && BLOCK_RINGS.indexOf(id) >= 0)
       && !(id === 'spare' && noShield));
     for (let i = pool.length - 1; i > 0; i--) {
       const j = (nextRand() * (i + 1)) | 0;
@@ -633,7 +626,7 @@
     if (pending) {
       if (!s.flags['ringChoices_' + ch]) s.flags['ringChoices_' + ch] = ringChoices(ch);
       const choices = s.flags['ringChoices_' + ch];
-      // 候选被过滤空（禁挡誓约 + 没学盾谱能把某章池滤到 0 / 环表缺数据）：这一章没有可挑的环。
+      // 候选被过滤空（没学盾谱能把某章池滤到 0 / 环表缺数据）：这一章没有可挑的环。
       // 直接记为已结算，不挂 pending——否则每次进塔都弹一张一张卡都没有、也关不掉的空面板。
       if (!choices || !choices.length) { s.flags['ringDone_' + ch] = 1; pending = false; }
     }
@@ -759,8 +752,6 @@
       s.hp += v; heal += v;
     };
     if (dir > 0 && firstVisit && vow() === 'mercy') gain(0.12);
-    // 苦行 / 无名：没有格挡，但每上一层塔会补给你 10% 生命
-    if (dir > 0 && firstVisit && (vow() === 'ascetic' || vow() === 'nameless')) gain(0.10);
     // 锁环「借灯 / 回廊 / 长明」：只在往上走时生效，跳层不回血，防止来回刷
     if (dir > 0 && firstVisit) {
       const pct = (hasRing('lamp') ? 0.05 : 0) + (hasRing('stair') ? 0.04 : 0) + (hasRing('lamp2') ? 0.04 : 0);
@@ -769,11 +760,11 @@
     // 基石之环：残血进新层才触发（30% 以下回 15%），是「救命」不是「续航」，与借灯类不冲突
     if (dir > 0 && firstVisit && hasRing('bulwark') && s.maxHp > 0 && s.hp / s.maxHp < 0.3) gain(0.15);
     // 惜挡之环：这一层一次格挡都没动，离开时补 90 金——盾成了「保命还是换钱」的一笔账。
-    // 每层只结一次（spare_f<层>），上下楼来回走刷不到；没学盾谱、或三条「不能格挡」的
-    // 誓约拿不到这笔钱，否则它就成了无条件发钱的老好人环。
+    // 每层只结一次（spare_f<层>），上下楼来回走刷不到；没学盾谱拿不到这笔钱，
+    // 否则它就成了无条件发钱的老好人环。
     let gold = 0;
     const spareKey = 'spare_f' + from;
-    if (dir > 0 && hasRing('spare') && s.flags.hasBlock && !vowForbidsBlock()
+    if (dir > 0 && hasRing('spare') && s.flags.hasBlock
         && !s.flags[spareKey] && blockUsedAt(from) === 0) {
       s.flags[spareKey] = true;
       gold = SPARE_GOLD;
@@ -814,6 +805,8 @@
     const hits = tangle ? hitsBase + 1 : hitsBase;
     let damage = hits * per;
     if (damage > 0 && hasRelic('ward')) damage = Math.max(1, Math.floor(damage * 0.88));
+    // 铁壁之誓：每场承伤 −12%。写进基础承伤，预测 / 实战 / 缠斗账读的是同一个数
+    if (damage > 0 && vow() === 'guard') damage = Math.max(1, Math.round(damage * 0.88));
     return {
       win: s.hp > damage,
       reason: s.hp > damage ? '' : '生命不足，这场战斗会要你的命',
@@ -857,6 +850,7 @@
       const hits = tr === 'first' ? rounds : Math.max(0, rounds - 1);
       let dmg = hits * per;
       if (dmg > 0 && hasRelic('ward')) dmg = Math.max(1, Math.floor(dmg * 0.88));
+      if (dmg > 0 && vow() === 'guard') dmg = Math.max(1, Math.round(dmg * 0.88));
       return dmg;
     };
     const base = calc(s.atk, s.def);
@@ -920,8 +914,6 @@
     if (it.type === 'both') { s.atk += it.value; s.def += it.value; return { type: 'pickup', msg: `拾取${it.name}，攻击/防御 +${it.value}`, short: `+${it.value}/+${it.value}`, good: true }; }
     if (it.type === 'key') { s.keys[it.key]++; return { type: 'pickup', msg: `拾取${it.name}`, short: '+钥匙', good: true }; }
     if (it.type === 'block') {
-      // 禁格挡的三条誓约：读了也学不会，东西不消失，留个明确说法
-      if (vowForbidsBlock()) return { type: 'pickup', msg: '盾谱上的招式，这条誓约不许你用', short: '不能格挡', good: false };
       const first = grantBlock();
       if (!first) return { type: 'pickup', msg: `盾谱的残页你早就读过了`, short: '已学', good: false };
       return { type: 'pickup', msg: `拾取${it.name}，你学会了格挡`, short: '+🛡格挡', good: true, blockLearned: true, story: it.story || null };
@@ -1200,9 +1192,8 @@
         }
       }
     }
-    // 「用掉这一层的格挡」也是付不起的一种：三种情形各说各的话，别一律写「不能格挡」
+    // 「用掉这一层的格挡」也是付不起的一种：两种情形各说各的话，别一律写「不能格挡」
     if (e.useBlock) {
-      if (vowForbidsBlock()) return { kind: 'block', why: 'vow', need: 1, msg: '这条誓约不能格挡' };
       if (!s.flags.hasBlock) return { kind: 'block', why: 'unlearned', need: 1, msg: '还没学会格挡' };
       if (blockLeft() < e.useBlock) return { kind: 'block', why: 'used', need: 1, msg: '这一层的格挡已经用掉了' };
     }
@@ -1295,11 +1286,10 @@
   function blockUsed() {
     return s ? blockUsedAt(s.floor) : 0;
   }
-  // 还剩几次：没学盾谱 / 这条誓约不能格挡时恒为 0，界面与战斗入口都靠它
+  // 还剩几次：没学盾谱时恒为 0，界面与战斗入口都靠它
   function blockLeft() {
     if (!s || s.over || s.won) return 0;
     if (!s.flags.hasBlock) return 0;
-    if (vow() === 'guard' || vow() === 'ascetic' || vow() === 'nameless') return 0;
     return Math.max(0, blockLimit() - blockUsed());
   }
   function canBlock() {
@@ -1321,12 +1311,6 @@
     s.flags.hasBlock = true;
     save();
     return true;
-  }
-
-  // 铁壁 / 苦行 / 无名三条誓约写明「不能格挡」：给它们一个共用的判定，
-  // 商店和拾取都靠它，免得玩家花钱买了用不上的盾谱
-  function vowForbidsBlock() {
-    return vow() === 'guard' || vow() === 'ascetic' || vow() === 'nameless';
   }
 
   // 战前面板用：上一次打这只怪的打法与承伤（没有就是 null）
@@ -1403,8 +1387,10 @@
       s.exp += riposte;
     }
     // 缠斗的收益：拖长这一场、把对方的招数看全——这一战经验翻倍。
+    // 苦行之誓：这一战的经验整体 +40%（与缠斗乘算，不走两套账）
     // 击杀计数与战意照常（人确实倒了），掉金/遗物/锁环也不受影响
-    const expGain = tangled ? m.exp * TANGLE_EXP : m.exp;
+    const expMul = vow() === 'ascetic' ? 1.4 : 1;
+    const expGain = Math.round((tangled ? m.exp * TANGLE_EXP : m.exp) * expMul);
     s.exp += expGain;
     s.flags.killCount = (s.flags.killCount || 0) + 1;    s.flags['kill_' + ch] = true;
     // 净芯之环：锁芯层（第 13 层，s.floor 12）每倒一只都记着，结算按 2 余烬/只 换（上限 4）
@@ -1414,6 +1400,7 @@
     if (hasRing('tally') && s.flags.killCount % 8 === 0) { s.keys.y++; tallyKey = true; }
     let echo = null;
     let tomeKey = false;
+    let heal = 0;
     if (m.boss) {
       s.flags['bossKilled_' + ch] = true;
       if (ch === 'Z') s.flags.bossKilled = true;
@@ -1430,9 +1417,15 @@
         s.flags.finalHp = Math.round(s.hp);
         s.flags.finalMaxHp = Math.round(s.maxHp);
       }
+      // 无名之誓：每倒一位锁匠，塔把你的名字刻得更深（攻防 +2、上限 +200、回 25%）
+      if (m.chapter && vow() === 'nameless') {
+        s.atk += 2; s.def += 2;
+        s.maxHp += 200;
+        const h = Math.min(Math.round(s.maxHp * 0.25), Math.max(0, s.maxHp - s.hp));
+        s.hp += h; heal += h;
+      }
     }
 
-    let heal = 0;
     if (!m.boss) {
       if (hasRelic('ember')) {
         const h = Math.min(Math.max(4, Math.floor((s.maxHp || s.hp) * 0.02)), Math.max(0, s.maxHp - s.hp));
@@ -1509,8 +1502,6 @@
     if (hasRing('thrift2')) price = Math.max(1, Math.round(price * 0.75));
     // 秤砣之环（bargain）：钥匙价目再 −25%（只影响钥匙，药水与训练照旧）
     if (item.key && hasRing('bargain')) price = Math.max(1, Math.round(price * 0.5));
-    if (vow() === 'greed') price = Math.max(1, Math.round(price * 1.45));
-    if (vow() === 'nameless') price = Math.max(1, Math.round(price * 1.4));
     return price;
   }
 
@@ -1620,7 +1611,6 @@
     if (item.codex && s.flags.codex) return { type: 'refuse', msg: '已经拥有窥探之镜' };
     if (item.relic && hasRelic(item.relic)) return { type: 'refuse', msg: '这件东西已经在你身上了' };
     if (item.block && s.flags.hasBlock) return { type: 'refuse', msg: '你已经学过格挡了' };
-    if (item.block && vowForbidsBlock()) return { type: 'refuse', msg: '这条誓约不能格挡，买它没用' };
     if (item.heartShard && s.flags.heartShard) return { type: 'refuse', msg: '塔心碎片一枚就够——它认主' };
     const price = priceOf(item);
     if (s.gold < price) return { type: 'refuse', msg: '金币不够' };
@@ -1931,7 +1921,7 @@
       const ch = tile(s.x + dx, s.y + dy);
       return D.monsters[ch] ? predict(ch) : null;
     },
-    tryMove, fight, lastTactic, canBlock, canGuard, blockLimit, blockLeft, blockUsedAt, grantBlock, vowForbidsBlock, blockSpreadAt, blockSpreadActive, blockSpreadScale, BLOCK_SPREAD, BLOCK_BASE, BLOCK_BASE2, buy, priceOf, shopStock, dealOf, openShopAt, floorMonsterCount, floorPickupCount, floorThreat, battleMargin, potionHeal, finish, altarChoices, pickRelic, pathTo, pathThrough, pathToNear, pathsTo,
+    tryMove, fight, lastTactic, canBlock, canGuard, blockLimit, blockLeft, blockUsedAt, grantBlock, blockSpreadAt, blockSpreadActive, blockSpreadScale, BLOCK_SPREAD, BLOCK_BASE, BLOCK_BASE2, buy, priceOf, shopStock, dealOf, openShopAt, floorMonsterCount, floorPickupCount, floorThreat, battleMargin, potionHeal, finish, altarChoices, pickRelic, pathTo, pathThrough, pathToNear, pathsTo,
     nextLevelExp, margin, keyName, summary, accrueActive, ACTIVE_CAP, hasRelic, ownedRelics, beginFloor, restoreFloor, revealCore, heartState, heartTake, heartLeave, vow, pickEvent, eventPool, eventCost, eventShortfall, resolveEvent, applyEffect, jumpTo, visitedMax, gateForth, sealPlan,
     rings, hasRing, ringBlockScale, zealScale, zealNext, zealNeed, finalLedger, cleanEmber, fightDamage, tangleInfo, bossPhases, settleChapter, ringChoices, pendingRing, pickRing,
   };

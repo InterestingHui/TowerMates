@@ -1858,6 +1858,34 @@ ok(mainSrc.indexOf("searchParams.set('rival'") < 0, 'main.js 不许自己拼链�
     '预热挂在 load 后且只挂一次（不预热＝每幕第一次出现先露矢量再啪地换图）');
 }
 
+// ---------- 句级取景表（2026-11-26）----------
+// 用户报障「对话和背景板不相称」：段级映射让「帕子飘下海崖」配着塔顶的图。
+// 修法是 LINE_SCENE（每段逐句配景）。这张表最大的风险是**改剧本后错位**——
+// 少写一行，第 3 句就会拿到第 4 句的画，而且不会报错。所以这里按行数硬对。
+{
+  const fs4 = require('fs');
+  const path4 = require('path');
+  const win = global.window || (global.window = {});
+  require(path4.join(__dirname, '..', 'js', 'story.js'));
+  require(path4.join(__dirname, '..', 'js', 'backdrops.js'));
+  const S4 = win.STORY;
+  const B4 = win.Backdrops;
+  const L4 = B4.LINE_SCENE || {};
+  const keys4 = Object.keys(L4);
+  ok(keys4.length >= 30, `句级取景表覆盖 ${keys4.length} 段（少于 30 段说明表被拆了）`);
+  const wrong = keys4.filter((k) => !Array.isArray(S4[k]) || S4[k].length !== L4[k].length);
+  ok(wrong.length === 0, `句级表长度与剧本逐段一致（错位：${wrong.map((k) => k + ' ' + (S4[k] || []).length + '/' + L4[k].length).join(', ') || '无'}）`);
+  const badScene = [];
+  keys4.forEach((k) => {
+    L4[k].forEach((sc, i) => { if (sc && !B4.has(sc)) badScene.push(k + '#' + i + '→' + sc); });
+  });
+  ok(badScene.length === 0, `句级表引用的场景都有图（缺：${badScene.join(', ') || '无'}）`);
+  // 逐句配景必须真的生效：同段不同句要能取到不同场景（回退到段级就说明 pick 没读 idx）
+  const p1 = B4.pick({ key: 'princessPlain', floor: 11, idx: 3 });
+  const p2 = B4.pick({ key: 'princessPlain', floor: 11, idx: 0 });
+  ok(p1 === 'window' && p2 === 'roof', `pick 按行号取景（实测 ${p2} / ${p1}）`);
+}
+
 // ---------- CG 换图必须能击穿缓存（2026-11-25 叙事轮）----------
 // 病根：build 指纹只算 html+css+js，换一张 assets/cg/*.webp 指纹一字不变 ⇒ 老玩家浏览器继续用旧图
 // （结局那张 dawn 已经换过一次，改的人以为上线了，回来的人看到的还是旧海崖）。
