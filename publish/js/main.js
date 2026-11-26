@@ -4781,7 +4781,7 @@
     const desc = document.querySelector('#vowOverlay .vow-desc');
     const hint = document.querySelector('#vowOverlay .vow-hint');
     if (kicker) kicker.textContent = '立 誓';
-    if (desc) desc.textContent = '选一条路进塔：越难走，通关留下的 ✦ 越多';
+    if (desc) desc.textContent = '选一条路进塔：越难走，通关时多留 ✦';
     if (hint) hint.textContent = '点一张开始 · 灰卡＝还没买下的助力 · ← → 切换';
     renderVowPanel();
     el.vowOverlay.classList.add('show');

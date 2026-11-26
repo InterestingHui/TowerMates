@@ -2145,6 +2145,28 @@ ok(mainSrc.indexOf("searchParams.set('rival'") < 0, 'main.js 不许自己拼链�
   ok(p1 === 'window' && p2 === 'roof', `pick 按行号取景（实测 ${p2} / ${p1}）`);
 }
 
+// ---------- 塔心石抉择卡：代价要写在卡上（2026-11-27 07:4x 加练·叙事）----------
+// 这一屏是情感高点，也是全作唯一「纯叙事」的二选一（锁芯之后已无战可打）。
+// 三处会被文案改坏的坑：①「带走」只写 `+300 生命上限`、不交代拿走了什么；
+// ②「放下」写「什么都不带走」，下一行又说「+3 余烬」——同一张卡自己打自己；
+// ③把 `+3 余烬` 写成「通关余烬」——`emberModel` 里 heart==='left' 在胜/败两条出口都算，
+//   没有「通关」这个条件，写了就是给玩家一个不存在的门槛（04:0x 折戟余烬统一后的口径）。
+{
+  const iTake = htmlSrc.indexOf('id="heartTake"');
+  const iLeave = htmlSrc.indexOf('id="heartLeave"');
+  const iChoice = htmlSrc.indexOf('id="heartOverlay"');
+  ok(iChoice > 0 && iTake > iChoice && iLeave > iTake, '塔心石两张抉择卡都在页面上（顺序 心跳石→带走/放下）');
+  const takeCard = iTake < 0 ? '' : htmlSrc.slice(iTake, iLeave);
+  const leaveCard = iLeave < 0 ? '' : htmlSrc.slice(iLeave, htmlSrc.indexOf('</div>', iLeave));
+  ok(/心跳/.test(takeCard) && /没有/.test(takeCard), '「带走」卡交代拿走了什么（塔里从此没有心跳）');
+  ok(leaveCard.indexOf('什么都不带走') < 0, '「放下」卡不再写「什么都不带走」（与下一行 +3 余烬自相矛盾）');
+  ok(takeCard.indexOf('通关余烬') < 0 && leaveCard.indexOf('通关余烬') < 0, '两张卡都不写「通关余烬」（余烬不看胜负）');
+  // 誓约屏那句在 index.html 与 main.js 各有一份：只改一处会让开屏文字与开面板时覆盖的文字打架
+  const descHtml = (htmlSrc.match(/class="vow-desc">([^<]*)</) || [])[1] || '';
+  const descMain = (mainSrc.match(/desc\.textContent = '([^']*)'/) || [])[1] || '';
+  ok(descHtml && descHtml === descMain, `立誓页说明两处同字（页面「${descHtml}」/ 面板「${descMain}」）`);
+}
+
 // ---------- CG 换图必须能击穿缓存（2026-11-25 叙事轮）----------
 // 病根：build 指纹只算 html+css+js，换一张 assets/cg/*.webp 指纹一字不变 ⇒ 老玩家浏览器继续用旧图
 // （结局那张 dawn 已经换过一次，改的人以为上线了，回来的人看到的还是旧海崖）。
