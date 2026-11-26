@@ -118,6 +118,11 @@ if (!process.argv.includes('--no-shot')) {
     (async () => {
       await wait(900);
       let bad = 0;
+      // `bad` 是「附加检查总失败数」，不是「截图失败数」——backdrop-luma / stuck / trait 也往里加。
+      // 2026-11-26 之前汇总行写死成「N 张截图异常」，于是 luma 红的那天会报「1 张截图异常」，
+      // 而 59 张截图全都正常：每一轮都得重新翻日志才能确认是谁红。单独计一张才说得准。
+      let shotFail = 0;
+      const failAt = (isShot) => { bad++; if (isShot) shotFail++; };
       for (const scene of SCENES) {
         const file = path.join(OUT, scene + '.png');
         const budget = scene === 'sword' ? 20000 : 7000;   // sword 全链路要跑「踩剑→对白→平结局」
@@ -134,7 +139,7 @@ if (!process.argv.includes('--no-shot')) {
           size = fs.existsSync(file) ? fs.statSync(file).size : 0;
         }
         const good = size > 8000;
-        if (!good) bad++;
+        if (!good) failAt(true);
         console.log((good ? '✓' : '✗') + ` scene ${scene} ${(size / 1024).toFixed(0)}KB`);
       }
       // 第八勇者线全链路：踩断剑 → 认剑变体 → 平结局三件（熔灯句/替川胶囊/执剑者成就）
@@ -172,7 +177,7 @@ if (!process.argv.includes('--no-shot')) {
         ], { encoding: 'utf8' });
         const size = fs.existsSync(file) ? fs.statSync(file).size : 0;
         const good = r.status === 0 && size > 8000;
-        if (!good) bad++;
+        if (!good) failAt(true);
         console.log((good ? '✓' : '✗') + ` opendata ${cs} ${(size / 1024).toFixed(0)}KB`);
       }
       // 序章分镜四幕：21 项断言（幕在播/幕序/路径属性无粘连/帕心唯一/暖光/清场/非序章无场景）+ 四幕截图
@@ -204,7 +209,7 @@ if (!process.argv.includes('--no-shot')) {
           ], { encoding: 'utf8' });
           const size = fs.existsSync(file) ? fs.statSync(file).size : 0;
           const good = size > 20000;   // 场景铺满全屏的画面远大于纯面板截图
-          if (!good) bad++;
+          if (!good) failAt(true);
           console.log((good ? '✓' : '✗') + ` scene-act${i} ${(size / 1024).toFixed(0)}KB`);
         }
       }
@@ -227,7 +232,7 @@ if (!process.argv.includes('--no-shot')) {
         const okBd = bdOut.includes('ALL PASS');
         const bdN = (bdOut.match(/✓/g) || []).length;
         console.log((okBd ? '✓' : '✗') + ` backdrop-luma ${bdN} 项` + (okBd ? '' : '\n' + bdOut.slice(0, 400)));
-        if (!okBd) bad++;
+        if (!okBd) failAt(false);
       }
       // 「打不过」预警归属：撞墨妖（打不过）时，说话人必须是引导者（烛/秤），
       // 不许 Boss 自己开口，也不许战前剧本串场（2026-11-20 用户反馈：逻辑要严谨）
@@ -249,7 +254,7 @@ if (!process.argv.includes('--no-shot')) {
         const okStuck = skOut.includes('ALL PASS');
         const skN = (skOut.match(/✓/g) || []).length;
         console.log((okStuck ? '✓' : '✗') + ` stuck-check ${skN} 项` + (okStuck ? '' : '\n' + skOut.slice(0, 400)));
-        if (!okStuck) bad++;
+        if (!okStuck) failAt(false);
       }
       // 首遇特性规则：怪名旁挂着「⚡先攻」，规则原来只用 log() 投到 #log 最下缘，
       // 而那一刻战斗遮罩正盖在上面——规则投递到了被自己挡住的面（2026-11-20 加练美术焦点B）。
@@ -272,7 +277,7 @@ if (!process.argv.includes('--no-shot')) {
         const okTrait = trOut.includes('ALL PASS');
         const trN = (trOut.match(/✓/g) || []).length;
         console.log((okTrait ? '✓' : '✗') + ` trait-check ${trN} 项` + (okTrait ? '' : '\n' + trOut.slice(0, 500)));
-        if (!okTrait) bad++;
+        if (!okTrait) failAt(false);
       }
       // 手感探针：跳过必须当场生效（曾经点一下要白等 528ms / Boss 过场 950ms）
       console.log('== 附加 · 手感探针（战斗跳过延迟）==');
@@ -731,7 +736,7 @@ if (!process.argv.includes('--no-shot')) {
         ], { encoding: 'utf8' });
         const size = fs.existsSync(file) ? fs.statSync(file).size : 0;
         const ok = r.status === 0 && size > 8000;
-        if (!ok) bad++;
+        if (!ok) failAt(true);
         console.log((ok ? '✓' : '✗') + ` scene landscape(844x390) ${(size / 1024).toFixed(0)}KB`);
       }
       // 多视口适配：手机横屏 / 小屏 / 极矮横屏下的画布与顶栏数值
@@ -1099,7 +1104,11 @@ if (!process.argv.includes('--no-shot')) {
         console.log((okTab ? '✓' : '✗') + ` 并发面 ${tabLine}` + (okTab ? '' : '\n   ' + r.fails.slice(0, 6).join('\n   ')));
       }
 
-      server.kill();      console.log(bad === 0 ? `\n✓ 截图全部生成（${SCENES.length} 张，见 tools/out/）` : `\n✗ ${bad} 张截图异常`);
+      server.kill();
+      console.log(shotFail === 0
+        ? `\n✓ 截图全部生成（${SCENES.length} 张，见 tools/out/）`
+        : `\n✗ ${shotFail} 张截图异常`);
+      if (bad > shotFail) console.log(`✗ 另有 ${bad - shotFail} 项附加检查失败（不是截图）`);
 
       console.log('== 浏览器 UI 自检 ==');
       const ui = run(process.execPath, ['tools/ui-test.js']);

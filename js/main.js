@@ -4640,9 +4640,11 @@
   }
 
   // ---------- 立誓 ----------
-  // 2026-11-26 用户裁定：誓约不再带任何负面代价，全部改成「给整局多一条助力」；
-  // 第一次进塔只能「不立誓」，其余五条要用 ✦ 逐条买下——但锁着的卡也必须把
-  // 名字 / 档位 / 规则 / 价目全写在脸上（不许有看不到内容的誓约）。
+  // 2026-11-26 用户定稿：面板分成两块，回答两个不同的问题——
+  //   ① 开局三路（不立誓 / 利齿 / 重压）：免费、永远可走、难度递增（负代价在 vows[].dmgMul，
+  //      描述里的百分比必须与它同源），越难走通关留下的 ✦ 越多。首局就能选。
+  //   ② 五条助力：**纯增益**、不带任何负面代价，用 ✦ 逐条买下后永久可选，且不再额外给 ✦。
+  // 锁着的助力也必须把名字 / 档位 / 规则 / 价目全写在脸上（不许有看不到内容的誓约）。
   const isFirstRun = () => !((Meta.memory && Meta.memory.runs) || 0);
 
   // 立誓页的键盘高亮：只标一格，不改任何选中状态（选中＝Enter，见 keydown 的 vow 分支）
@@ -4704,8 +4706,10 @@
       </button>`;
     }).join('');
 
+    // 分节标题那句「用 ✦ 解锁」在五条全买下之后就是过期说法（空态要交代，别让玩家以为还有东西没买）
+    const sectLabel = (pool.length && owned === pool.length) ? '已全解锁' : '用 ✦ 解锁';
     el.vowCards.innerHTML = `<div class="vow-paths">${pathRows}</div>
-      <div class="vow-sect"><b>誓约</b><span>用 ✦ 解锁 · ${owned}/${pool.length}</span></div>
+      <div class="vow-sect"><b>誓约</b><span>${sectLabel} · ${owned}/${pool.length}</span></div>
       <div class="vow-pool">${poolCards}</div>`;
     el.vowCards.querySelectorAll('.vow-card').forEach((b) => {
       b.addEventListener('click', () => chooseVow(b.dataset.vow));
@@ -4720,7 +4724,7 @@
     const hint = document.querySelector('#vowOverlay .vow-hint');
     if (kicker) kicker.textContent = '立 誓';
     if (desc) desc.textContent = '选一条路进塔：越难走，通关留下的 ✦ 越多';
-    if (hint) hint.textContent = '点一张开始 · 或 ← → 切换、Enter 确认';
+    if (hint) hint.textContent = '点一张开始 · 灰卡＝还没买下的助力 · ← → 切换';
     renderVowPanel();
     el.vowOverlay.classList.add('show');
   }

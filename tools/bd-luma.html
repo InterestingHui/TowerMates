@@ -171,7 +171,10 @@ pre{white-space:pre-wrap}</style>
     // ---- 断言 ----
     // 2026-11-25 焦点D：bad() 此前只遍历 KEYS（14 张背景）——序章四幕虽然渲进画布、也参与了「同带」，
     // 却在均亮度/亮面积/焦点这三项上一条断言都没有。实测 intro2 的视觉焦点在 y=87%（被对白框压住）照样全绿。
-    // 口径统一：四项断言都按 18 张全表算。
+    // 口径统一：四项断言都按 24 张全表算（20 背景 + 序章 4 幕）。
+    // 2026-11-26 19:1x 自检补洞：上面那句注释写了半年，但「每屏一盏暖光」这条一直只遍历 KEYS（20 张背景），
+    // 序章四幕从来没查过暖光——实测四幕 warm 0.13–0.84%（都 >0，所以当时没红），
+    // 换句话说这条断言从写下的那天起就对四幕失明；扩到 ALL 后与注释兑现（今天零新增失败）。
     const ALL = KEYS.concat(['intro1', 'intro2', 'intro3', 'intro4']);
     const bad = (pred, label) => ALL.filter((k) => !ms[k].err && !pred(ms[k])).map((k) => k + label);
     rec('24 张全部渲进画布（20 背景 + 序章 4 幕）',
@@ -189,7 +192,7 @@ pre{white-space:pre-wrap}</style>
     const lowFocus = bad((m) => m.focalY <= FOCAL_MAX, '');
     rec(`视觉焦点在 y ≤ ${FOCAL_MAX}%（对白框之上）`, lowFocus.length === 0, lowFocus.length ? '被压 ' + lowFocus.join(',') : '');
     // 暖光：只有白名单允许「全冷」
-    const noWarm = KEYS.filter((k) => !ms[k].err && ms[k].warm <= 0 && !COLD_ONLY[k]);
+    const noWarm = ALL.filter((k) => !ms[k].err && ms[k].warm <= 0 && !COLD_ONLY[k]);
     rec('每屏一盏暖光（冷光场景须在白名单里）', noWarm.length === 0, noWarm.length ? '无暖光 ' + noWarm.join(',') : '白名单 ' + Object.keys(COLD_ONLY).join('/'));
     // 2026-11-25 焦点A：白名单本身就是一条「派生说法」。挂在上面却明明有暖光的图 = 理由过期，
     // 会让人以为那屏是刻意全冷。资产重出后必须回头核对名单。
@@ -225,7 +228,7 @@ pre{white-space:pre-wrap}</style>
     const bd = KEYS.map((k) => ms[k]);
     const avg = (a) => a.filter((m) => isFinite(m.meanL)).reduce((s, m) => s + m.meanL, 0) / Math.max(1, a.filter((m) => isFinite(m.meanL)).length);
     const drift = Math.abs(avg(acts) - avg(bd));
-    rec('14 张与序章四幕均亮度同带（差 ≤ 6）', drift <= 6, `序章 ${avg(acts).toFixed(1)} / 背景 ${avg(bd).toFixed(1)} / 差 ${drift.toFixed(1)}`);
+    rec('20 张背景与序章四幕均亮度同带（差 ≤ 6）', drift <= 6, `序章 ${avg(acts).toFixed(1)} / 背景 ${avg(bd).toFixed(1)} / 差 ${drift.toFixed(1)}`);
 
     lines.push('', 'scene        meanL   lit%   warm%   fY%  warmH   iqr  floor');
     lines.push.apply(lines, table);

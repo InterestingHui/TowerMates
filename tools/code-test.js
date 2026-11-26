@@ -1927,7 +1927,32 @@ ok(mainSrc.indexOf("searchParams.set('rival'") < 0, 'main.js 不许自己拼链�
     'main.js 里不许再有写死的 tag→类名映射（改回去就红）');
 }
 
-// ---------- 对白 CG：图必须在两处都在，且开局有空闲预热 ----------
+// ---------- 立誓屏：三路的难度百分比与 dmgMul 同源 + 灰卡/全解锁两句交代 ----------
+// 2026-11-26 三路定稿：难度只由一个数控制（vows[].dmgMul＝怪物伤害乘区），描述里那个百分比
+// 是玩家唯一能读到的「这条路难多少」——两处各写一遍，改一边就会静默说谎。
+{
+  const paths = Object.keys(GD.vows).filter((k) => k === 'none' || GD.vows[k].path);
+  ok(paths.length === 3, `开局三路读到 ${paths.length} 条（不是 3 条说明表被改了）`);
+  const badPct = paths.filter((k) => {
+    const v = GD.vows[k];
+    if (!v.dmgMul) return false;   // 不立誓没有乘区
+    return v.desc.indexOf(`+${Math.round((v.dmgMul - 1) * 100)}%`) < 0;
+  });
+  ok(badPct.length === 0,
+    `三路描述的百分比与 dmgMul 同源（对不上：${badPct.map((k) => k + ' dmgMul=' + GD.vows[k].dmgMul + ' desc=' + GD.vows[k].desc).join(' / ') || '无'}）`);
+  // 首局就摆 5 张灰卡：提示行若只说「点一张开始」，点在灰卡上得到的是「余烬不够」——
+  // 说法与行为对不上（自审第⑦条）。灰卡必须在提示里被交代一次，且不另开教学弹窗。
+  // 断言必须限定在 openVow 函数体内：全库还有别的 hint.textContent（图鉴集齐那句），
+  // 只搜文案会读到别人的提示——第一版就这么假绿了一轮。
+  const vowHint = (/function openVow\([\s\S]{0,500}?hint\.textContent\s*=\s*'([^']*)'/.exec(mainSrc) || [])[1] || '';
+  ok(vowHint.indexOf('灰卡') >= 0, `立誓页提示行交代灰卡（现文：${vowHint || '读不到'}）`);
+  // 五条助力全买下后，「用 ✦ 解锁」就是过期说法（空态要交代）：标题必须随解锁进度换词，
+  // 且「全解锁」的判据是 pool.length，不是写死的 5（加第六条助力时这条不许变成快照）。
+  ok(mainSrc.indexOf("'已全解锁'") > 0 && /owned === pool\.length/.test(mainSrc),
+    '分节标题随解锁进度换词（全解锁后不再写「用 ✦ 解锁」）');
+}
+
+
 // 漏同步到 publish/ 的后果是线上静默回落到矢量图，没有任何报错——所以按文件系统量，不按注释量。
 {
   const fs2 = require('fs');
