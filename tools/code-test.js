@@ -1927,6 +1927,55 @@ ok(mainSrc.indexOf("searchParams.set('rival'") < 0, 'main.js 不许自己拼链�
     'sync-publish 负责把资产指纹写进 publish（注入失败要抛错，不许静默发旧图）');
 }
 
+// ---------- 素材接线闭合（2026-11-26 12:5x 自动轮·加练叙事收尾的「一笔活」）----------
+// 病根：换图 / 换立绘永远是「改一张表 + 拷一个文件」两件事，任一半漏做都**静默降级**，
+// 而静默降级的现场看起来「没什么不对」——这正是它能在树上活很久的原因：
+//   · 表里有键、盘上没文件 → 每屏吃一次 404 再回落矢量（`onerror` 吞掉，只有换图的人以为换好了）；
+//   · 盘上有文件、表里没键 → 新图永远不上场（11-26 那批 moyao/zhongyao/beimo 就是这么成孤儿的）；
+//   · 场景键既不在 SCENES 又不在 IMG → `layer()` 垫一块 #070a10，整屏纯黑（10:3x 在 town/forge/window 上实测）。
+// 三条都是「改的人不会看画面」才漏的，所以必须由闸门咬住，不靠记性。
+{
+  const fs5 = require('fs');
+  const path5 = require('path');
+  const root = path5.join(__dirname, '..');
+  const bd = fs5.readFileSync(path5.join(root, 'js', 'backdrops.js'), 'utf8');
+  const pt = fs5.readFileSync(path5.join(root, 'js', 'portraits.js'), 'utf8');
+
+  // ① CG 表 ↔ assets/cg 双向闭合
+  const imgBlock = (bd.match(/const IMG = \{([\s\S]*?)\n  \};/) || [])[1] || '';
+  const imgPairs = [...imgBlock.matchAll(/(\w+):\s*'assets\/cg\/([\w-]+\.webp)'/g)];
+  const cgOnDisk = fs5.readdirSync(path5.join(root, 'assets', 'cg')).filter((f) => /\.webp$/.test(f));
+  const imgFiles = imgPairs.map((m) => m[2]);
+  const missCg = imgFiles.filter((f) => !cgOnDisk.includes(f));
+  ok(imgPairs.length >= 20 && missCg.length === 0,
+    `IMG 表里每张 CG 都在盘上（${imgPairs.length} 键，缺：${missCg.join('/') || '无'}）`);
+  const orphanCg = cgOnDisk.filter((f) => !imgFiles.includes(f));
+  ok(orphanCg.length === 0, `assets/cg 里没有上不了场的孤儿图（${orphanCg.join('/') || '无'}）`);
+
+  // ② 立绘表 ↔ assets/portraits 双向闭合（按中文名取 id，两表同键不同名，别按 KEY 反查）
+  const ptBlock = (pt.match(/const IMG = \{([\s\S]*?)\};/) || [])[1] || '';
+  const ptIds = [...ptBlock.matchAll(/([\u4e00-\u9fa5]+):\s*'([\w-]+)'/g)].map((m) => m[2]);
+  const ptOnDisk = fs5.readdirSync(path5.join(root, 'assets', 'portraits')).filter((f) => /\.webp$/.test(f));
+  const missPt = ptIds.filter((id) => !ptOnDisk.includes(id + '.webp'));
+  ok(ptIds.length >= 9 && missPt.length === 0,
+    `立绘表里每个人物都有图（${ptIds.length} 键，缺：${missPt.join('/') || '无'}——缺了会静默回落剪影）`);
+  const orphanPt = ptOnDisk.map((f) => f.replace(/\.webp$/, '')).filter((id) => !ptIds.includes(id));
+  ok(orphanPt.length === 0, `assets/portraits 里没有成孤儿的图（${orphanPt.join('/') || '无'}）`);
+
+  // ③ 每个上屏的场景键都必须至少有一个底（矢量 SCENES 或 CG IMG），否则整屏纯黑
+  const vecBlock = (bd.match(/const SCENES = \{([\s\S]*?)\};/) || [])[1] || '';
+  const vecKeys = vecBlock.split(',').map((s) => s.trim()).filter(Boolean);
+  // 取景表的整段（FLOOR_SCENE 起到 IMG 声明前）：这区间里的引号串只有场景键
+  const i0 = bd.indexOf('const FLOOR_SCENE');
+  const i1 = bd.indexOf('const IMG = {');
+  const sceneRegion = i0 >= 0 && i1 > i0 ? bd.slice(i0, i1) : '';
+  ok(sceneRegion.length > 800, '取景表可解析（FLOOR_SCENE→IMG 区间）');
+  const usedKeys = [...new Set([...sceneRegion.matchAll(/['"]([a-zA-Z][\w-]{0,14})['"]/g)].map((m) => m[1]))].sort();
+  const noBed = usedKeys.filter((k) => !vecKeys.includes(k) && !imgPairs.some((m) => m[1] === k));
+  ok(usedKeys.length >= 18 && noBed.length === 0,
+    `每个场景键都有底（用了 ${usedKeys.length} 个，无底：${noBed.join('/') || '无'}——无底=整屏纯黑）`);
+}
+
 // ---------- 分享卡（og:image）此前没有任何闸门（2026-11-26 加练·社交）----------
 // 病根：`assets/share-card.png` 是「分享出去的第一眼」，但它不在 build 指纹里、不在任何探针里，
 // 换掉整批美术后卡片仍是 11-17 那张纯黑底纯文字（11-26 重出时才被发现）。三条都要能咬住：
