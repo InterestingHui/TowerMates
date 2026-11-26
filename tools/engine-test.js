@@ -1246,6 +1246,23 @@ s.flags.ringChoices_1 = ['coin', 'parry', 'zeal'];
 const coinPick = E.pickRing('coin');
 ok(coinPick.type === 'ring' && s.gold === coinGold0 + 200, '铜币之环：选到立刻发 200 金');
 ok(E.pendingRing() === null && E.rings().indexOf('coin') >= 0, '选完就清待办、锁环进袋（同一枚不重复发钱）');
+// 空候选兜底（2026-11-26 09:0x 自检六面 · 第一面状态机死角）：
+// 候选被过滤空（如唯一候选是「惜挡之环」而玩家没学盾谱）时，这一章没有可挑的环。
+// 若仍挂 pending，进塔会弹一张没有卡、也不许关的面板——出不去比少拿一枚贵得多。
+E.newGame();
+s = E.state();
+const poolBak = D.ringPools[1];
+D.ringPools[1] = ['spare'];
+E.settleChapter(1);
+ok(!s.flags['ringPending_1'] && s.flags['ringDone_1'] === 1, '候选为空：不挂 pending，直接记为已结算');
+ok(E.pendingRing() === null, '候选为空的章不再要求玩家去选');
+D.ringPools[1] = poolBak;
+// 旧档：挂着 pending、候选却是空数组（新档已不会产生）——读档只跳过，不改写存档
+E.newGame();
+s = E.state();
+s.flags.ringPending_2 = true;
+s.flags.ringChoices_2 = [];
+ok(E.pendingRing() === null, '旧档空候选的 pending 被跳过（不弹空面板）');
 // 回到下面几段要的局面：第 2 层、袋里只有断刃之环（数值由各条自己摆）
 E.newGame();
 s = E.state();

@@ -1082,6 +1082,9 @@ ok(V.hintSweep([{ at: 10 }, { at: 0 }, { at: 8 }], 12, 5).keep.map((x) => x.at).
   '留下那几条的相对顺序不变（不许把队列倒序）');
 ok(V.hintSweep([{}, { at: 'x' }, { at: NaN }], 0).dropped === 3, '没入队时间的按过期处理（宁可不播，不许很久以后突然插一句）');
 ok(V.hintSweep(null, 0).keep.length === 0 && V.hintSweep([]).dropped === 0, '空队列 / 脏入参不炸');
+// now 漏传时不许整队放行：退回 0 会把所有提示都算成「刚入队」，过期机制静默失效
+ok(V.hintSweep([{ at: Date.now() }], undefined).dropped === 1, '没给 now 按全部过期（与「宁可不播」同向）');
+ok(V.hintSweep([{ at: 1 }], 'x').dropped === 1, 'now 是脏值同样按过期处理');
 ok(TTL >= 60000 && TTL <= 600000, 'TTL 在 1~10 分钟之间（太短会吞掉正常排队，太长等于没有）');
 ok(mainSrc.includes('View.hintSweep(hintQueue'), '泵每跳先扫过期（不是只判空）');
 ok(/hintQueue\.push\(\{[^}]*at: Date\.now\(\)/.test(mainSrc), '入队时间由 say() 一处盖戳，队列里不许各写各的');
@@ -1200,6 +1203,15 @@ const echoDone = V.echoModel({ title: '墨妖', pending: false, choices: ['spare
 ok(echoDone.reward === V.ECHO_REWARD_TAKEN && echoDone.muted && echoDone.cards.length === 0, '拿过的章节不摆候选，只说一句');
 ok(echoDone.hint === '' && echoDone.closable === true, '拿过的章节可以关');
 ok(V.echoModel({ title: '墨妖', pending: true, choices: ['脏 id'], owned: [], rings: GD.rings }).cards.length === 0, '脏候选 id 不画成空卡');
+// 状态机死角（09:0x 自检六面 · 第一面）：待选 + 一张卡都画不出来时，面板必须能关。
+// 「必须选一个」的前提是至少有一个可选；否则玩家被锁在无按钮的屏上（Esc 也不响应）。
+const echoEmpty = V.echoModel({ title: '墨妖', pending: true, choices: ['脏 id'], owned: [], rings: GD.rings });
+ok(echoEmpty.closable === true, '没有可挑的卡时面板必须能关（否则卡死）');
+ok(echoEmpty.hint === V.ECHO_HINT_EMPTY, '空卡时提示行改说「没有可挑的锁环」，不许还教玩家点卡');
+ok(echoEmpty.reward === V.ECHO_REWARD_EMPTY && echoEmpty.reward !== V.ECHO_REWARD_PENDING,
+  '空卡时顶行不许再说「让你挑」（一行说挑、屏上零张卡）');
+ok(V.echoModel({ title: '墨妖', pending: true, choices: ['spare', 'twice'], owned: [], rings: GD.rings }).closable === false,
+  '有卡时仍不许关（这条不许被上面的兜底放宽）');
 
 // 路遇：付不起时「还差多少」与「它给什么」必须同时看得见
 const ev = GD.events.find((e) => e.id === 'herbalist');

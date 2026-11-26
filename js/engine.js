@@ -629,8 +629,14 @@
   function settleChapter(ch) {
     if (!s || !D.chapters[ch - 1]) return null;
     const meta = D.chapters[ch - 1];
-    const pending = !hasRingChapter(ch) && !s.flags['ringDone_' + ch];
-    if (pending && !s.flags['ringChoices_' + ch]) s.flags['ringChoices_' + ch] = ringChoices(ch);
+    let pending = !hasRingChapter(ch) && !s.flags['ringDone_' + ch];
+    if (pending) {
+      if (!s.flags['ringChoices_' + ch]) s.flags['ringChoices_' + ch] = ringChoices(ch);
+      const choices = s.flags['ringChoices_' + ch];
+      // 候选被过滤空（禁挡誓约 + 没学盾谱能把某章池滤到 0 / 环表缺数据）：这一章没有可挑的环。
+      // 直接记为已结算，不挂 pending——否则每次进塔都弹一张一张卡都没有、也关不掉的空面板。
+      if (!choices || !choices.length) { s.flags['ringDone_' + ch] = 1; pending = false; }
+    }
     if (pending) s.flags['ringPending_' + ch] = true;
     s.flags['echo_' + ch] = 1;
     save();
@@ -648,7 +654,12 @@
   function pendingRing() {
     if (!s) return null;
     for (let ch = 1; ch <= D.chapters.length; ch++) {
-      if (s.flags['ringPending_' + ch]) return ch;
+      if (!s.flags['ringPending_' + ch]) continue;
+      const choices = s.flags['ringChoices_' + ch];
+      // 旧档里可能留着「挂了 pending、但候选是空数组」的章（新档已在 settleChapter 收口）：
+      // 这里跳过而不是弹一张空面板。不改存档——读档路径只读不写。
+      if (!choices || !choices.length) continue;
+      return ch;
     }
     return null;
   }

@@ -892,13 +892,15 @@
   const HINT_TTL = 300000;
   function hintSweep(queue, now, ttl) {
     const t = ttl == null ? HINT_TTL : ttl;
-    const at0 = now == null ? 0 : Number(now);
+    // now 无效（漏传 / 脏值）时按「全部过期」处理：与「宁可不播」同一方向。
+    // 退回 0 会让整队都算「刚入队」，过期机制静默失效——量具没给时间，不能当成现在。
+    const at0 = Number(now);
     const keep = [];
     let dropped = 0;
     (Array.isArray(queue) ? queue : []).forEach((h) => {
       const at = h ? Number(h.at) : NaN;
       // 没有入队时间（老调用 / 脏数据）也按过期处理：宁可不播，不许在很久之后突然插一句
-      if (!Number.isFinite(at) || at0 - at > t) dropped++;
+      if (!Number.isFinite(at0) || !Number.isFinite(at) || at0 - at > t) dropped++;
       else keep.push(h);
     });
     return { keep, dropped };
@@ -932,6 +934,11 @@
   const ECHO_REWARD_PENDING = '锁匠倒下了 · 塔从墙上取下一枚锁环，让你挑';
   const ECHO_REWARD_TAKEN = '这一章的锁环你已经拿过了';
   const ECHO_HINT_PICK = '点一枚装上 · 也可按 1 / 2 / 3 · **选了不能换**';
+  // 待选却一张卡也画不出来（池被过滤空 / 候选 id 全脏）时用这句：此时面板必须允许关，
+  // 「必须选一个」的前提是至少有一个可选，否则玩家被锁在一间没有按钮的屋子里。
+  const ECHO_HINT_EMPTY = '这一章没有可挑的锁环 · 关门继续';
+  // 空卡时顶行也不能再说「让你挑」：一行说挑、屏上零张卡，就是文案与行为打架。
+  const ECHO_REWARD_EMPTY = '这一章的锁环没能取出来 · 空手也能继续';
   function echoModel(input) {
     const o = input || {};
     const rings = o.rings || {};
@@ -940,15 +947,17 @@
     const pending = !!o.pending;
     // 已经拿过的章节不再摆候选（引擎也没给候选），面板只说一句「拿过了」
     const cards = pending ? (o.choices || []).map(pick).filter(Boolean) : [];
+    // 待选但一张都画不出来：面板不许再锁（状态机死角——出不去比少拿一枚贵得多）
+    const stuck = pending && !cards.length;
     return {
       kicker: `${o.title || ''} · 回响`,
-      reward: pending ? ECHO_REWARD_PENDING : ECHO_REWARD_TAKEN,
+      reward: stuck ? ECHO_REWARD_EMPTY : pending ? ECHO_REWARD_PENDING : ECHO_REWARD_TAKEN,
       muted: !pending,
       ownedHead: `已装 ${owned.length} 枚`,
       owned,
       cards,
-      hint: pending ? ECHO_HINT_PICK : '',
-      closable: !pending,
+      hint: pending ? (stuck ? ECHO_HINT_EMPTY : ECHO_HINT_PICK) : '',
+      closable: !pending || stuck,
     };
   }
 
@@ -1184,7 +1193,7 @@
     NOTE_DAILY, NOTE_CRUSHED, EMPTY_OTHER, TIP_BLOCK, TIP_SHARD,
     MEM_NOTE_DEATH, MEM_NOTE_WIN, BRIEF_SHOW,
     ALTAR_DESC_EARLY, ALTAR_DESC_LATE, ALTAR_EMPTY,
-    ECHO_REWARD_PENDING, ECHO_REWARD_TAKEN, ECHO_HINT_PICK,
+    ECHO_REWARD_PENDING, ECHO_REWARD_TAKEN, ECHO_HINT_PICK, ECHO_HINT_EMPTY, ECHO_REWARD_EMPTY,
     KEY_NAMES,
   };
 });
