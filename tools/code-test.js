@@ -301,7 +301,25 @@ const today = V.boardModel({
 });
 ok(today.rows.length === 1 && today.rows[0].name === '你', '今日档只收同一天同一座塔的局');
 ok(today.rows[0].vowTag === '', '今日档自己那局（不立誓）不挂徽记');
-ok(today.note === V.NOTE_DAILY, '今日档带「零点换塔」那句解释');
+ok(today.note.indexOf(V.NOTE_DAILY) === 0, '今日档带「零点换塔」那句解释');
+// 朋友昨天贴进来的「今日一塔」码会在今日档整行消失——得说清它去了哪，否则读作「收下的挑战丢了」
+ok(today.note.indexOf(V.NOTE_STALE(1)) >= 0, `今日档报出别的日子的挑战行数（实测「${today.note}」）`);
+const todaySame = V.boardModel({
+  mine: [], rivals: [{ code: 'TM5.sameday', floor: 9, daily: '2026-11-16' }],
+  shadows: [], filter: 'daily', todayKey: '2026-11-16', dayLabel: '11月16日', vows: VOWS,
+});
+ok(todaySame.rows.length === 1 && todaySame.note.indexOf('别的日子') < 0,
+  '同一天的挑战行进今日档，且不触发「别的日子」那句（没丢就不必说）');
+const todayNoTag = V.boardModel({
+  mine: [], rivals: [{ code: 'TM4.old', floor: 9, daily: '' }],
+  shadows: [], filter: 'all', todayKey: '2026-11-16', dayLabel: '11月16日', vows: VOWS,
+});
+ok(todayNoTag.note.indexOf('别的日子') < 0, '「全部」档不说这句（那一档没有筛掉任何人）');
+const todayDup = V.boardModel({
+  mine: [], rivals: [{ code: 'TM5.dup', floor: 5, daily: '2026-11-10' }, { code: 'TM5.dup', floor: 5, daily: '2026-11-10' }],
+  shadows: [], filter: 'daily', todayKey: '2026-11-16', dayLabel: '11月16日', vows: VOWS,
+});
+ok(todayDup.note.indexOf(V.NOTE_STALE(1)) >= 0, '同一条挑战重复存也只报一条（按码去重）');
 const todayVow = V.boardModel({
   mine: [{ floor: 6, daily: '2026-11-16' }], rivals: [],
   shadows: [], filter: 'daily', todayKey: '2026-11-16', dayLabel: '11月16日', vows: VOWS, dayVowName: '铁壁之誓',
@@ -2256,6 +2274,25 @@ ok(mainSrc.indexOf("searchParams.set('rival'") < 0, 'main.js 不许自己拼链�
     `首屏操作教学提到方向键时必须同时说清 ▲ 在哪（现文：${startHint || '缺'}）`);
   ok(/dpad:\s*false/.test(require('fs').readFileSync(require('path').join(__dirname, '..', 'js', 'main.js'), 'utf8')),
     '方向键默认收起这条前提仍在（若改成默认展开，上面那句就该恢复成「方向键 / 点击格子」）');
+}
+
+// 方向键长按的定时器只在按钮自己的指针事件里清（2026-11-26 自检面2 · 低 → 本轮修）：
+// 浮层（商店/祭坛/对白）盖住按钮那一刻，按钮既收不到 pointerup 也收不到 pointerleave
+//（hover 目标只在指针移动时重算）⇒ 320ms 后的 setInterval 会一直替玩家走，
+// 手指一抬、浮层一关人自己就往前挪。act() 的守卫只挡住浮层开着那几秒，挡不住这个定时器。
+{
+  ok(/const dpadEnds = \[\];[\s\S]{0,200}?const endDpadHolds = \(\) =>/.test(mainSrc),
+    '长按收尾有一份统一清单（不是每颗键各管各的）');
+  ok(/document\.addEventListener\('pointerup', endDpadHolds, true\)/.test(mainSrc),
+    '指针在别处抬起也收长按（document 级 pointerup）');
+  ok(/document\.addEventListener\('pointercancel', endDpadHolds, true\)/.test(mainSrc),
+    '指针被系统取消也收（pointercancel）');
+  ok(/window\.addEventListener\('blur', endDpadHolds\)/.test(mainSrc), '切走窗口就收（blur）');
+  ok(/visibilitychange[\s\S]{0,120}?endDpadHolds\(\)/.test(mainSrc), '切到后台就收（visibilitychange）');
+  const pushAt = mainSrc.indexOf('dpadEnds.push(end)');
+  const loopAt = mainSrc.indexOf("document.querySelectorAll('#dpad button').forEach");
+  ok(pushAt > 0 && loopAt > 0 && pushAt > loopAt,
+    '每颗方向键在 forEach 里把 end 交进清单（少交一颗＝那颗键没被修到）');
 }
 
 // 誓约的回声（2026-11-27 加练·叙事）：玩家开局十一秒立的那条誓，必须在叙事上有回音。

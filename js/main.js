@@ -4284,6 +4284,16 @@
     }
     if (dpadToggle) dpadToggle.addEventListener('click', () => { Settings.toggleDpad(); refreshDpad(); vibrate(12); });
     refreshDpad();
+    // 长按连走的收尾清单：每颗方向键把 end 交进来，指针在**别处**抬起时统一收。
+    // 为什么要这一层：浮层（商店/祭坛/对白）盖住按钮那一刻，按钮既收不到 pointerup 也收不到
+    // pointerleave（hover 目标只在指针移动时重算），320ms 后的 setInterval 会一直替玩家走——
+    // 手指一抬、浮层一关，人就自己往前走（act() 的守卫只挡住浮层开着的那几秒）。
+    const dpadEnds = [];
+    const endDpadHolds = () => { dpadEnds.forEach((fn) => fn()); };
+    document.addEventListener('pointerup', endDpadHolds, true);
+    document.addEventListener('pointercancel', endDpadHolds, true);
+    window.addEventListener('blur', endDpadHolds);
+    document.addEventListener('visibilitychange', () => { if (document.hidden) endDpadHolds(); });
     document.querySelectorAll('#dpad button').forEach((b) => {
       let holdDelay = null, holdTimer = null;
       const start = (e) => {
@@ -4305,6 +4315,7 @@
         clearTimeout(holdDelay); holdDelay = null;
         clearInterval(holdTimer); holdTimer = null;
       };
+      dpadEnds.push(end);
       b.addEventListener('pointerdown', start);
       b.addEventListener('pointerup', end);
       b.addEventListener('pointerleave', end);

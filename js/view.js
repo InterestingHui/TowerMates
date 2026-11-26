@@ -89,6 +89,8 @@
     String(v == null ? '' : v).replace(/[<>&"'`]/g, '').replace(/\s+/g, ' ').trim()
   ).slice(0, n || 10).join('').trim();
   const dailyEmpty = (label) => `今天还没走完一局今日一塔。<br>${label} 这座塔零点就换掉了。`;
+  // 「今日」档把别的日子的挑战行筛掉时，得说清它们去了哪：一行字，不新增档位、不新增可点项。
+  const NOTE_STALE = (n) => `名录里另有 ${n} 条挑战是别的日子的——「全部」档还看得见。`;
   // 一个人在这份名录里的身份键：自己 / 有名字的好友（微信昵称）/ 无名的贴码行（只能按码区分）。
   // 为什么需要它：微信好友榜每次回的是「这位好友的最新成绩」，同一个人换一次成绩就换一个 code，
   // 而名录与榜单原先只按 code 去重 —— 一位好友连爬三天就在榜上占三行，把别人挤到十名开外。
@@ -158,8 +160,17 @@
     const offBoard = myRank > cap
       ? `你在第 ${myRank} 名（共 ${people.length} 人）——这一屏只画前十。`
       : '';
+    // 「今日」档只收今天这座塔的成绩：朋友昨天贴进来的今日一塔码会整行消失，而玩家拿不到
+    // 「他走的是别的日子那座」这层信息——只会以为收下的挑战丢了（同 11-26「收下了、榜上没有」那类病）。
+    // 所以数一下并指明去哪还能看到；只数贴码进来的挑战行，自己的历史成绩消失是「今日」本身的意思。
+    const staleRivals = filter === 'daily'
+      ? new Set((o.rivals || [])
+        .filter((r) => r && r.daily && r.daily !== o.todayKey)
+        .map((r) => String(r.code || ''))).size
+      : 0;
     const note = filter === 'daily'
       ? NOTE_DAILY + (o.dayVowName ? `<br>今日之约：${o.dayVowName}——同一天走进塔的人守的都是这一条。` : '')
+        + (staleRivals ? `<br>${NOTE_STALE(staleRivals)}` : '')
         + (offBoard ? `<br>${offBoard}` : '')
       : (offBoard || (crushed ? NOTE_CRUSHED : ''));
     // 空档的说法分两种：立得起的（指路去立）／还没买下的（先说要花多少）。
@@ -1226,7 +1237,7 @@
     foeName, traitNote, threatModel, blockModel, guardModel, tangleModel, prepOptions, lastTacticLine, coreRingLine, PREP_FIRST, PREP_HINT,
     hintPicked, HINT_PICK, HINT_AUTO,
     BOARD_TABS, BOARD_CAP, SHOP_CORE, SEALS, CHAPTERS, isAid,
-    NOTE_DAILY, NOTE_CRUSHED, EMPTY_OTHER, TIP_BLOCK, TIP_SHARD,
+    NOTE_DAILY, NOTE_STALE, NOTE_CRUSHED, EMPTY_OTHER, TIP_BLOCK, TIP_SHARD,
     MEM_NOTE_DEATH, MEM_NOTE_WIN, BRIEF_SHOW,
     ALTAR_DESC_EARLY, ALTAR_DESC_LATE, ALTAR_EMPTY,
     ECHO_REWARD_PENDING, ECHO_REWARD_TAKEN, ECHO_HINT_PICK, ECHO_HINT_EMPTY, ECHO_REWARD_EMPTY,
