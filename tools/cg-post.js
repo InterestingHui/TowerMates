@@ -18,6 +18,14 @@ const OUT_CG = path.join(ROOT, 'assets', 'cg');
 const OUT_PT = path.join(ROOT, 'assets', 'portraits');
 const SEED = process.argv[2] || '20261126';
 
+// 只处理 cg-gen 里真的声明过的场景键。
+// 2026-11-26 踩到两次：art-test 里躺着一张 11-25 的孤儿图（ComfyUI 默认前缀
+// `Cinematic_dark_fantasy_game_ba_2026-11-25T02-57-57.png`，尺寸正好过筛），
+// 全目录扫描把它当场景处理，assets/cg 里就凭空多出一张谁都不引用的 webp，
+// 还把 assetV 指纹带偏了。这里改成白名单：不在 SCENES/PORTRAITS 里的文件名一律跳过。
+const { SCENES, PORTRAITS } = require('./cg-gen.js');
+const KNOWN = Object.keys(SCENES).map((k) => k).concat(Object.keys(PORTRAITS).map((k) => 'portrait_' + k));
+
 const W = 860;
 const H = 1800;
 
@@ -38,6 +46,15 @@ const DIM = {
   stairs: 0.90, reddoor: 0.90, ledger: 0.92, forge: 0.94,
 };
 
+// 2026-11-26 柔版：出图脚本带 --soft 时文件名是 <key>_soft_<seed>.png，落盘要覆盖同名正式资产，
+// 但亮度系数得走柔版那套——柔版整体更亮，沿用暗版系数会顶穿 bd-luma 的上带（20–50）。
+const DIM_SOFT = {
+  intro1: 0.80, intro2: 0.78, intro3: 0.80, intro4: 0.82,
+  dawn: 0.95, roof: 0.86, town: 0.80, ridge: 0.80, window: 0.84,
+  core: 0.84, corridor: 0.82, gate: 0.84, market: 0.86, namewall: 0.84,
+  stairs: 0.84, reddoor: 0.84, ledger: 0.86, forge: 0.86, bell: 0.84,
+};
+
 const py = String.raw`
 import sys, os, json
 from PIL import Image, ImageFilter
@@ -48,6 +65,8 @@ src, out_cg, out_pt, seed = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
 W, H = int(sys.argv[5]), int(sys.argv[6])
 dim_json = sys.argv[7]
 DIM = json.loads(dim_json)
+DIM_SOFT = json.loads(sys.argv[8]) if len(sys.argv) > 8 else {}
+KNOWN = set(json.loads(sys.argv[9])) if len(sys.argv) > 9 else None
 
 os.makedirs(out_cg, exist_ok=True)
 os.makedirs(out_pt, exist_ok=True)
@@ -81,6 +100,12 @@ for fn in os.listdir(src):
     key = fn[:-4]
     if '_' in key:
         key = key.rsplit('_', 1)[0]     # 去掉 _<seed>
+    # 柔版样张 <key>_soft 与暗版 <key> 共用同一个产物名，按 mtime 自然挑最新（谁最后跑用谁）
+    soft = key.endswith('_soft')
+    if soft:
+        key = key[:-5]
+    if KNOWN is not None and key not in KNOWN:
+        continue       # 不在 cg-gen 声明里的图（默认前缀的孤儿图）一律不进资产目录
     p = os.path.join(src, fn)
     try:
         w, h = ImSize.open(p).size
@@ -118,7 +143,7 @@ for key, p in sorted(cands.items()):
 
     im2 = fit_crop(im, W, H)
     before = mean_l(im2)
-    k = DIM.get(key, 0.92)
+    k = (DIM_SOFT.get(key, 0.84) if soft else DIM.get(key, 0.92))
     a = np.clip(np.asarray(im2).astype(np.float32) * k, 0, 255)
     a = np.where(a < 6, 0, a)      # 死黑，避免 webp 把暗部糊成灰雾
     out = Image.fromarray(a.astype(np.uint8))
@@ -135,7 +160,7 @@ print('---', len(report), 'files', tot, 'KB total')
 const tmp = path.join(ROOT, 'tools', '_cg_post.py');
 fs.writeFileSync(tmp, py.replace(/^\n/, ''), 'utf8');
 try {
-  const out = execFileSync('python', [tmp, SRC, OUT_CG, OUT_PT, SEED, String(W), String(H), JSON.stringify(DIM)], {
+  const out = execFileSync('python', [tmp, SRC, OUT_CG, OUT_PT, SEED, String(W), String(H), JSON.stringify(DIM), JSON.stringify(DIM_SOFT), JSON.stringify(KNOWN)], {
     encoding: 'utf8',
   });
   process.stdout.write(out);

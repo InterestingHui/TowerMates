@@ -1981,3 +1981,22 @@
   **清理**：`tools/art-test/Cinematic_dark_fantasy_game_ba_2026-11-25T02-57-57.png` 是 11-25 的孤儿图（ComfyUI 默认前缀），
   被 cg-post 按目录全扫当成场景处理进了 `assets/cg/`，已删掉产物 webp；源 png 不是本轮建的，留着没动。｜阻塞：无
 
+- 2026-11-26 17:4x（**用户：「为什么你的画风这么恐怖，换一个柔和一点的」**——本轮只换序章四幕 + 薇拉立绘，其余 20 场景/8 立绘仍是暗版）
+  **恐怖感的来源不是「暗」**，是三样具体的东西：`extreme low key lighting` + `deep crushed blacks` 把整幅压到只剩一束光、暗部没有过渡（惊悚片打光）；
+  `strong chiaroscuro` + `cold blue ambient` 让明暗交界带硬边、人像从坟里出来的观感；立绘的 `deep black background` + `face mostly in shadow` 直接把脸半埋。
+  暗黑奇幻要夜要雾要石头，但不需要这三样。**柔版只换光**：`STYLE_SOFT` / `PORTRAIT_STYLE_CLEAR_SOFT` / `PORTRAIT_STYLE_SOFT`，命令行 `--soft` 切换，原暗版常量一个没动。
+  **三个坑，每个都是「柔和」的副作用，记下来免得重踩**：
+  ① **柔化会把动作一起带跑**：第一版写了 `gentle diffused glow` + `dreamy painterly edges`，intro1 里公主直接变成足尖点地、裙摆扬起、另一只手优雅张开的芭蕾姿势——胁迫感变共舞。
+     加 `not dancing` 没用，根子在自己写的 `toes pointed down`（绷脚尖）和 `dress hem dragged backwards`（裙摆拖弧线）就是芭蕾语汇。
+     真正止住它的是换物理语义：**被提离地的人不是「轻盈」是「死重」**——`hangs as dead weight, knees bent, legs hanging limp, skirt hangs heavy and still`。删掉所有绷脚/飘裙描写。
+  ② **柔版会过亮**：第一版 meanL 82 / 75 / 103，顶穿 bd-luma 的 20–50，手机上是一层白雾、夜间氛围全丢。
+     「柔和」是指阴影有过渡，不是画面亮——prompt 层加 `dark night interior, low key scene, mostly deep shadow`，只把光的边缘做软，亮度交给构图。
+  ③ **柔光会放大「恐怖细节」而不是掩盖它**：魔王露出獠牙脸（比原来的纯黑剪影更像 B 级片）⇒ 扣一顶无面铁盔，只留体量；
+     国王被画成发光红眼（`eyes red` / `red rimmed from weeping` 两版都发光）⇒ 干脆不提眼睛颜色，只写 `face wet with tears`，`glowing eyes / red glowing eyes` 进负向。
+  另：`empty throne dais` 在柔光下被画成椅背嵌一张巨脸浮雕（像神殿雕像）⇒ 明确 `empty high-backed throne` + `no statue, no idol`。
+  **工具侧两处改动**：① `cg-post` 认 `<key>_soft_<seed>` 后缀（落盘覆盖同名正式资产），并单开 `DIM_SOFT` 系数表——柔版更亮，沿用暗版系数会顶穿带；
+  ② `cg-post` 加**白名单**（只处理 cg-gen 里声明过的 SCENES/PORTRAITS 键）：那张 11-25 的孤儿图（ComfyUI 默认前缀 `Cinematic_dark_fantasy_game_ba_...`，尺寸正好过筛）
+  今天第二次被全量扫描写回 `assets/cg/`，还把 assetV 从 24 张带成 25 张。现在不在名单里的文件名一律跳过，源 png 未动。
+  **闸门**：check ✓ / 柔版四幕 meanL 40.3 / 41.5 / 47.2 / 42.1（全在带内）。build **d3bba7683f** / assetV **4c25f0e2**（24 张）。
+  ｜阻塞：无（**待用户定**：其余 20 场景 + 8 立绘要不要一起铺柔版——现在序章是柔的、正文是暗的，连播会有落差）
+
