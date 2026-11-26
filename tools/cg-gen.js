@@ -217,7 +217,7 @@ const SCENES = {
     + 'shot from the eye level of the person standing in front of him, at arm\'s length, '
     + 'the white handkerchief catches the soft light, '
     + 'torn banners hanging from tall columns behind him, moonlight pouring down through broken windows high above, '
-    + 'cold blue shadow, dust motes drifting',
+    + 'warm golden candlelight on his hands and the handkerchief, cold blue shadow behind, dust motes drifting',
   // 旁白第 3 句：「我说：那我就做第一个。」
   // 上一版也是空镜（祭坛上摆着布和短剑）。改成勇者单人背影：跪在阶下、攥紧绣帕、剑盾搁在膝边。
   // 用背影是刻意的——既不跟第 2 页的国王抢脸，也避开「正脸崩」。
@@ -274,6 +274,76 @@ const PORTRAIT_STYLE_SOFT = 'dark fantasy character portrait, half body, painter
   + 'three-quarter view, head slightly lowered, face softly lit, features readable, '
   + 'centered composition, no text, no frame, no border';
 
+// ---------- 画风档位（2026-11-26 20:1x，用户：「公主还是很丑，国王也是，感觉都很不真实，能不能换个画风」）----------
+// 「丑」和「不真实」是两个不同病根，得分开治：
+//   ① 丑 ⇒ 厚涂的 `oil texture` / `painterly brushwork` / `hand-painted` 会把五官揉进笔触里，
+//      远看是油画近看没细节。人像要好看，笔画必须先让位于结构。
+//   ② 不真实 ⇒ CFG 5.0 太高。查证结论（2026-11-26）：FLUX 人像的 CFG 该压在 2.0–3.0，
+//      高于 5 会往「美颜广告脸 / 蜡像」走；同时 `glowing skin` / `dewy` 这类词会诱发塑料反光，要换 `matte`。
+// 用光学语言（镜头/光圈/胶片颗粒/补光）替代空形容词；正面写微瑕（fine pores / uneven pigmentation），
+// 反面写塑料（plastic skin / airbrushed / waxy）。三档用 --art= 切换。
+const ART_STYLES = {
+  // A. 韩系半厚涂：漫剧/卡牌主流，微笔触、皮肤干净、美型柔和。最稳的一档。
+  hanban: {
+    cfg: 3.0,
+    style: 'Korean semi-thick paint game character illustration, semi-realistic stylized face, '
+      + 'clean soft rendering with subtle visible brushwork, low saturation palette, '
+      + 'refined beautiful features, clear skin with a soft matte finish, '
+      + 'soft window light from upper left with clean ambient fill, '
+      + 'dark desaturated teal atmospheric background, '
+      + 'three-quarter view, head lifted, centered composition, no text, no frame, no border',
+    neg: ', 3D render, CGI, octane render, photograph, photorealistic, realistic skin pores, '
+      + 'thick oil paint, heavy impasto, muddy brushwork, flat cel shading',
+  },
+  // B. 韩系 3D CG：游戏过场动画质感，皮肤通透、发丝分层，最容易「精致」但容易滑向娃娃。
+  cg3d: {
+    cfg: 3.0,
+    style: 'Korean game cinematic CG still, 3D rendered character with subsurface scattering skin, '
+      + 'octane render quality, soft studio three point lighting with a clean rim light, '
+      + 'individual hair strands, refined beautiful features, smooth matte skin with realistic sheen, '
+      + 'dark gradient background, shallow depth of field, '
+      + 'three-quarter view, head lifted, centered composition, no text, no frame, no border',
+    neg: ', painterly, thick oil paint, visible brush strokes, 2D illustration, flat cel shading, '
+      + 'doll, ball jointed doll, plastic toy, waxy mannequin, uncanny valley',
+  },
+  // C. 写实电影感：真人质感，毛孔/肤色不均/胶片颗粒全开。最「真实」，但对「好看」最不保证。
+  real: {
+    cfg: 2.5,
+    style: 'cinematic film still, shot on ARRI Alexa with an 85mm lens at f/1.8, '
+      + 'natural skin with fine visible pores and subtly uneven pigmentation, matte skin tone, '
+      + 'fine vellus hair catching the light, soft directional window light with clean ambient fill, '
+      + 'subtle catchlight in the eyes, 35mm film grain, shallow depth of field, '
+      + 'dark neutral background, three-quarter view, centered composition, no text, no frame, no border',
+    neg: ', illustration, painting, oil paint, brush strokes, 3D render, CGI, cartoon, anime, '
+      + 'plastic skin, waxy skin, airbrushed, poreless, doll-like, beauty filter',
+  },
+  // D. 半写实（推荐档）：真人骨相 + 精修五官 + 电影光。
+  // 实测 A 太动漫（五官缩小成符号）、B 太娃娃（大眼圆脸 BJD 感）、C 太素人（真实但不好看）。
+  // 第二版（20261152/53）骨相够了但仍是「影棚素颜试装照」——纯灰背景 + 自然光 + 素颜 = 证件照。
+  // 补三样：① editorial beauty 的摄影语法（beauty dish + rim light，把人从背景里剥出来）；
+  // ② 淡妆（soft glam，注意不能碰负面里的 heavy makeup）；③ 背景给一点环境光斑，不要纯灰。
+  semi: {
+    cfg: 2.8,
+    style: 'semi-realistic cinematic game portrait, editorial beauty photography, Korean MMO key art, '
+      + 'realistic adult human proportions with refined idealized features, soft glam makeup with defined lashes and soft contour, '
+      + 'natural skin with fine pores and subtly uneven tone, matte finish, soft sheen on the cheekbones and nose bridge, '
+      + 'beauty dish key light from upper left plus a cool rim light separating her shoulder and hair from the background, '
+      + 'subtle catchlight in the eyes, eyes wide open and sharply focused, '
+      + '85mm lens, shallow depth of field, fine film grain, '
+      + 'dark stone hall behind her with a faint warm glow and soft falloff, '
+      + 'three-quarter view, head lifted, direct steady gaze into the camera, '
+      + 'centered composition, no text, no frame, no border',
+    neg: ', anime, cartoon, cel shading, chibi, oversized eyes, doll, ball jointed doll, '
+      + 'plastic toy, waxy mannequin, heavy airbrush, beauty filter, poreless, flat studio backdrop, passport photo, '
+      + 'thick oil paint, heavy impasto, muddy brushwork, 3D render, CGI',
+  },
+};
+
+const ART = (() => {
+  const m = process.argv.find((a) => a.startsWith('--art='));
+  return m ? m.slice(6) : '';
+})();
+
 const PORTRAITS = {
   // 第一版出成十二三岁的少年（young wanderer 被读成 kid）。设定是「第九位勇者」成年人，
   // 改成 early twenties + 明确的身形与胡茬，压住年龄。
@@ -290,15 +360,24 @@ const PORTRAITS = {
   // 第三版（20261132）矫枉过正成 14 岁甜妹：soft full cheeks + honey blonde braid + faint smile
   //   + 一堆「老」的负面词把她推回了少女。这一版拿掉幼态特征（饱满脸颊/甜笑），
   //   换成 slim jaw + defined cheekbones + 闭嘴 + regal bearing，才压得住 22 岁。
-  vera: 'a young woman of twenty-two, princess Vera, elegant oval face with a slim jaw and gently defined cheekbones, '
-    + 'large clear grey-blue almond eyes with dark lashes and a calm steady gaze, straight fine brows, '
-    + 'a straight delicate nose with a small rounded tip, naturally full lips closed in a calm resolute line, '
-    + 'smooth fair skin with fine real texture, no heavy blush, one small dark beauty mark under her left eye, '
-    + 'long pale honey blonde hair half braided, loose strands framing her face and falling over one shoulder, '
-    + 'a dark travelling gown of heavy wool with the skirt slit high on the left thigh, '
-    + 'sheer white silk stockings on her legs, a short fur trimmed royal cloak thrown back over one shoulder, '
-    + 'dark leather boots laced to the mid calf, a small white embroidered handkerchief held loosely in one hand, '
-    + 'head lifted, regal poised bearing, calm resolute gaze looking slightly past the camera',
+  // 2026-11-26 21:0x 第六版（用户定妆：「过膝白丝，公主服，胸再大点」）：
+  // ① 过膝白丝必须写成 thigh-high + 明确「袜口以上露一段大腿」，否则模型一律画成连裤袜；
+  // ② 裙长必须卡在 mid-thigh，不然看不到袜口那道分界，等于白写；
+  // ③ 公主服用 corseted bodice + puff sleeves + 银色刺绣，束腰本身就负责「胸的形」；
+  // ④ 原来的深灰羊毛旅行装整套删掉——立绘是角色标准形象，旅行装留给序章 CG 里被抓的那一幕。
+  vera: 'a young woman of twenty-two, princess Vera, heart-shaped face with a soft tapered jawline and high soft cheekbones, '
+    + 'striking grey-blue eyes, almond shaped with slightly upturned outer corners and long dark lashes, '
+    + 'straight fine brows, a high straight nose bridge with a small delicate tip, '
+    + 'full lips with a defined cupid bow, closed in a calm line, '
+    + 'luminous clear skin with fine real texture, no heavy blush, one small dark beauty mark under her left eye, '
+    + 'long pale honey blonde hair half braided, loose strands falling over one shoulder, '
+    + 'an elegant deep midnight-blue princess gown, fitted corseted bodice with silver embroidery, '
+    + 'puffed short sleeves, a full skirt ending at mid-thigh, a fuller bust, a curvy feminine figure, '
+    + 'white thigh-high stockings with a visible band of bare thigh above them, '
+    + 'a short fur trimmed royal cloak thrown back over one shoulder, '
+    + 'dark leather ankle boots with a low heel, '
+    + 'a small white embroidered handkerchief knotted around her left wrist, both hands relaxed and empty, '
+    + 'head lifted, regal poised bearing, calm resolute gaze',
   mowang: 'a tall horned demon king in rusted armour, massive curved horns, '
     + 'cracked iron plates, embers glowing in the cracks, one hand resting on a sword hilt, '
     + 'sorrowful posture, deep red ember light',
@@ -368,7 +447,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // UnetLoaderGGUF + qwen3-8b 文本编码器 + Flux2Scheduler/SamplerCustomAdvanced。
 // 和 SDXL 的差别是「没有内置 latent 放大这一步」——FLUX 在 896×1792 上原生就够细节，
 // 再叠一层放大只会把画面往「塑料」推（实测 SDXL 那套 hires 换到 FLUX 上是负收益）。
-function buildWorkflow(prompt, neg, w, h, seed, prefix) {
+function buildWorkflow(prompt, neg, w, h, seed, prefix, cfg) {
   return {
     1: { class_type: 'UnetLoaderGGUF', inputs: { unet_name: UNET } },
     2: { class_type: 'CLIPLoader', inputs: { clip_name: TEXT_ENC, type: 'flux2' } },
@@ -378,7 +457,7 @@ function buildWorkflow(prompt, neg, w, h, seed, prefix) {
     6: { class_type: 'EmptyFlux2LatentImage', inputs: { width: w, height: h, batch_size: 1 } },
     7: { class_type: 'Flux2Scheduler', inputs: { steps: STEPS, width: w, height: h } },
     8: { class_type: 'KSamplerSelect', inputs: { sampler_name: 'euler' } },
-    9: { class_type: 'CFGGuider', inputs: { model: ['1', 0], positive: ['4', 0], negative: ['5', 0], cfg: CFG } },
+    9: { class_type: 'CFGGuider', inputs: { model: ['1', 0], positive: ['4', 0], negative: ['5', 0], cfg: cfg || CFG } },
     10: { class_type: 'RandomNoise', inputs: { noise_seed: seed, control_after_generate: 'fixed' } },
     11: {
       class_type: 'SamplerCustomAdvanced',
@@ -448,6 +527,25 @@ async function genPortrait(key, seed) {
     + 'plastic skin, airbrushed, doll-like, over-smoothed, waxy, heavy makeup'
     + ageNeg;
   if (SOFT) neg += SOFT_EXTRA_NEG;
+
+  // 画风档位（--art=）：单独一套基座负面。
+  // 注意不能沿用 NEG——NEG 里写着 illustration / painting / cartoon，对「插画/CG」档是自相矛盾的，
+  // 会一边要求画风一边把它堵掉，最后只能出成不伦不类的照片。
+  if (ART && ART_STYLES[ART]) {
+    const a = ART_STYLES[ART];
+    // 取景到大腿中段：过膝白丝的袜口就在这个位置，切到膝盖以下就看不到那道分界了
+    const shot = clear ? 'three-quarter body, from head to mid-thigh' : 'half body';
+    const artNeg = 'text, letters, numbers, watermark, signature, logo, ui, hud, frame, border, '
+      + 'blurry, jpeg artifacts, oversaturated, cluttered, busy background, '
+      + 'extra limbs, deformed hands, distorted face, child, teenager, underage, '
+      + 'plastic skin, airbrushed, doll-like, over-smoothed, waxy, heavy makeup'
+      + (clear ? ageNeg : '')
+      + a.neg;
+    return run(
+      buildWorkflow(`${a.style}, ${shot}, ${text}`, artNeg, PORTRAIT_W, PORTRAIT_H, seed, 'tm_pt_' + key, a.cfg),
+      'portrait_' + key + '_' + ART, seed,
+    );
+  }
   const style = SOFT
     ? (clear ? PORTRAIT_STYLE_CLEAR_SOFT : PORTRAIT_STYLE_SOFT)
     : (clear ? PORTRAIT_STYLE_CLEAR : PORTRAIT_STYLE);

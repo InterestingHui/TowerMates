@@ -3,6 +3,10 @@
 // 四个锁匠（墨妖/魔王/钟妖/碑魔）各自独立轮廓——32px 纯黑下必须两两可分。
 // 用法：Portraits.render('烛', 'warm') → HTML 字符串；无立绘的角色返回 ''。
 (function () {
+  // 立绘的缓存版本（2026-11-26）：CG 那边靠 backdrops.js 的 ASSET_V 刷缓存，
+  // 但立绘的 img src 一直是裸路径 ⇒ 换一张 assets/portraits/*.webp，老玩家浏览器照用旧图。
+  // 这个值由 tools/sync-publish.js 按 assets/portraits 目录内容指纹重写，源码里是 'dev'。
+  const PT_V = '967bc77a';
   const KEY = { 烛: 'candle', 炎魔: 'torch', 魔王: 'mowang', 薇拉: 'vera', 秤: 'scale', 墨妖: 'yan', 钟妖: 'duo', 碑魔: 'heng', 勇者: 'hero' };
 
   // 每个角色的基准光色 + 情绪偏移
@@ -388,7 +392,7 @@
     // 位图 404 / 解码失败时 onerror 会把 .is-fail 挂上，CSS 自动露出下面那张 SVG。
     const useImg = !!imgName;
     const media = useImg
-      ? `<img class="pt-img" src="assets/portraits/${imgName}.webp" alt="${who}" draggable="false"
+      ? `<img class="pt-img" src="assets/portraits/${imgName}.webp?v=${PT_V}" alt="${who}" draggable="false"
              onerror="this.classList.add('is-fail')">${svg}`
       : svg;
     return `<div class="pt" data-char="${id}" data-mood="${mood || 'calm'}" style="color:${color}">

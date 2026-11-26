@@ -48,8 +48,10 @@ const DIM = {
 
 // 2026-11-26 柔版：出图脚本带 --soft 时文件名是 <key>_soft_<seed>.png，落盘要覆盖同名正式资产，
 // 但亮度系数得走柔版那套——柔版整体更亮，沿用暗版系数会顶穿 bd-luma 的上带（20–50）。
+// 21:0x 二次校准：regress 的「序章四幕与 20 张背景亮度差 ≤ 6」咬出来了——
+// 柔版序章 38.2 vs 背景 31.7（差 6.5，超 0.5）。系数整体再降 0.05，把序章压回 36 上下。
 const DIM_SOFT = {
-  intro1: 0.80, intro2: 0.78, intro3: 0.80, intro4: 0.82,
+  intro1: 0.75, intro2: 0.73, intro3: 0.75, intro4: 0.77,
   dawn: 0.95, roof: 0.86, town: 0.80, ridge: 0.80, window: 0.84,
   core: 0.84, corridor: 0.82, gate: 0.84, market: 0.86, namewall: 0.84,
   stairs: 0.84, reddoor: 0.84, ledger: 0.86, forge: 0.86, bell: 0.84,
@@ -104,6 +106,12 @@ for fn in os.listdir(src):
     soft = key.endswith('_soft')
     if soft:
         key = key[:-5]
+    # 画风档位样张 <key>_<art> 同理：剥掉档位后缀当正式 key 用，
+    # 否则会被下面的白名单当成「未声明的场景」直接跳过（2026-11-26 实测踩到）。
+    for suf in ('_hanban', '_cg3d', '_real', '_semi'):
+        if key.endswith(suf):
+            key = key[:-len(suf)]
+            break
     if KNOWN is not None and key not in KNOWN:
         continue       # 不在 cg-gen 声明里的图（默认前缀的孤儿图）一律不进资产目录
     p = os.path.join(src, fn)
@@ -114,10 +122,12 @@ for fn in os.listdir(src):
     ok_size = (w >= 896 and h >= 1500) or (w == 768 and h == 960)
     if not ok_size:
         continue
-    if key not in cands or os.path.getmtime(p) > os.path.getmtime(cands[key]):
-        cands[key] = p
+    # soft 必须随候选一起存。原先它是循环变量，等真正处理时早被遍历的最后一个文件覆盖了——
+    # 结果柔版一律按暗版系数压暗（2026-11-26 实测：intro1 算出来 35.8，本该是 40.3×0.75=30.2）。
+    if key not in cands or os.path.getmtime(p) > os.path.getmtime(cands[key][0]):
+        cands[key] = (p, soft)
 
-for key, p in sorted(cands.items()):
+for key, (p, soft) in sorted(cands.items()):
     im = Image.open(p).convert('RGB')
 
     if key.startswith('portrait_'):

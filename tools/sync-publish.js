@@ -39,6 +39,26 @@ const assetV = ah.digest('hex').slice(0, 8);
   }
 }
 
+// 立绘指纹同理（2026-11-26）：换 assets/portraits/*.webp 不会改 build，
+// 而立绘的 img src 原先连 ?v= 都没有 ⇒ 老玩家永远看到旧立绘。
+// 和 CG 一样写进源码那份，因为线上服务的是仓库根。
+const PT_DIR = path.join(ROOT, 'assets', 'portraits');
+const ptFiles = fs.existsSync(PT_DIR)
+  ? fs.readdirSync(PT_DIR).filter((f) => /\.(webp|png|jpg)$/.test(f)).sort()
+  : [];
+const ph = crypto.createHash('md5');
+ptFiles.forEach((f) => { ph.update(f); ph.update(fs.readFileSync(path.join(PT_DIR, f))); });
+const ptV = ph.digest('hex').slice(0, 8);
+{
+  const ptPrev = js['portraits.js'].toString('utf8');
+  if (!/const PT_V = '[^']*';/.test(ptPrev)) throw new Error('portrait version injection failed: PT_V 那行不见了');
+  const ptNext = ptPrev.replace(/const PT_V = '[^']*';/, `const PT_V = '${ptV}';`);
+  if (ptNext !== ptPrev) {
+    fs.writeFileSync(path.join(ROOT, 'js', 'portraits.js'), ptNext);
+    js['portraits.js'] = Buffer.from(ptNext, 'utf8');
+  }
+}
+
 // 指纹不能自引用：直接拿含旧 build/v= 的 html 算 md5，每次 sync 都会得到新指纹，
 // 于是源码 index.html 永远处于「已修改」、线上与本地也永远对不上（排查部署状态时全是假信号）。
 // 先把旧指纹抹成空再哈希——hash 只由真实内容决定，同样源码重复 sync 必须同指纹。
