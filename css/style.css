@@ -1388,10 +1388,24 @@ html.fx-low .bd-shot { animation: sceneIn 0.9s ease-out both; }
   z-index: 45;
   pointer-events: none;
   transition: transform 0.26s cubic-bezier(0.22, 1.3, 0.36, 1);
-  white-space: nowrap;
-  max-width: 92vw;
+  /* 2026-11-28：此前是 nowrap + ellipsis，而实测有 9 条告警超 320 屏的 262px 预算、
+     4 条连 430 屏的 364px 都装不下（「存档读不出来」643px、「塔顶的账」506px）——
+     被吃掉的多半是交代下一步的那半句（「只能从新的一局开始」「零点换下一座」）。
+     现在放开换行、最多三行：最长的「存档读不出来」在 430 屏两行装得下，320 屏要三行。 */
+  white-space: normal;
+  text-align: center;
+  line-height: 1.5;
+  /* 必须显式要 max-content：`left:50%` 的定宽收缩算出的可用宽只有半屏（320 屏 = 160px），
+     放开的换行会先在 160px 处折，两行装不下就截。要 max-content 再让 max-width 管上限。 */
+  width: -webkit-max-content;
+  width: max-content;
+  max-width: min(92vw, 360px);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
   overflow: hidden;
   text-overflow: ellipsis;
+  word-break: break-word;
 }
 #warnPill.show { transform: translate(-50%, 0); }
 /* 好消息 / 玩家主动要的读数：同一块浮层换一套色，不新增元素。
@@ -1425,8 +1439,10 @@ html.fx-low .bd-shot { animation: sceneIn 0.9s ease-out both; }
 }
 #toast.show { transform: translate(-50%, 0); }
 /* 两个浮层都钉在 top:12px 居中：同时出现会叠成一团（吐司高约 60px，正好盖住提示条）。
-   错误提示必须能读到，所以让吐司让位——只在两者同时出现时下移。 */
-#warnPill.show ~ #toast.show { transform: translate(-50%, 52px); }
+   错误提示必须能读到，所以让吐司让位——只在两者同时出现时下移。
+   2026-11-28：提示条从单行放开到最多三行（28 → 54+14=70px 高），让位量随之从 52 抬到 96，
+   否则多行提示条的下半截正好被吐司压住。 */
+#warnPill.show ~ #toast.show { transform: translate(-50%, 96px); }
 .t-emoji { font-size: 24px; }
 .t-body { min-width: 0; }
 .t-title { font-size: var(--fs-tag); color: var(--gold); letter-spacing: 1.2px; }

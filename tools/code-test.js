@@ -2768,6 +2768,34 @@ ok(mainSrc.indexOf("searchParams.set('rival'") < 0, 'main.js 不许自己拼链�
   ok(lost.length === 0, `好消息确实带上了 info 语气（漏：${lost.join('、') || '无'}）`);
 }
 
+// 提示条不许把长句吃掉（2026-11-28 00:5x 变体 1 诊断 → 同轮第 2 段收口）。
+// 病根：`#warnPill` 是 nowrap + ellipsis，320 屏可用 262px / 430 屏 364px，而实测 9 条告警
+// 超 320 预算、4 条连 430 都装不下（「存档读不出来」643px、「塔顶的账」506px）——
+// 被切掉的多半是交代下一步的那半句（「只能从新的一局开始」「零点换下一座」）。
+// 修法：放开换行 + `width: max-content` + 行数上限。**max-content 是必需的**：
+// `left:50%` + 固定定位的收缩宽度只有半屏（320 屏 = 160px），少了它换行会先在 160px 处折。
+// 契约三条：能换行 / 宽度交给 max-width 而不是半屏 / 吐司让位量 ≥ 提示条最大高度（否则压住末行）。
+{
+  const blk = (cssSrc.match(/#warnPill\s*\{[^}]*\}/) || [''])[0];
+  ok(/white-space:\s*normal/.test(blk), '提示条允许换行（nowrap + ellipsis 会把长句切在半句上）');
+  ok(/width:\s*(?:-webkit-)?max-content/.test(blk) && /max-width:\s*min\(/.test(blk),
+    '宽度写 max-content 再交给 max-width（少了 max-content 只按半屏折行）');
+  const clamp = Number((blk.match(/-webkit-line-clamp:\s*(\d+)/) || [])[1] || 0);
+  // line-height 是 1.5 这种无单位倍数，必须先乘字号才是像素——上一版直接当 px 用，
+  // 算出的最大高度只有 32px，于是「吐司让位 52px 也够」这条断言静默放行（变异验不出来）。
+  const lhRaw = Number((blk.match(/line-height:\s*([\d.]+)/) || [])[1] || 0);
+  const fs = Number((cssSrc.match(/--fs-aux:\s*(\d+)px/) || [])[1] || 0);
+  const lh = lhRaw <= 3 ? lhRaw * fs : lhRaw;
+  const top = Number((blk.match(/top:\s*(\d+)px/) || [])[1] || 0);
+  const pad = (blk.match(/padding:\s*([\d.]+)px\s+([\d.]+)px/) || []);
+  const padV = pad.length ? Number(pad[1]) * 2 + 2 : 0;   // 上下 padding + 1px 上下边框
+  const maxH = top + clamp * lh + padV;
+  const toastY = Number((cssSrc.match(/#warnPill\.show\s*~\s*#toast\.show\s*\{[^}]*translate\(-50%,\s*(\d+)px\)/) || [])[1] || 0);
+  ok(clamp >= 2 && clamp <= 3, `提示条行数上限在 2–3 行（现 ${clamp || '缺'}——再多就盖住顶栏）`);
+  ok(toastY >= maxH + 8,
+    `成就吐司的让位量 ≥ 提示条最大高度 + 8（现 ${toastY}px，算得 ${Math.round(maxH)} + 8；不足就压住末行）`);
+}
+
 // 剪贴板出口只有一份、且防住「挂起」（2026-11-27 加练 社交）。
 // 病根：挑战码/挑战链接/结算分享走 `copyText`（异步写 + 拒绝兜底，**没有超时**），
 // 导出 JSON 自己另写了一份（异步写 + 350ms 超时 + execCommand）——两份实现，只有后者防住
