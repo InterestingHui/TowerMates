@@ -2374,6 +2374,34 @@ ok(mainSrc.indexOf("searchParams.set('rival'") < 0, 'main.js 不许自己拼链�
     `manifest 的管线声明是现在这条（model=${mf.model}）`);
   const noPrompt = (mf.images || []).filter((i) => !i.prompt || i.prompt.length < 20);
   ok(noPrompt.length === 0, `manifest 每张图都带主体提示词（缺：${noPrompt.map((i) => i.scene).join('/') || '无'}）`);
+
+  // ③ 留痕的「配方」必须与出图脚本同源（2026-11-27 22:5x 加练美术焦点D）
+  //    --art / --lora 只活在 argv，派生文件读不到 ⇒ 之前 manifest 里既没有 LoRA，立绘那栏
+  //    还指着 PORTRAIT_STYLE（油画半身），而盘上 9 张立绘是 ART_STYLES.anime + LoRA 出的。
+  //    四条都「现算两边再比」：手改 manifest 会红，改了 BATCH 却没重跑 manifest 也会红。
+  const g6 = require('./cg-gen.js');
+  const batch = mf.batch || {};
+  ok(JSON.stringify(batch) === JSON.stringify(g6.BATCH),
+    `manifest 的配方与 cg-gen.js 的 BATCH 一致（art=${batch.art} lora=${batch.lora || '缺'}`
+    + `${JSON.stringify(batch) === JSON.stringify(g6.BATCH) ? '' : '——改了 BATCH 没跑 node tools/cg-manifest.js'}）`);
+  const artB = g6.ART_STYLES[batch.art] || { style: '', neg: '', cfg: -1 };
+  ok(mf.portraitStyle === artB.style && mf.portraitCfg === artB.cfg,
+    `立绘留痕取自 ART_STYLES["${batch.art}"]（cfg=${mf.portraitCfg}${mf.portraitStyle === artB.style ? '' : '——portraitStyle 不是该档的，manifest 没重跑？'}）`);
+  ok(mf.style === g6.STYLE && mf.negative === g6.NEG,
+    '场景留痕取自 STYLE/NEG（场景与立绘是两套提示词，不许合并成一条）');
+  // 场景吃不到 --art 这件事必须留在源码注释里：照 art-pipeline.md 敲 --art=anime 出场景
+  // 观感不变，只有 LoRA 在起作用——这是最容易被误判成「模型不听话」的一处。
+  const sceneFn = (fs6.readFileSync(path6.join(root6, 'tools', 'cg-gen.js'), 'utf8').match(/async function genScene[\s\S]*?async function genPortrait/) || [''])[0]
+    // 先剥注释再咬行为：注释里为了解释这件事必然要写出 ART_STYLES，那不是代码在用它
+    .replace(/\/\/[^\n]*/g, '');
+  ok(sceneFn && !/ART_STYLES/.test(sceneFn) && /吃不到 --art|不吃 --art|只作用于立绘/.test(sceneFn),
+    '场景路径不吃 --art，且在源码里写明了（否则「加了 --art 没变化」会被当成模型问题）');
+  // ⑤ BATCH 是**手写常量**，唯一的失效模式是「重出了一批忘了改 date」——那时 manifest 会
+  //    自称这批是旧配方，闸门却全绿（手写留痕漂移的老病）。盘上最新 mtime 是可现算的，
+  //    拿它把 BATCH.date 顶住：资产比 BATCH 新 ⇒ 红，逼着更新 BATCH 再重跑 manifest。
+  ok(mf.generatedAt === (batch.date || ''),
+    `BATCH.date 跟得上盘上资产（资产最新 ${mf.generatedAt} / BATCH ${batch.date || '缺'}`
+    + `${mf.generatedAt === batch.date ? '' : '——重出了一批没改 BATCH，或改漏了 date'}）`);
 }
 
 // ---------- 分享卡（og:image）此前没有任何闸门（2026-11-26 加练·社交）----------

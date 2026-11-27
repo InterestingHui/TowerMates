@@ -391,6 +391,22 @@ const LORA = (() => {
   return m ? m.slice(7) : '';
 })();
 
+// ── 盘上这批资产的配方（2026-11-27 18:34 重出，commit c2d3f06） ──────────────
+// 为什么要有这个常量：`--art` / `--lora` 只活在 argv 里，进程一退就没了，而
+// `assets/cg/manifest.json` 恰恰是「风格复现基线」（圣经 §10.2 指向它）。派生文件读不到
+// argv，就只能读这里——所以重出一批资产后，**先改这个常量再跑 `node tools/cg-manifest.js`**，
+// 否则 manifest 会把「上一批的参数」当成这一批的留痕，下一个人照着它复现不出盘上的图。
+// 另一个坑（本轮实测）：`--art=` 对**场景**是静默 no-op——场景提示词只取 STYLE/STYLE_SOFT，
+// ART_STYLES 只在 genPortrait 里用。所以 20 张场景的二次元观感是**LoRA 带来的**，不是 anime 档；
+// 照 art-pipeline.md 敲 `node tools/cg-gen.js corridor --art=anime` 得到的仍是油画 STYLE，别以为没生效。
+const BATCH = {
+  date: '2026-11-27',
+  art: 'anime',                                  // 立绘走 ART_STYLES.anime（cfg 3.0）
+  lora: 'klein9b_anime_v3_refined.safetensors:0.9', // 全批都挂（场景/立绘同一条工作流）
+  scenes: 'STYLE（油画厚涂）+ LoRA，CFG 5.0；场景不吃 --art，画风由 LoRA 给',
+  portraits: 'ART_STYLES.anime + LoRA，CFG 3.0',
+};
+
 const PORTRAITS = {
   // 第一版出成十二三岁的少年（young wanderer 被读成 kid）。设定是「第九位勇者」成年人，
   // 改成 early twenties + 明确的身形与胡茬，压住年龄。
@@ -568,11 +584,19 @@ const FIG_SCENES = new Set(['intro1', 'intro2', 'intro3', 'intro4']);
 
 // 画风开关：默认沿用原暗调；命令行带 --soft 走柔和版（先出样张验收，别一次重跑 33 张）
 const SOFT = process.argv.includes('--soft');
+let warnedArt = false; // --art 对场景无效这件事只提示一次，别在 all 里刷 20 行
 
 async function genScene(key, seed) {
   const text = SCENES[key];
   if (!text) throw new Error('unknown scene ' + key);
   const fig = FIG_SCENES.has(key);
+  // --art 只挑立绘的风格表（ART_STYLES 只在 genPortrait 里被读）。场景带了这个参数时
+  // 必须出声，否则「我加了 --art=anime 怎么没变」会被误判成模型不听话。
+  if (ART && !warnedArt) {
+    warnedArt = true;
+    console.log('! --art=' + ART + ' 只作用于立绘：场景仍用 STYLE/STYLE_SOFT（本批画风来自 LoRA '
+      + (LORA || '（未挂）') + '）');
+  }
   return run(
     buildWorkflow(`${styleFor(fig, SOFT)}, ${text}`, negFor(fig, SOFT), SCENE_W, SCENE_H, seed, 'tm_' + key),
     key + (SOFT ? '_soft' : ''), seed,
@@ -629,12 +653,14 @@ async function genPortrait(key, seed) {
 }
 
 if (require.main !== module) {
-  module.exports = { SCENES, PORTRAITS, STYLE, NEG, PORTRAIT_STYLE, UNET, TEXT_ENC, VAE, STEPS, CFG, SCENE_W, SCENE_H };
+  module.exports = { SCENES, PORTRAITS, STYLE, NEG, PORTRAIT_STYLE, UNET, TEXT_ENC, VAE, STEPS, CFG, SCENE_W, SCENE_H, ART_STYLES, BATCH };
 } else (async () => {
   const arg = process.argv[2];
   if (!arg) {
     console.log('usage: node tools/cg-gen.js <scene|all|portrait:name,...|portrait:all> [seed] [--soft]');
     console.log('       --soft = 柔和版画风（默认仍走原来的暗调）');
+    console.log('       --art=<' + Object.keys(ART_STYLES).join('|') + '> = 立绘风格表（**不含场景**）');
+    console.log('       --lora=<文件名>[:强度] = 全批挂 LoRA（场景与立绘同一条工作流）');
     console.log('scenes:', Object.keys(SCENES).join(' '));
     console.log('portraits:', Object.keys(PORTRAITS).join(' '));
     return;

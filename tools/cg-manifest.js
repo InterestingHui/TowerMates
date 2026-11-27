@@ -10,6 +10,11 @@
 //     · 每张的提示词读 cg-gen.js 的 SCENES / PORTRAITS（这是它唯一的真源）；
 //     · 尺寸 / 字节 / 短哈希读盘上的文件。
 //   盘上有的场景缺提示词 = 报错退出（不写半份 manifest）。
+//
+// 2026-11-27 22:5x 加练 美术·焦点D 补的第二刀：`--art` / `--lora` 只活在 argv 里，
+//   派生文件读不到 ⇒ 20 张场景切二次元那批的重出参数（LoRA 名与强度）根本没落盘，
+//   而立绘那栏还指着 `PORTRAIT_STYLE`（油画半身）——盘上 9 张其实出自 `ART_STYLES.anime`。
+//   现在全部从 `cg-gen.js` 的 `BATCH` 常量派生：重出一批 → 改 BATCH → 跑本脚本。
 
 const fs = require('fs');
 const path = require('path');
@@ -54,6 +59,14 @@ if (noPtPrompt.length) {
 const latest = [...scenes.map((k) => path.join(CG_DIR, k + '.webp')), ...pts.map((k) => path.join(PT_DIR, k + '.webp'))]
   .map((p) => fs.statSync(p).mtime).sort((a, b) => b - a)[0];
 
+const { ART_STYLES, BATCH } = g;
+const ART_B = ART_STYLES[BATCH.art];
+if (!ART_B) {
+  // 常量指向一个不存在的风格档 = 留痕必错，宁可不出文件
+  console.error('✗ cg-gen.js 的 BATCH.art=' + BATCH.art + ' 不在 ART_STYLES（' + Object.keys(ART_STYLES).join('/') + '）');
+  process.exit(1);
+}
+
 const manifest = {
   generatedAt: latest.toISOString().slice(0, 10),
   generatedBy: 'node tools/cg-manifest.js（本文件为派生文件，勿手改；改提示词/参数请改 tools/cg-gen.js 后重跑）',
@@ -61,6 +74,9 @@ const manifest = {
   model: g.UNET,
   textEncoder: g.TEXT_ENC,
   vae: g.VAE,
+  // 这批实际怎么出的（argv 不落盘，只能从 cg-gen.js 的 BATCH 常量派生）
+  batch: BATCH,
+  lora: BATCH.lora,
   params: {
     width: g.SCENE_W, height: g.SCENE_H, steps: g.STEPS, cfg: g.CFG,
     sampler: 'euler', scheduler: 'Flux2Scheduler(28)',
@@ -68,10 +84,15 @@ const manifest = {
     seed: '20261126 起，逐张见 cg-gen.js 调用参数',
   },
   post: 'tools/cg-post.js：按场景 DIM 系数压暗/提亮 → 居中裁 860×1800 → webp q88 method=6；立绘 768×960 + 四周 alpha 渐隐',
+  // 场景与立绘是两套提示词，必须分开留痕：场景走 STYLE/NEG（CFG 5.0），立绘走 ART_STYLES[BATCH.art]
   style: g.STYLE,
   negative: g.NEG,
-  portraitStyle: g.PORTRAIT_STYLE,
-  note: '每张的 prompt 只是主体句；完整提示词 = style + 主体句（人物场景另有 STYLE_FIG / 柔版，见 cg-gen.js）',
+  portraitStyle: ART_B.style,
+  portraitNegative: ART_B.neg,
+  portraitCfg: ART_B.cfg,
+  note: '每张的 prompt 只是主体句。场景完整提示词 = style + 主体句（fig 场景另有 STYLE_FIG / 柔版）；'
+    + '立绘完整提示词 = portraitStyle + 主体句。两者共用 model/vae/steps，但 CFG 与提示词表不同：'
+    + '场景用 CFG ' + g.CFG + '，立绘用 ART_STYLES["' + BATCH.art + '"] 的 CFG ' + ART_B.cfg + '。',
   images: scenes.map((k) => ({ file: 'assets/cg/' + k + '.webp', scene: k, prompt: SCENES[k].replace(/\s+/g, ' ').trim(), ...info(path.join(CG_DIR, k + '.webp')) })),
   portraits: pts.map((k) => ({ file: 'assets/portraits/' + k + '.webp', id: k, prompt: PORTRAITS[k].replace(/\s+/g, ' ').trim(), ...info(path.join(PT_DIR, k + '.webp')) })),
 };

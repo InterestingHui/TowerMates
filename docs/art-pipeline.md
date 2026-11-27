@@ -14,7 +14,7 @@
 | 文本编码器 | `qwen_3_8b_fp8mixed.safetensors`，`CLIPLoader type=flux2` |
 | VAE | `flux2-vae.safetensors` |
 | **LoRA** | **`klein9b_anime_v3_refined.safetensors`，强度 `0.9`**（关键，画风全靠它） |
-| 采样 | `Flux2Scheduler` / 28 步 / `euler` / **CFG 3.0** |
+| 采样 | `Flux2Scheduler` / 28 步 / `euler` / **立绘 CFG 3.0、场景 5.0**（两套提示词，CFG 也不同） |
 | 立绘尺寸 | 768×960 |
 | 场景尺寸 | 896×1792 |
 
@@ -28,6 +28,14 @@ node tools/cg-gen.js portrait:vera 20261210 --art=anime --lora=klein9b_anime_v3_
 # 场景（空镜）
 node tools/cg-gen.js corridor 20261210 --art=anime --lora=klein9b_anime_v3_refined.safetensors:0.9
 ```
+
+> **2026-11-27 22:5x 更正（焦点D 实测）**：上面两条命令里，`--lora` 对两者都生效，但 **`--art` 只作用于立绘**——
+> 场景提示词取自 `STYLE`/`STYLE_SOFT`（油画厚涂，CFG 5.0），`ART_STYLES` 只在 `genPortrait` 里被读。
+> 所以 20 张场景的二次元观感**是 LoRA 给的，不是 anime 档**；场景那条命令里的 `--art=anime` 是空转
+> （现在脚本会打一行 `! --art=... 只作用于立绘` 提示，不再静默）。想让场景也走 `ART_STYLES.anime`
+> 的提示词 = 换风格段 = **全批 20 张重出**，属一次单独的拍板，不在日常重出里顺手做。
+> 参数留痕以 `assets/cg/manifest.json` 的 `batch` 字段为准（由 `tools/cg-gen.js` 的 `BATCH` 常量派生，
+> 重出一批资产后先改 `BATCH` 再跑 `node tools/cg-manifest.js`）。
 
 ---
 

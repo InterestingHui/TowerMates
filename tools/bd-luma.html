@@ -42,7 +42,13 @@ pre{white-space:pre-wrap}</style>
   const BAND_MIN = 20, BAND_MAX = 50;   // 实测 23.7–48.7（gate 压暗后 38 左右）
   const LIT_MAX = 16;                   // 实测上限 14.4（intro4 的黎明门）
   const FOCAL_MAX = 78;                 // 对白框自 y≈80% 起盖住下缘（实测上限 76，留一格）
-  const LITWARM = 0.05;   // 暖面积低于这个数的图不判色相（几个像素的中位数没有意义）
+  // 暖光「有没有资格判色相」的门，单位是**采样点数**不是百分比。
+  // 原来写 `LITWARM = 0.05`，注释说的是「几个像素的中位数没有意义」，但被比较的是 `warm`（百分比）
+  // ⇒ 实际门 0.05%（≈48 个采样点），本意 5%，差 100 倍（2026-11-27 自检 · 条件与数值面）。
+  // 不能直接改成 5%：实测 24 张里 23 张低于它，色相两条断言会空转。正解是守住「中位数有意义」的
+  // 最小样本量——采样 430×900 / STEP 2 = 96,750 点，120 点 ≈ 0.12%，实测最小 roof 0.22%（≈213 点）仍在内。
+  const WARM_MIN_PX = 120;
+  const HUE_MIN_CARDS = 14;   // 参与色相判定的图少于此数 ⇒ 门在空转，直接红
 
   const lines = [];
   let pass = 0, fail = 0;
@@ -117,6 +123,7 @@ pre{white-space:pre-wrap}</style>
           meanL: sum / n,
           lit: (lit / n) * 100,
           warm: (warm / n) * 100,
+          warmN: warm,               // 采样点数（判「够不够判色相」用它，别拿百分比）
           focalY: (best.y / H) * 100,
           warmH: med(wh),
           warmIQR: pct(wh, 0.75) - pct(wh, 0.25),
@@ -196,9 +203,9 @@ pre{white-space:pre-wrap}</style>
     rec('每屏一盏暖光（冷光场景须在白名单里）', noWarm.length === 0, noWarm.length ? '无暖光 ' + noWarm.join(',') : '白名单 ' + Object.keys(COLD_ONLY).join('/'));
     // 2026-11-25 焦点A：白名单本身就是一条「派生说法」。挂在上面却明明有暖光的图 = 理由过期，
     // 会让人以为那屏是刻意全冷。资产重出后必须回头核对名单。
-    // 阈值就是下面色相判定的 LITWARM：低于它的暖面积「等于没有暖光」，高于它的必须过色相关。
+    // 阈值与色相判定同源（WARM_MIN_PX）：低于它的暖面积「等于没有暖光」，高于它的必须过色相关。
     // 写死成另一个数会留一条灰带（既不算无暖光、也不触发过期）。
-    const staleCold = Object.keys(COLD_ONLY).filter((k) => ms[k] && !ms[k].err && ms[k].warm > LITWARM);
+    const staleCold = Object.keys(COLD_ONLY).filter((k) => ms[k] && !ms[k].err && ms[k].warmN >= WARM_MIN_PX);
     rec('白名单里的图确实全冷（理由没过期）', staleCold.length === 0,
       staleCold.length ? '名单过期 ' + staleCold.map((k) => k + '(' + ms[k].warm.toFixed(2) + '%)').join(',')
         : Object.keys(COLD_ONLY).length + ' 条全部命中');
@@ -206,7 +213,9 @@ pre{white-space:pre-wrap}</style>
     //   ① 暖光色相要落在黄铜族（#e8c46a = 43°，实测 30–44 → 钉 26–46）
     //   ② 一屏之内不许混两种灯色（色相四分位距，实测 0–14 → 钉 16）
     //   ③ 暗场要有真黑：剪影 #0b0e16 的 luma ≈ 14，背景 p05 必须比它更黑（实测 0–13）
-      const hued = ALL.filter((k) => !ms[k].err && ms[k].warm >= LITWARM);
+      const hued = ALL.filter((k) => !ms[k].err && ms[k].warmN >= WARM_MIN_PX);
+    rec(`判色相的图不少于 ${HUE_MIN_CARDS} 张（门没空转）`, hued.length >= HUE_MIN_CARDS,
+      `参与 ${hued.length} / ${ALL.length}（门槛 ${WARM_MIN_PX} 个暖采样点）`);
     // 2026-11-26：上限 46 → 50。dawn 的地平线是**黎明金光**（实测 48°），
     // 比室内油灯（28–36°）更黄是叙事事实，不是跑色。下限不动——低于 26° 就是橙红，仍算跑偏。
     const offHue = hued.filter((k) => !(ms[k].warmH >= 26 && ms[k].warmH <= 50));
