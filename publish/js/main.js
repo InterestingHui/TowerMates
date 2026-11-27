@@ -1271,6 +1271,15 @@
     box.classList.add('show');
   }
 
+  // 遗物小传：图鉴要能重读拾取时那一段（`relicNote` 是图鉴专用的一句，`relicLore` 是拾取演出，
+  // 后者有一条就取首句——七件拾取小传本来就是一句话，直接复用，不再抄第二份）
+  function relicNoteOf(id) {
+    if (S.relicNote && S.relicNote[id]) return S.relicNote[id];
+    const l = S.relicLore && S.relicLore[id];
+    if (!l || !l.length || !l[0]) return '';
+    return l[0][1] || '';
+  }
+
   // 点卡片看详情：拿到过的给完整规则 + 来源；没拿到的给「去哪儿找」的线索
   function showColDetail(kind, id) {
     const box = $('colDetail');
@@ -1283,11 +1292,16 @@
     const from = kind === 'relic'
       ? (r.from || '')
       : `第 ${r.chapter} 章 · 锁匠倒下后的三选一`;
+    // 小传只在「已经拿到过」的遗物上出现：没拿到的卡片不能先把叙事碎片剧透掉
+    const lore = on && kind === 'relic' ? relicNoteOf(id) : '';
     box.innerHTML = `<span class="cd-emoji">${on ? r.emoji : '❔'}</span>
       <div class="cd-main"><b>${r.name}${on ? '' : ' · 未获得'}</b><span class="cd-desc"></span></div>
-      <span class="cd-from">${from}</span>`;
+      <span class="cd-from">${from}</span>
+      ${lore ? '<span class="cd-lore"></span>' : ''}`;
     // 描述走富文本：以后有人在 desc 里写 **重点** 也不会把星号原样漏出来
     renderRich(box.querySelector('.cd-desc'), on ? r.desc : '还没拿到过——先照着下面的线索去试试。');
+    // 小传：拾取时那一刻播过的叙事碎片，在图鉴里要能重读（`relicNote` 优先，没有就退回 `relicLore` 首句）
+    if (lore) renderRich(box.querySelector('.cd-lore'), lore);
     replayColDetail(box);
     // 同一张卡再点一次收起；点别处也收起
     box._id = kind + ':' + id;

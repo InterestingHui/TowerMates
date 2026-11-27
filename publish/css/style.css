@@ -3026,6 +3026,9 @@ html.fx-low .end-sign.write > span, html.fx-low .end-sign.write > span::after { 
 .col-detail {
   display: none;
   align-items: flex-start; gap: 9px;
+  /* 小传是整幅一行（见 .cd-lore 的 flex-basis）——不换行的话它会被挤进 cd-main 的窄列，
+     360 宽下只剩 133px，51 个字要折六行，一行七个字读不成句子。 */
+  flex-wrap: wrap;
   margin: 2px 0 6px;
   padding: 9px 11px;
   border: 1px solid var(--chapter-soft);
@@ -3039,6 +3042,19 @@ html.fx-low .end-sign.write > span, html.fx-low .end-sign.write > span::after { 
 .col-detail .cd-main { flex: 1; display: flex; flex-direction: column; gap: 2px; }
 .col-detail .cd-main b { font-size: var(--fs-aux); color: var(--text); letter-spacing: 0.3px; }
 .col-detail .cd-main span { font-size: var(--fs-tag); line-height: 1.6; color: var(--muted); }
+/* 小传：拾取时念过的那一句，在图鉴里要能重读。整幅一行（flex-basis 100% 把它挤到第二行），
+   与上方的规则/来源之间一道细线；斜体 + --muted 与叙述体同档——
+   这行的全部意义就是「被读到」，降到 --dim 就本末倒置了（`.cd-from` 才是 --dim）。 */
+.col-detail .cd-lore {
+  flex-basis: 100%;
+  margin-top: 2px;
+  padding-top: 5px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  color: var(--muted);
+  font-style: italic;
+  font-size: var(--fs-tag);
+  line-height: 1.6;
+}
 .col-detail .cd-from {
   font-size: var(--fs-tag); line-height: 1.5; color: var(--dim);
   text-align: right; max-width: 42%; flex-shrink: 0;

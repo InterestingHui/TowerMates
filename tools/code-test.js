@@ -2895,6 +2895,48 @@ ok(mainSrc.indexOf("searchParams.set('rival'") < 0, 'main.js 不许自己拼链�
     '改「画面特效」当场生效（开关只在 refreshCfg 里同步）');
 }
 
+// ---------- 图鉴小传：叙事碎片必须能重读（2026-11-28 加练·叙事） ----------
+{
+  const vm = require('vm');
+  const ctx = { console };
+  ctx.window = ctx;
+  vm.createContext(ctx);
+  vm.runInContext(storySrcTop, ctx);
+  vm.runInContext(require('fs').readFileSync(require('path').join(__dirname, '..', 'js', 'data.js'), 'utf8'), ctx);
+  const ST = ctx.window.STORY;
+  const DD = ctx.window.GAME_DATA;
+  const relicIds = Object.keys(DD.relics);
+  const noteOf = (id) => (ST.relicNote && ST.relicNote[id]) || '';
+  const loreOf = (id) => {
+    const l = ST.relicLore && ST.relicLore[id];
+    return (l && l[0] && l[0][1]) || '';
+  };
+  const silent = relicIds.filter((id) => !noteOf(id) && !loreOf(id));
+  ok(silent.length === 0, `每件遗物在图鉴里都有一句可读的来历（哑的：${silent.join('、') || '无'}）`);
+  // `relicLore` 是「捡到就播」，`relicNote` 是图鉴专用。两张表要是重叠，同一段会在拾取时念两遍。
+  const dup = Object.keys(ST.relicNote || {}).filter((id) => ST.relicLore && ST.relicLore[id]);
+  ok(dup.length === 0, `图鉴专用小传不许与拾取演出重叠（重叠：${dup.join('、') || '无'}）`);
+  const orphan = Object.keys(ST.relicNote || {}).filter((id) => relicIds.indexOf(id) < 0);
+  ok(orphan.length === 0, `图鉴小传的键必须都是真遗物（野键：${orphan.join('、') || '无'}）`);
+  // 图鉴详情确实把小传挂上去了，且只在「已获得」时（没拿到的卡片不许剧透碎片）
+  ok(/function relicNoteOf\(id\)/.test(mainSrc), '小传读取只有一处实现（relicNoteOf）');
+  ok(/const lore = on && kind === 'relic' \? relicNoteOf\(id\) : ''/.test(mainSrc),
+    '图鉴详情只在已获得的遗物上带小传（未获得不剧透）');
+  ok(/if \(lore\) renderRich\(box\.querySelector\('\.cd-lore'\), lore\)/.test(mainSrc),
+    '小传写进 .cd-lore（走富文本，不把星号原样漏出来）');
+  // 数据层：小传的长度要装得进详情条的窄列（360 宽下 cd-main 约 200px，按 fs-tag 每行 ~13 字）
+  const long = relicIds.filter((id) => noteOf(id) && noteOf(id).length > 64);
+  ok(long.length === 0, `图鉴小传不超过 64 字（超长：${long.join('、') || '无'}）`);
+  // 颜色不许降到 --dim：这一行的全部意义就是被读到
+  const loreRule = (cssSrc.match(/\.col-detail \.cd-lore \{[^}]*\}/) || [''])[0];
+  ok(loreRule.length > 0, '小传有独立样式（.cd-lore）');
+  ok(/color: var\(--muted\)/.test(loreRule) && !/color: var\(--dim\)/.test(loreRule),
+    '小传颜色留在正文档（--muted），不降到 --dim');
+  // 整幅一行：挤进 cd-main 的窄列会折成六行、一行七字（360 宽实测 133px）
+  ok(/flex-basis: 100%/.test(loreRule), '小传整幅占一行，不与规则列并排');
+  ok(/\.col-detail \{[^}]*flex-wrap: wrap/.test(cssSrc), '详情条允许换行（否则 flex-basis 不生效）');
+}
+
 console.log(`挑战码 / 触控 / 桥接 / 视图模型单测：${pass} 项通过${bad ? `，${bad} 项失败` : ''}`);
 
 process.exit(bad ? 1 : 0);
