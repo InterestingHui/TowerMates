@@ -1064,16 +1064,22 @@ html, body {
   border-color: rgba(232, 196, 106, 0.62);
   color: #fff3d0;
 }
+/* 贴码输入框字号必须 ≥16px（2026-11-27 加练·社交）：iOS Safari / 微信 WKWebView 聚焦
+   font-size <16px 的输入控件时会**自动放大整页**，而 `viewport` 里的 `user-scalable=no`
+   从 iOS 10 起只挡双指缩放、挡不住这条 —— 玩家点进来面板被放大到出屏，pinch 又被禁，
+   只能收起键盘才退得回去。这里原本是 11px（`--fs-tag`），是全作两个输入框之一。
+   字号抬到 16px 后把上下 padding 从 11 收到 8（字号 +5px、内边距 −6px），`.code-row` 高度原地不动。
+   贴进来的长码不会撑高这一格：`<input>` 是单行控件，码在框内横向滚动，不折行。 */
 .code-input {
   flex: 1;
   min-width: 0;
-  font-size: var(--fs-tag);
+  font-size: 16px;
   font-family: Consolas, monospace;
   color: var(--gold);
   background: transparent;
   border: none;
   outline: none;
-  padding: 11px 0;
+  padding: 8px 0;
 }
 .code-input::placeholder { color: var(--muted); }
 .bd-row.rival .bd-name { color: var(--info); }
@@ -2748,12 +2754,14 @@ body.at-start #bottom { visibility: hidden; }
 /* 重看提示 */
 .hint-book { max-width: 380px; }
 .hb-search { margin-top: 10px; }
+/* 同上一条：输入框 16px 是 iOS 聚焦不缩放的硬门槛（`--fs-aux` 12px 会触发整页放大）。
+   抬字号后 padding 8→5 把行高补回来，`.hb-list` 的 52vh 预算一点没动。 */
 .hb-search input {
   width: 100%; box-sizing: border-box;
-  padding: 8px 11px;
+  padding: 5px 11px;
   border: 1px solid var(--line); border-radius: 9px;
   background: rgba(255, 255, 255, 0.035); color: var(--text);
-  font-size: var(--fs-aux); font-family: inherit; outline: none;
+  font-size: 16px; font-family: inherit; outline: none;
 }
 .hb-search input:focus { border-color: rgba(var(--gold-rgb), 0.45); }
 .hb-list { max-height: 52vh; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; margin: 10px 0; }

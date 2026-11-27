@@ -192,6 +192,17 @@ function audit(tag, doc, win) {
   const out5 = reachable.filter((x) => x.clip.L < -1 || x.clip.T < -1 || x.clip.R > win.innerWidth + 1 || x.clip.B > win.innerHeight + 1);
   check(tag + ' 看得出、够得着（整块在视口内）', out5.length === 0,
     out5.map((x) => label(x.el) + '[' + Math.round(x.clip.T) + '–' + Math.round(x.clip.B) + ']').join(' / ') || '—');
+
+  // G6 · 输入框字号 ≥16px（2026-11-27 加练·社交）：iOS Safari / 微信 WKWebView 在聚焦
+  // font-size <16px 的输入控件时会把整页自动放大，且不被 `user-scalable=no` 拦住（iOS 10 起
+  // 该声明只挡双指缩放、不挡聚焦缩放）。本作唯一两个输入框「贴朋友的挑战码」「重看提示过滤」
+  // 此前分别是 11px / 12px —— 玩家点进去，面板被放大到超出屏幕，而 pinch 又被禁，
+  // 只能靠收起键盘才退得回来。量的是 computed 字号（CSS 变量改一处不会漏）。
+  const tiny = Array.from(doc.querySelectorAll('input, textarea'))
+    .filter((el) => visible(el, win))
+    .filter((el) => parseFloat(win.getComputedStyle(el).fontSize) < 16);
+  check(tag + ' 输入框字号 ≥16px（iOS 聚焦不缩放）', tiny.length === 0,
+    tiny.map((x) => label(x.el) + ' ' + win.getComputedStyle(x.el).fontSize).join(' / ') || '—');
 }
 
 (async () => {

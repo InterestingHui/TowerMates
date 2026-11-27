@@ -2513,6 +2513,33 @@ ok(mainSrc.indexOf("searchParams.set('rival'") < 0, 'main.js 不许自己拼链�
     'CG 图挂掉要摘掉 has-cg（否则兜底矢量图亮出来是静止的）');
 }
 
+// 输入框字号 ≥16px（2026-11-27 加练·社交）。
+// 病根：iOS Safari / 微信 WKWebView 聚焦 font-size <16px 的控件会**自动放大整页**，而本页
+// `viewport` 写了 `user-scalable=no` —— 那条从 iOS 10 起只挡双指缩放，挡不住聚焦缩放。
+// 于是玩家点「贴朋友的挑战码」→ 面板被放大到出屏、pinch 又禁着，只能收起键盘才退回来；
+// 而这条链正是本作社交的主干（拿朋友的码 → 进榜 → 比谁走得远）。
+// 此前 `.code-input` 是 11px、`.hb-search input` 是 12px，两者都踩线；`tap-check` 只量命中区、
+// 从不问字号，`contrast-check` 只管对比度 —— 这个阈值从来没被任何闸门看过。
+// 契约：凡选择器里带 input 的规则，font-size 必须是 ≥16 的**字面 px**（写 var(--fs-tag) 这类
+// 令牌同样算红：令牌哪天被调小，这里不会有人记得回来改）。
+{
+  const blocks = cssSrc.match(/^[^\n{}]*input[^\n{}]*\{[^}]*\}/gm) || [];
+  const selOf = (b) => b.slice(0, b.indexOf('{')).trim();
+  const has = (s) => blocks.some((b) => selOf(b).indexOf(s) >= 0);
+  ok(has('.code-input') && has('.hb-search input'),
+    `两个输入框的规则都读得到（${blocks.map(selOf).join(' / ') || '一个都没有'}）`);
+  const badFs = blocks.map((b) => {
+    const m = /font-size:\s*([^;]+)/.exec(b);
+    if (!m) return ''; // 没声明字号（`::placeholder`、只调色）不归这条管
+    const v = m[1].trim();
+    const px = /^([0-9.]+)px$/.exec(v);
+    if (!px) return selOf(b) + ' → ' + v;
+    return parseFloat(px[1]) >= 16 ? '' : selOf(b) + ' → ' + v;
+  }).filter(Boolean);
+  ok(badFs.length === 0,
+    `凡输入框字号 ≥16px 字面 px（iOS 聚焦不缩放；不合格：${badFs.join(' / ') || '无'}）`);
+}
+
 console.log(`挑战码 / 触控 / 桥接 / 视图模型单测：${pass} 项通过${bad ? `，${bad} 项失败` : ''}`);
 
 process.exit(bad ? 1 : 0);
