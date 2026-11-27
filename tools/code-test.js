@@ -818,6 +818,18 @@ const eLedger = V.emberModel({
   fx: emberFx({ hasRing: (id) => id === 'ledger' }),
 });
 ok(eLedger.parts.some((p) => p.label === '锁环·击杀余烬翻倍' && p.n === 4), '击杀翻倍环把击杀这一项再加一遍（不是重算总数）');
+// 拾柴之环（第 2 章）是「名册 + 每位锁匠 1」两笔，不是只给锁匠那一笔。
+// 2026-11-27 自检第 4 面发现：代码一直在给两笔，desc 只写了锁匠那半句 ⇒ 玩家读卡算不出实际收益，
+// 而平衡文档把它记成「每位锁匠 +1 的偏强环」，说明连读文档的人也被 desc 带偏过。
+// 这条断言守两件事：明细里两笔都在；desc 必须同时提到「10 只」与「锁匠」。
+const eAsh = V.emberModel({
+  s: { ending: 'true', flags: { killCount: 40, bossKilled_N: true, bossKilled_Z: true } },
+  echoDone: 4, vowDef: {}, vowId: 'none',
+  fx: emberFx({ hasRing: (id) => id === 'ash' }),
+});
+ok(eAsh.parts.some((p) => p.label === '锁环·击杀余烬翻倍' && p.n === 4)
+  && eAsh.parts.some((p) => p.label === '锁环·拾柴（2 位锁匠）' && p.n === 2),
+  '拾柴之环给两笔：击杀翻倍 + 每位锁匠 1（实测 ' + eAsh.parts.map((p) => p.label + '=' + p.n).join(' / ') + '）');
 const eQuill = V.emberModel({
   s: { ending: 'true', gold: 750, flags: {} }, echoDone: 4, vowDef: {}, vowId: 'none',
   fx: emberFx({ hasRing: (id) => id === 'quill' }),
@@ -1393,6 +1405,12 @@ ok(a0.cards[0].id === 'steel' && a0.cards[0].emoji === GD.relics.steel.emoji, '�
 const echoPend = V.echoModel({ title: '墨妖', pending: true, choices: ['spare', 'twice'], owned: ['twice'], rings: GD.rings });
 ok(echoPend.kicker === '墨妖 · 回响' && echoPend.reward === V.ECHO_REWARD_PENDING && !echoPend.muted, '待选时写「塔从墙上取下一枚」');
 ok(echoPend.cards.length === 2 && echoPend.cards[0].name === GD.rings.spare.name, '三选一卡片来自候选，且不是环表里的裸 id');
+// 锁环 desc 与 emberModel 的实际算法同字（2026-11-27 自检第 4 面）：
+// 拾柴同时给「击杀翻倍」与「每位锁匠 +1」，desc 少写一半 ⇒ 卡面读不出真实收益。
+ok(/10 只/.test(GD.rings.ash.desc) && /锁匠/.test(GD.rings.ash.desc),
+  '拾柴之环 desc 同时写明击杀翻倍与锁匠奖励（实际：' + GD.rings.ash.desc + '）');
+ok(/10 只/.test(GD.rings.ledger.desc) && !/锁匠/.test(GD.rings.ledger.desc),
+  '名册之环 desc 只写击杀（第 1 章那档不该冒出锁匠）');
 ok(echoPend.ownedHead === '已装 1 枚' && echoPend.owned.length === 1, '已装枚数按真实持有算');
 ok(echoPend.hint === V.ECHO_HINT_PICK && echoPend.closable === false, '待选时不能关面板（否则等于放弃这一章的空环）');
 const echoDone = V.echoModel({ title: '墨妖', pending: false, choices: ['spare'], owned: [], rings: GD.rings });

@@ -477,7 +477,10 @@
       parts.push({ label: withVow ? `锁环·守誓（${vowDef.name || '誓约'}）` : '锁环·守誓', n: withVow ? 5 : 3 });
     }
     if (winOnly('heart') && flags.heart === 'left') parts.push({ label: '锁环·塔心（放下）', n: 3 });
-    // 拾柴之环：每击败一位锁匠 +2（与击杀数无关，奖励推进度）
+    // 拾柴之环：在「击杀翻倍」之外，每击败一位锁匠再 +1（奖励推进度，不按击杀数）
+    // 上面那条翻倍是 ledger / ash / ledger2 三枚共用的，不是漏改——这是这一族的档位阶梯：
+    // 名册（第 1 章）只翻倍 → 拾柴（第 2 章）+ 每位锁匠 1 → 墨账（第 3 章）+ 击杀金币 15%。
+    // desc 必须把这半句写出来（2026-11-27 自检第 4 面：旧 desc 只写锁匠，玩家从卡面算不出实际给了两笔）。
     if (has('ash')) {
       const bossesDown = ['N', 'Z', 'Y', 'U'].filter((c) => flags['bossKilled_' + c]).length;
       if (bossesDown > 0) parts.push({ label: `锁环·拾柴（${bossesDown} 位锁匠）`, n: bossesDown });

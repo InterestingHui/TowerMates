@@ -231,7 +231,7 @@ window.GAME_DATA = (function () {
     pace:     { cat: 'ember', name: '更漏之环', emoji: '⏱️', short: '漏', chapter: 1, desc: '通关额外 +2 余烬' },
     ward2:    { cat: 'rule', name: '旧誓之环', emoji: '💫', short: '誓', chapter: 1, desc: '每场战斗承伤 −6%' },
 
-    ash:      { cat: 'ember', name: '拾柴之环', emoji: '🪵', short: '柴', chapter: 2, desc: '每击败一位章节锁匠，额外 +1 余烬' },
+    ash:      { cat: 'ember', name: '拾柴之环', emoji: '🪵', short: '柴', chapter: 2, desc: '每击败 10 只怪额外 +1 余烬，每击败一位锁匠再 +1' },
     scout2:   { cat: 'info', name: '窥探之环', emoji: '👁️', short: '窥', chapter: 2, desc: '立刻获得窥探之镜；顶栏常驻显示本层还剩几件东西没捡' },
 
     ledger2:  { cat: 'ember', name: '墨账之环', emoji: '📓', short: '墨', chapter: 3, desc: '每击败 10 只怪额外 +1 余烬，且击杀金币 +15%' },
