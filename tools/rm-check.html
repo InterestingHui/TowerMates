@@ -42,6 +42,62 @@ const CHECK = [
       bits.push(ok ? 1 : 0);
       el.remove();
     });
+    // 1b) 游戏内开关「设置 → 画面特效 → 减弱」（<html class="fx-low">）必须有同样的效果。
+    //     2026-11-27 22:5x 收口：这行开关此前只关得住棋盘粒子（Renderer.burst/freeze），
+    //     CSS 的循环动效一条都没停——设置里写着「画面特效」，做的却是半件。
+    //     这一组不依赖 OS 设置（媒体查询那一遍开不开都跑），直接挂类读 computed。
+    {
+      const rootEl = d.documentElement;
+      const had = rootEl.classList.contains('fx-low');
+      rootEl.classList.add('fx-low');
+      const probe = [
+        ['sc-tw', 'div'], ['bd-fog', 'div'], ['bd-flick', 'div'],
+        ['g-ico', 'span'], ['dlg-cue', 'div'], ['pt-aura', 'div'],
+      ];
+      let allOff = true;
+      const got = [];
+      probe.forEach(([cls, tag]) => {
+        const el = d.createElement(tag);
+        el.setAttribute('class', cls);
+        d.body.appendChild(el);
+        const a = an(el);
+        got.push(cls + '=' + a);
+        if (a !== 'none') allOff = false;
+        el.remove();
+      });
+      // CG 层：缓推停、进场淡入留
+      const shot = d.createElement('div');
+      shot.className = 'bd-shot';
+      d.body.appendChild(shot);
+      const sNames = (w.getComputedStyle(shot).animationName || 'none').split(',').map((s) => s.trim());
+      const shotOk = sNames.indexOf('sceneZoom') < 0 && sNames.indexOf('sceneIn') >= 0;
+      shot.remove();
+      if (!had) rootEl.classList.remove('fx-low');
+      // 摘掉类必须恢复：否则「减弱」是单向的，玩家关不回去。
+      // 媒体查询那一遍（reduce=true）本来就该一直停着，这一条只在默认那一遍成立。
+      const tw = d.createElement('div');
+      tw.className = 'sc-tw';
+      d.body.appendChild(tw);
+      const back = an(tw);
+      tw.remove();
+      const restoreOk = reduce ? true : back !== 'none';
+      // 一次性进场在「减弱」下同样不许被误伤：否则开了这档，商店/结算/回响全是硬切，
+      // 玩家读不出「刚才发生了什么」——减弱的是常驻干扰，不是交代。
+      const p = d.createElement('div');
+      p.className = 'panel';
+      d.body.appendChild(p);
+      rootEl.classList.add('fx-low');
+      const pAnim = an(p);
+      rootEl.classList.toggle('fx-low', had);
+      p.remove();
+      const popOk = /popIn/.test(pAnim);
+      rows.push((popOk ? 'PASS|' : 'FAIL|') + '开关 fx-low 不动一次性进场|' + pAnim);
+      bits.push(popOk ? 1 : 0);
+      rows.push((allOff ? 'PASS|' : 'FAIL|') + '开关 fx-low 停循环动效|' + got.join(' '));
+      rows.push((shotOk ? 'PASS|' : 'FAIL|') + '开关 fx-low 的 CG 层留淡入|' + sNames.join(','));
+      rows.push((restoreOk ? 'PASS|' : 'FAIL|') + '摘掉 fx-low 会恢复|' + back);
+      bits.push(allOff ? 1 : 0, shotOk ? 1 : 0, restoreOk ? 1 : 0);
+    }
     // 2) 低血脉动：动效停掉，但红色信息必须还在
     {
       const wrap = d.createElement('div');

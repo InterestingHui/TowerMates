@@ -2730,6 +2730,54 @@ ok(mainSrc.indexOf("searchParams.set('rival'") < 0, 'main.js 不许自己拼链�
   ok(wrong.length === 0, `余烬环说明里的单价与常量一致（不一致：${wrong.join('、') || '无'}）`);
 }
 
+// ---------- 2026-11-27 22:5x 加练·游戏性焦点D：「画面特效：减弱」只做了半件 ----------
+// 设置里那一行承诺的是**整屏**特效，而 `REDUCED()` 此前只关得住棋盘粒子（Renderer.burst/freeze）；
+// CSS 的循环动效（火光呼吸 / 双雾对漂 / 星点闪 / 立绘光圈 / 灯闪）只有 OS 媒体查询一条入口，
+// 于是玩家点了「减弱」，屏上照样全在动。现在两条入口给同一份效果：媒体查询那段 + `html.fx-low` 那段。
+// 名单抄成了两份（CSS 没法把媒体查询和类选择器写成一个表），所以必须有闸门现算比对。
+{
+  // 注释里也会出现类名（「给 <html> 挂 .fx-low」「.bd-* 那串」），先剥注释再量，否则量的是说明文字
+  const css = cssSrc.replace(/\/\*[\s\S]*?\*\//g, '');
+  const blocks = [];
+  {
+    const tag = '@media (prefers-reduced-motion: reduce)';
+    let i = 0;
+    for (;;) {
+      const at = css.indexOf(tag, i);
+      if (at < 0) break;
+      let k = css.indexOf('{', at), depth = 0, end = -1;
+      for (; k < css.length; k++) {
+        if (css[k] === '{') depth++;
+        else if (css[k] === '}' && --depth === 0) { end = k; break; }
+      }
+      blocks.push(css.slice(at, end + 1));
+      i = end + 1;
+    }
+  }
+  ok(blocks.length >= 3, `减弱动效的媒体查询块 ${blocks.length} 段（<3 说明有人把整块删了）`);
+  const clsOf = (txt) => {
+    const set = new Set();
+    (txt.match(/\.[A-Za-z][A-Za-z0-9_-]*/g) || []).forEach((c) => {
+      const n = c.slice(1);
+      if (n !== 'fx-low') set.add(n); // 开关类自己不算「被关掉的动效」
+    });
+    return set;
+  };
+  const mediaSet = clsOf(blocks.join('\n'));
+  const fxSet = clsOf((css.match(/[^{}]*html\.fx-low[^{}]*\{/g) || []).join('\n'));
+  const missingInFx = [...mediaSet].filter((c) => !fxSet.has(c));
+  const extraInFx = [...fxSet].filter((c) => !mediaSet.has(c));
+  ok(missingInFx.length === 0, `游戏内开关停得下媒体查询停的全部动效（漏：${missingInFx.join('、') || '无'}）`);
+  ok(extraInFx.length === 0, `游戏内开关不多停（多：${extraInFx.join('、') || '无'}）`);
+  // 开关本身：一处实现、两个时机（页面装载 + 每次改设置）
+  ok((mainSrc.match(/classList\.toggle\('fx-low'/g) || []).length === 1,
+    '挂类只有一处实现（不许第二份各写一遍）');
+  ok(/const applyFxClass = \(\) =>[^\n]*\n\s*applyFxClass\(\);/.test(mainSrc),
+    '页面一装载就按存档里的 fx 挂类（否则要打开一次设置才生效）');
+  ok(/function refreshCfg\(\) \{\n\s*applyFxClass\(\);/.test(mainSrc),
+    '改「画面特效」当场生效（开关只在 refreshCfg 里同步）');
+}
+
 console.log(`挑战码 / 触控 / 桥接 / 视图模型单测：${pass} 项通过${bad ? `，${bad} 项失败` : ''}`);
 
 process.exit(bad ? 1 : 0);

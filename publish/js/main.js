@@ -98,6 +98,12 @@
     };
   })();
   const REDUCED = () => Settings.fx === 'low';
+  // 「画面特效：减弱」承诺的是**整屏**特效，而 REDUCED 此前只关得住棋盘粒子（Renderer.burst/freeze）：
+  // 火光呼吸 / 双雾对漂 / 星点闪 / 立绘光圈 / 灯闪 这些 CSS 循环一条都没停——设置里写了、做了半件。
+  // 两条入口同一份效果：OS 的 prefers-reduced-motion（媒体查询）与游戏内开关（html.fx-low）。
+  // CSS 里这两段名单由 code-test 现算比对（集合相等），改一处漏一处会红。
+  const applyFxClass = () => document.documentElement.classList.toggle('fx-low', REDUCED());
+  applyFxClass();
   const hintMs = (base) => Math.round(base * (HINT_SCALE[Settings.hintSpeed] || 1));
   // 一句话该挂多久：按字数分两档（26 字是提示条实际读得完 / 读不完的分界，量过多次）。
   // 2026-11-24 之前只有顶部提示条守这条，楼层卡的层名氛围句写死 2100ms——
@@ -4647,6 +4653,7 @@
 
   function closeCfg() { el.cfgOverlay.classList.remove('show'); }
   function refreshCfg() {
+    applyFxClass(); // 画面特效开关：CSS 循环动效跟着一起停/恢复（见 applyFxClass 的注释）
     $('cfgFxVal').textContent = Settings.fx === 'low' ? '减弱' : '全开';
     $('cfgFxVal').className = Settings.fx === 'low' ? 'off' : '';
     $('cfgSfxVal').textContent = Settings.sfx ? '开' : '关';

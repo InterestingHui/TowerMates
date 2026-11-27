@@ -767,6 +767,12 @@ html, body {
 @media (prefers-reduced-motion: reduce) {
   .sc-zoom, .sc-flick, .sc-fog, .sc-fog2, .sc-sway, .sc-pulse, .sc-tw { animation: none; }
 }
+/* 减弱动效的第二条入口：游戏内「设置 → 画面特效 → 减弱」（main.js `applyFxClass` 给 <html> 挂 .fx-low）。
+   此前这个开关只关得住棋盘粒子，CSS 循环一条都没停——设置里写了「画面特效」，做的却是半件。
+   名单必须与上面那段媒体查询**逐项相同**（code-test 现算两边集合比对，改一处漏一处会红）：
+   两个入口是一件事的两种触发方式，不该各维护一份。 */
+html.fx-low .sc-zoom, html.fx-low .sc-flick, html.fx-low .sc-fog, html.fx-low .sc-fog2,
+html.fx-low .sc-sway, html.fx-low .sc-pulse, html.fx-low .sc-tw { animation: none; }
 
 /* ================= 对白背景（序章之后 · js/backdrops.js） ================= */
 /* CG 层（2026-11-25）：位图铺满、压在矢量底图上面；图没到/加载失败时这一层就是透明的，
@@ -814,6 +820,11 @@ html, body {
   /* CG 层：只停缓推（72s 的持续位移），进场淡入留着——它是一次性、无位移的 */
   .bd-shot { animation: sceneIn 0.9s ease-out both; }
 }
+/* 同上：游戏内开关那一份。`.bd-shot` 必须排在 `.bd-*` 那串之后——同一族里它要留进场淡入，
+   靠后书写的这条覆盖前面的 `animation: none`。 */
+html.fx-low .bd-zoom, html.fx-low .bd-flick, html.fx-low .bd-fog,
+html.fx-low .bd-fog2, html.fx-low .bd-tw, html.fx-low .bd-turn { animation: none; }
+html.fx-low .bd-shot { animation: sceneIn 0.9s ease-out both; }
 
 /* 立绘 */
 .pt { position: relative; width: 100%; aspect-ratio: 4 / 5; }
@@ -2140,6 +2151,10 @@ body.at-start #bottom { visibility: hidden; }
      不是持续干扰；砍掉它反而会让结算、升级这些节点变成无声跳变。 */
   .g-ico, .coach-spot, .dlg-cue, .pt-aura, .pt-img, .pt-svg, .hpwrap.low .hpbar { animation: none; }
 }
+/* 同上：游戏内开关那一份（名单与上面媒体查询逐项相同，code-test 现算比对）。 */
+html.fx-low .g-ico, html.fx-low .coach-spot, html.fx-low .dlg-cue, html.fx-low .pt-aura,
+html.fx-low .pt-img, html.fx-low .pt-svg, html.fx-low .hpwrap.low .hpbar { animation: none; }
+html.fx-low .end-sign.write > span, html.fx-low .end-sign.write > span::after { animation: none; }
 
 /* ---------- 塔心石（带走 / 放下） ---------- */
 #heartOverlay {
