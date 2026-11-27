@@ -2636,6 +2636,28 @@ ok(mainSrc.indexOf("searchParams.set('rival'") < 0, 'main.js 不许自己拼链�
   ok(missing.length === 0, `每个日志类都有样式（没样式的：${missing.join('/') || '无'}）`);
 }
 
+// 剪贴板出口只有一份、且防住「挂起」（2026-11-27 加练 社交）。
+// 病根：挑战码/挑战链接/结算分享走 `copyText`（异步写 + 拒绝兜底，**没有超时**），
+// 导出 JSON 自己另写了一份（异步写 + 350ms 超时 + execCommand）——两份实现，只有后者防住
+// 「writeText 既不 resolve 也不 reject」：iOS WKWebView 在非用户手势 / 权限被拒又没弹窗时
+// promise 会一直挂着，按钮文案永远不变、日志和提示条都不动 = 手机上「点了没反应」，
+// 而这是把成绩发出去的唯一入口。真机探针实测：摘掉超时后按钮停在「复制」、提示条为空。
+{
+  const writeSites = (mainSrc.match(/\.writeText\(/g) || []).length;
+  ok(writeSites === 1, `异步剪贴板只有一处调用点（现 ${writeSites} 处——多出来的那份就是漏了兜底的那份）`);
+  const m = mainSrc.match(/const CLIP_TIMEOUT = (\d+);/);
+  ok(!!m && Number(m[1]) > 0 && Number(m[1]) <= 1000,
+    `剪贴板超时有明确上限（CLIP_TIMEOUT = ${m ? m[1] : '缺'}ms，取值域 (0,1000]）`);
+  const fnAt = mainSrc.indexOf('function writeClipboard(');
+  const fn = fnAt < 0 ? '' : mainSrc.slice(fnAt, fnAt + 1200);
+  ok(/setTimeout\(\(\) => done\(\(\) => tryFallback\(ok\)\), CLIP_TIMEOUT\)/.test(fn),
+    '超时到点必须落到 execCommand 兜底（只 reject 不超时 = WKWebView 上照样没反应）');
+  ok(/writeClipboard\(t, ok, fail\)/.test(mainSrc) && /writeClipboard\(JSON\.stringify\(rows\)/.test(mainSrc),
+    '挑战码与导出两条出口都走这一处（不许再长出第二份实现）');
+  ok(/function fallbackCopy\(text\)/.test(mainSrc) && /return ok;/.test(mainSrc),
+    '兜底层返回布尔、不自己 warn（否则同一次失败出两条提示）');
+}
+
 console.log(`挑战码 / 触控 / 桥接 / 视图模型单测：${pass} 项通过${bad ? `，${bad} 项失败` : ''}`);
 
 process.exit(bad ? 1 : 0);

@@ -4431,7 +4431,7 @@
         btn.classList.remove('done');
       }, 1400);
     }
-    // 复制：剪贴板不可用（file://、部分 WebView）时退化成「选中文本让你自己复制」；
+    // 复制：剪贴板不可用时退化成「选中文本让你自己复制」（选中只能对有字可选的元素做）；
     // 没有可选中对象时（比如复制的是链接、屏上没有这段字）就直说复制失败，别假装成功。
     // 每条出口都是「按钮字变了 + 顶部提示 / 提示音」——三处出口不许只有一条静默的日志。
     function copyText(selEl, text, okMsg, btn) {
@@ -4439,7 +4439,14 @@
       if (!t) { warn('这个码还没生成，先打完一局'); flashBtn(btn, '还没码'); return; }
       // 「—— 通关后生成 ——」是占位符，不是码：真复制出去只会发一条读不出来的链接
       if (t.indexOf('——') === 0) { warn('先打完一局才有挑战码'); flashBtn(btn, '还没码'); return; }
-      const fallback = () => {
+      const ok = () => {
+        log(okMsg, 'good');
+        // 提示条在浮层之上（z-index 45 > 20），是这颗按钮唯一能「说清发生了什么」的通道
+        warn(okMsg);
+        flashBtn(btn, '已复制 ✓');
+        Sound.play('choose');
+      };
+      const fail = () => {
         if (!selEl) { warn('复制失败，请手动复制挑战码'); flashBtn(btn, '复制失败'); return; }
         try {
           const range = document.createRange();
@@ -4452,15 +4459,7 @@
           flashBtn(btn, '已选中');
         } catch (e) { warn('复制失败，请手动复制'); flashBtn(btn, '复制失败'); }
       };
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(t).then(() => {
-          log(okMsg, 'good');
-          // 提示条在浮层之上（z-index 45 > 20），是这颗按钮唯一能「说清发生了什么」的通道
-          warn(okMsg);
-          flashBtn(btn, '已复制 ✓');
-          Sound.play('choose');
-        }, fallback);
-      } else fallback();
+      writeClipboard(t, ok, fail);
     }
     // 挑战链接：把码塞进地址发出去，朋友点开就收下（省掉「贴 50 多个字符」那一步）
     // 榜单面板与结算页共用这一条出口——两处的差别只是「从哪个元素读码」。
@@ -5101,36 +5100,46 @@
     paint();
     const copyBtn = box.querySelector('#fvCopy');
     copyBtn.addEventListener('click', () => {
-      const json = JSON.stringify(rows);
-      const done = () => { copyBtn.textContent = '已复制 ✓'; setTimeout(() => { copyBtn.textContent = '复制 JSON'; }, 1600); };
-      // headless 无权限环境里 writeText 可能静默不 resolve：先试异步，超时走 execCommand 兜底
-      let settled = false;
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        try {
-          navigator.clipboard.writeText(json).then(() => { if (!settled) { settled = true; done(); } }, () => { if (!settled) { settled = true; fallbackCopy(json, done); } });
-          setTimeout(() => { if (!settled) { settled = true; fallbackCopy(json, done); } }, 350);
-        } catch (e) { fallbackCopy(json, done); }
-      } else fallbackCopy(json, done);
+      // 与挑战码/链接同一条出口（此前这里自己写了一份带超时的兜底，是「第二份实现」）
+      const relabel = (t) => { copyBtn.textContent = t; setTimeout(() => { copyBtn.textContent = '复制 JSON'; }, 1600); };
+      writeClipboard(JSON.stringify(rows), () => relabel('已复制 ✓'), () => relabel('复制失败'));
     });
     document.body.appendChild(box);
   }
 
-  // file:// 与部分 WebView 没有异步剪贴板：选中文本让用户长按/Ctrl+C（与挑战码同一套兜底）。
-  // headless 里 execCommand 可能返回 false（无焦点/无权限），按钮文案照常变——复制是否成功以
-  // 用户实际粘贴为准；真浏览器里这条路径基本走不到。
-  function fallbackCopy(text, done) {
-    let ok = false;
+  // 剪贴板唯一实现（2026-11-27 加练 社交）：
+  // 病根——挑战码/挑战链接/结算分享走 `copyText`，导出 JSON 自己另写了一份带 350ms 超时的兜底。
+  // 两份实现，只有后者防住了「writeText 既不 resolve 也不 reject」：iOS WKWebView 在非用户手势、
+  // 或权限被拒又没弹窗时会一直挂着 promise，于是按钮文案永远不变、日志与提示条都不动
+  // ——手机上这就是「点了没反应」，而这是把成绩发出去的唯一入口。现在只有一份：
+  //   异步写 → 350ms 超时 / 拒绝 → textarea+execCommand → 都不行才交回调用方（选中文本 / 说失败）
+  const CLIP_TIMEOUT = 350;
+  function writeClipboard(text, ok, fail) {
+    let settled = false;
+    const done = (fn) => { if (!settled) { settled = true; fn(); } };
+    const tryFallback = (onOk) => { if (fallbackCopy(text)) onOk(); else if (fail) fail(); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      try {
+        navigator.clipboard.writeText(text).then(() => done(ok), () => done(() => tryFallback(ok)));
+        setTimeout(() => done(() => tryFallback(ok)), CLIP_TIMEOUT);
+      } catch (e) { tryFallback(ok); }
+    } else tryFallback(ok);
+  }
+
+  // file:// 与部分 WebView 没有异步剪贴板：textarea + execCommand 兜底。
+  // 返回 true/false 由调用方决定失败怎么说——挑战码是「选中文本自己复制」，导出是「复制失败」；
+  // 这一层不自己 warn，否则同一次失败会出两条提示。
+  function fallbackCopy(text) {
     try {
       const ta = document.createElement('textarea');
       ta.value = text;
       ta.style.cssText = 'position:fixed;left:-9999px;top:0';
       document.body.appendChild(ta);
       ta.select();
-      ok = document.execCommand('copy');
+      const ok = document.execCommand('copy');
       ta.remove();
-    } catch (e) { ok = false; }
-    if (done) done();
-    if (!ok) warn('剪贴板不可用：已在后台尝试，失败时请手动复制');
+      return ok;
+    } catch (e) { return false; }
   }
 
   function boot() {

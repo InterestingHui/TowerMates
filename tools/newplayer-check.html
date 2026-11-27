@@ -404,11 +404,14 @@ function load(url) {
       // F12 按局分组卡：每局一张（🏆/💀 + 层数 + 用时 + 承伤）
       const runCards = d.querySelectorAll('#funnelView .fv-run');
       rec('F12 漏斗页按局分组卡', runCards.length >= 1 && /第 1 局/.test(runCards[0].textContent) && /用时/.test(runCards[0].textContent), runCards.length ? runCards[0].textContent.replace(/\s+/g, ' ').slice(0, 46) : '缺失');
-      // F13 一键复制 JSON（走 execCommand 兜底路径）。writeText 异步链里有 350ms 兜底定时器，
-      // headless 下固定等 200ms 会读不到「已复制」——等按钮文字变化再断言（防时序抖动）
+      // F13 一键复制 JSON。断言的是**按钮有没有反应**，不是「复制成功」——headless 里没有剪贴板权限，
+      // execCommand 常返回 false，过去那条兜底会无条件把按钮改成「已复制 ✓」（假成功，代码注释自己都写了
+      // 「是否成功以用户实际粘贴为准」）。2026-11-27 剪贴板收成一处后，失败会如实说「复制失败」，
+      // 所以这里收两种结果：只要按钮字在 2.5 秒内变过，就证明这条出口没有静默。
+      // writeText 异步链里有 350ms 兜底定时器，固定等 200ms 会读不到，改成轮询文案变化（防时序抖动）。
       const copyBtn = d.getElementById('fvCopy');
       if (copyBtn) copyBtn.click();
-      const copied = await waitFor(() => copyBtn && /已复制/.test(copyBtn.textContent), 2500, 60);
+      const copied = await waitFor(() => copyBtn && /已复制|复制失败/.test(copyBtn.textContent), 2500, 60);
       rec('F13 复制按钮反馈', !!copyBtn && !!copied, copyBtn ? copyBtn.textContent : '缺失');
 
     }
