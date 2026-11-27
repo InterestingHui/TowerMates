@@ -1394,6 +1394,15 @@ html.fx-low .bd-shot { animation: sceneIn 0.9s ease-out both; }
   text-overflow: ellipsis;
 }
 #warnPill.show { transform: translate(-50%, 0); }
+/* 好消息 / 玩家主动要的读数：同一块浮层换一套色，不新增元素。
+   红条（默认）的语义是「出错 / 不许做」，而社交回执、拾取成功、复制成功也走它——
+   首局玩家透过分享链接进来的第一眼就是一条红警告。金边冷底沿用成就吐司那套「好消息」词汇，
+   三色全取变量（对比度 --gold on --l2 实测 10.3:1，正文档 4.5:1 有余量）。 */
+#warnPill.info {
+  background: var(--l2);
+  border-color: var(--line-gold);
+  color: var(--gold);
+}
 
 /* ================= 成就吐司 ================= */
 #toast {

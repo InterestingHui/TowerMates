@@ -655,7 +655,10 @@ ok(landWarn.length === 2 && landWarn.every((s) => s.replace(/\$\{[^}]*\}/g, '12'
   ok(lits.every((s) => !/挑战·朋友/.test(s)),
     '首局那两句都不许用「挑战·朋友」（榜还没露脸，这个词对他是凭空的名词）');
   ok(/挤掉最早那条/.test(body), '首局也不许把「挤掉别人」吞掉（名录满与首局无关）');
-  ok(/,\s*3[0-9]{3}\)/.test(body), '首局那句的停留 ≥3000ms（默认 readMs 对 20 字只有 ~2.6s）');
+  // 停留时长后面允许跟语气参数（`warn(msg, 3600, 'info')`）——语气是 2026-11-28 加的一参，
+  // 这里认的是「第三位那个数」，不是「最后一个实参」。
+  ok(/,\s*3[0-9]{3}(?:\s*,\s*'info')?\s*\)/.test(body),
+    '首局那句的停留 ≥3000ms（默认 readMs 对 20 字只有 ~2.6s）');
   const longLit = lits.map((s) => s.replace(/\$\{[^}]*\}/g, '12')).sort((a, b) => b.length - a.length)[0] || '';
   ok(!!longLit && longLit.length <= 26, `首局那两句同样 ≤26 字（320 屏 262px 上限；最长 ${longLit.length} 字：${longLit}）`);
   ok(/if \(!firstRunLanding\) openBoard\(\)/.test(mainCode),
@@ -2705,6 +2708,64 @@ ok(mainSrc.indexOf("searchParams.set('rival'") < 0, 'main.js 不许自己拼链�
   const missing = [...used].filter((c) => !new RegExp('\\.line\\.' + c + '\\b').test(cssSrc));
   ok(used.size > 0, `读得到日志行用到的类（${[...used].join('/') || '无'}）`);
   ok(missing.length === 0, `每个日志类都有样式（没样式的：${missing.join('/') || '无'}）`);
+}
+
+// 好消息不许走红条（2026-11-28 00:5x 加练·社交）。
+// 病根：`#warnPill` 是暗血红底红字的**错误**提示，而它是全作唯一的浮层反馈通道——
+// 「格挡已学会」「挑战链接已复制」「朋友的最新成绩已更新」这些好事全走它。首局玩家
+// 透过朋友分享的链接进来，读到的第一句话就是一条红警告。改法：`warn(msg, ms, tone)`
+// 加第三参，`'info'` 换一套金边冷底（同成就吐司的好消息词汇），默认仍是红条。
+// 契约四条：语气值只认 'info'（未知值不许静默变成第三种样式）／每次都要重设语气
+// （toggle 而不是只 add——否则上一条 info 会漏到下一条红条上）／错误行反向不许被刷成金／
+// 好消息那几类必须真的带上。
+{
+  const fnAt = mainSrc.indexOf('function warn(msg, ms, tone)');
+  ok(fnAt > 0, '顶部提示条读得出语气参数（少这一参 = 全库只剩一种语气）');
+  const fn = fnAt < 0 ? '' : mainSrc.slice(fnAt, fnAt + 500);
+  ok(/tone === 'info'/.test(fn) && /classList\.toggle\('info',/.test(fn),
+    '语气只认 info、且每次都重设（add/remove 只做一半 = 上一条的语气会漏到下一条）');
+  // CSS：类必须真有样式，且三色都与默认红条不同——「加了类没写规则」是 11-27 那次 `log(…,'dim')` 的同型
+  const infoBlock = (cssSrc.match(/#warnPill\.info\s*\{[^}]*\}/) || [''])[0];
+  const baseBlock = (cssSrc.match(/#warnPill\s*\{[^}]*\}/) || [''])[0];
+  ok(!!infoBlock, 'CSS 里有 #warnPill.info 这一族（没有规则 = 传了参数等于没传）');
+  const pick = (blk, key) => ((blk.match(new RegExp('(?:^|[;{\\s])' + key + '\\s*:\\s*([^;]+);')) || [])[1] || '').trim();
+  const keys = ['background', 'border-color', 'color'];
+  const diff = keys.filter((k) => pick(infoBlock, k) && pick(infoBlock, k) !== pick(baseBlock, k));
+  ok(diff.length === keys.length,
+    `info 的三色都与红条不同（不同项：${diff.join('/') || '无'}——同色就只是换了个名字）`);
+  // 反向：错误 / 拒绝类的话必须还留在红条上（把错误刷成金比红条配好事更坏：该警觉的读成好消息）
+  const errs = ['走不过去', '余烬不够', '这个码读不出来', '复制失败', '这是你自己那一局的链接',
+    '这一战没打起来', '没有能靠近它的路', '先打完一局才有挑战码'];
+  const leaked = errs.filter((e) => {
+    const line = mainSrc.split('\n').find((l) => l.includes(e)) || '';
+    return line.includes("'info'");
+  });
+  ok(leaked.length === 0, `错误与拒绝照旧走红条（被刷成好消息的：${leaked.join('、') || '无'}）`);
+  // 正面：社交回执四类 + 首分钟的成功反馈，必须真的带上
+  // 复制成功那句话是 `copyText(…, okMsg, …)` 传进来的（字面量在调用点、warn 在函数里），
+  // 所以它按调用形态单独认，别按「字面量旁边必须有个 warn」去查。
+  ok(/warn\(okMsg, null, 'info'\)/.test(mainSrc),
+    '复制成功走好消息（copyText 的 ok 支路）');
+  const must = [
+    ['朋友的最新成绩已更新', '社交·贴码回执'],
+    ['收下了挑战·朋友', '社交·点链接落地'],
+    ['格挡已学会', '首分钟·学会格挡'],
+    ['塔心碎片', '拾取·塔心碎片'],
+    ['塔记住了你', '跨局·解锁誓约'],
+  ];
+  // 中文句子会在注释里也出现（本段自己的说明就引了那几句），所以要遍历**每一处**出现，
+  // 只要有一处落在带 'info' 的 warn 里就算过——indexOf 只取第一处会读到自己写的注释。
+  const hit = (needle) => {
+    let at = mainSrc.indexOf(needle);
+    while (at >= 0) {
+      const row = mainSrc.slice(Math.max(0, at - 500), at + 500);
+      if (/warn\((?:[^()]|\([^()]*\))*'info'/.test(row)) return true;
+      at = mainSrc.indexOf(needle, at + 1);
+    }
+    return false;
+  };
+  const lost = must.filter(([s]) => !hit(s)).map(([, why]) => why);
+  ok(lost.length === 0, `好消息确实带上了 info 语气（漏：${lost.join('、') || '无'}）`);
 }
 
 // 剪贴板出口只有一份、且防住「挂起」（2026-11-27 加练 社交）。

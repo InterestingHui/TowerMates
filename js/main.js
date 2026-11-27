@@ -920,10 +920,15 @@
   })();
 
   // ---------- 顶部提示（纯操作反馈；长句给足阅读时间） ----------
-  function warn(msg, ms) {
+  // 两种语气共用一块浮层：`'warn'`（默认，红条＝出错 / 不许做）与 `'info'`（金边冷底＝
+  // 好消息 / 你要的那条读数）。此前全库只有红条，「格挡已学会」「挑战链接已复制」这些
+  // 好事也走它——玩家透过分享链接进来的第一眼，读到的是「朋友的最新成绩已更新」配一条红警告。
+  // 只认 'info'；其余（含 undefined / 未知值）一律红条——写错的语气值不许静默变成第三种样式。
+  function warn(msg, ms, tone) {
     const p = el.warnPill;
     if (!p) return;
     renderRich(p, msg);
+    p.classList.toggle('info', tone === 'info');
     p.classList.add('show');
     clearTimeout(warnTimer);
     const dur = ms ? hintMs(ms) : readMs(p.textContent);
@@ -1089,7 +1094,7 @@
       if (id === 'gate' || id === 'scout') return;
       chip.addEventListener('click', () => {
         const r = D.relics[id];
-        if (r) warn(`${r.emoji} **${r.name}**：${r.desc}`);
+        if (r) warn(`${r.emoji} **${r.name}**：${r.desc}`, null, 'info');
       });
     });
   }
@@ -1110,7 +1115,7 @@
       const id = chip.dataset.ring;
       chip.addEventListener('click', () => {
         const r = D.rings[id];
-        if (r) warn(`${r.emoji} **${r.name}**：${r.desc}`);
+        if (r) warn(`${r.emoji} **${r.name}**：${r.desc}`, null, 'info');
       });
     });
   }
@@ -1138,7 +1143,7 @@
       s.flags.collectNew = (s.flags.collectNew || []).concat(fresh);
       // 图鉴首见：延后一点再弹，别和「获得遗物」「选锁环」的即时提示抢同一秒
       const names = fresh.slice(0, 3).join('、') + (fresh.length > 3 ? ` 等 ${fresh.length} 件` : '');
-      setTimeout(() => warn(`🗂 **图鉴新收录**：${names}`), 900);
+      setTimeout(() => warn(`🗂 **图鉴新收录**：${names}`, null, 'info'), 900);
     }
   }
 
@@ -1560,14 +1565,14 @@
       el.compassPip._tipBound = true;
       el.compassPip.addEventListener('click', () => {
         const left = Engine.floorPickupCount();
-        warn(`🧭 **罗盘**：本层还有 ${left} 件东西没捡（罗盘之环 / 窥探之环给的信息）`);
+        warn(`🧭 **罗盘**：本层还有 ${left} 件东西没捡（罗盘之环 / 窥探之环给的信息）`, null, 'info');
       });
     }
     if (el.scopePip && !el.scopePip._tipBound) {
       el.scopePip._tipBound = true;
       el.scopePip.addEventListener('click', () => {
         const left = Engine.floorMonsterCount();
-        warn(`🗡️ **明镜**：本层还有 ${left} 只怪没打（明镜之环给的信息）`);
+        warn(`🗡️ **明镜**：本层还有 ${left} 只怪没打（明镜之环给的信息）`, null, 'info');
       });
     }
 
@@ -1593,7 +1598,7 @@
         if (!z) return;
         warn(z.need === 0
           ? `🎯 **战意**：已击败 ${z.kills} 只，吃满 −36%（过手之环把门槛从 40 降到 33）`
-          : `🎯 **战意**：已击败 ${z.kills} 只，再打 ${z.need - z.kills} 只到下一档（过手之环门槛 20 / 33）`);
+          : `🎯 **战意**：已击败 ${z.kills} 只，再打 ${z.need - z.kills} 只到下一档（过手之环门槛 20 / 33）`, null, 'info');
       });
     }
 
@@ -1616,7 +1621,7 @@
           : `碑魔白打 −${L.white} · 你 ${L.hp} 血${deadly ? '（撑不过）' : `（打完剩 ${L.hp - L.white}）`}`;
         // 第一次见到这一格：等楼层卡收掉后，用提示条点一句（不走对白——
         // 第 10 层入口弹全屏对白会打断玩家正在点的寻路/商店，ui-test 会直接红）
-        if (Tips.mark('finalLedger')) setTimeout(() => warn(S.tips.finalLedger, 5600), hintMs(2400));
+        if (Tips.mark('finalLedger')) setTimeout(() => warn(S.tips.finalLedger, 5600, 'info'), hintMs(2400));
       }
     }
     if (el.finalPip && !el.finalPip._tipBound) {
@@ -1960,7 +1965,7 @@
     // 判定句交给 refreshBoardHint（openBoard 里调）：这里只记「收到了哪一局」，句子按开榜那一刻的成绩算
     lastRival = { rec, dup, evicted: saved.evicted, fresh: true };
     // 顶部提示条一句话只有 ~262px 预算（320 屏 92vw−32px），放不下判定句——判定只走面板里那行
-    warn(dup ? '朋友的最新成绩已更新' : `挑战·朋友 第 ${rec.floor} 层，进榜了`);
+    warn(dup ? '朋友的最新成绩已更新' : `挑战·朋友 第 ${rec.floor} 层，进榜了`, null, 'info');
     Sound.play('ach');
     boardFilter = 'all';
     openBoard();
@@ -2410,7 +2415,7 @@
         const ch = D.chapters[res.chapter - 1];
         if (ch) {
           log(`${ch.title} 完成 · ${ch.theme}`, 'gold');
-          warn(`**${ch.title} · 完**`);
+          warn(`**${ch.title} · 完**`, null, 'info');
         }
       }
       if (res.finalBoss) {
@@ -2631,7 +2636,7 @@
     Renderer.setAmbient(s.floor);
     refreshHud();
     Sound.play('level');
-    warn(`**从第 ${floor0 + 1} 层重新站起来**：生命回到四成，这一层的怪也回来了。`);
+    warn(`**从第 ${floor0 + 1} 层重新站起来**：生命回到四成，这一层的怪也回来了。`, null, 'info');
   }
 
   // 结算页「余烬翻倍」：只在通关结算用
@@ -2730,7 +2735,7 @@
       });
     }
     log(res.msg, 'gold');
-    warn(res.msg);
+    warn(res.msg, null, 'info');
     Tips.show('ring');
     Achievements.evaluate('ring', s, notifyAchievement);
     refreshHud();
@@ -3114,16 +3119,16 @@
           if (res.item.block) {
             Renderer.ring(before.x, before.y, 'rgba(159,216,255,0.9)', TN() * 2.4, 600);
             Tips.show('block');
-            warn('**格挡已学会**：每层一次，撞怪时先挑「格挡」。');
+            warn('**格挡已学会**：每层一次，撞怪时先挑「格挡」。', null, 'info');
           }
           if (res.item.heartShard) {
             Renderer.ring(before.x, before.y, 'rgba(255,180,200,0.9)', TN() * 2.6, 620);
-            warn('**塔心碎片**已收好——结算时化为 **余烬 +8**。');
+            warn('**塔心碎片**已收好——结算时化为 **余烬 +8**。', null, 'info');
           }
           if (res.item.relic) {
             Renderer.ring(before.x, before.y, 'rgba(255,225,150,0.9)', TN() * 2.6, 620);
             Renderer.burst(before.x * TN() + TN() / 2, before.y * TN() + TN() / 2, { count: 14, colors: ['#ffe6a8', '#ffd27d'], speed: 110, life: [400, 800] });
-            warn(res.msg);
+            warn(res.msg, null, 'info');
             Tips.show('relic');
           }
           refreshHud();
@@ -3180,7 +3185,7 @@
       relicShowcase(s.x, s.y);
       Sound.play('relic');
       log(res.msg, 'gold');
-      warn(res.msg);
+      warn(res.msg, null, 'info');
       Tips.show('relic');
       Achievements.evaluate('relic', s, notifyAchievement);
       refreshHud();
@@ -3256,7 +3261,7 @@
     Sound.play('relic');
     vibrate(14);
     log(`${res.label} · ${res.msg}`, 'gold');
-    warn(res.msg);
+    warn(res.msg, null, 'info');
     // 这次选择教会了格挡：让烛把用法说完（老玩家读过的不再复读）
     if (Engine.state().flags.hasBlock && !Engine.state().flags.evBlockTaught) {
       Engine.state().flags.evBlockTaught = true;
@@ -3301,7 +3306,7 @@
       Renderer.ring(s.x, s.y, 'rgba(150,215,225,0.85)', T * 2.4, 640);
     }
     log(res.msg, 'gold');
-    warn(res.msg);
+    warn(res.msg, null, 'info');
     refreshHud();
     Achievements.evaluate('heart', s, notifyAchievement);
     setTimeout(() => { if (!typing) playStory(which === 'take' ? 'heartTake' : 'heartLeave'); }, 240);
@@ -3660,7 +3665,7 @@
     closeCfg();
     openVow();
     log('已重置本局 · 从头开始', 'gold');
-    warn(`本局已重置（成就、余烬与解锁保留）· 第 ${n} 次重来`);
+    warn(`本局已重置（成就、余烬与解锁保留）· 第 ${n} 次重来`, null, 'info');
   }
 
   // ---------- 标题页 ----------
@@ -4100,7 +4105,7 @@
         relicShowcase(Engine.state().x, Engine.state().y);
         Sound.play('relic');
         log(ev.msg, 'gold');
-        warn(ev.msg);
+        warn(ev.msg, null, 'info');
         Tips.show('relic');
         Achievements.evaluate('relic', Engine.state(), notifyAchievement);
         if (ev.story) playStory(ev.story);
@@ -4118,7 +4123,7 @@
         }
         // 后半部：小传播完提一句新比例
         if (ev.blockLearned2) {
-          warn('**格挡强化**：承伤降到 **42%**，卸掉的伤三成化为经验。');
+          warn('**格挡强化**：承伤降到 **42%**，卸掉的伤三成化为经验。', null, 'info');
           if (ev.story) playStory(ev.story);
         }
         // 一袋金币：第六位勇者留的过路费，播一行来历
@@ -4448,7 +4453,7 @@
       const ok = () => {
         log(okMsg, 'good');
         // 提示条在浮层之上（z-index 45 > 20），是这颗按钮唯一能「说清发生了什么」的通道
-        warn(okMsg);
+        warn(okMsg, null, 'info');
         flashBtn(btn, '已复制 ✓');
         Sound.play('choose');
       };
@@ -4461,7 +4466,7 @@
           sel.removeAllRanges();
           sel.addRange(range);
           log('已选中挑战码，长按/Ctrl+C 复制', 'good');
-          warn('已选中挑战码，长按/Ctrl+C 复制');
+          warn('已选中挑战码，长按/Ctrl+C 复制', null, 'info');
           flashBtn(btn, '已选中');
         } catch (e) { warn('复制失败，请手动复制'); flashBtn(btn, '复制失败'); }
       };
@@ -4494,7 +4499,7 @@
       const t = e.target && e.target.closest ? e.target.closest('.brief-tip') : null;
       if (!t) return;
       const txt = t.getAttribute('title');
-      if (txt) warn(txt, 6000);
+      if (txt) warn(txt, 6000, 'info');
     });
     $('btnCfg').addEventListener('click', openCfg);
     $('cfgClose').addEventListener('click', closeCfg);
@@ -4504,7 +4509,7 @@
       refreshStartActions();
       refreshStartBadges();
       log('存档已清空');
-      warn('存档已清空（成就、结局与余烬保留）');
+      warn('存档已清空（成就、结局与余烬保留）', null, 'info');
     });
     $('cfgWipe').addEventListener('click', () => {
       Engine.reset();
@@ -4521,7 +4526,7 @@
       refreshStartActions();
       refreshStartBadges();
       refreshCfg();
-      warn('已清空存档、成就、收藏与榜单');
+      warn('已清空存档、成就、收藏与榜单', null, 'info');
     });
     $('cfgReset').addEventListener('click', () => askConfirm({ cb: doResetRun }));
     $('resetCancel').addEventListener('click', () => { el.resetConfirmOverlay.classList.remove('show'); confirmCb = null; });
@@ -4548,7 +4553,7 @@
       s.flags.retries = (s.flags.retries || 0) + 1;
       Engine.save();
       log(`退回第 ${s.floor + 1} 层入口`, 'gold');
-      warn('已退回本层入口');
+      warn('已退回本层入口', null, 'info');
     });
 
     // 设置行
@@ -4842,7 +4847,7 @@
       if (r === 'ok') {
         Sound.play('relic');
         vibrate([10, 24, 10]);
-        warn(`**塔记住了你**：解锁「**${v.name}**」——再点一下就能立它`, 5200);
+        warn(`**塔记住了你**：解锁「**${v.name}**」——再点一下就能立它`, 5200, 'info');
         vowFocus = -1;   // 卡片重画了：旧的键盘高亮不再指向任何一格
         vowBoughtAt = Date.now();
         renderVowPanel();
@@ -4928,7 +4933,7 @@
     const tie = t.locked
       ? `今日轮到「${D.vows[t.want].name}」，你还没解锁——今天不立誓`
       : (t.id === 'none' ? '今日不立誓' : `今日之约：${v.name} · ${v.desc}`);
-    warn(`今日一塔 · ${Daily.label(t.key)}：${tie}。今天走进塔的人，遇到的都是同一座。零点换下一座。`, 6800);
+    warn(`今日一塔 · ${Daily.label(t.key)}：${tie}。今天走进塔的人，遇到的都是同一座。零点换下一座。`, 6800, 'info');
   }
   function enterDaily() {
     if (Engine.hasSave()) {
@@ -5232,10 +5237,10 @@
             // 名录照样满，最早那条照样被挤——只说「收下了」就是假回执。
             warn(kept.evicted
               ? `朋友的挑战：第 ${rrec.floor} 层（挤掉最早那条）`
-              : `朋友的挑战：第 ${rrec.floor} 层 —— 打完这局就能比`, 3600);
+              : `朋友的挑战：第 ${rrec.floor} 层 —— 打完这局就能比`, 3600, 'info');
           } else warn(kept.evicted
             ? `收下了挑战·朋友：第 ${rrec.floor} 层（挤掉最早那条）`
-            : `收下了挑战·朋友：第 ${rrec.floor} 层 · 用时 ${fmtTime(rrec.time)}`);
+            : `收下了挑战·朋友：第 ${rrec.floor} 层 · 用时 ${fmtTime(rrec.time)}`, null, 'info');
           // 塔友榜第 2 局起才露脸（首局摆榜单会挤占开屏预算）——老玩家就顺手把榜打开
           if (!firstRunLanding) openBoard();
         }
