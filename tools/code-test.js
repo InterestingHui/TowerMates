@@ -13,9 +13,9 @@ function ok(cond, label) {
 
 const sum = { ending: 'true', vow: 'ascetic', floor: 13, level: 18, steps: 640, time: 512, seal: 'clear', goals: 13, margin: 'A' };
 const code = C.encode(sum);
-ok(code.indexOf(C.PREFIX) === 0 && C.PREFIX === 'TM5.', '新码带 v5 版本前缀');
+ok(code.indexOf(C.PREFIX) === 0 && C.PREFIX === 'TM6.', '新码带 v6 版本前缀');
 const d = C.decode(code);
-ok(!!d && d.version === 5 && !d.legacy, '新码可解');
+ok(!!d && d.version === 6 && !d.legacy, '新码可解');
 ok(d.vow === 'ascetic', '誓约写入');
 ok(d.seal === 'clear' && d.goals === 13, '塔印与塔规数写入');
 ok(d.margin === 'A', '决战余裕写入');
@@ -32,6 +32,25 @@ ok(C.decode(code).daily === '', '普通局不带日签（空串，进不了今�
 ok(C.decode(C.encode({ daily: '乱码' })).daily === '', '脏日签被忽略，不污染名录');
 ok(C.decode(C.encode({ daily: '2026-13-40' })).daily === '', '越界月日拒绝');
 ok(dailyCode.length <= 80, '带日签的码仍在 80 字符内（面板与输入框放得下）');
+// v6 落款：贴码那条路原先码里只有成绩，三位朋友进来是三行同名「挑战·朋友」——
+// 知道谁爬得高、不知道超过的是谁（E-11 异步竞争的前提就是「知道超过了谁」）。
+const namedCode = C.encode(Object.assign({}, sum, { name: '林小满' }));
+const dn = C.decode(namedCode);
+ok(dn.name === '林小满', '落款写进码里并原样解回（朋友贴进来就知道是谁）');
+ok(dn.floor === 13 && dn.margin === 'A' && dn.seal === 'clear', '落款不改其它字段');
+ok(d.name === '', '没填落款时解出空串（收下时退回匿名「挑战·朋友」）');
+ok(C.decode(C.encode(Object.assign({}, sum, { name: 'a.b.c' }))).name === 'abc',
+  '点号是段分隔符：落款里的点被剔掉，不污染码结构');
+ok(C.decode(C.encode(Object.assign({}, sum, { name: '<b>岩</b>' }))).name === 'b岩/b', '落款里的标签字符被剔除');
+ok(C.nameOf('一二三四五六七八九十') === '一二三四五六七八', '落款按 8 字截断（面板一行放得下）');
+ok(C.nameOf('  林  小满 ') === '林 小满', '落款连续空白收成一个空格、首尾去空');
+const longest = C.encode(Object.assign({}, sum, { name: '一二三四五六七八', daily: '2026-11-28' }));
+ok(longest.length <= 96, `最长落款 + 日签的码仍在 96 字符内（320 面板折三行放得下；实测 ${longest.length}）`);
+// v5 旧码：已经在聊天记录里飞了，必须照常能解（落款为空 → 退回匿名）
+const old5 = 'TM5.' + Buffer.from('5.t.mercy.9.12.500.400.w.3.A.20261114', 'utf8').toString('base64')
+  .replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_');
+const d5 = C.decode(old5);
+ok(!!d5 && d5.version === 5 && d5.daily === '2026-11-14' && d5.name === '', 'v5 旧码照常能解，落款为空');
 // v4 旧码：第 10 段就结束，照常能贴，只是按普通局处理
 const old4 = 'TM4.' + Buffer.from('4.t.mercy.9.12.500.400.w.3.A', 'utf8').toString('base64')
   .replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_');
@@ -589,6 +608,17 @@ const pastedTwo = V.boardModel({
   ],
 });
 ok(pastedTwo.rows.length === 2, '两个不同的贴码朋友（都退回「挑战·朋友」）不被折成一行');
+// v6 落款之后：同一位朋友换一局换了 code，但名字还在 ⇒ 榜上一行、名录一个位
+const sameFriendNamed = V.boardModel({
+  mine: [], shadows: [], filter: 'all', todayKey: '2026-11-16', vows: VOWS,
+  rivals: [
+    { code: 'TM6.aa', name: '林小满', rival: true, floor: 8, time: 400 },
+    { code: 'TM6.bb', name: '林小满', rival: true, floor: 11, time: 500 },
+    { code: 'TM6.cc', name: '阿杳', rival: true, floor: 6, time: 300 },
+  ],
+});
+ok(sameFriendNamed.rows.length === 2 && sameFriendNamed.rows[0].floor === 11,
+  '带落款的朋友换一局仍是一行，且留最好那局（旧口径是每人每局占一行）');
 const noId = V.boardModel({
   mine: [], shadows: [], filter: 'all', todayKey: '2026-11-16', vows: VOWS,
   rivals: [{ floor: 4, time: 100 }, { floor: 3, time: 100 }],
@@ -631,13 +661,15 @@ ok(/function refreshBoardHint\([\s\S]{0,600}?mine: loadBoard\(\)/.test(mainCode)
   '重算用的必须是当前成绩（loadBoard），不是收码时的快照');
 // 顶部提示条 #warnPill 是 nowrap + 92vw + ellipsis：实测 45 字 = 431px，430 屏可用 364px、320 屏只有 262px。
 // 所以判定句与「名录满」这类尾巴只能落在榜面板那行（会换行），提示条只报「层 + 用时」。
-const landWarn = mainCode.match(/`收下了挑战[^`]*`/g) || [];
+// v6 起落款是变量（「收下了 + 一个插值」），认形态不认死字面量——写死字面量就等于禁止带上人名
+const landWarn = mainCode.match(/`收下了\$\{[^`]*`/g) || [];
 ok(landWarn.length === 2 && landWarn.every((s) => !/今天这座|比他高|去追|rivalVerdict|sameDay/.test(s)),
   '落地提示条只报层/用时/挤人（判定与今日标归面板那行，提示条放不下会被省略号吃掉）');
 ok(landWarn.some((s) => /挤掉最早那条/.test(s)), '挤掉名录里别人时提示条当面说清');
-// 字数上限按实测校准：同样写法 26 字 = 227px、23 字（挤人那句）= 241px；320 屏可用 262px ⇒ 上限 26 字
-ok(landWarn.length === 2 && landWarn.every((s) => s.replace(/\$\{[^}]*\}/g, '12').length <= 26),
-  `落地提示条 ≤26 字（320 屏 262px 的实测上限；实得 ${landWarn.map((s) => s.replace(/\$\{[^}]*\}/g, '12').length).join('/')} 字）`);
+// 字数上限：00:5x 之前 #warnPill 是 nowrap + ellipsis（26 字 = 227px 是那时的实测上限）；
+// 之后放开成 max-content + 三行 clamp，人均落款 ≤8 字，最坏一句 28 字仍在三行内 ⇒ 上限放到 34。
+ok(landWarn.length === 2 && landWarn.every((s) => s.replace(/\$\{[^}]*\}/g, '12').length <= 34),
+  `落地提示条 ≤34 字（三行 clamp；实得 ${landWarn.map((s) => s.replace(/\$\{[^}]*\}/g, '12').length).join('/')} 字）`);
 // 首局落地是「别人把链接发给你」这条漏斗的唯一落点（2026-11-27 19:xx 加练 社交）：
 // 塔友榜第 2 局起才露脸，所以这一刻除了这条提示，玩家拿不到任何关于「挑战」的信息。
 // 旧句一律说「收下了挑战·朋友：第 N 层 · 用时 X」——一个此刻还不存在的名词（榜上那个名字）
@@ -2754,7 +2786,7 @@ ok(mainSrc.indexOf("searchParams.set('rival'") < 0, 'main.js 不许自己拼链�
     '复制成功走好消息（copyText 的 ok 支路）');
   const must = [
     ['朋友的最新成绩已更新', '社交·贴码回执'],
-    ['收下了挑战·朋友', '社交·点链接落地'],
+    ['收下了${rivalName', '社交·点链接落地'],
     ['格挡已学会', '首分钟·学会格挡'],
     ['塔心碎片', '拾取·塔心碎片'],
     ['塔记住了你', '跨局·解锁誓约'],

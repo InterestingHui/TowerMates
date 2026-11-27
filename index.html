@@ -245,6 +245,10 @@
     </div>
     <div class="board-tabs" id="boardTabs"></div>
     <div class="board-list" id="boardList"></div>
+    <div class="code-row" id="myNameRow" hidden>
+      <span class="code-label">落款</span>
+      <input class="code-input" id="myName" maxlength="8" placeholder="名字（可不填）" autocomplete="off">
+    </div>
     <div class="code-row">
       <span class="code-label">我的挑战码</span>
       <span class="code-val" id="myCode">——</span>
@@ -257,7 +261,7 @@
       <input class="code-input" id="pasteCode" maxlength="220" placeholder="贴朋友的挑战码" autocomplete="off">
       <button class="si-buy" id="btnPasteCode">贴码</button>
     </div>
-    <p class="code-hint" id="boardHint">把链接发给朋友，他点开就收下；收到码也一样，贴进来即可——他爬到第几层、用了多久，会以「挑战」之名进你的名录。</p>
+    <p class="code-hint" id="boardHint">把链接发给朋友，他点开就收下；收到码也一样，贴进来即可——他爬到第几层、用了多久，会以他的落款进你的名录（没填落款的叫「挑战·朋友」）。</p>
     <div class="actions">
       <button class="btn primary" id="boardClose">关闭</button>
     </div>

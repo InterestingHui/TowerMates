@@ -1297,7 +1297,7 @@
     altarModel, echoModel, eventModel, shortfallText,
     endScoreModel, emberDetailModel, emberDetailHtml, winBrief, deathBrief, briefModel, hintSweep, HINT_TTL,
     sealOf, nextSealHint, sealTarget, emberModel,
-    cmpBoard, fmtTime, endName, marginRank, sameRun, isMine, RUN_KEYS, rivalVerdict, VERDICT_NONE,
+    cmpBoard, fmtTime, endName, marginRank, sameRun, isMine, RUN_KEYS, rivalVerdict, VERDICT_NONE, NAME_FALLBACK,
     deathStatsModel, winStatsModel, memModel, floorNo, migrateFloors,
     foeName, traitNote, threatModel, blockModel, guardModel, tangleModel, prepOptions, lastTacticLine, coreRingLine, PREP_FIRST, PREP_HINT,
     hintPicked, HINT_PICK, HINT_AUTO,

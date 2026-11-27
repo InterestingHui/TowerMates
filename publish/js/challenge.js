@@ -7,7 +7,9 @@
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.Challenge = api;
 })(typeof window !== 'undefined' ? window : globalThis, function () {
-  const PREFIX = 'TM5.';
+  const PREFIX6 = 'TM6.';
+  const PREFIX5 = 'TM5.';
+  const PREFIX = PREFIX6;
   const PREFIX4 = 'TM4.';
   const PREFIX3 = 'TM3.';
   const isNode = typeof window === 'undefined' && typeof Buffer !== 'undefined';
@@ -47,13 +49,20 @@
   // 紧凑点分格式，码长约 50 字符：面板放得下、输入框也不会截断
   // v4 = v3 + 末段决战余裕（S/A/B/C，空表示那局没记录）
   // v5 = v4 + 再末段今日一塔日签（YYYYMMDD，普通局留空）
+  // v6 = v5 + 再末段落款（玩家自己起的名字，≤8 字，可不填）——「知道超过的是谁」的缺口：
+  //      贴码那条路原先码里只有成绩，三位朋友贴进来是三行同名「挑战·朋友」。
   // 已知边界：结局只有 t / p 两位，**没有「没走到结局」这一态**——死在第 5 层的局解出来也是 'plain'。
-  // 要补第三态得升 v6，而老码已经在聊天记录里飞了；展示侧的口径改成「结局只在塔顶层成立」
+  // 要补第三态得再升一版，而老码已经在聊天记录里飞了；展示侧的口径改成「结局只在塔顶层成立」
   // （`view.js` boardModel 的 endOf），所以这里保持两位不动。
+  // 落款只做「够不够用来区分人」的事：去空白、去点号（点号是段分隔符）、去标签字符、截 8 字。
+  function nameOf(v) {
+    return String(v == null ? '' : v).replace(/\s+/g, ' ').trim()
+      .replace(/[<>&"'`]/g, '').replace(/\./g, '').slice(0, 8);
+  }
   function encode(sum) {
     const s = sum || {};
     const raw = [
-      5,
+      6,
       s.ending === 'true' ? 't' : 'p',
       text(s.vow || 'none', 16).replace(/\./g, ''),
       clamp(s.floor, 0, 99),
@@ -64,6 +73,7 @@
       clamp(s.goals, 0, 99),
       MARGIN_CODE[s.margin] || '',
       dayCode(s.daily),
+      nameOf(s.name),
     ].join('.');
     return PREFIX + b64encode(raw)
       .replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_');
@@ -73,9 +83,24 @@
     const raw = String(code == null ? '' : code).trim().replace(/\s+/g, '');
     if (!raw || raw.length > 400) return null;
     try {
-      // v5：v4 + 第 11 段今日一塔日签
-      if (raw.indexOf(PREFIX) === 0) {
-        const p = base(raw, PREFIX);
+      // v6：v5 + 第 12 段落款
+      if (raw.indexOf(PREFIX6) === 0) {
+        const p = base(raw, PREFIX6);
+        if (p.length !== 12 || Number(p[0]) !== 6) return null;
+        return {
+          version: 6, legacy: false,
+          ending: p[1] === 't' ? 'true' : 'plain',
+          vow: text(p[2], 16) || 'none',
+          floor: clamp(p[3], 0, 99), level: clamp(p[4], 0, 99),
+          steps: clamp(p[5], 0, 999999), time: clamp(p[6], 0, 999999),
+          seal: CODE_SEAL[text(p[7], 1)] || '', goals: clamp(p[8], 0, 99),
+          margin: MARGIN_CODE[text(p[9], 1)] || '', daily: dayKey(p[10]),
+          name: nameOf(p[11]),
+        };
+      }
+      // v5：v4 + 第 11 段今日一塔日签（没有落款，收下时退回「挑战·朋友」）
+      if (raw.indexOf(PREFIX5) === 0) {
+        const p = base(raw, PREFIX5);
         if (p.length !== 11 || Number(p[0]) !== 5) return null;
         return {
           version: 5, legacy: false,
@@ -85,6 +110,7 @@
           steps: clamp(p[5], 0, 999999), time: clamp(p[6], 0, 999999),
           seal: CODE_SEAL[text(p[7], 1)] || '', goals: clamp(p[8], 0, 99),
           margin: MARGIN_CODE[text(p[9], 1)] || '', daily: dayKey(p[10]),
+          name: '',
         };
       }
       // v4：v3 + 第 10 段决战余裕（S/A/B/C）；没有日签，按普通局处理
@@ -145,5 +171,5 @@
     } catch (e) { return null; }
   }
 
-  return { encode, decode, PREFIX, SEAL_CODE, CODE_SEAL };
+  return { encode, decode, nameOf, PREFIX, SEAL_CODE, CODE_SEAL };
 });

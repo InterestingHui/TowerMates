@@ -263,6 +263,10 @@
         return 'ok';
       },
       has(id) { return (data.unlocked || []).indexOf(id) >= 0; },
+      // 落款：挑战码（v6）里带的那 8 个字，朋友贴进来才知道「超过的是谁」。
+      // 存跨局（不清档就一直在），换名即刻生效——码是开榜/结算时现编的，不缓存。
+      get name() { return typeof data.name === 'string' ? data.name : ''; },
+      setName(n) { data.name = String(n == null ? '' : n); save(); },
       add(n) { data.ember = Math.max(0, (data.ember || 0) + n); save(); },
       incReset() { data.resets = (data.resets || 0) + 1; save(); return data.resets; },
       // 结算一次跨局履历：记走了多远、用了多久、刻下哪枚塔印、这局拿了多少余烬
@@ -1803,13 +1807,17 @@
 
   // ---------- 挑战码 / 塔友名录 ----------
   // 编解码在 challenge.js 里：纯函数、可单测；v1/v2 旧码也能贴进来，旧码里的分数直接忽略
+  // 落款（v6）从存档注入：所有出码口（开榜 / 结算 / 分享）共用这一处，谁也别各自拼名字
   function encodeChallenge(sum) {
-    return window.Challenge.encode(sum);
+    return window.Challenge.encode(Object.assign({}, sum, { name: Meta.name }));
   }
+  // 收下的人叫什么：码里有落款就用落款（v6），v5 及更老的码没有这一字段 → 退回匿名
+  const rivalName = (rec) => (rec && rec.name) || View.NAME_FALLBACK;
   function decodeChallenge(code) {
     const d = window.Challenge.decode(code);
     if (!d) return null;
     const rec = {
+      name: d.name || '',
       ending: d.ending,
       floor: d.floor,
       level: d.level,
@@ -1831,7 +1839,9 @@
   }
   function saveRival(code, rec) {
     const list = loadRivals().filter((x) => x.code !== code);
-    list.push(Object.assign({ code, name: '挑战·朋友', rival: true }, rec));
+    // 落款为空（v5 老码 / 玩家没填）才退回匿名；有落款就按落款显示——
+    // 同一位朋友换一局虽然换了 code，但 `View.personKey` 会按名字折成一行，不再占名额。
+    list.push(Object.assign({ code, rival: true }, rec, { name: rivalName(rec) }));
     // 上限只有一处定义（View.RIVAL_CAP / capRivals）。旧的 `list.slice(0, 12)` 是「先 push 再从**头**切」——
     // 新来的永远在末尾，满 12 条时被切掉的正是刚收下的那一条：提示条说「进榜了」，榜上一条也没有。
     // 返回 { ok, evicted }：两条入口（贴码 / 落地收下）都要能对玩家说实话。
@@ -1936,7 +1946,14 @@
     $('boardList').innerHTML = m.rows.length
       ? (m.note ? `<div class="bd-note">${m.note}</div>` : '') + boardHeadHtml()
         + m.rows.map(boardRowHtml).join('')
-      : `<div class="bd-empty">${m.empty}</div>`;    const codeEl = $('myCode');
+      : `<div class="bd-empty">${m.empty}</div>`;
+    // 落款：输入框只在没聚焦时回填（否则玩家正在打字，value 被回写会把光标甩到末尾）；
+    // 没有码的人不摆这一行——落款只对「发出去的码」有意义，没码时它是个改不动的空设置。
+    const nameEl = $('myName');
+    const nameRow = $('myNameRow');
+    if (nameRow) nameRow.hidden = !mine.length;
+    if (nameEl && document.activeElement !== nameEl) nameEl.value = Meta.name;
+    const codeEl = $('myCode');
     codeEl.textContent = mine.length ? encodeChallenge(mine[0]) : '—— 通关后生成 ——';
     $('achCount').textContent = `成就 ${Achievements.count()}/${Achievements.DEFS.length}`;
     // 计数即入口：点一下直跳图鉴成就墙（此前只是死数字，没人知道成就列表在图鉴里）
@@ -1957,7 +1974,8 @@
   // 否则同一个「谁更远」会被两条路各说一遍、迟早说岔。
   function rivalHint(rec, opt) {
     const o = opt || {};
-    const head = (o.dup ? '已更新「挑战·朋友」：' : '「挑战·朋友」进榜：')
+    const who = `「${rivalName(rec)}」`;
+    const head = (o.dup ? `已更新${who}：` : `${who}进榜：`)
       + `第 ${rec.floor} 层 · 用时 ${fmtTime(rec.time)}${o.sameDay ? ' · 今天这座' : ''}。`;
     return head + View.rivalVerdict(rec, o.mine || []).text + (o.evicted ? '（名录满，最早那条让位）' : '');
   }
@@ -1979,7 +1997,7 @@
     // 判定句交给 refreshBoardHint（openBoard 里调）：这里只记「收到了哪一局」，句子按开榜那一刻的成绩算
     lastRival = { rec, dup, evicted: saved.evicted, fresh: true };
     // 顶部提示条一句话只有 ~262px 预算（320 屏 92vw−32px），放不下判定句——判定只走面板里那行
-    warn(dup ? '朋友的最新成绩已更新' : `挑战·朋友 第 ${rec.floor} 层，进榜了`, null, 'info');
+    warn(dup ? '朋友的最新成绩已更新' : `${rivalName(rec)} 第 ${rec.floor} 层，进榜了`, null, 'info');
     Sound.play('ach');
     boardFilter = 'all';
     openBoard();
@@ -4487,6 +4505,15 @@
       const myEl = $('myCode');
       copyText(myEl, myEl.textContent, '挑战码已复制', $('btnCopyCode'));
     });
+    // 落款：改一次即刻入库，并把屏上的码重编一遍——码是现编的，玩家改完立刻能复制，
+    // 不用关榜重开（旧码里写的是旧名字，复制出去朋友那边就还是「挑战·朋友」）
+    $('myName').addEventListener('input', (e) => {
+      const clean = window.Challenge.nameOf(e.target.value);
+      if (clean !== e.target.value) e.target.value = clean; // 超 8 字 / 含点号当场收掉，别等出码时才截
+      Meta.setName(clean);
+      const best = loadBoard()[0];
+      if (best) $('myCode').textContent = encodeChallenge(best);
+    });
     $('btnCopyLink').addEventListener('click', () => copyLinkOf($('myCode'), $('btnCopyLink')));
     // 结算页：刚通关是全游戏最想告诉别人的那一刻，码就摆在屏幕上——此前却只能靠手选，
     // 想复制还得先进榜单，而榜单那颗复制的是「历史最好一局」，未必是眼前这串。
@@ -5240,8 +5267,8 @@
               ? `朋友的挑战：第 ${rrec.floor} 层（挤掉最早那条）`
               : `朋友的挑战：第 ${rrec.floor} 层 —— 打完这局就能比`, 3600, 'info');
           } else warn(kept.evicted
-            ? `收下了挑战·朋友：第 ${rrec.floor} 层（挤掉最早那条）`
-            : `收下了挑战·朋友：第 ${rrec.floor} 层 · 用时 ${fmtTime(rrec.time)}`, null, 'info');
+            ? `收下了${rivalName(rrec)}：第 ${rrec.floor} 层（挤掉最早那条）`
+            : `收下了${rivalName(rrec)}：第 ${rrec.floor} 层 · 用时 ${fmtTime(rrec.time)}`, null, 'info');
           // 塔友榜第 2 局起才露脸（首局摆榜单会挤占开屏预算）——老玩家就顺手把榜打开
           if (!firstRunLanding) openBoard();
         }
