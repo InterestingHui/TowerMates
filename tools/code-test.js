@@ -2701,6 +2701,35 @@ ok(mainSrc.indexOf("searchParams.set('rival'") < 0, 'main.js 不许自己拼链�
     '兜底层返回布尔、不自己 warn（否则同一次失败出两条提示）');
 }
 
+// ---------- 2026-11-27 21:2x 自检（第 5 / 6 面各一条，都是「同一事实写了两份、改一份就漂」这一类）----------
+// 第 6 面 · 死数据：`chapters[].blurb` 四段章首短文零引用（全库没有一处读 `.blurb`），章首真正上屏的是
+// story.js 的 ch2/ch3/ch4 对白；其中第一章那段还把公主写成「名册上第九道刻痕」，与墨妖的「第九个」打架。
+// 判据现算：章节数据的每个字段都必须在 js/ 里被读到——白写的叙事文本比没写更坏，下一个人会照它写台词。
+{
+  const fs = require('fs');
+  const path = require('path');
+  const jsDir = path.join(__dirname, '..', 'js');
+  const srcAll = fs.readdirSync(jsDir)
+    .filter((f) => f.endsWith('.js') && f !== 'data.js')
+    .map((f) => fs.readFileSync(path.join(jsDir, f), 'utf8'))
+    // 校验器也算「有人读」：`bossFloor` 只被 check.js 用来验「Boss 站在该章最后一层」，那是正当用途。
+    .concat([fs.readFileSync(path.join(__dirname, 'check.js'), 'utf8')]).join('\n');
+  const dead = Object.keys(GD.chapters[0]).filter((k) => srcAll.indexOf('.' + k) < 0);
+  ok(dead.length === 0, `章节字段都有人读（白写的：${dead.join('、') || '无'}）`);
+}
+// 第 5 面 · 同一阈值的第二份：余烬单价有唯一常量 EMBER_KILL_STEP，但三条余烬环的 desc 是手写字符串。
+// 常量 10→8 时真值会变、三张卡上的数字纹丝不动，玩家按卡面算账就永远算不平。两边现算再比。
+{
+  const step = Number((viewSrc.match(/EMBER_KILL_STEP\s*=\s*(\d+)/) || [])[1]);
+  const emberIds = Object.keys(GD.rings).filter((id) => GD.rings[id].cat === 'ember');
+  const wrong = emberIds.filter((id) => {
+    const m = (GD.rings[id].desc || '').match(/每击败 (\d+) 只/);
+    return m && Number(m[1]) !== step;
+  });
+  ok(step > 0 && emberIds.length >= 3, `余烬环 ${emberIds.length} 条、击杀单价 ${step} 只一点（两边都从源码现算）`);
+  ok(wrong.length === 0, `余烬环说明里的单价与常量一致（不一致：${wrong.join('、') || '无'}）`);
+}
+
 console.log(`挑战码 / 触控 / 桥接 / 视图模型单测：${pass} 项通过${bad ? `，${bad} 项失败` : ''}`);
 
 process.exit(bad ? 1 : 0);
