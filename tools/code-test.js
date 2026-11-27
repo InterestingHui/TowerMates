@@ -2796,6 +2796,32 @@ ok(mainSrc.indexOf("searchParams.set('rival'") < 0, 'main.js 不许自己拼链�
     `成就吐司的让位量 ≥ 提示条最大高度 + 8（现 ${toastY}px，算得 ${Math.round(maxH)} + 8；不足就压住末行）`);
 }
 
+// 顶部两个浮层的隐藏态必须与「自身高度」挂钩（2026-11-28 加练·游戏性焦点A）。
+// 病根：`#warnPill` 写死 translateY(-60px)、`#toast` 写死 -96px，而盒高跟着文案走——
+// 提示条放开三行后 2 行长句（52px 高）隐藏态还剩 4px 红边常驻屏顶；吐司遇上三行长文案
+// 在 320 屏要留 64px 卡片（文案不清空就一直挂着）。实测三档屏都是这个数，此前没人量过。
+// 契约：隐藏态用 calc(-100% - Npx)、N ≥ top（否则下边缘落在 0 以下不了），显示态仍是 0。
+// 动态读数由 `tools/pill-geom-check.html`（regress 里 320/430 两档）守着，这里守源码形态。
+{
+  const blocks = {
+    提示条: (cssSrc.match(/#warnPill\s*\{[^}]*\}/) || [''])[0],
+    吐司: (cssSrc.match(/#toast\s*\{[^}]*\}/) || [''])[0],
+  };
+  for (const [name, blk] of Object.entries(blocks)) {
+    const m = blk.match(/transform:\s*translate\(-50%,\s*calc\(-100%\s*-\s*([\d.]+)px\)\)/);
+    const top = Number((blk.match(/top:\s*([\d.]+)px/) || [])[1] || 0);
+    ok(!!m, `${name}的隐藏态按自身高度退场（写死像素平移会随文案变长而露出半截）`);
+    ok(!!m && Number(m[1]) >= top,
+      `${name}隐藏态的退让量 ≥ top（现 ${m ? m[1] : '缺'}px / top ${top}px——小于 top 就关不干净）`);
+    ok(!/transform:\s*translate\(-50%,\s*-\d+px\)/.test(blk),
+      `${name}的隐藏态不许退回固定像素（-60px / -96px 都是「刚好够当时那版文案」）`);
+  }
+  const showPill = (cssSrc.match(/#warnPill\.show\s*\{[^}]*\}/) || [''])[0];
+  const showToast = (cssSrc.match(/#toast\.show\s*\{[^}]*\}/) || [''])[0];
+  ok(/translate\(-50%,\s*0\)/.test(showPill), '提示条的显示态仍是原位（换写法会把回执推歪）');
+  ok(/translate\(-50%,\s*0\)/.test(showToast), '吐司的显示态仍是原位');
+}
+
 // 剪贴板出口只有一份、且防住「挂起」（2026-11-27 加练 社交）。
 // 病根：挑战码/挑战链接/结算分享走 `copyText`（异步写 + 拒绝兜底，**没有超时**），
 // 导出 JSON 自己另写了一份（异步写 + 350ms 超时 + execCommand）——两份实现，只有后者防住

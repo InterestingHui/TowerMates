@@ -327,6 +327,35 @@ if (!process.argv.includes('--no-shot')) {
         adsLine = r.bits ? `${(r.bits.match(/1/g) || []).length}/${r.bits.length} 项` : '读数失败';
         console.log((okAds ? '✓' : '✗') + ` 广告卡点 ${adsLine}`);
       }
+      // 浮层几何：提示条 / 吐司的隐藏态必须整块退到屏外（2026-11-28 焦点A 实测：
+      // 两者都用写死像素平移，提示条放开三行后长句剩 4px 红边常驻屏顶、吐司长文案在 320 屏剩 64px）。
+      // 两档宽度各跑一遍：320（最长折行）与 430（max-width 已封顶）。
+      console.log('== 附加 · 浮层几何自检（提示条 / 吐司隐藏态）==');
+      let okGeom = true, geomLine = '';
+      {
+        const os = require('os');
+        const args = (w) => [
+          '--headless=new', '--disable-gpu', '--no-sandbox', '--no-first-run', '--disable-extensions',
+          '--user-data-dir=' + path.join(os.tmpdir(), 'tm-geom-' + process.pid + '-' + w),
+          '--virtual-time-budget=60000',
+          '--dump-dom', `http://127.0.0.1:${PORT}/tools/pill-geom-check.html?gate=1&w=${w}`,
+        ];
+        const read = (w) => {
+          const p = spawnSync(chrome, args(w), { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+          const t = p.stdout || '';
+          const bits = /(?:ALLPASS|HASFAIL|ERR)\|([01]+)/.exec(t);
+          return { pass: /ALLPASS\|1+/.test(t), bits: bits ? bits[1] : '' };
+        };
+        const parts = [];
+        for (const w of [320, 430]) {
+          let r = read(w);
+          if (!r.bits) r = read(w);
+          okGeom = okGeom && r.pass;
+          parts.push(`${w}:${r.bits ? (r.bits.match(/1/g) || []).length + '/' + r.bits.length : '读数失败'}`);
+        }
+        geomLine = parts.join(' · ');
+        console.log((okGeom ? '✓' : '✗') + ` 浮层几何 ${geomLine}`);
+      }
       // 序章只播一次：首次必播、老玩家跳过、设置里能重看
       console.log('== 附加 · 序章重播自检 ==');
       let okIntro = true, introLine = '';
@@ -1114,8 +1143,8 @@ if (!process.argv.includes('--no-shot')) {
       const ui = run(process.execPath, ['tools/ui-test.js']);
       const okUi = ui.code === 0;
       console.log((okUi ? '✓' : '✗') + ' ui-test.js' + (okUi ? '' : '\n' + ui.out));
-      const all = okFuzz && okCheck && okSim && okSkip && okRoute && okTest && okCode && okBsim && okOd && okUi && okProbe && okAds && okIntro && okWxb && okNew && okWx && okSwordGate && okPace && okDaily && okVowFirst && okZeal && okFinal && okTangle && okGuard && okThreat && okVp && okVm && okTap && okContrast && okMotion && okSfx && okRm && okErr && okSto && okTime && okTab && bad === 0;
-      if (!all) console.log('  闸门明细:', JSON.stringify({ okCheck, okSim, okSkip, okRoute, okTest, okCode, okBsim, okOd, okUi, okProbe, probeA3, okAds, adsLine, okIntro, introLine, okWxb, wxbLine, okNew, newLine, okWx, okSwordGate, okPace, paceLine, okDaily, dailyLine, okVowFirst, vowFirstLine, okZeal, zealLine, okFinal, finalLine, okTangle, tangleLine, okGuard, guardLine, okThreat, threatLine, okVp, vpLine, okVm, vmLine, okTap, tapLine, okContrast, contrastLine, okMotion, motionLine, okSfx, sfxLine, okRm, rmLine, okErr, errLine, okSto, stoLine, okTime, timeLine, okTab, tabLine, okFuzz, fzMax, bad }));
+      const all = okFuzz && okCheck && okSim && okSkip && okRoute && okTest && okCode && okBsim && okOd && okUi && okProbe && okAds && okGeom && okIntro && okWxb && okNew && okWx && okSwordGate && okPace && okDaily && okVowFirst && okZeal && okFinal && okTangle && okGuard && okThreat && okVp && okVm && okTap && okContrast && okMotion && okSfx && okRm && okErr && okSto && okTime && okTab && bad === 0;
+      if (!all) console.log('  闸门明细:', JSON.stringify({ okCheck, okSim, okSkip, okRoute, okTest, okCode, okBsim, okOd, okUi, okProbe, probeA3, okAds, adsLine, okGeom, geomLine, okIntro, introLine, okWxb, wxbLine, okNew, newLine, okWx, okSwordGate, okPace, paceLine, okDaily, dailyLine, okVowFirst, vowFirstLine, okZeal, zealLine, okFinal, finalLine, okTangle, tangleLine, okGuard, guardLine, okThreat, threatLine, okVp, vpLine, okVm, vmLine, okTap, tapLine, okContrast, contrastLine, okMotion, motionLine, okSfx, sfxLine, okRm, rmLine, okErr, errLine, okSto, stoLine, okTime, timeLine, okTab, tabLine, okFuzz, fzMax, bad }));
       console.log(all ? '✓ 质量闸门通过' : '✗ 质量闸门有失败项');
       process.exit(all ? 0 : 1);
     })();

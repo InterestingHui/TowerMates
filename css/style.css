@@ -1377,7 +1377,11 @@ html.fx-low .bd-shot { animation: sceneIn 0.9s ease-out both; }
   position: fixed;
   top: 12px;
   left: 50%;
-  transform: translate(-50%, -60px);
+  /* 隐藏态用「退到自身高度之外」而不是固定 -60px：放开三行之后盒高会到 52px 甚至更高，
+     -60px 只能把顶边推到 -48px，2 行长句的提示条会剩 4px 红边常驻屏顶（实测 320/375/430 三档
+     都是 bottom=4；文案不随隐藏清空，所以那条红边会一直留着）。改成 calc(-100% - 14px)
+     后任何高度都落到 -2px 之外。 */
+  transform: translate(-50%, calc(-100% - 14px));
   padding: 7px 16px;
   border-radius: 20px;
   background: rgba(88, 21, 25, 0.96);
@@ -1423,7 +1427,7 @@ html.fx-low .bd-shot { animation: sceneIn 0.9s ease-out both; }
   position: fixed;
   top: 12px;
   left: 50%;
-  transform: translate(-50%, -96px);
+  transform: translate(-50%, calc(-100% - 14px));
   display: flex;
   align-items: center;
   gap: 10px;

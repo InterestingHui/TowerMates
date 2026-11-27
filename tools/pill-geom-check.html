@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>pill-geom-check</title>
+<style>body{margin:0;background:#05070c;color:#8ef;font:12px monospace}#f{height:820px;border:0;position:absolute;left:-9999px}</style>
+</head><body>
+<iframe id="f" src="/index.html"></iframe>
+<pre id="out">…</pre>
+<script>
+// 浮层几何闸门：两个顶部浮层（错误提示条 #warnPill / 成就吐司 #toast）在「隐藏态」
+// 必须整块退到视口之外，在「显示态」必须整块落在视口里，两者同时出现不许重叠。
+// 病根（2026-11-28 加练·游戏性焦点A 实测）：两者的隐藏态都写死像素平移（-60px / -96px），
+// 而盒高跟着内容走——提示条放开三行后 2 行长句剩 4px 红边常驻屏顶；吐司遇上三行长文案
+// 在 320 屏要留 64px 卡片在屏顶，文案不清空就一直挂着。改成 calc(-100% - 14px) 才与高度解耦。
+// 由 tools/regress.js 按 320 / 430 两档宽度各跑一遍（?w=320 / ?w=430）。
+const W = Number(new URLSearchParams(location.search).get('w') || 375);
+const f = document.getElementById('f');
+f.style.width = W + 'px';
+const out = document.getElementById('out');
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const PILL_LONG = '存档读不出来（可能被浏览器禁用），这一局只能从新的一局开始，旧的进度没法恢复，抱歉。';
+const TOAST_LONG = '<span class="t-emoji">🏆</span><div class="t-body">' +
+  '<div class="t-title">成就解锁</div><div class="t-name">塔的记忆 · 第七枚余烬</div>' +
+  '<div class="t-desc">这一局你一次都没有回头，塔把你的名字记在了名墙最下面那一行</div></div>';
+(async () => {
+  const rows = [], bits = [];
+  const one = (cond, name, detail) => {
+    bits.push(cond ? 1 : 0);
+    rows.push((cond ? 'PASS|' : 'FAIL|') + name + '|' + detail);
+  };
+  try {
+    await wait(1600);
+    const w = f.contentWindow, d = f.contentDocument;
+    const p = d.getElementById('warnPill');
+    const t = d.getElementById('toast');
+    p.style.transition = 'none';
+    t.style.transition = 'none';
+    const box = (el) => {
+      const r = el.getBoundingClientRect();
+      return { top: Math.round(r.top), bottom: Math.round(r.bottom), h: Math.round(r.height) };
+    };
+    // 1) 提示条：长句隐藏态必须整块在外
+    p.textContent = PILL_LONG;
+    p.classList.remove('show');
+    await wait(40);
+    let b = box(p);
+    one(b.bottom <= 0, '提示条·长句隐藏态在屏外', `bottom=${b.bottom} h=${b.h}`);
+    // 2) 提示条：短句隐藏态同样在外（高度变小也不许半截）
+    p.textContent = '已复制';
+    await wait(40);
+    b = box(p);
+    one(b.bottom <= 0, '提示条·短句隐藏态在屏外', `bottom=${b.bottom} h=${b.h}`);
+    // 3) 显示态必须真的进屏
+    p.textContent = PILL_LONG;
+    p.classList.add('show');
+    await wait(60);
+    b = box(p);
+    one(b.top >= 0 && b.bottom <= w.innerHeight, '提示条·显示态整块在屏内', `top=${b.top} bottom=${b.bottom}`);
+    const pillBox = b;
+    p.classList.remove('show');
+    // 4) 吐司：三行长文案隐藏态必须整块在外
+    t.innerHTML = TOAST_LONG;
+    t.classList.remove('show');
+    await wait(60);
+    b = box(t);
+    one(b.bottom <= 0, '吐司·长文案隐藏态在屏外', `bottom=${b.bottom} h=${b.h}`);
+    // 5) 吐司显示态整块在屏内
+    t.classList.add('show');
+    await wait(60);
+    b = box(t);
+    const toastBox = b;
+    one(b.top >= 0 && b.bottom <= w.innerHeight, '吐司·显示态整块在屏内', `top=${b.top} bottom=${b.bottom}`);
+    // 6) 两个同时出现不许重叠（让位量必须跟得上提示条实际高度）
+    p.classList.add('show');
+    await wait(60);
+    const pb = box(p), tb = box(t);
+    one(tb.top >= pb.bottom + 4, '两者同时出现不重叠', `提示条 bottom=${pb.bottom} 吐司 top=${tb.top}`);
+    out.textContent = 'VP=' + w.innerWidth + 'x' + w.innerHeight + ' ;; ' +
+      rows.join(' ;; ') + ' ;; ' + (bits.every((x) => x === 1) ? 'ALLPASS' : 'HASFAIL') +
+      '|' + bits.join('') + ' ;; pill=' + pillBox.h + ' toast=' + toastBox.h;
+  } catch (e) {
+    out.textContent = 'ERR ' + e.message + ' ;; HASFAIL|' + bits.join('');
+  }
+})();
+</script>
+</body></html>
