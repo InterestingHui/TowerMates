@@ -317,7 +317,25 @@ const ART_STYLES = {
     neg: ', illustration, painting, oil paint, brush strokes, 3D render, CGI, cartoon, anime, '
       + 'plastic skin, waxy skin, airbrushed, poreless, doll-like, beauty filter',
   },
-  // D. 半写实（推荐档）：真人骨相 + 精修五官 + 电影光。
+  // E. 男性写实档（semi 的男性版）：同一套光影逻辑，去掉所有 beauty/妆容词，换粗粝纪实语法。
+  //    2026-11-27 实测：semi 套到男性角色上会画成女人（yanmo → 亚洲老妇）、还会在前面加一个女模特（mowang、candle）。
+  semiM: {
+    cfg: 2.8,
+    style: 'semi-realistic cinematic game portrait, gritty character study, '
+      + 'realistic adult male proportions and anatomy, weathered skin with visible pores and texture, '
+      + 'hard directional key light from upper left with deep shadow falloff and clean ambient fill, '
+      + '85mm lens, shallow depth of field, fine film grain, '
+      + 'dark stone interior behind him, '
+      + 'three-quarter view, chest up, centered composition, solo, only one person in frame, '
+      + 'no text, no frame, no border',
+    neg: ', female, woman, girl, feminine face, makeup, lipstick, long eyelashes, soft glam, '
+      + 'two people, multiple people, another person, crowd, second figure, background person, '
+      // weathered skin 在暗光下会失控成黑斑/疮口（candle、yan 都中招），这几组必须堵
+      + 'blemishes, dark spots on face, sores, scabs, diseased skin, corpse spots, bruises, '
+      + 'anime, cartoon, cel shading, doll, plastic toy, waxy mannequin, '
+      + 'thick oil paint, heavy impasto, muddy brushwork, 3D render, CGI',
+  },
+  // D. 半写实（推荐档，女性）：真人骨相 + 精修五官 + 电影光。
   // 实测 A 太动漫（五官缩小成符号）、B 太娃娃（大眼圆脸 BJD 感）、C 太素人（真实但不好看）。
   // 第二版（20261152/53）骨相够了但仍是「影棚素颜试装照」——纯灰背景 + 自然光 + 素颜 = 证件照。
   // 补三样：① editorial beauty 的摄影语法（beauty dish + rim light，把人从背景里剥出来）；
@@ -348,11 +366,14 @@ const PORTRAITS = {
   // 第一版出成十二三岁的少年（young wanderer 被读成 kid）。设定是「第九位勇者」成年人，
   // 改成 early twenties + 明确的身形与胡茬，压住年龄。
   hero: 'a young man in his early twenties, hooded wanderer cloak worn at the edges, '
-    + 'tilted pointed hood pushed back enough to see the face, a short sword slung across the back, '
+    + 'tilted pointed hood pushed back enough to see the face, one single short sword slung across his back, '
     + 'crossed leather straps and a rough scarf, faint stubble, warm gold eyes catching the light, '
     + 'lean weathered face, determined quiet expression',
-  candle: 'a gaunt old craftsman ghost holding a small oil lamp, hunched shoulders, '
-    + 'faint pale blue translucent glow, threadbare work clothes, tired kind eyes, '
+  // 2026-11-27 补：所有男性角色的描述都补上 male / his。上一版只写了 craftsman / scholar / merchant，
+  // 模型在 beauty 语法下默认画成女性（实测 yanmo 出成亚洲老妇、candle 前面多站一个女模特）。
+  candle: 'an old male craftsman ghost holding a small oil lamp, gaunt hollow cheeks, hunched shoulders, '
+    + 'faint pale blue translucent glow, the stone wall faintly visible through his body, '
+    + 'threadbare work clothes, tired kind eyes, '
     + 'the lamp is the only warm light',
   // 2026-11-26 重做（用户：「公主画得充分好看一点，要有白丝」）。
   // 上一版的问题：脸瘦、眼窝深、表情苦、年龄感 30+，而且长裙盖到脚——没有腿、没有丝袜。
@@ -378,24 +399,35 @@ const PORTRAITS = {
     + 'dark leather ankle boots with a low heel, '
     + 'a small white embroidered handkerchief knotted around her left wrist, both hands relaxed and empty, '
     + 'head lifted, regal poised bearing, calm resolute gaze',
-  mowang: 'a tall horned demon king in rusted armour, massive curved horns, '
+  mowang: 'a tall male horned demon king in rusted armour, massive curved horns, '
     + 'cracked iron plates, embers glowing in the cracks, one hand resting on a sword hilt, '
-    + 'sorrowful posture, deep red ember light',
-  yanmo: 'a middle-aged craftsman with burn scars, heavy leather apron, '
-    + 'soot-black hands, a hammer at his belt, warm ember glow from below, '
+    + 'sorrowful weary posture, deep red ember light',
+  yanmo: 'a middle-aged male craftsman with smooth healed burn scars, pale tight scar tissue across his face and forearms, '
+    + 'heavy leather apron, '
+    + 'soot-black hands, a blacksmith hammer tucked at his belt, warm ember glow from below, '
     + 'weary human face, no horns',
-  yan: 'a gaunt scholar in layered dark robes seated behind a desk, '
+  yan: 'a gaunt male scholar in layered dark robes seated behind a desk, '
     + 'a thick ledger open before him, ink-stained fingers, quill in hand, '
     + 'violet cold light, face half in shadow',
-  duo: 'a bell keeper in a heavy hooded robe, a broken bronze bell clapper in his hands, '
+  duo: 'a male bell keeper in a heavy hooded robe, a broken bronze bell clapper in his hands, '
     + 'bronze-coloured pendant, old and quiet face, warm bronze light from one side',
-  heng: 'a stone-cutter in a rough work apron, holding a chisel, '
+  heng: 'a male stone-cutter in a rough work apron, holding a chisel, '
     + 'stone dust on his shoulders and hair, pale grey skin like carved granite, '
     + 'cold blue light, still and patient expression',
-  cheng: 'a travelling quartermaster merchant behind a wooden stall, '
+  cheng: 'a male travelling quartermaster merchant behind a wooden stall, '
     + 'leather coat with many pockets, a brass balance scale in one hand, '
     + 'warm lantern light, shrewd friendly smile, coins on the counter',
+  // 2026-11-27 新增：国王原先只出现在序章 CG 里，没有锚图 ⇒ 每次重画都是一张新脸。
+  // 补一张锚图后，序章第二幕（递绣帕）从这张派生，以后任何国王出镜都认这张脸。
+  king: 'an elderly king in his sixties, heavy dark iron crown, thick fur lined robes with an ermine collar, '
+    + 'gaunt grief stricken face wet with tears, grey beard, deep set tired eyes, '
+    + 'holding a small white embroidered handkerchief in one hand, '
+    + 'standing in a cold moonlit throne hall',
 };
+
+// semi 那档是照女性写的（beauty dish / 淡妆 / editorial beauty），套到男性身上会直接变性。
+// 这里登记女性角色，其余一律自动落到 semiM。
+const PORTRAIT_FEMALE = new Set(['vera']);
 
 // 露脸版立绘名单（其余角色继续保持低头/压阴影，别一起改）
 const PORTRAIT_FACE = new Set(['vera']);
@@ -532,18 +564,20 @@ async function genPortrait(key, seed) {
   // 注意不能沿用 NEG——NEG 里写着 illustration / painting / cartoon，对「插画/CG」档是自相矛盾的，
   // 会一边要求画风一边把它堵掉，最后只能出成不伦不类的照片。
   if (ART && ART_STYLES[ART]) {
-    const a = ART_STYLES[ART];
-    // 取景到大腿中段：过膝白丝的袜口就在这个位置，切到膝盖以下就看不到那道分界了
+    // --art=semi 是女性档；男性角色自动落到 semiM，否则会被 beauty 语法画成女人
+    const artKey = (ART === 'semi' && !PORTRAIT_FEMALE.has(key)) ? 'semiM' : ART;
+    const a = ART_STYLES[artKey];
     const shot = clear ? 'three-quarter body, from head to mid-thigh' : 'half body';
     const artNeg = 'text, letters, numbers, watermark, signature, logo, ui, hud, frame, border, '
       + 'blurry, jpeg artifacts, oversaturated, cluttered, busy background, '
+      + 'two people, multiple people, another person, crowd, second figure, '
       + 'extra limbs, deformed hands, distorted face, child, teenager, underage, '
       + 'plastic skin, airbrushed, doll-like, over-smoothed, waxy, heavy makeup'
       + (clear ? ageNeg : '')
       + a.neg;
     return run(
       buildWorkflow(`${a.style}, ${shot}, ${text}`, artNeg, PORTRAIT_W, PORTRAIT_H, seed, 'tm_pt_' + key, a.cfg),
-      'portrait_' + key + '_' + ART, seed,
+      'portrait_' + key + '_' + artKey, seed,
     );
   }
   const style = SOFT

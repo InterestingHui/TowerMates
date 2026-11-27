@@ -6,7 +6,7 @@
   // 立绘的缓存版本（2026-11-26）：CG 那边靠 backdrops.js 的 ASSET_V 刷缓存，
   // 但立绘的 img src 一直是裸路径 ⇒ 换一张 assets/portraits/*.webp，老玩家浏览器照用旧图。
   // 这个值由 tools/sync-publish.js 按 assets/portraits 目录内容指纹重写，源码里是 'dev'。
-  const PT_V = '967bc77a';
+  const PT_V = 'decc6940';
   const KEY = { 烛: 'candle', 炎魔: 'torch', 魔王: 'mowang', 薇拉: 'vera', 秤: 'scale', 墨妖: 'yan', 钟妖: 'duo', 碑魔: 'heng', 勇者: 'hero' };
 
   // 每个角色的基准光色 + 情绪偏移

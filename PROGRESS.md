@@ -2276,3 +2276,25 @@
   **⑧留给下轮**：`dawn.webp` 重出仍冻（美术再生产）、`vera` 光位同批、序章幕3 白布 / intro2 帕都等出图；「减弱动效无游戏内开关」那条仍是迁移前置（要补 `Settings.fx`，属设置面改动，另开一轮）。
 
   ｜加练：美术 焦点C（发现 1 处 / 修 1 处 / 留待办 0 处——11-26 记账那条 13 个动效类空转，本轮收口）｜变体：无（焦点顺延占满，变体「诊断」留到下轮）｜打磨：动效手感（发现 1 处 / 修 1 处 / 留待办 0 处：`hide()` 残留 `has-cg` 假状态→同轮清）｜薄弱层：表层（画面与动效这一层现在没有「在跑但看不见」的东西了；结构缺口未变：真人数据 + A 批真机门）｜阻塞：无（`tools/shot.html` 仍被他的未提交改动占着）
+
+- 2026-11-27 12:1x（**用户：「你用上 5090 美术管线了吗，为什么人物角色不一致，要做好人物一致性」——这条是本项目美术层的根因修正，不只是换图**）
+  **病因不在参数**：`cg-gen.js` 一直是纯 txt2img。**seed 只锁噪声，锁不住脸**——同一个角色每抽一次就是一张新脸。
+  公主前后出过十几版、每个版本都是不同的人；八个角色各自抽卡，彼此毫无身份关联。这不是「调不好」，是方法根本不对。
+  **且管线只用了最小一环**：本机 ComfyUI（5090 D）里现成躺着两样没碰过的东西——
+  ① **FLUX.3 Klein**（`flux3-image-klein-int8-convrot`，11-13 拍板的厚涂主线，我一直用 FLUX.2）；
+  ② **Qwen-Image-Edit 2.1 Turbo**（`qwen_image_2.1_turbo_int8_convrot` + `qwen3vl_8b` 编码器 + `qwen_image_2.1_vae_bf16`）——**保身份的正路**。
+  **新体系：锚图 → 编辑派生**。新增 `tools/cg-edit.js`（Qwen-Image-Edit 链路：UNETLoader + CLIPLoader type=`qwen_image` + 专用 VAE +
+  `TextEncodeQwenImageEdit`（clip/prompt/vae/image 四输入）+ ImageScale→VAEEncode→KSampler→VAEDecode）。
+  **实测参数**：turbo 版 `steps 8 / cfg 1.0 / sampler euler / scheduler simple`，**7–8 秒一张**（比 txt2img 的 23s 还快），denoise **0.90–0.95**。
+  denoise 0.55 时指令不执行（只做了轻微重绘，衣服没换）；0.90 换装保脸成功；0.95 加人物做双人场景也保脸成功。
+  **锚图库 `tools/masters/`（10 张，随仓库走，丢了就复现不出同一张脸）**：vera / hero / mowang / candle / yanmo / yan / duo / heng / cheng / king。
+  `king` 是新增锚图（原先国王只存在于序章 CG，没有锚点，每次重画都是新脸）——但它**只作锚图不进资产**：
+  `cg-post` 加 `MASTER_ONLY` 排除，否则会变成孤儿 webp 被闸门咬（实测红了一条）。
+  **本轮产出**：① 序章四幕全部改为从锚图派生（`intro1/2/3/4_ref_*` → 落盘标准名），公主与立绘同一张脸、勇者与立绘同一套装束、国王从锚图派生；
+  ② 八张角色立绘（`--art=semi`，男性自动落 `semiM`）落盘为正式资产。
+  **三个操作坑（写下来免得重踩）**：
+  ① 「环抱 vs 提起」：写 `lifts her by her upper arm` 会被画成从背后环抱（观感像拥抱）——必须加 `grips her upper arm from the side, his arm extended away from her body, not an embrace`；
+  ② 暖光要写 `warm golden candlelight`，只写 `warm ember` 会落到 21°（黄铜族要求 26–50°），偏红；
+  ③ `semi` 是女性 beauty 档，套男性会变性（yanmo 出成亚洲老妇），且会凭空加一个女模特 ⇒ 拆 `semiM` + 正向 `solo, only one person in frame` + 负向 `two people / second figure`。
+  **闸门**：check ✓ / regress 全绿（59 图 / backdrop-luma 11 项）。build **149815a716→重算** / assetV **d8eb0d2c**（24 张）/ ptV 含新增 9 张。
+  ｜阻塞：无（**FLUX.3 未切**：换了底模 semi/semiM 的参数要整体重校，本轮先保一致性，等用户定要不要上）

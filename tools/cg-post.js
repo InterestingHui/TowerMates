@@ -24,7 +24,12 @@ const SEED = process.argv[2] || '20261126';
 // 全目录扫描把它当场景处理，assets/cg 里就凭空多出一张谁都不引用的 webp，
 // 还把 assetV 指纹带偏了。这里改成白名单：不在 SCENES/PORTRAITS 里的文件名一律跳过。
 const { SCENES, PORTRAITS } = require('./cg-gen.js');
-const KNOWN = Object.keys(SCENES).map((k) => k).concat(Object.keys(PORTRAITS).map((k) => 'portrait_' + k));
+// king 只是锚图（序章第二幕从这里派生），游戏里没有「国王」这个对话角色，
+// 落盘成 assets/portraits/king.webp 会被闸门的「孤儿资产」咬住 ⇒ 生成但不产出。
+const MASTER_ONLY = new Set(['portrait_king']);
+const KNOWN = Object.keys(SCENES).map((k) => k)
+  .concat(Object.keys(PORTRAITS).map((k) => 'portrait_' + k))
+  .filter((k) => !MASTER_ONLY.has(k));
 
 const W = 860;
 const H = 1800;
@@ -108,7 +113,7 @@ for fn in os.listdir(src):
         key = key[:-5]
     # 画风档位样张 <key>_<art> 同理：剥掉档位后缀当正式 key 用，
     # 否则会被下面的白名单当成「未声明的场景」直接跳过（2026-11-26 实测踩到）。
-    for suf in ('_hanban', '_cg3d', '_real', '_semi'):
+    for suf in ('_hanban', '_cg3d', '_semiM', '_semi', '_real'):
         if key.endswith(suf):
             key = key[:-len(suf)]
             break

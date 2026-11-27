@@ -710,7 +710,7 @@
   // 换一张 assets/cg/dawn.webp 指纹不变 ⇒ 老玩家浏览器继续用旧图（结局那张已经换过一次了）。
   // 源码里是 'dev'，publish 那份由 tools/sync-publish.js 换成 assets/cg 的内容指纹——
   // 换图即换 URL，不靠人记得 bump。所有出图口子都必须走 cgSrc，别直接拼 IMG[k]。
-  const ASSET_V = '96d5f034';
+  const ASSET_V = 'd8eb0d2c';
   const cgSrc = (k) => { const s = IMG[k]; return s ? s + '?v=' + ASSET_V : ''; };
   // 序章用：只取图片标签（矢量分镜由 scenes.js 自己拼在下面当兜底）
   function imgTag(key) {
