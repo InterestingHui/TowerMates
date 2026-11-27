@@ -73,6 +73,19 @@ const TOAST_LONG = '<span class="t-emoji">🏆</span><div class="t-body">' +
     await wait(60);
     const pb = box(p), tb = box(t);
     one(tb.top >= pb.bottom + 4, '两者同时出现不重叠', `提示条 bottom=${pb.bottom} 吐司 top=${tb.top}`);
+    // 7) 时长档位跟得上行数（2026-11-28 06:5x 加练·游戏性焦点B）：
+    //    三行放开之后 48–53 字那几句仍只拿 4800ms（10 字/秒）。读数直接问 shipped 的 readMs，
+    //    不另抄一份分界——抄一份就是第二个会说谎的地方。
+    const rm = (w && w.__tm && w.__tm.readMs) || null;
+    one(!!rm, 'readMs 可从 __tm 读到（时长口径同源）', rm ? '有' : '缺');
+    if (rm) {
+      const short = rm('已复制');                       // 3 字
+      const mid = rm('从第 9 层重新站起来：生命回到四成，这一层的怪也回来了。'); // 29 字
+      const long = rm('存档读不出来（可能没写完或被改过），已在本机另存一份。成就、余烬与榜单都还在，只能从新的一局开始。'); // 49 字
+      one(short === 3200, '短句仍 3200ms（三档没把短句也拖长）', `3 字 → ${short}`);
+      one(mid === 4800, '两行档仍 4800ms', `29 字 → ${mid}`);
+      one(long === 6600, '三行档 6600ms（长句不再是 10 字/秒）', `49 字 → ${long}`);
+    }
     out.textContent = 'VP=' + w.innerWidth + 'x' + w.innerHeight + ' ;; ' +
       rows.join(' ;; ') + ' ;; ' + (bits.every((x) => x === 1) ? 'ALLPASS' : 'HASFAIL') +
       '|' + bits.join('') + ' ;; pill=' + pillBox.h + ' toast=' + toastBox.h;

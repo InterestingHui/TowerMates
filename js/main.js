@@ -105,11 +105,22 @@
   const applyFxClass = () => document.documentElement.classList.toggle('fx-low', REDUCED());
   applyFxClass();
   const hintMs = (base) => Math.round(base * (HINT_SCALE[Settings.hintSpeed] || 1));
-  // 一句话该挂多久：按字数分两档（26 字是提示条实际读得完 / 读不完的分界，量过多次）。
+  // 一句话该挂多久：按「要读几行」分三档，不按「上次量到的字数」。
   // 2026-11-24 之前只有顶部提示条守这条，楼层卡的层名氛围句写死 2100ms——
   // 那是 19~36 字的一句话，2.1 秒只读得下十一二个，三分之二的句子没人读完就淡掉了。
-  const READ_SHORT = 3200, READ_LONG = 4800, READ_LONG_CHARS = 26;
-  const readMs = (text) => hintMs([...(text || '')].length > READ_LONG_CHARS ? READ_LONG : READ_SHORT);
+  // 2026-11-28 06:5x：档位原本只有两档，分界 26 字——那是**单行**时代量的（430 屏一行约 26 字）。
+  // 00:5x 把提示条放开到三行之后，瓶颈屏变成 320（92vw − padding = 262px，12px 字号一行 21 字）：
+  // 一行 21 / 两行 42 / 三行 63。而最长那句「存档读不出来…只能从新的一局开始」是 49 字，
+  // 在 320 屏要占满三行，却仍只拿 4.8 秒＝10 字/秒——读不完的恰恰是「下一步怎么办」那半句。
+  // 所以第三档线取 **42（320 屏两行）**：超两行的句子必然要读第三行，必须多给时间。
+  // 26 这个线留着不动（≤26 的短句占多数，改了会把一批短回执也拖长）。
+  // 楼层卡的 tip 是 19–36 字，全在一二档里，读数与改动前逐条相同（别拿它当回归差异看）。
+  const READ_SHORT = 3200, READ_MID = 4800, READ_LONG = 6600;
+  const READ_MID_CHARS = 26, READ_LONG_CHARS = 42;
+  const readMs = (text) => {
+    const n = [...(text || '')].length;
+    return hintMs(n > READ_LONG_CHARS ? READ_LONG : n > READ_MID_CHARS ? READ_MID : READ_SHORT);
+  };
   // 走路节奏：三套基准按入口的操作方式定（点击连走 105 / 方向键长按 135 / 键盘连按 95），
   // 开「快速模式」时一起收——不然打架压到 1.1s、走路还是老速度，刷层的手感全断在移动上。
   // 走路不肯跟演出一样砍到 ×0.42（44ms/格会糊成一片），收到 ×0.65 为止。
@@ -5351,7 +5362,7 @@
     richInto: renderRich, say, sayHint, warn, Tips,
     // 音频：预置名清单 + reset() 供 tools/sfx-check.html 换假 AudioContext 从零计数
     sound: Sound,
-    Settings, hintMs, openHintBook, showStuck, clearStuck,
+    Settings, hintMs, readMs, openHintBook, showStuck, clearStuck,
     openMonsterProbe, showDeath, reviveFromAd, adOfferRevive, adOfferDouble,
     // 自动化专用：清死亡防重入标记再重弹——shot.html 折戟成就链路要连死多次
     deathAgain: (m, dmg) => { deathShown = false; showDeath(m, dmg); },

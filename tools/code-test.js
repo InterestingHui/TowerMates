@@ -675,7 +675,7 @@ ok(landWarn.length === 2 && landWarn.every((s) => s.replace(/\$\{[^}]*\}/g, '12'
 // 旧句一律说「收下了挑战·朋友：第 N 层 · 用时 X」——一个此刻还不存在的名词（榜上那个名字）
 // 加一组没有比较对象的数字（层 / 用时，他连塔都没进过），而他的眼睛正在开场三行上。
 // 契约：① 首局那支必须自己给落点（打完这局就能比）；② 不许用它此刻读不懂的榜上术语；
-// ③ 停留要比默认长（默认 readMs 对 20 字只有 ~2.6s）；④ 首局不许顺手把榜打开（首屏 ≤1 个可点项）。
+// ③ 停留要比默认长（默认 readMs 对 20 字是 3200ms，2026-11-28 06:5x 前的两档口径同样如此）；④ 首局不许顺手把榜打开（首屏 ≤1 个可点项）。
 {
   const fb = /if \(firstRunLanding\) \{([\s\S]*?)\} else warn\(/.exec(mainCode);
   const body = fb ? fb[1] : '';
@@ -690,7 +690,7 @@ ok(landWarn.length === 2 && landWarn.every((s) => s.replace(/\$\{[^}]*\}/g, '12'
   // 停留时长后面允许跟语气参数（`warn(msg, 3600, 'info')`）——语气是 2026-11-28 加的一参，
   // 这里认的是「第三位那个数」，不是「最后一个实参」。
   ok(/,\s*3[0-9]{3}(?:\s*,\s*'info')?\s*\)/.test(body),
-    '首局那句的停留 ≥3000ms（默认 readMs 对 20 字只有 ~2.6s）');
+    '首局那句的停留 ≥3000ms（默认 readMs 对 20 字是 3200ms，要留出「比默认更长」的余量）');
   const longLit = lits.map((s) => s.replace(/\$\{[^}]*\}/g, '12')).sort((a, b) => b.length - a.length)[0] || '';
   ok(!!longLit && longLit.length <= 26, `首局那两句同样 ≤26 字（320 屏 262px 上限；最长 ${longLit.length} 字：${longLit}）`);
   ok(/if \(!firstRunLanding\) openBoard\(\)/.test(mainCode),
@@ -2832,6 +2832,37 @@ ok(mainSrc.indexOf("searchParams.set('rival'") < 0, 'main.js 不许自己拼链�
   ok(clamp >= 2 && clamp <= 3, `提示条行数上限在 2–3 行（现 ${clamp || '缺'}——再多就盖住顶栏）`);
   ok(toastY >= maxH + 8,
     `成就吐司的让位量 ≥ 提示条最大高度 + 8（现 ${toastY}px，算得 ${Math.round(maxH)} + 8；不足就压住末行）`);
+
+  // 时长档位必须跟得上行数（2026-11-28 06:5x 加练·游戏性焦点B）。
+  // 病根：`readMs` 是两档 3200/4800，分界 26 字——那是**单行**时代量的（430 屏一行约 26 字）。
+  // 00:5x 把提示条放开到三行之后，瓶颈屏变成 320（262px / 12px 字号 = 一行 21 字、两行 42、三行 63），
+  // 而最长那句「存档读不出来…只能从新的一局开始」49 字要占满三行，仍只拿 4.8 秒＝10 字/秒。
+  // 契约：三档单调 / 分界单调 / 第三档线 = 瓶颈屏两行、且不超过三行容量（超了＝给了时间也读不到）。
+  const tier = mainSrc.match(/const READ_SHORT\s*=\s*(\d+),\s*READ_MID\s*=\s*(\d+),\s*READ_LONG\s*=\s*(\d+);/);
+  const bounds = mainSrc.match(/READ_MID_CHARS\s*=\s*(\d+),\s*READ_LONG_CHARS\s*=\s*(\d+);/);
+  ok(!!tier, '时长的三档常数写在一处（READ_SHORT / READ_MID / READ_LONG）');
+  if (tier) {
+    const [s, mid, l] = [Number(tier[1]), Number(tier[2]), Number(tier[3])];
+    ok(s < mid && mid < l, `三档时长单调递增（现 ${s} / ${mid} / ${l}）`);
+    ok(/READ_LONG_CHARS\s*\?\s*READ_LONG\s*:\s*n\s*>\s*READ_MID_CHARS\s*\?\s*READ_MID\s*:\s*READ_SHORT/.test(mainSrc.replace(/\s+/g, ' ')),
+      '第三档真的被 readMs 用上（只定义不引用＝长句仍是 4.8 秒）');
+  }
+  ok(!!bounds, '两处分界写在一处（READ_MID_CHARS / READ_LONG_CHARS）');
+  if (bounds) {
+    const midC = Number(bounds[1]), longC = Number(bounds[2]);
+    ok(midC > 0 && longC > midC, `分界单调（现 ${midC} / ${longC}）`);
+    // 320 屏是瓶颈：max-width 92vw = 294px，减左右 padding 32px → 262px，按 12px 字号一行 21 字。
+    const perLine = Math.floor((294 - 32) / fs);
+    ok(clamp * perLine >= longC,
+      `第三档线 ≤ 三行装得下的字数（三行 ${clamp * perLine} 字 / 分界 ${longC} 字；超了就是给了时间也读不到）`);
+    ok(longC >= perLine * 2 - 2,
+      `第三档线贴着瓶颈屏的两行（两行 ${perLine * 2} 字 / 分界 ${longC} 字；再低就把两条就够的句子也拖成 6.6 秒）`);
+    // 楼层卡的 tip 走同一个 readMs：它必须落在一二档里，否则「楼层卡时长未变」这句是假的。
+    const dataSrc2 = require('fs').readFileSync(require('path').join(__dirname, '..', 'js', 'data.js'), 'utf8');
+    const tipLens = Array.from(dataSrc2.matchAll(/tip:\s*'([^']*)'/g)).map((m) => [...m[1]].length);
+    ok(tipLens.length > 0 && Math.max.apply(null, tipLens) <= longC,
+      `楼层卡 tip 全在一二档（最长 ${tipLens.length ? Math.max.apply(null, tipLens) : '缺'} 字 / 第三档线 ${longC} 字——超了楼层卡会突然变慢）`);
+  }
 }
 
 // 顶部两个浮层的隐藏态必须与「自身高度」挂钩（2026-11-28 加练·游戏性焦点A）。
