@@ -436,7 +436,12 @@ ok(rawRec.mine === undefined, '模型不改写入参记录');
 // 旧实现无条件接「爬得比他更高」：朋友贴来更深的码，紧跟着画出来的榜却把他排第一行。
 const vNone = V.rivalVerdict({ floor: 9 }, []);
 ok(vNone.id === 'none' && V.rivalVerdict({ floor: 9 }, null).id === 'none' && vNone.text === V.VERDICT_NONE,
-  '自己一局没打：不判胜负，只请先走一局');
+  '自己名录里还没有通关那局：不判胜负，只说名录规则');
+// 这一支的判据是 `mine` 为空，而 `mine` 只收通关局 ⇒ 死在第 5 层的玩家也在这里。
+// 所以那句话不许假设「他没玩过」——它必须对「没玩过」与「走过但没过」两种人都成立。
+ok(vNone.text.indexOf('你先走一局') < 0, `不许再说「你先走一局」（死过一次的人也在这一支）：${vNone.text}`);
+ok(/名录/.test(vNone.text) && /塔顶|通关/.test(vNone.text),
+  `那句话说清的是名录规则（哪局才记 / 记了才比得出）：${vNone.text}`);
 const vHi = V.rivalVerdict({ floor: 3 }, [{ floor: 5 }, { floor: 9 }]);
 ok(vHi.id === 'higher' && vHi.gap === 6 && vHi.text.indexOf('比他高 6 层') >= 0,
   '自己更深：说「比他高 N 层」并报出差值（取自己最好那局，不是最后那局）');

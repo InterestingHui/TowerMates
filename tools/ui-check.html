@@ -131,7 +131,9 @@ async function run() {
       d.getElementById('btnPasteCode').click();
     }
     out.hintAtPaste = hintEl ? hintEl.textContent.replace(/\s+/g, ' ').trim() : null;
-    out.hintAtPasteNone = !!out.hintAtPaste && out.hintAtPaste.indexOf('你先走一局') >= 0;
+    // 判据取「记进名录」而不是旧的「你先走一局」：那一句假设玩家没玩过，而这一支的判据是
+    // 「名录里没有通关记录」（死在第 5 层的玩家也在这一支）。改为咬「名录」这条规则本身。
+    out.hintAtPasteNone = !!out.hintAtPaste && out.hintAtPaste.indexOf('记进名录') >= 0;
     // 造一局比朋友更深的成绩（11 层 > 9 层），再开一次榜：同一句必须当场改口
     var myRun = function (f) {
       return JSON.stringify([{ floor: f, steps: 300, time: 240, ending: 'plain', vow: 'none', seal: 'ward', level: 12, goals: 3, margin: '' }]);

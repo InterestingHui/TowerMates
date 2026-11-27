@@ -84,7 +84,7 @@ const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-ui-'));
     `榜上没有我时脚注说清原因与出路（实测「${out.boardNoMineNote}」）`);
   // 判定句按「开榜那一刻」的成绩算（2026-11-26 01:2x）：收码时算一次就冻住的话，
   // 玩家爬过朋友之后那行仍是旧读数——它还是面板里唯一一句比较结论。
-  ok(out.hintAtPasteNone === true, `收码后那行先说实话（还没开过局）：${out.hintAtPaste}`);
+  ok(out.hintAtPasteNone === true, `收码后那行先说实话（名录里还没通关那局）：${out.hintAtPaste}`);
   ok(out.hintRecomputed === true && out.hintNoChase === true,
     `爬过朋友后再开榜，同一行当场改口（${out.hintAfterClimb}）`);
   ok(out.hintThreeFloors === true, '再爬一层句子跟着动（不是只切一次档）');
