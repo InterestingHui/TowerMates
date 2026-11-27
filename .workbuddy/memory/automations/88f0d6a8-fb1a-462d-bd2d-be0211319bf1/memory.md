@@ -1129,3 +1129,12 @@
 - **账本缺口（重要）**：06:3x 与 07:4x 两轮只有 memory 日志、**没写 PROGRESS.md 日志行**——本轮按 commit+memory 回填两条【补记】。以后收尾两处都要写。
 - 坑：改完 `js/view.js` 后用 `git checkout --` 回滚变异，会把**未提交的注释改写一起带走**——变异验完要重新施加自己的改动。
 - 下轮：加练顺延 **美术**（05:2x 焦点B → C）；变体按「最久未跑」优先**诊断**（11-26 01:2x）。可动手：缠斗卡面经验绝对值（低）、dawn 重出（中·出图）、vera 光位（低）、序章幕3 白布（低·出图）、intro2 帕（中·出图）。仍阻塞：shot.html 三个死亡取景 + HARNESS 报错、微信切边界、包体重压。
+
+## 2026-11-27 10:4x 自动轮（全力，单段 ~13 分钟，commit ca66862 / 4bf4367 已推 + 已部署 build 2d25df7fa2）
+- 判定：代码 mtime 80 分钟；唯一脏项 `tools/shot.html`（他会话 CG 探针）⇒ 全力，不碰不 add。
+- 加练 美术 焦点C（05:2x 焦点B 之后的 C）：收口 11-26 15:4x 记账的「CG 一层不透明盖住底下 13 个动效类，动效却一直跑」——移动端合成层空转（发热/耗电），且小游戏无 CSS 引擎，是 C 批迁移的前置。`scenes.js paint()` 按**渲染完的 DOM** 里有无 `.bd-shot` 给 `#dlgScene` 挂 `has-cg`（序章 imgTag 与其余 layer 两条路径共用一处判据）；CSS 一族 `.dlg-scene.has-cg …{animation:none}` 覆盖 13 个类（6 bd-* + 7 sc-*；`.bd-shot` 排除，缓推淡入挂在它身上必须照跑）；图挂掉 `Image().onerror` 摘类（那时露出兜底矢量图，动效要回来）；`hide()` 一并清类。
+- 实拍（不是读源码）：开一局 → `playStory([...])` 第 1 层 `has-cg on / fog=none`；`playStory('intro')` 序章 `sc-tw=none`；同屏 `.bd-shot` 仍 `sceneIn, sceneZoom`。探针用完即删。
+- 闸门：check ✓ / sim 18745·68.4% 未漂 / engine 645 未动 / code 718→**724**（六条，含「每处动画类逐个点名」的现算集合）/ fuzz 0 / regress 全绿（59 图 / 可读性 1563·0 / 弹层 116 / 触控 80 / **减弱 19·19 两遍**）。两刀变异都红（规则只留一项 / 摘 onerror）。线上 build 2d25df7fa2，css 与 scenes.js 都含 has-cg（带 sharecode）。
+- **坑**：`python -c "..."` 里带反引号会被 bash 命令替换，替换文本里的 `.dlg-scene.has-cg` 被吃掉——含反引号的文案改用 Edit 工具。
+- 已知取舍（记账不改）：类同步挂 ⇒ CG 未解码的几百毫秒露静止底图；preload 全量 + prefetch 两屏让窗口≈0，改异步 onload 不划算。
+- 下轮：加练顺延 **社交**（06:3x 之后未做）；变体最久＝**诊断**（11-26 01:2x）。可动手：缠斗卡面经验绝对值（低）、`Settings.fx` 动效开关（迁移前置·中，属设置面另开一轮）、dawn 重出 / vera 光位（冻·出图）。仍阻塞：shot.html 三个死亡取景 + HARNESS 报错、微信切边界、包体重压。
