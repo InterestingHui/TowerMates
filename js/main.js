@@ -18,7 +18,15 @@
   let hintPump = null;
   let hintAuto = null;
   let hintSeq = 0;
-  const HINT_AUTO_MS = 7000; // 角色提示悬挂时长：够读完，也像成就吐司一样自己收起
+  // 角色提示悬挂时长：够读完，也像成就吐司一样自己收起。
+  // 2026-11-28 07:0x：此前是写死的 7000ms，与字数无关——而 `STORY.keyHints` 各条长短差三倍，
+  // `stuckDef` 95 字（13.6 字/秒）、`stuckHp` 80 字（11.4 字/秒）读到一半就被收掉，而这两条正是
+  // 卡关时唯一的信息来源（「差多少攻 / 去哪儿补」「这一战掉多少血」）。改成按字数算：
+  // 2400 是抬头看见它出现在屏上的反应时间，100ms/字 ≈ 8 字/秒（对白框字号大、还能点上一句回看，
+  // 比提示条宽松一点）。7000 仍是地板：短句（coreReveal 32 字）不该比以前收得更早。
+  const HINT_AUTO_MS = 7000;
+  const HINT_AUTO_BASE = 2400, HINT_AUTO_PER_CHAR = 100;
+  const hintAutoMs = (chars) => Math.max(HINT_AUTO_MS, HINT_AUTO_BASE + Math.max(0, chars | 0) * HINT_AUTO_PER_CHAR);
   let stuckInfo = null;   // 当前卡关指引 { key, vars, floor, monster }
   let stuckSayAt = 0;     // 同一卡点重复弹对白的节流
   const hintQueue = [];
@@ -990,7 +998,10 @@
   function say(lines, opts) {
     const script = (Array.isArray(lines) ? lines : [lines]).map((row) =>
       Array.isArray(row) ? row : ['', String(row), '']);
-    const autoMs = opts && opts.autoMs != null ? opts.autoMs : hintMs(HINT_AUTO_MS);
+    // 悬挂时长按「这一条要读多少字」算（`hintAutoMs`），不是按条数或写死的 7000。
+    // 显式传 autoMs 的调用方（含 0 = 不自动收）照旧优先——那是它们自己的口径。
+    const chars = script.reduce((n, row) => n + [...String(row[1] == null ? '' : row[1])].length, 0);
+    const autoMs = opts && opts.autoMs != null ? opts.autoMs : hintMs(hintAutoMs(chars));
     hintQueue.push({ script, autoMs, cue: (opts && opts.cue) || '点击收起 · 稍后自动关闭', at: Date.now() });
     scheduleHint();
   }
@@ -5362,7 +5373,7 @@
     richInto: renderRich, say, sayHint, warn, Tips,
     // 音频：预置名清单 + reset() 供 tools/sfx-check.html 换假 AudioContext 从零计数
     sound: Sound,
-    Settings, hintMs, readMs, openHintBook, showStuck, clearStuck,
+    Settings, hintMs, readMs, hintAutoMs, openHintBook, showStuck, clearStuck,
     openMonsterProbe, showDeath, reviveFromAd, adOfferRevive, adOfferDouble,
     // 自动化专用：清死亡防重入标记再重弹——shot.html 折戟成就链路要连死多次
     deathAgain: (m, dmg) => { deathShown = false; showDeath(m, dmg); },

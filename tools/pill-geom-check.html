@@ -86,6 +86,14 @@ const TOAST_LONG = '<span class="t-emoji">🏆</span><div class="t-body">' +
       one(mid === 4800, '两行档仍 4800ms', `29 字 → ${mid}`);
       one(long === 6600, '三行档 6600ms（长句不再是 10 字/秒）', `49 字 → ${long}`);
     }
+    // 8) 对白兜底按字数（2026-11-28 07:0x）：stuckDef 95 字曾经也只有 7 秒（13.6 字/秒）。
+    const ha = (w && w.__tm && w.__tm.hintAutoMs) || null;
+    one(!!ha, 'hintAutoMs 可从 __tm 读到（对白时长同源）', ha ? '有' : '缺');
+    if (ha) {
+      one(ha(32) === 7000, '短句仍落在地板 7000ms', `32 字 → ${ha(32)}`);
+      one(ha(95) >= 11000, '卡关长句拿到 ≥11 秒（95 字读速 ≤ 8.6 字/秒）', `95 字 → ${ha(95)}`);
+      one(ha(95) > ha(60), '越长的句子挂得越久', `60 → ${ha(60)} / 95 → ${ha(95)}`);
+    }
     out.textContent = 'VP=' + w.innerWidth + 'x' + w.innerHeight + ' ;; ' +
       rows.join(' ;; ') + ' ;; ' + (bits.every((x) => x === 1) ? 'ALLPASS' : 'HASFAIL') +
       '|' + bits.join('') + ' ;; pill=' + pillBox.h + ' toast=' + toastBox.h;

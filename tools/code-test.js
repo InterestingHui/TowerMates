@@ -1360,6 +1360,26 @@ ok(V.hintSweep([{ at: 1 }], 'x').dropped === 1, 'now 是脏值同样按过期处
 ok(TTL >= 60000 && TTL <= 600000, 'TTL 在 1~10 分钟之间（太短会吞掉正常排队，太长等于没有）');
 ok(mainSrc.includes('View.hintSweep(hintQueue'), '泵每跳先扫过期（不是只判空）');
 ok(/hintQueue\.push\(\{[^}]*at: Date\.now\(\)/.test(mainSrc), '入队时间由 say() 一处盖戳，队列里不许各写各的');
+// 角色提示的悬挂时长按字数算（2026-11-28 07:0x 变体 1 诊断 → 本段收口）。
+// 病根：写死 7000ms 与字数无关，而 `STORY.keyHints` 长短差三倍——`stuckDef` 95 字＝13.6 字/秒、
+// `stuckHp` 80 字＝11.4 字/秒，读到一半就被收掉，而它们是卡关时唯一的信息来源。
+// 契约：地板仍是 7000（短句不比以前收得早）/ 按字数递增 / 读速不超过 9 字/秒 / 显式 autoMs 优先。
+{
+  const auto = (mainSrc.match(/const HINT_AUTO_BASE\s*=\s*(\d+),\s*HINT_AUTO_PER_CHAR\s*=\s*(\d+);/) || []);
+  ok(!!auto, '对白悬挂时长的基数与每字增量写在一处');
+  if (auto) {
+    const base = Number(auto[1]), per = Number(auto[2]);
+    const floorMs = Number((mainSrc.match(/const HINT_AUTO_MS\s*=\s*(\d+);/) || [])[1] || 0);
+    const at = (n) => Math.max(floorMs, base + n * per);
+    ok(floorMs >= 7000, `地板不低于 7000ms（现 ${floorMs}；低了这个改动会先把短句收早）`);
+    ok(at(32) === floorMs, `短句落在地板上（coreReveal 32 字 → ${at(32)}ms，与改动前一致）`);
+    ok(at(95) > at(80) && at(80) > at(48), `长句逐级变长（48 → ${at(48)} / 80 → ${at(80)} / 95 → ${at(95)}ms）`);
+    ok(95 / (at(95) / 1000) <= 9, `最长的卡关提示读速不超过 9 字/秒（95 字 → ${Math.round(95 / (at(95) / 1000) * 10) / 10} 字/秒）`);
+  }
+  ok(/opts\.autoMs\s*!=\s*null\s*\?\s*opts\.autoMs\s*:\s*hintMs\(hintAutoMs\(chars\)\)/.test(mainSrc.replace(/\s+/g, ' '))
+    || /autoMs\s*:\s*hintMs\(hintAutoMs\(chars\)\)/.test(mainSrc.replace(/\s+/g, ' ')),
+  'say() 的默认分支走字数算（显式传 autoMs 的调用方照旧优先）');
+}
 ok(briefOf({ dailyLabel: '11月16日', relicCount: 0, kills: 0 })[0] === '今日一塔 · 11月16日', '今日一塔排第一（藏着等于没写）');
 // 跨零点：摘要要把「这局算普通局」说清楚，否则玩家只会读成「今日榜没记上我」
 const crossed = briefOf({ dailyCrossed: true, relicCount: 0, kills: 0 });
