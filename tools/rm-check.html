@@ -129,6 +129,31 @@ const CHECK = [
       bits.push(ok ? 1 : 0);
       el.remove();
     }
+    // 7) CG 在手时，垫在下面的矢量层循环动效必须停（2026-11-27 10:4x 焦点C 收口）。
+    //    判据成对：`.dlg-scene.has-cg` 里的 .bd-fog / .sc-tw 必须 none，而同名类放在**没有 has-cg**
+    //    的容器里必须照跑——只测前一半，把规则写成全局 `animation:none` 也会绿。
+    {
+      const mk = (outer) => {
+        const box = d.createElement('div');
+        box.className = outer;
+        const fog = d.createElement('div'); fog.className = 'bd-fog';
+        const tw = d.createElement('div'); tw.className = 'sc-tw';
+        box.appendChild(fog); box.appendChild(tw);
+        d.body.appendChild(box);
+        return { box, fog, tw };
+      };
+      const on = mk('dlg-scene has-cg');
+      const off = mk('dlg-scene');
+      const mutedOn = an(on.fog) === 'none' && an(on.tw) === 'none';
+      const aliveOff = an(off.fog) !== 'none' && an(off.tw) !== 'none';
+      // 减弱模式下「没 has-cg 也要停」是既有的 reduced-motion 规则，那一半跳过
+      const ok = mutedOn && (reduce ? true : aliveOff);
+      rows.push((ok ? 'PASS|' : 'FAIL|') + 'CG 在手停矢量动效 .dlg-scene.has-cg'
+        + (reduce ? '（减弱模式只验前一半）' : '')
+        + '|fog=' + an(on.fog) + ' sc-tw=' + an(on.tw) + ' / 无CG fog=' + an(off.fog) + ' sc-tw=' + an(off.tw));
+      bits.push(ok ? 1 : 0);
+      on.box.remove(); off.box.remove();
+    }
     out.textContent = 'REDUCE=' + (reduce ? 1 : 0) + '\n' + rows.join('\n')
       + '\nTRACE|' + bits.join('') + '|';
     document.title = (bits.every((b) => b) ? 'ALLPASS|' : 'HASFAIL|') + bits.join('') + '|R' + (reduce ? 1 : 0);

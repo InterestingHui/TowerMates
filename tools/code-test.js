@@ -2479,6 +2479,40 @@ ok(mainSrc.indexOf("searchParams.set('rival'") < 0, 'main.js 不许自己拼链�
   ok(noGuard.length === 0, `免登记的两条必须自己接管键盘（缺分支：${noGuard.join(' / ') || '无'}）`);
 }
 
+// CG 在手时，垫在下面的矢量层循环动效必须停（2026-11-27 10:4x 加练美术焦点C）。
+// 起因：`.bd-shot` 不透明、z-index:1 整块盖住 `.dlg-scene` 的矢量层，火光呼吸 / 双雾对漂 / 星点闪 /
+// 锁芯转环 / 镜头缓推这 13 个动效类玩家一帧也看不见，却常驻同等数量的合成层空转（移动端发热 / 耗电）。
+// 这条此前量不到：`rm-check` 只问「减弱模式停没停」，不问「该不该跑」。契约三条——
+// ①CSS 那一族规则必须把**每一处**挂了 animation 的 bd-/sc- 类都收住（现算两边，将来加动效忘了登记会红）
+// ②切类判据必须看渲染完的 DOM 里有没有 .bd-shot（而不是拼串时的入参：序章与其余场景两条路径）
+// ③图挂掉要能摘类，否则兜底矢量图亮出来时是静止画面。
+{
+  const scenesSrc = require('fs').readFileSync(require('path').join(__dirname, '..', 'js', 'scenes.js'), 'utf8');
+  const i0 = cssSrc.indexOf('.dlg-scene.has-cg ');
+  const i1 = i0 < 0 ? -1 : cssSrc.indexOf('}', i0);
+  const rule = i0 < 0 || i1 < 0 ? '' : cssSrc.slice(i0, i1);
+  ok(i0 > 0 && /animation:\s*none/.test(rule), 'CSS 有「CG 在手停矢量动效」这一族规则');
+  const animated = [];
+  (cssSrc.match(/^\.(?:bd|sc)-[a-z0-9]+ \{[^}]*\}/gm) || []).forEach((blk) => {
+    const cls = blk.slice(1, blk.indexOf(' '));
+    // `.bd-shot` 是**看得见的**那一层（缓推 + 进场淡入挂在它自己身上），必须照跑——
+    // 它由 rm-check 第 6 组守，不在这一族的排除对象里。
+    if (cls === 'bd-shot') return;
+    const anim = /animation:\s*([^;]+)/.exec(blk);
+    if (anim && anim[1].trim() !== 'none') animated.push(cls);
+  });
+  const miss = animated.filter((c) => rule.indexOf('.' + c) < 0);
+  ok(animated.length >= 12, `CSS 里读得出矢量层动效类（实测 ${animated.length} 个，应 ≥12）`);
+  ok(miss.length === 0, `每一处循环动效都被 has-cg 规则收住（漏的：${miss.join('/') || '无'}）`);
+  ok(/box\.querySelector\('\.bd-shot'\)/.test(scenesSrc)
+    && /classList\.toggle\('has-cg', !!shot\)/.test(scenesSrc),
+    'paint() 按渲染完的 DOM 里有没有 .bd-shot 切 has-cg（不看拼串入参）');
+  ok((scenesSrc.split("classList.toggle('has-cg'").length - 1) === 1,
+    '切类只有一处（序章与其余场景共用 paint，不许各判一次）');
+  ok(/probe\.onerror = \(\) => box\.classList\.remove\('has-cg'\)/.test(scenesSrc),
+    'CG 图挂掉要摘掉 has-cg（否则兜底矢量图亮出来是静止的）');
+}
+
 console.log(`挑战码 / 触控 / 桥接 / 视图模型单测：${pass} 项通过${bad ? `，${bad} 项失败` : ''}`);
 
 process.exit(bad ? 1 : 0);

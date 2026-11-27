@@ -512,6 +512,21 @@
     // 摘 class → 换内容 → 强制 reflow → 挂回：动画同步重启，不依赖 rAF（headless 也确定）
     box.classList.remove('on');
     box.innerHTML = svg;
+    // 2026-11-27：这一屏有 .bd-shot（不透明 CG）⇒ 底下那层矢量的 13 个动效类一秒也看不见，
+    // 停掉（CSS `.dlg-scene.has-cg …`）。判据取**渲染完的 DOM**而不是拼串时的入参，
+    // 序章（imgTag 单独拼）与其余场景（layer 拼）走同一处，不许各自判一次。
+    const shot = box.querySelector('.bd-shot');
+    box.classList.toggle('has-cg', !!shot);
+    if (shot) {
+      // 图挂掉（404 / 解码失败）时 .bd-shot 透明，露出的正是兜底矢量图——那时动效必须回来。
+      // 预取已经下过一次，这里命中缓存、不额外走网络。
+      const m = /url\(["']?([^"')]+)/.exec(shot.style.backgroundImage || '');
+      if (m) {
+        const probe = new Image();
+        probe.onerror = () => box.classList.remove('has-cg');
+        probe.src = m[1];
+      }
+    }
     void box.offsetWidth;
     box.classList.add('on');
   }
@@ -519,7 +534,9 @@
   function hide() {
     cur = null;
     const box = node();
-    if (box) { box.classList.remove('on'); box.innerHTML = ''; }
+    // has-cg 一并摘掉：它是「这一屏有 CG」的判据，屏都空了还挂着就是一条假状态
+    // （下一屏若没有 CG，paint 也会切回去，但别让容器在两次 paint 之间说谎）
+    if (box) { box.classList.remove('on'); box.classList.remove('has-cg'); box.innerHTML = ''; }
     const ov = document.getElementById('dialogOverlay');
     if (ov) ov.classList.remove('scene-on');
   }

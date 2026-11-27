@@ -799,6 +799,16 @@ html, body {
 .bd-tw { animation: twk 5s ease-in-out infinite; }
 .bd-turn { transform-origin: 215px 470px; animation: turn 90s linear infinite; }
 @keyframes turn { to { transform: rotate(360deg); } }
+/* CG 在手时，垫在下面的那层矢量一秒也看不见（.bd-shot 不透明、z-index:1 整块盖住）。
+   2026-11-26 15:4x 焦点C 记账、2026-11-27 10:4x 收口：火光呼吸 / 双雾对漂 / 星点闪 / 锁芯转环 /
+   镜头缓推这 13 个动效类（单屏同时跑 5–7 个）在移动端等于同等数量的合成层常驻空转（发热 / 耗电），
+   而玩家一帧都看不见。
+   类由 scenes.js `paint()` 按「这一屏有没有 .bd-shot」挂；图挂掉会摘掉它，兜底动效照旧跑。 */
+.dlg-scene.has-cg .bd-zoom, .dlg-scene.has-cg .bd-flick, .dlg-scene.has-cg .bd-fog,
+.dlg-scene.has-cg .bd-fog2, .dlg-scene.has-cg .bd-tw, .dlg-scene.has-cg .bd-turn,
+.dlg-scene.has-cg .sc-zoom, .dlg-scene.has-cg .sc-flick, .dlg-scene.has-cg .sc-fog,
+.dlg-scene.has-cg .sc-fog2, .dlg-scene.has-cg .sc-sway, .dlg-scene.has-cg .sc-pulse,
+.dlg-scene.has-cg .sc-tw { animation: none; }
 @media (prefers-reduced-motion: reduce) {
   .bd-zoom, .bd-flick, .bd-fog, .bd-fog2, .bd-tw, .bd-turn { animation: none; }
   /* CG 层：只停缓推（72s 的持续位移），进场淡入留着——它是一次性、无位移的 */
