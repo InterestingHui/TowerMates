@@ -326,7 +326,10 @@ async function run() {
         // 提示条会自己淡出，所以在轮询里顺手抓——不在事后单独读一次（那时可能已经空了）
         var pillLive = f4.contentWindow.document.getElementById('warnPill');
         var pillTxt = pillLive ? String(pillLive.textContent || '').replace(/\s+/g, '') : '';
-        if (pillTxt.indexOf('收下了') >= 0) out.rivalCapWarn = pillTxt;
+        // 判据取「挤掉最早那条」而不是「收下了」：落地提示有首局 / 非首局两支，
+        // 首局那句说的是「朋友的挑战…」（榜要打完这一局才露脸，不许用榜上术语），
+        // 而两支都必须把「挤掉了谁」说出来——这才是这条断言真正要咬的东西。
+        if (pillTxt.indexOf('挤掉最早那条') >= 0) out.rivalCapWarn = pillTxt;
         if (capList.some(function (x) { return x.code === capCode; })) break;
       } catch (e) { capList = null; }
       await new Promise(function (r) { setTimeout(r, 60); });

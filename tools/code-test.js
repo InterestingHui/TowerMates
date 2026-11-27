@@ -633,6 +633,30 @@ ok(landWarn.some((s) => /挤掉最早那条/.test(s)), '挤掉名录里别人时
 // 字数上限按实测校准：同样写法 26 字 = 227px、23 字（挤人那句）= 241px；320 屏可用 262px ⇒ 上限 26 字
 ok(landWarn.length === 2 && landWarn.every((s) => s.replace(/\$\{[^}]*\}/g, '12').length <= 26),
   `落地提示条 ≤26 字（320 屏 262px 的实测上限；实得 ${landWarn.map((s) => s.replace(/\$\{[^}]*\}/g, '12').length).join('/')} 字）`);
+// 首局落地是「别人把链接发给你」这条漏斗的唯一落点（2026-11-27 19:xx 加练 社交）：
+// 塔友榜第 2 局起才露脸，所以这一刻除了这条提示，玩家拿不到任何关于「挑战」的信息。
+// 旧句一律说「收下了挑战·朋友：第 N 层 · 用时 X」——一个此刻还不存在的名词（榜上那个名字）
+// 加一组没有比较对象的数字（层 / 用时，他连塔都没进过），而他的眼睛正在开场三行上。
+// 契约：① 首局那支必须自己给落点（打完这局就能比）；② 不许用它此刻读不懂的榜上术语；
+// ③ 停留要比默认长（默认 readMs 对 20 字只有 ~2.6s）；④ 首局不许顺手把榜打开（首屏 ≤1 个可点项）。
+{
+  const fb = /if \(firstRunLanding\) \{([\s\S]*?)\} else warn\(/.exec(mainCode);
+  const body = fb ? fb[1] : '';
+  const lits = (body.match(/`[^`]*`/g) || []).map((s) => s.slice(1, -1));
+  ok(!!body && lits.length === 2, `首局落地有自己的一句（现 ${lits.length} 条，应为 2：挤人 / 不挤人）`);
+  const plain = lits.filter((s) => !/挤掉最早那条/.test(s));
+  ok(plain.length === 1 && /打完这局/.test(plain[0] || ''),
+    `首局那句必须给出落点（现：${plain[0] || '缺'}）`);
+  ok(lits.every((s) => !/挑战·朋友/.test(s)),
+    '首局那两句都不许用「挑战·朋友」（榜还没露脸，这个词对他是凭空的名词）');
+  ok(/挤掉最早那条/.test(body), '首局也不许把「挤掉别人」吞掉（名录满与首局无关）');
+  ok(/,\s*3[0-9]{3}\)/.test(body), '首局那句的停留 ≥3000ms（默认 readMs 对 20 字只有 ~2.6s）');
+  const longLit = lits.map((s) => s.replace(/\$\{[^}]*\}/g, '12')).sort((a, b) => b.length - a.length)[0] || '';
+  ok(!!longLit && longLit.length <= 26, `首局那两句同样 ≤26 字（320 屏 262px 上限；最长 ${longLit.length} 字：${longLit}）`);
+  ok(/if \(!firstRunLanding\) openBoard\(\)/.test(mainCode),
+    '首局不替玩家开榜（首屏只留 1 个可点项）');
+}
+
 const pasteWarn = mainCode.match(/warn\(dup \?[^\n]*?\);/g) || [];
 ok(pasteWarn.length === 1 && !/名录满|evictTag/.test(pasteWarn[0]), '贴码提示条同样不带长尾（名录满那句在面板里说）');
 

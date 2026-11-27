@@ -5213,11 +5213,24 @@
           // 判定句不在这一刻生成：只记「收到了哪一局」，句子由 refreshBoardHint 按开榜那一刻的成绩算
           //（首局不弹榜，那行等到玩家第一次开榜才渲染）。
           lastRival = { rec: rrec, evicted: kept.evicted, fresh: true };
-          warn(kept.evicted
+          // 首局玩家走的是**别人分享链接**的那条漏斗：此刻塔友榜还不存在（第 2 局起才露脸），
+          // 这条提示是他唯一的信息来源。旧句一律说「收下了挑战·朋友：第 N 层 · 用时 X」——
+          // 一个还不存在的名词（榜）＋ 一组没有比较对象的数字（层/用时），而他正低头读开场三行。
+          // 所以首局这一支换成人话：谁给的（朋友的挑战）＋ 什么时候能比（打完这局）。
+          // 长度实测 227px／20 字：320 屏的预算只有 260px（92vw − 32 padding − 2 border），
+          // 这一条不换行（`#warnPill` 是 nowrap + ellipsis），所以不许再长。
+          const firstRunLanding = isFirstRun();
+          if (firstRunLanding) {
+            // 挤人那一句不能因为「首局」就省掉：首局玩家若在开局前连点了十几条链接，
+            // 名录照样满，最早那条照样被挤——只说「收下了」就是假回执。
+            warn(kept.evicted
+              ? `朋友的挑战：第 ${rrec.floor} 层（挤掉最早那条）`
+              : `朋友的挑战：第 ${rrec.floor} 层 —— 打完这局就能比`, 3600);
+          } else warn(kept.evicted
             ? `收下了挑战·朋友：第 ${rrec.floor} 层（挤掉最早那条）`
             : `收下了挑战·朋友：第 ${rrec.floor} 层 · 用时 ${fmtTime(rrec.time)}`);
           // 塔友榜第 2 局起才露脸（首局摆榜单会挤占开屏预算）——老玩家就顺手把榜打开
-          if (!isFirstRun()) openBoard();
+          if (!firstRunLanding) openBoard();
         }
       }
       try { history.replaceState(null, '', View.withoutRival(location.href)); } catch (e) {}
