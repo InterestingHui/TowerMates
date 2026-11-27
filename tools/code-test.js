@@ -2289,6 +2289,50 @@ ok(mainSrc.indexOf("searchParams.set('rival'") < 0, 'main.js 不许自己拼链�
     `每个场景键都有底（用了 ${usedKeys.length} 个，无底：${noBed.join('/') || '无'}——无底=整屏纯黑）`);
 }
 
+// ---------- 风格复现基线 & 闸门遍历表（2026-11-27 加练美术焦点D）----------
+// 病根两条，同一种形状——「表」和「真源」不是同一份，于是没人发现它们分叉了：
+//   ① `assets/cg/manifest.json` 是手写的，停在 SDXL 那一版（18 条 / `model: sd_xl_base_1.0` /
+//      generatedAt 2026-11-25），而盘上 24 张全是 FLUX 860×1800。风格圣经 §10.2 写着「参数留痕见 manifest」，
+//      于是唯一的复现基线指向一个已经不用了的模型，新加的 6 个场景连条目都没有。
+//      处置：改成派生文件（`node tools/cg-manifest.js`，从 cg-gen.js 的 SCENES/PORTRAITS + 盘上文件生成）。
+//   ② `tools/bd-luma.html` 的 `KEYS` 是硬编码的 20 个 + 序章 4 个。今天刚好等于 IMG 的 24 个，
+//      但没有任何断言锁住这件事——下次加一个场景（IMG 加了、KEYS 忘了）那张图**不进亮度闸门**，
+//      而闸门照样全绿。§9.5 已经吃过一次同款（序章四幕带着「焦点被对话框压住」上线一整天）。
+{
+  const fs6 = require('fs');
+  const path6 = require('path');
+  const root6 = path6.join(__dirname, '..');
+  const bd6 = fs6.readFileSync(path6.join(root6, 'js', 'backdrops.js'), 'utf8');
+  const imgBlock6 = (bd6.match(/const IMG = \{([\s\S]*?)\n  \};/) || [])[1] || '';
+  const imgKeys6 = [...imgBlock6.matchAll(/(\w+):\s*'assets\/cg\/([\w-]+\.webp)'/g)].map((m) => m[1]);
+
+  // ① 亮度闸门的遍历表 = 上场的图（现算两边集合，任一侧加键都红）
+  const bl = fs6.readFileSync(path6.join(root6, 'tools', 'bd-luma.html'), 'utf8');
+  const keysBlock = (bl.match(/const KEYS = \[([\s\S]*?)\];/) || [])[1] || '';
+  const gateKeys = [...keysBlock.matchAll(/'([\w-]+)'/g)].map((m) => m[1]);
+  const introBlock = (bl.match(/KEYS\.concat\(\[([\s\S]*?)\]\)/) || [])[1] || '';
+  const gateAll = gateKeys.concat([...introBlock.matchAll(/'([\w-]+)'/g)].map((m) => m[1]));
+  ok(gateKeys.length >= 20, `bd-luma 的 KEYS 可解析（${gateKeys.length} 项 + 序章 ${gateAll.length - gateKeys.length} 项）`);
+  const notGated = imgKeys6.filter((k) => !gateAll.includes(k));
+  const gone = gateAll.filter((k) => !imgKeys6.includes(k));
+  ok(notGated.length === 0 && gone.length === 0,
+    `亮度闸门遍历的正是上场的那批图（上场 ${imgKeys6.length} / 闸门 ${gateAll.length}`
+    + `${notGated.length ? '，漏测 ' + notGated.join('/') : ''}${gone.length ? '，多测 ' + gone.join('/') : ''}）`);
+
+  // ② manifest 是派生文件：场景集合 == 盘上集合，且管线声明是现在这条（不是 SDXL 时代的残留）
+  const mf = JSON.parse(fs6.readFileSync(path6.join(root6, 'assets', 'cg', 'manifest.json'), 'utf8'));
+  const cgDisk = fs6.readdirSync(path6.join(root6, 'assets', 'cg')).filter((f) => /\.webp$/.test(f)).map((f) => f.replace(/\.webp$/, '')).sort();
+  const ptDisk = fs6.readdirSync(path6.join(root6, 'assets', 'portraits')).filter((f) => /\.webp$/.test(f)).map((f) => f.replace(/\.webp$/, '')).sort();
+  const mfScenes = (mf.images || []).map((i) => i.scene).sort();
+  const mfPts = (mf.portraits || []).map((i) => i.id).sort();
+  ok(mfScenes.join() === cgDisk.join(), `manifest 的 CG 条目与盘上一致（${mfScenes.length}/${cgDisk.length}${mfScenes.join() === cgDisk.join() ? '' : '——改了图没跑 node tools/cg-manifest.js'}）`);
+  ok(mfPts.join() === ptDisk.join(), `manifest 的立绘条目与盘上一致（${mfPts.length}/${ptDisk.length}）`);
+  ok(/flux/i.test(mf.model || '') && !/sd_xl/i.test(JSON.stringify(mf)),
+    `manifest 的管线声明是现在这条（model=${mf.model}）`);
+  const noPrompt = (mf.images || []).filter((i) => !i.prompt || i.prompt.length < 20);
+  ok(noPrompt.length === 0, `manifest 每张图都带主体提示词（缺：${noPrompt.map((i) => i.scene).join('/') || '无'}）`);
+}
+
 // ---------- 分享卡（og:image）此前没有任何闸门（2026-11-26 加练·社交）----------
 // 病根：`assets/share-card.png` 是「分享出去的第一眼」，但它不在 build 指纹里、不在任何探针里，
 // 换掉整批美术后卡片仍是 11-17 那张纯黑底纯文字（11-26 重出时才被发现）。三条都要能咬住：

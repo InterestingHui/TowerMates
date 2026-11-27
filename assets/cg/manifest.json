@@ -1,119 +1,325 @@
 {
-  "generatedAt": "2026-11-25",
-  "pipeline": "local ComfyUI 0.42.0 @ 127.0.0.1:8188 (D:/personal-video-pipline/pipeline)",
-  "model": "sd_xl_base_1.0.safetensors",
+  "generatedAt": "2026-11-27",
+  "generatedBy": "node tools/cg-manifest.js（本文件为派生文件，勿手改；改提示词/参数请改 tools/cg-gen.js 后重跑）",
+  "pipeline": "local ComfyUI 0.42.0 @ 127.0.0.1:8188 (D:/personal-video-pipline/pipeline, venv-comfy, RTX 5090 D)",
+  "model": "flux-2-klein-9b-Q4_K_M.gguf",
+  "textEncoder": "qwen_3_8b_fp8mixed.safetensors",
+  "vae": "flux2-vae.safetensors",
   "params": {
-    "width": 832,
-    "height": 1216,
-    "steps": 30,
-    "cfg": 5.5,
-    "sampler": "dpmpp_2m",
-    "scheduler": "karras",
-    "seed": 20261126
+    "width": 896,
+    "height": 1792,
+    "steps": 28,
+    "cfg": 5,
+    "sampler": "euler",
+    "scheduler": "Flux2Scheduler(28)",
+    "portraitWidth": 768,
+    "portraitHeight": 960,
+    "seed": "20261126 起，逐张见 cg-gen.js 调用参数"
   },
-  "post": "center-crop to 430x900 webp q82 (Pillow)",
-  "style": "dark fantasy game background, matte painting, extreme low key lighting, chiaroscuro, nearly black shadows swallowing the edges, ONE small warm light source, cold blue ambient, volumetric fog, deep blacks, high contrast, painterly texture, vertical composition, dim underexposed, no people, no characters",
-  "negative": "people, person, character, figure, text, letters, watermark, signature, ui, hud, bright daylight, evenly lit, well lit, colorful, cartoon, anime, low contrast, blurry, oversaturated, multiple light sources, lens flare, frame, border",
+  "post": "tools/cg-post.js：按场景 DIM 系数压暗/提亮 → 居中裁 860×1800 → webp q88 method=6；立绘 768×960 + 四周 alpha 渐隐",
+  "style": "dark fantasy game background, painterly matte painting, hand-painted oil texture, extreme low key lighting, single warm light source, cold blue ambient fill, volumetric haze, floating dust motes, deep crushed blacks, strong chiaroscuro, wide angle establishing shot, vertical composition, foreground midground background layers, highly detailed stone and metal surfaces, film grain, no people, no characters, no text",
+  "negative": "people, person, character, human, figure, face, hands, text, letters, numbers, watermark, signature, logo, ui, hud, frame, border, bright daylight, evenly lit, flat lighting, colorful, saturated, cartoon, anime, illustration, cel shading, low contrast, washed out, blurry, jpeg artifacts, oversaturated, lens flare, multiple light sources, cluttered, busy",
+  "portraitStyle": "dark fantasy character portrait, half body, painterly oil illustration, strong single rim light from upper right, deep black background, dramatic chiaroscuro, detailed fabric and metal, muted desaturated palette, three-quarter view, head slightly lowered, face mostly in shadow, centered composition, no text, no frame, no border",
+  "note": "每张的 prompt 只是主体句；完整提示词 = style + 主体句（人物场景另有 STYLE_FIG / 柔版，见 cg-gen.js）",
   "images": [
-    {
-      "file": "assets/cg/corridor.webp",
-      "scene": "corridor",
-      "prompt": "interior of an ancient stone tower corridor, tall pointed gothic arches receding into darkness, worn flagstone floor, damp grey stone walls with faint carved tally marks, a single oil lamp on the left wall as the only light, warm amber pool on the stones"
-    },
-    {
-      "file": "assets/cg/market.webp",
-      "scene": "market",
-      "prompt": "an underground night market stall in a vast stone hall, heavy dark cloth awning, wooden counter with a brass balance scale and scattered coins, old crates, one hanging lantern as the only warm light, cold fog on the floor"
-    },
-    {
-      "file": "assets/cg/throne.webp",
-      "scene": "throne",
-      "prompt": "an empty throne room at the top of a tower, high-backed stone throne with three points, tall narrow windows letting in cold moonlight shafts, faded dark red carpet, dust in the air"
-    },
-    {
-      "file": "assets/cg/gate.webp",
-      "scene": "gate",
-      "prompt": "a massive iron portcullis gate inside a stone gatehouse, heavy chains, a thin blade of warm light leaking through the bars, two dying torches on the walls"
-    },
-    {
-      "file": "assets/cg/passage.webp",
-      "scene": "passage",
-      "prompt": "a narrow brick passage deep inside a tower, cracked walls, a fallen wooden beam overhead, one thin shaft of cold light from a crack in the ceiling, rubble on the floor"
-    },
-    {
-      "file": "assets/cg/wolfhall.webp",
-      "scene": "wolfhall",
-      "prompt": "a low vaulted stone hall with claw marks gouged into the walls, bones scattered on the floor, a rusted chain hanging from the arch, one small brazier burning low"
-    },
-    {
-      "file": "assets/cg/ridge.webp",
-      "scene": "ridge",
-      "prompt": "the broken upper level of a tower, half-collapsed roof open to a starry night sky, exposed timber beams, wind-blown dust, a single lantern hanging from a beam"
-    },
-    {
-      "file": "assets/cg/empty.webp",
-      "scene": "empty",
-      "prompt": "an endless empty stone gallery with a row of dark doorways, nothing inside them, one distant torch, long shadows on the floor"
-    },
     {
       "file": "assets/cg/bell.webp",
       "scene": "bell",
-      "prompt": "a bell tower interior, an enormous bronze bell hanging in the centre, broken clapper, thick bell frame beams, one brazier burning at the base"
-    },
-    {
-      "file": "assets/cg/namewall.webp",
-      "scene": "namewall",
-      "prompt": "a huge polished stone wall covered with thousands of carved names, one blank patch in the lower right, a single torch lighting the carvings from the left"
+      "prompt": "a bell tower interior, an enormous bronze bell hanging in the centre from a massive timber frame, a broken clapper lying on the boards, thick ropes, one brazier burning at the base, dust and cold light from louvred openings high up",
+      "size": "860x1800",
+      "bytes": 330298,
+      "sha1": "d50dd79d1a",
+      "mtime": "2026-11-27"
     },
     {
       "file": "assets/cg/carve.webp",
       "scene": "carve",
-      "prompt": "a stone carving room, a long work table with chisels and a half-finished stone tablet, an empty chair, one low oil lamp on the table"
-    },
-    {
-      "file": "assets/cg/roof.webp",
-      "scene": "roof",
-      "seed": 20261128,
-      "factor": 0.52,
-      "note": "2026-11-25 焦点D 重出：原图被模型读成「从外面远看一座塔」，与 dawn 同构，而 princessPlain 台词是「追到塔顶」",
-      "prompt": "camera standing on the flat rooftop of a black tower, broken stone pillars and a cracked parapet close in the foreground, an empty stone pedestal in the centre of the roof, a sea of clouds far below the parapet, dark cold night sky with heavy cloud and no dawn glow, no distant tower, no building exterior"
+      "prompt": "inside a dark stone workshop, a heavy scarred workbench seen from a low three-quarter angle, a half-finished flat stone tablet lying on it with fresh chisel marks, a steel chisel and a mallet beside the tablet, one small clay oil lamp at the edge of the bench as the only light, stone dust, chisels hanging on the wall behind, no jars, no vase",
+      "size": "860x1800",
+      "bytes": 255852,
+      "sha1": "0738361e64",
+      "mtime": "2026-11-27"
     },
     {
       "file": "assets/cg/core.webp",
       "scene": "core",
-      "prompt": "the hidden heart of a tower, a circular stone mechanism of concentric rings around a stone pedestal, cold blue light rising from below, four tall lock columns at the corners"
+      "prompt": "interior of a circular stone chamber, looking slightly down at a huge ancient mechanism of concentric carved stone rings set flush into the floor around a low central pedestal, pale cold blue light glowing up from the narrow gaps between the rings, four massive square pillars at the corners, sealed room, no sky, no windows, no steps",
+      "size": "860x1800",
+      "bytes": 267130,
+      "sha1": "fe4473268d",
+      "mtime": "2026-11-27"
+    },
+    {
+      "file": "assets/cg/corridor.webp",
+      "scene": "corridor",
+      "prompt": "interior of an ancient stone tower corridor, tall pointed gothic arches receding into darkness, worn flagstone floor with a dark central runner, damp grey stone walls with faint carved tally marks, a single oil lamp on the left wall as the only light, warm amber pool on the stones, cold fog low on the floor",
+      "size": "860x1800",
+      "bytes": 290300,
+      "sha1": "998910e147",
+      "mtime": "2026-11-27"
     },
     {
       "file": "assets/cg/dawn.webp",
       "scene": "dawn",
-      "seed": 20261201,
-      "factor": 0.74,
-      "note": "2026-11-25 焦点A 重出：原图提示词写「at dawn」却配「cold sky」，出成冷夜暴风海崖（实测 warm 0.00%），而这是玩家看到的最后一张图。新版只留地平线一道金缝 + 一点水面反光，其余全黑",
-      "prompt": "almost entirely black sea and sky, a single thin horizontal slit of golden dawn light at the horizon, heavy black storm clouds filling the top two thirds, a black tower silhouette rising against the faint glow, calm black water with one thin reflection"
+      "prompt": "almost entirely black sea and sky, a single thin horizontal slit of golden dawn light at the horizon, heavy black storm clouds filling the top two thirds, a black tower silhouette rising against the faint glow, calm black water with one thin reflection",
+      "size": "860x1800",
+      "bytes": 265210,
+      "sha1": "703a9320b2",
+      "mtime": "2026-11-27"
+    },
+    {
+      "file": "assets/cg/empty.webp",
+      "scene": "empty",
+      "prompt": "an endless empty stone gallery with a row of dark doorways, nothing inside them, one burning torch on the far wall as the only light, long shadows stretching across the floor, cold air and dust, the doorways all equally dark",
+      "size": "860x1800",
+      "bytes": 325442,
+      "sha1": "e8ec65eccc",
+      "mtime": "2026-11-27"
+    },
+    {
+      "file": "assets/cg/forge.webp",
+      "scene": "forge",
+      "prompt": "an abandoned smithy deep inside a tower, a cold stone forge with rusted tools, an anvil covered in orange rust dust, broken chains, a pile of corroded armour on the floor, one dying ember glow inside the forge mouth, heavy soot-black walls",
+      "size": "860x1800",
+      "bytes": 333256,
+      "sha1": "245850ffe9",
+      "mtime": "2026-11-27"
+    },
+    {
+      "file": "assets/cg/gate.webp",
+      "scene": "gate",
+      "prompt": "a massive iron portcullis gate inside a stone gatehouse, heavy rusted chains, a burning torch in an iron bracket on the left wall casting a warm pool on wet flagstones, cold blue shadows behind the bars, thick stone blocks, a thin blade of light leaking through",
+      "size": "860x1800",
+      "bytes": 303886,
+      "sha1": "a39ac2579e",
+      "mtime": "2026-11-27"
     },
     {
       "file": "assets/cg/intro1.webp",
       "scene": "intro1",
-      "prompt": "a ruined throne room, a huge horned demon rendered as a pure black silhouette stands before the throne, holding a small woman silhouette by the arm, cold moonlight behind them, dark red carpet, embers in the air, figures are flat black silhouettes only"
+      "prompt": "an ancient ruined gothic throne room, low camera angle looking up, a huge horned demon in black armour on the left, his horns and heavy armour rimmed with cold light, a closed iron helm with no face opening, his arm reaching down from above, his fist clamped hard around the upper arm of a young woman, she hangs from his grip as dead weight, both feet off the ground, knees bent, legs hanging limp and heavy, one small shoe fallen onto the red carpet below her, her captured arm pulled perfectly straight and taut, her shoulder wrenched upward, her free hand clawing at his wrist, trying to pry his fingers open, her body twisted away, head thrown back, she wears a dark grey wool dress, the skirt hangs heavy and still, cold moonlight behind her catches her sheer white silk stockings, dark red carpet leading forward, embers rising in the air, exactly two figures, not dancing",
+      "size": "860x1800",
+      "bytes": 213358,
+      "sha1": "7d4033a4ae",
+      "mtime": "2026-11-27"
     },
     {
       "file": "assets/cg/intro2.webp",
       "scene": "intro2",
-      "seed": 20261130,
-      "factor": 0.86,
-      "crop": "tight 1060（收窄下缘，避免最亮的地板亮斑落在对白框后）",
-      "note": "2026-11-25 焦点D 重出：原图最亮处 y≈87% 被对白框压住；新图「帕」仍未画出（两次提示词都没出），待办记着",
-      "prompt": "a grand ruined palace hall at midnight, torn banners hanging from tall columns, moonlight pouring in high through broken windows near the ceiling, a low stone pedestal in the middle foreground with a small folded pale cloth resting on it, dark stone floor in deep shadow, dust motes"
+      "prompt": "a cold moonlit throne hall at midnight, an elderly king standing alone before his high throne, a heavy dark iron crown on his head, thick fur-lined robes hanging heavy on thin shoulders, a gaunt grief-stricken face wet with tears, wearing a long sorrowful expression, he holds out a small folded white embroidered handkerchief toward the camera with one trembling hand, his other hand half raised in a silent plea, shot from the eye level of the person standing in front of him, at arm's length, the white handkerchief catches the soft light, torn banners hanging from tall columns behind him, moonlight pouring down through broken windows high above, warm golden candlelight on his hands and the handkerchief, cold blue shadow behind, dust motes drifting",
+      "size": "860x1800",
+      "bytes": 194176,
+      "sha1": "513791c38f",
+      "mtime": "2026-11-27"
     },
     {
       "file": "assets/cg/intro3.webp",
       "scene": "intro3",
-      "prompt": "a small stone altar in a dark chapel, a single candle burning on it as the only light, a folded grey cloth and a short sword laid on the stone, deep shadows all around"
+      "prompt": "a young hooded wanderer kneeling on cold stone before an empty high-backed throne on a stone dais, seen from behind at a three-quarter angle, his head lifted toward the throne, one fist closed tight around a small white embroidered handkerchief held against his chest, a short iron sword and a rough wooden shield lying on the flagstones beside his knee, worn leather cloak, crossed straps across his back, cold moonlight from high broken windows, the hall enormous and empty around him, dust in the air, an empty seat, no statue, no idol, no carving of a face",
+      "size": "860x1800",
+      "bytes": 218082,
+      "sha1": "939b1b8277",
+      "mtime": "2026-11-27"
     },
     {
       "file": "assets/cg/intro4.webp",
       "scene": "intro4",
-      "prompt": "the gate of a black tower at dawn seen from outside, one small hooded figure rendered as a pure black silhouette walking toward the open gate, warm light spilling from the doorway, cold mist on the ground"
+      "prompt": "the gate of a black tower at dawn seen from outside, one small hooded figure rendered as a pure black silhouette walking toward the open gate, warm light spilling from the doorway, cold mist on the ground",
+      "size": "860x1800",
+      "bytes": 138236,
+      "sha1": "f11151ff04",
+      "mtime": "2026-11-27"
+    },
+    {
+      "file": "assets/cg/ledger.webp",
+      "scene": "ledger",
+      "prompt": "an old accounting room inside a tower, tall shelves packed with ledgers and scrolls, a heavy wooden desk with an open thick book and a dry quill, stacks of paper, one oil lamp on the desk as the only light, dust and cobwebs, deep shadows between shelves",
+      "size": "860x1800",
+      "bytes": 323068,
+      "sha1": "5e004167b4",
+      "mtime": "2026-11-27"
+    },
+    {
+      "file": "assets/cg/market.webp",
+      "scene": "market",
+      "prompt": "an underground night market stall in a vast stone hall, heavy dark cloth awning, wooden counter with a brass balance scale and scattered coins, old wooden crates stacked behind, one hanging lantern as the only warm light, cold fog on the floor, deep arches behind",
+      "size": "860x1800",
+      "bytes": 285856,
+      "sha1": "8905d3ff87",
+      "mtime": "2026-11-27"
+    },
+    {
+      "file": "assets/cg/namewall.webp",
+      "scene": "namewall",
+      "prompt": "close-up frontal view of one flat interior stone wall completely covered with thousands of small hand-cut names and tally marks, narrow chisel grooves catching raking torch light from the left, one single uncarved blank patch in the lower right corner, dust in the grooves, no door, no arch, no skull, no statue, no ornament",
+      "size": "860x1800",
+      "bytes": 349648,
+      "sha1": "c4e39d65f9",
+      "mtime": "2026-11-27"
+    },
+    {
+      "file": "assets/cg/passage.webp",
+      "scene": "passage",
+      "prompt": "a narrow brick passage deep inside a tower, cracked walls with old mortar, a fallen wooden beam overhead, one thin shaft of cold light from a crack in the ceiling, rubble and broken bricks on the floor, damp stains",
+      "size": "860x1800",
+      "bytes": 332564,
+      "sha1": "660f907c5d",
+      "mtime": "2026-11-27"
+    },
+    {
+      "file": "assets/cg/reddoor.webp",
+      "scene": "reddoor",
+      "prompt": "a heavy red-painted iron door at the end of a stone corridor, flaking red paint over rust, iron bands and a large ring handle, one torch in a bracket beside it, cold darkness beyond, worn threshold",
+      "size": "860x1800",
+      "bytes": 316642,
+      "sha1": "0db89d41ab",
+      "mtime": "2026-11-27"
+    },
+    {
+      "file": "assets/cg/ridge.webp",
+      "scene": "ridge",
+      "prompt": "the broken upper level of a tower, half-collapsed roof open to a starry night sky, exposed timber beams and shattered tiles, wind-blown dust, a single lantern hanging from a beam, a low broken parapet with the void beyond",
+      "size": "860x1800",
+      "bytes": 294602,
+      "sha1": "2109b8fa65",
+      "mtime": "2026-11-27"
+    },
+    {
+      "file": "assets/cg/roof.webp",
+      "scene": "roof",
+      "prompt": "camera standing on the flat rooftop of a black tower, broken stone pillars and a cracked parapet close in the foreground, an empty stone pedestal in the centre, a sea of clouds far below the parapet, dark cold night sky with heavy cloud, no dawn glow, no distant tower",
+      "size": "860x1800",
+      "bytes": 275748,
+      "sha1": "3d999c8965",
+      "mtime": "2026-11-27"
+    },
+    {
+      "file": "assets/cg/stairs.webp",
+      "scene": "stairs",
+      "prompt": "a spiral stone staircase winding up inside a tower shaft, worn steps, a narrow arrow slit letting in one thin cold shaft of moonlight, iron ring bolts in the wall, dust hanging in the beam, darkness above and below",
+      "size": "860x1800",
+      "bytes": 272398,
+      "sha1": "b9bb38b4b4",
+      "mtime": "2026-11-27"
+    },
+    {
+      "file": "assets/cg/throne.webp",
+      "scene": "throne",
+      "prompt": "an empty throne room at the top of a tower, high-backed stone throne with three points, tall narrow windows letting in cold moonlight shafts, faded dark red carpet running to the dais, dust in the air, cracked flagstones, deep shadow in the corners",
+      "size": "860x1800",
+      "bytes": 285230,
+      "sha1": "76c9dbe054",
+      "mtime": "2026-11-27"
+    },
+    {
+      "file": "assets/cg/town.webp",
+      "scene": "town",
+      "prompt": "a night view looking down from a great height onto a small harbour town, six tiny warm window lights scattered in the dark, black sea beyond, heavy clouds, cold moonlight, the town far below and very small",
+      "size": "860x1800",
+      "bytes": 273208,
+      "sha1": "8076a2b13a",
+      "mtime": "2026-11-27"
+    },
+    {
+      "file": "assets/cg/window.webp",
+      "scene": "window",
+      "prompt": "a tall narrow window in a stone tower room, shutters torn away, cold wind and a scrap of pale cloth caught on the sill, black sea and cliffs far below, moonlight through the opening, the room behind in deep shadow",
+      "size": "860x1800",
+      "bytes": 292286,
+      "sha1": "345e379e36",
+      "mtime": "2026-11-27"
+    },
+    {
+      "file": "assets/cg/wolfhall.webp",
+      "scene": "wolfhall",
+      "prompt": "a low vaulted stone hall, deep claw marks gouged into the walls, bones and a broken sword scattered on the floor, a rusted chain hanging from the arch, one small brazier burning low as the only light, smoke curling up",
+      "size": "860x1800",
+      "bytes": 312208,
+      "sha1": "966d625288",
+      "mtime": "2026-11-27"
+    }
+  ],
+  "portraits": [
+    {
+      "file": "assets/portraits/candle.webp",
+      "id": "candle",
+      "prompt": "an old male craftsman ghost holding a small oil lamp, gaunt hollow cheeks, hunched shoulders, faint pale blue translucent glow, the stone wall faintly visible through his body, threadbare work clothes, tired kind eyes, the lamp is the only warm light",
+      "size": "768x960",
+      "bytes": 216778,
+      "sha1": "2d9e7ee328",
+      "mtime": "2026-11-27"
+    },
+    {
+      "file": "assets/portraits/cheng.webp",
+      "id": "cheng",
+      "prompt": "a male travelling quartermaster merchant behind a wooden stall, leather coat with many pockets, a brass balance scale in one hand, warm lantern light, shrewd friendly smile, coins on the counter",
+      "size": "768x960",
+      "bytes": 248252,
+      "sha1": "1c12c8d775",
+      "mtime": "2026-11-27"
+    },
+    {
+      "file": "assets/portraits/duo.webp",
+      "id": "duo",
+      "prompt": "a male bell keeper in a heavy hooded robe, a broken bronze bell clapper in his hands, bronze-coloured pendant, old and quiet face, warm bronze light from one side",
+      "size": "768x960",
+      "bytes": 246194,
+      "sha1": "1a3b64c47f",
+      "mtime": "2026-11-27"
+    },
+    {
+      "file": "assets/portraits/heng.webp",
+      "id": "heng",
+      "prompt": "a male stone-cutter in a rough work apron, holding a chisel, stone dust on his shoulders and hair, pale grey skin like carved granite, cold blue light, still and patient expression",
+      "size": "768x960",
+      "bytes": 240266,
+      "sha1": "ec0144f5e3",
+      "mtime": "2026-11-27"
+    },
+    {
+      "file": "assets/portraits/hero.webp",
+      "id": "hero",
+      "prompt": "a young man in his early twenties, hooded wanderer cloak worn at the edges, tilted pointed hood pushed back enough to see the face, one single short sword slung across his back, crossed leather straps and a rough scarf, faint stubble, warm gold eyes catching the light, lean weathered face, determined quiet expression",
+      "size": "768x960",
+      "bytes": 239954,
+      "sha1": "b1b19df9ff",
+      "mtime": "2026-11-27"
+    },
+    {
+      "file": "assets/portraits/mowang.webp",
+      "id": "mowang",
+      "prompt": "a tall male horned demon king in rusted armour, massive curved horns, cracked iron plates, embers glowing in the cracks, one hand resting on a sword hilt, sorrowful weary posture, deep red ember light",
+      "size": "768x960",
+      "bytes": 243496,
+      "sha1": "a311d6577e",
+      "mtime": "2026-11-27"
+    },
+    {
+      "file": "assets/portraits/vera.webp",
+      "id": "vera",
+      "prompt": "a young woman of twenty-two, princess Vera, heart-shaped face with a soft tapered jawline and high soft cheekbones, striking grey-blue eyes, almond shaped with slightly upturned outer corners and long dark lashes, straight fine brows, a high straight nose bridge with a small delicate tip, full lips with a defined cupid bow, closed in a calm line, luminous clear skin with fine real texture, no heavy blush, one small dark beauty mark under her left eye, long pale honey blonde hair half braided, loose strands falling over one shoulder, an elegant deep midnight-blue princess gown, fitted corseted bodice with silver embroidery, puffed short sleeves, a full skirt ending at mid-thigh, a fuller bust, a curvy feminine figure, white thigh-high stockings with a visible band of bare thigh above them, a short fur trimmed royal cloak thrown back over one shoulder, dark leather ankle boots with a low heel, a small white embroidered handkerchief knotted around her left wrist, both hands relaxed and empty, head lifted, regal poised bearing, calm resolute gaze",
+      "size": "768x960",
+      "bytes": 169512,
+      "sha1": "55baf0e9b8",
+      "mtime": "2026-11-27"
+    },
+    {
+      "file": "assets/portraits/yan.webp",
+      "id": "yan",
+      "prompt": "a gaunt male scholar in layered dark robes seated behind a desk, a thick ledger open before him, ink-stained fingers, quill in hand, violet cold light, face half in shadow",
+      "size": "768x960",
+      "bytes": 205798,
+      "sha1": "2ee73df0d3",
+      "mtime": "2026-11-27"
+    },
+    {
+      "file": "assets/portraits/yanmo.webp",
+      "id": "yanmo",
+      "prompt": "a middle-aged male craftsman with smooth healed burn scars, pale tight scar tissue across his face and forearms, heavy leather apron, soot-black hands, a blacksmith hammer tucked at his belt, warm ember glow from below, weary human face, no horns",
+      "size": "768x960",
+      "bytes": 223766,
+      "sha1": "caefc17f93",
+      "mtime": "2026-11-27"
     }
   ]
 }
