@@ -2554,6 +2554,44 @@ ok(mainSrc.indexOf("searchParams.set('rival'") < 0, 'main.js 不许自己拼链�
     `凡输入框字号 ≥16px 字面 px（iOS 聚焦不缩放；不合格：${badFs.join(' / ') || '无'}）`);
 }
 
+// 撞墙这一步必须「说出口」（2026-11-27 13:2x 加练·游戏性 焦点B）。
+// 病根：`act()` 的 'blocked' 分支只 `Sound.play('lock')` 就 return，而 `Engine.tryMove()` 在这条路上
+// 一直带着 msg（墙＝「石墙挡住了去路」／读过的碑＝「碑上的字你已经读过了」）——话在引擎里生成了，
+// 到渲染层被整条丢掉。手机拨到静音时，按方向键撞墙＝屏幕上没有任何变化；而这恰好是新玩家第一分钟
+// 最可能做的事（先按一下方向键试试）。全作唯一零反馈的操作，长期没人发现是因为没有闸门问过它。
+// 契约：① 该分支必须读 `ev.msg`；② 必须过节流（键盘连发最短 ~95ms，裸 log 会 7 行日志刷满）；
+// ③ 引擎那两条 blocked 必须继续带 msg——引擎哪天把话删了，这里就成了一个永远为假的 if。
+{
+  const blockedCase = /case 'blocked':([\s\S]*?)case 'battle':/.exec(mainSrc);
+  const body = blockedCase ? blockedCase[1] : '';
+  ok(!!body, 'act() 里读得到 blocked 分支');
+  ok(/log\(ev\.msg/.test(body), `撞墙要把引擎那句话说出来（现读：${body ? body.replace(/\s+/g, ' ').trim().slice(0, 46) : '空'}）`);
+  ok(/BUMP_SAY_GAP/.test(body), '撞墙提示过节流常量（长按连发不许把日志刷满）');
+  const gapDecl = /const BUMP_SAY_GAP = (\d+)/.exec(mainSrc);
+  ok(!!gapDecl && Number(gapDecl[1]) >= 400, `节流间隔 ≥400ms（现 ${gapDecl ? gapDecl[1] + 'ms' : '无'}）`);
+  const engSrc = require('fs').readFileSync(require('path').join(__dirname, '..', 'js', 'engine.js'), 'utf8');
+  ok(/return \{ type: 'blocked', msg: '石墙挡住了去路' \}/.test(engSrc)
+    && /return \{ type: 'blocked', msg: '碑上的字你已经读过了' \}/.test(engSrc),
+    '引擎的墙 / 读过的碑两条 blocked 仍带 msg（这里的话源不能断）');
+}
+
+// 日志行的 class 必须真有样式（2026-11-27 13:2x 变体 3 收敛轮）。
+// 病根：`log(msg, cls)` 的 cls 从没有人校验过——CSS 里只有 `.line.good/.warn/.gold`，
+// 而调用点写过 `'dim'`（序章「读过了」那句），这个类不存在 ⇒ 参数等于没传，改的人以为
+// 「这行会弱化」。同型的旧账已有好几件（战斗面板三颗死按钮、`pb-emoji` 死字号），
+// 都是「写了一个看起来生效、实际什么都不做的东西」。
+// 契约：凡 `log(..., 'x')` 的字面类名，CSS 里必须有 `#log .line.x`；新增类要去写规则，
+// 不写就别传（不传就是普通行，最新一行本来就全额不透明）。
+{
+  const used = new Set();
+  const re = /\blog\((?:[^()]|\([^()]*\))*,\s*'([a-z]+)'\s*\)/g;
+  let m;
+  while ((m = re.exec(mainSrc))) used.add(m[1]);
+  const missing = [...used].filter((c) => !new RegExp('\\.line\\.' + c + '\\b').test(cssSrc));
+  ok(used.size > 0, `读得到日志行用到的类（${[...used].join('/') || '无'}）`);
+  ok(missing.length === 0, `每个日志类都有样式（没样式的：${missing.join('/') || '无'}）`);
+}
+
 console.log(`挑战码 / 触控 / 桥接 / 视图模型单测：${pass} 项通过${bad ? `，${bad} 项失败` : ''}`);
 
 process.exit(bad ? 1 : 0);

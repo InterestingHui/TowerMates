@@ -4028,6 +4028,10 @@
     }
   }
 
+  // 撞墙那句提示的最小间隔：键盘连发最短 ~95ms（walkMs），触屏连走还要更密；
+  // 600ms 正好是「一按一下」与「按住不放」的分界，按住时只在开头说一次，不会刷屏。
+  const BUMP_SAY_GAP = 600;
+  let bumpSaidAt = 0;
   function act(dx, dy) {
     if (battleBusy) return;
     if (shopOpen || endShown) return;
@@ -4043,9 +4047,19 @@
     switch (ev.type) {
       case 'idle':
         return;
-      case 'blocked':
+      case 'blocked': {
+        // 撞墙 / 撞读过的碑：引擎一直在 `msg` 里带话（「石墙挡住了去路」「碑上的字你已经读过了」），
+        // 这里原先整条丢掉、只剩一声音效——手机拨到静音，按方向键就等于什么都没发生，
+        // 新玩家第一分钟最容易做的一件事（往墙上按一下试试）恰好是全作唯一零反馈的操作。
+        // 长按方向键会连撞（walkMs 最短 ~95ms），所以同一句压到 BUMP_SAY_GAP 才说一次，别把日志刷满。
         Sound.play('lock');
+        const tBump = performance.now();
+        if (ev.msg && tBump - bumpSaidAt > BUMP_SAY_GAP) {
+          bumpSaidAt = tBump;
+          log(ev.msg);
+        }
         return;
+      }
       case 'battle':
         resolveBattle(dx, dy);
         return;
@@ -4872,7 +4886,7 @@
       enterFloor(true);
       if (Engine.vow() !== 'none') log(`你立下了${vs.name}：${vs.desc}`, 'gold');
       log('你踏入了魔塔。塔顶传来极轻的、像铃声一样的声音。', 'gold');
-      if (seenIntro) log('序章在读过了——设置里可以重看。', 'dim');
+      if (seenIntro) log('序章在读过了——设置里可以重看。');
       // 开局教学：棋盘标注（高亮格子 + 虚线 + 说明卡），点击「知道了」才收。
       // 用 setTimeout 避开对白关闭的同步栈：等遮罩过渡完、布局稳定后再量尺寸定位。
       // 直达链接 ?play=1 不弹这张卡，保证扫码/点链接落地即可操作；普通入口保留引导。
