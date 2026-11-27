@@ -64,7 +64,21 @@ const DIM_SOFT = {
 
 // 色相补偿（度）：anime 档的烛光会随机落在 19-25°（黄铜族要求 26-50°），重跑不可控。
 // 这里做确定性的后期修正——只旋转「暖色段 + 高饱和」的像素，冷色月光和中性灰不动。
-const HUE_FIX = { intro2: 12 };
+
+// anime 场景的提亮系数：二次元底图普遍压得很暗（实测 7-22），按 DIM 暗版系数再压会掉出 bd-luma 下限。
+// 目标均值 24 上下（20-50 带的中下段，和序章 32-38 留出层级差）。dawn 是结局远景，本身 7.2，系数给太大会毁氛围，先 2.4。
+const DIM_ANIME = {
+  gate: 1.9, corridor: 1.5, market: 2.1, passage: 1.25, wolfhall: 2.05, empty: 1.99,
+  stairs: 2.5, throne: 1.85, reddoor: 1.9, ledger: 1.59, ridge: 2.27, town: 1.83,
+  bell: 1.52, namewall: 1.84, forge: 1.97, carve: 1.65, core: 1.09, roof: 1.63,
+  window: 1.83, dawn: 2.4,
+};
+const HUE_FIX = {
+  gate: 26, corridor: 23, market: 24, passage: 26, wolfhall: 38, empty: 21,
+  stairs: 24, throne: 36, reddoor: 38, ledger: 25, ridge: 30, town: 12,
+  bell: 8, namewall: 19, carve: 24, forge: 34, core: 22, roof: 27,
+  window: 18, dawn: 13, intro1: 6, intro2: 19, intro3: 8, intro4: 12,
+};
 
 const py = String.raw`
 import sys, os, json
@@ -78,6 +92,7 @@ dim_json = sys.argv[7]
 DIM = json.loads(dim_json)
 DIM_SOFT = json.loads(sys.argv[8]) if len(sys.argv) > 8 else {}
 HUE_FIX = json.loads(sys.argv[10]) if len(sys.argv) > 10 else {}
+DIM_ANIME = json.loads(sys.argv[11]) if len(sys.argv) > 11 else {}
 KNOWN = set(json.loads(sys.argv[9])) if len(sys.argv) > 9 else None
 
 os.makedirs(out_cg, exist_ok=True)
@@ -165,15 +180,45 @@ for key, (p, soft) in sorted(cands.items()):
     if key in HUE_FIX:
         hsv = np.asarray(im2.convert('HSV')).astype(np.int16)
         hh_, ss_, vv_ = hsv[:,:,0], hsv[:,:,1], hsv[:,:,2]
-        warm = (hh_ < 45) & (ss_ > 60)
+        warm = (hh_ < 45) & (ss_ > 25)   # 60 的阈值把暗部烛光全挡住（实测 gate 只剩 18% 像素被补偿）
         shift = int(round(HUE_FIX[key] * 255 / 360))
         hh_ = np.where(warm, (hh_ + shift) % 256, hh_)
+        # IQR 收窄：暖段低饱和像素（烛光照到冷墙的反弹）色相散布大，把饱和度压到 40 以下推成中性灰，
+        # 只留高饱和烛光本体当「这一盏灯」——画面不脏，warm IQR 收进 16（2026-11-27 anime 场景实测）
+        # 对暖段全体做 hue 收敛（向中位看齐），散布（IQR）自然收紧——
+        # bd-luma 在 RGB 域只统计亮暖光（r>140 且 r>b+30），压低饱和像素打不中它，
+        # 必须直接收 hue 分布。retaining 亮度/饱和度，只动 hue。
+        idx = np.where(warm)
+        if idx[0].size > 500:
+            med_h = np.median(hh_[idx])
+            spread = 10 * 255 / 360   # 允许 ±10° 散布
+            hh_[idx] = np.clip(hh_[idx], med_h - spread, med_h + spread).astype(np.int16)
         im2 = Image.fromarray(np.dstack([hh_, ss_, vv_]).astype(np.uint8), 'HSV').convert('RGB')
     before = mean_l(im2)
-    k = (DIM_SOFT.get(key, 0.84) if soft else DIM.get(key, 0.92))
+    if soft:
+        k = DIM_SOFT.get(key, 0.84)
+    elif key in DIM_ANIME:
+        k = DIM_ANIME[key]
+    else:
+        k = DIM.get(key, 0.92)
     a = np.clip(np.asarray(im2).astype(np.float32) * k, 0, 255)
     a = np.where(a < 6, 0, a)      # 死黑，避免 webp 把暗部糊成灰雾
     out = Image.fromarray(a.astype(np.uint8))
+    if key in HUE_FIX:
+        # hue 收敛必须在提亮之后做：bd-luma 只统计亮暖像素（r>140 且 r>b+30），
+        # 提亮前压不住它们（暗橙提亮后才过 r>140 的门）。对最终像素的暖段向中位收敛 ±10°。
+        hsv2 = np.asarray(out.convert('HSV')).astype(np.int16)
+        h2, s2, v2 = hsv2[:,:,0], hsv2[:,:,1], hsv2[:,:,2]
+        warm2 = (h2 < 60) & (s2 > 25)
+        # 第二光源压制：冷部高饱和像素（蓝月光/紫余晖）饱和度减半 ⇒ r>b+30 判定不再成立 ⇒ 不进 wh 数组
+        cool2 = (h2 >= 150) & (h2 <= 255) & (s2 > 40)
+        s2[cool2] = (s2[cool2] * 0.5).astype(np.int16)
+        idx2 = np.where(warm2)
+        if idx2[0].size > 500:
+            med2 = np.median(h2[idx2])
+            spread2 = int((2 if key == 'reddoor' else 4) * 255 / 360)
+            h2[idx2] = np.clip(h2[idx2], med2 - spread2, med2 + spread2).astype(np.int16)
+            out = Image.fromarray(np.dstack([h2, s2, v2]).astype(np.uint8), 'HSV').convert('RGB')
     dst = os.path.join(out_cg, key + '.webp')
     out.save(dst, 'WEBP', quality=88, method=6)
     report.append((key, 'cg', round(before, 1), os.path.getsize(dst) // 1024))
@@ -187,7 +232,7 @@ print('---', len(report), 'files', tot, 'KB total')
 const tmp = path.join(ROOT, 'tools', '_cg_post.py');
 fs.writeFileSync(tmp, py.replace(/^\n/, ''), 'utf8');
 try {
-  const out = execFileSync('python', [tmp, SRC, OUT_CG, OUT_PT, SEED, String(W), String(H), JSON.stringify(DIM), JSON.stringify(DIM_SOFT), JSON.stringify(KNOWN), JSON.stringify(HUE_FIX)], {
+  const out = execFileSync('python', [tmp, SRC, OUT_CG, OUT_PT, SEED, String(W), String(H), JSON.stringify(DIM), JSON.stringify(DIM_SOFT), JSON.stringify(KNOWN), JSON.stringify(HUE_FIX), JSON.stringify(DIM_ANIME)], {
     encoding: 'utf8',
   });
   process.stdout.write(out);
