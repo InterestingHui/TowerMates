@@ -1215,3 +1215,12 @@
 - 闸门：check ✓ / engine 645 / code **762→768** / sim 18,745·68.4% 未漂 / regress exit 0（59 图 / 减弱 **23·23** 两遍 / 可读性 1563·0 / 弹层 116·116 / 触控 94·94 / 并发 28 / 首局 63.1s 未变）；真浏览器探针 boot `true|none|none` → 点击 `false|twk|fogA` → 再点 `true|none|none`，探针即删、8833 已 kill 复查空闲。线上 build 41417257ff、css 8 处 `html.fx-low`、js 3 处 applyFxClass。
 - 坑：①量 CSS 类名集合必须先剥注释（注释里的 `.fx-low`/`.bd-*` 会被正则当成选择器，第一版多出 `js`、`bd-` 两个假类）。②`rm-check` 的「摘类必须恢复」在 `--force-prefers-reduced-motion` 那一遍必然为假，要按 `reduce` 分支放行。
 - 下轮：加练顺延 **美术**（10:4x 焦点C → D）；变体最久＝校准（按规矩不重复判断）⇒ 实际取**自检**（21:0x，已 4 轮）。可动手：缠斗卡面经验绝对值（低）、二次元批次残余（他的管线）。仍阻塞：shot.html 三取景 + HARNESS、微信切边界、包体重压、贴码行身份（v6 码）。
+
+## 2026-11-27 22:5x 自动轮（全力，单段 ~16 分钟，commit 707266d 已推 + 已部署 build 41417257ff 已核）
+- 判定：代码 mtime 73 分钟；唯一脏项 `tools/shot.html`（他会话 CG 探针）⇒ 全力，不碰不 add；占用表空。
+- 加练 美术 焦点D（风格漂移检测，量「配方」不量像素）：6 张并排 + 缩略目检 ⇒ 像素无漂移（bd-luma 12 项全绿、暖光 31–42°、极差 11°）；`namewall` 缩略像石墙纹理、放大有刻名，判不是缺陷并登记。
+- 真漂移在留痕层：`cg-gen.js` 的 `--art=` **对场景是静默 no-op**（`ART_STYLES` 只在 genPortrait 读）⇒ c2d3f06「20 张场景全切二次元」的观感来自 LoRA；manifest 立绘栏指着 `PORTRAIT_STYLE`（油画）、lora 零留痕。三处收口：`BATCH` 常量 + 场景提示行 + manifest 从 `ART_STYLES[BATCH.art]` 派生 + docs/art-pipeline 更正 + 圣经 §10.7。
+- 自检六面：第④面抓到 `bd-luma` 的 `LITWARM=0.05` 按百分数比（实际门 0.05%，本意 5%，差 100 倍）⇒ 换绝对采样点 `WARM_MIN_PX=120` + `HUE_MIN_CARDS=14` 防空转；实测 24/24 仍参与，覆盖零损。
+- 闸门：check ✓ / code **768→773** / 四刀变异全红 / bd-luma **11→12 项** / sim 18,745·68.4% 未漂 / regress EXIT=0（59 图 / 可读性 1563·0 / 弹层 116 / 触控 94 / 减弱 23·23 / 并发 28 / 首局 63.1s）。线上 manifest 已含 lora/batch/portraitCfg。
+- 坑：①python 的 `str.replace` 不命中不报错——变异前先 `assert`；②Git Bash 的 `/tmp` ≠ Windows python 的 `/tmp`（后者是 `C:\tmp`）；③验「场景不吃 --art」的提示行不能在 8188 跑（会塞他的 ComfyUI 队列），副本改 PORT=8199；④>6KB heredoc 在这台机器会把 bash 打崩（`add_item` fatal）且不写文件，长文本改用 Write + `fs.appendFileSync`。
+- 下轮：加练顺延 **社交**；变体取**诊断**。可动手：缠斗卡面经验绝对值（低）、dawn 重出（冻）、贴码行身份（中·v6 码）。仍阻塞：shot.html 三取景 + HARNESS、微信切边界、包体重压。
