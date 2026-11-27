@@ -46,7 +46,7 @@ const H = 1800;
 //   · 其余按各自 raw 值微调，目标都落在 meanL 22–38。
 const DIM = {
   dawn: 1.15, roof: 0.95, town: 0.86, ridge: 0.86, window: 0.90,
-  intro4: 0.88, intro2: 0.92, intro1: 0.90, intro3: 0.94,
+  intro4: 1.00, intro2: 0.92, intro1: 0.90, intro3: 0.94,
   core: 0.90, corridor: 0.88, gate: 0.90, market: 0.94, namewall: 0.92,
   stairs: 0.90, reddoor: 0.90, ledger: 0.92, forge: 0.94,
 };
@@ -62,6 +62,10 @@ const DIM_SOFT = {
   stairs: 0.84, reddoor: 0.84, ledger: 0.86, forge: 0.86, bell: 0.84,
 };
 
+// 色相补偿（度）：anime 档的烛光会随机落在 19-25°（黄铜族要求 26-50°），重跑不可控。
+// 这里做确定性的后期修正——只旋转「暖色段 + 高饱和」的像素，冷色月光和中性灰不动。
+const HUE_FIX = { intro2: 12 };
+
 const py = String.raw`
 import sys, os, json
 from PIL import Image, ImageFilter
@@ -73,6 +77,7 @@ W, H = int(sys.argv[5]), int(sys.argv[6])
 dim_json = sys.argv[7]
 DIM = json.loads(dim_json)
 DIM_SOFT = json.loads(sys.argv[8]) if len(sys.argv) > 8 else {}
+HUE_FIX = json.loads(sys.argv[10]) if len(sys.argv) > 10 else {}
 KNOWN = set(json.loads(sys.argv[9])) if len(sys.argv) > 9 else None
 
 os.makedirs(out_cg, exist_ok=True)
@@ -113,7 +118,7 @@ for fn in os.listdir(src):
         key = key[:-5]
     # 画风档位样张 <key>_<art> 同理：剥掉档位后缀当正式 key 用，
     # 否则会被下面的白名单当成「未声明的场景」直接跳过（2026-11-26 实测踩到）。
-    for suf in ('_hanban', '_cg3d', '_semiM', '_semi', '_real'):
+    for suf in ('_hanban', '_cg3d', '_semiM', '_semi', '_anime', '_real'):
         if key.endswith(suf):
             key = key[:-len(suf)]
             break
@@ -157,6 +162,13 @@ for key, (p, soft) in sorted(cands.items()):
         continue
 
     im2 = fit_crop(im, W, H)
+    if key in HUE_FIX:
+        hsv = np.asarray(im2.convert('HSV')).astype(np.int16)
+        hh_, ss_, vv_ = hsv[:,:,0], hsv[:,:,1], hsv[:,:,2]
+        warm = (hh_ < 45) & (ss_ > 60)
+        shift = int(round(HUE_FIX[key] * 255 / 360))
+        hh_ = np.where(warm, (hh_ + shift) % 256, hh_)
+        im2 = Image.fromarray(np.dstack([hh_, ss_, vv_]).astype(np.uint8), 'HSV').convert('RGB')
     before = mean_l(im2)
     k = (DIM_SOFT.get(key, 0.84) if soft else DIM.get(key, 0.92))
     a = np.clip(np.asarray(im2).astype(np.float32) * k, 0, 255)
@@ -175,7 +187,7 @@ print('---', len(report), 'files', tot, 'KB total')
 const tmp = path.join(ROOT, 'tools', '_cg_post.py');
 fs.writeFileSync(tmp, py.replace(/^\n/, ''), 'utf8');
 try {
-  const out = execFileSync('python', [tmp, SRC, OUT_CG, OUT_PT, SEED, String(W), String(H), JSON.stringify(DIM), JSON.stringify(DIM_SOFT), JSON.stringify(KNOWN)], {
+  const out = execFileSync('python', [tmp, SRC, OUT_CG, OUT_PT, SEED, String(W), String(H), JSON.stringify(DIM), JSON.stringify(DIM_SOFT), JSON.stringify(KNOWN), JSON.stringify(HUE_FIX)], {
     encoding: 'utf8',
   });
   process.stdout.write(out);

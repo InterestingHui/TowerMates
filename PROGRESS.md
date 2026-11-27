@@ -2366,3 +2366,21 @@
   **⑥A-14 对照（本轮主线）的正面结论**：奖励结构与本作世界观基本同向，逐条核过——`dodger`（≤10 击杀通关）对上碑文「打不过的绕着走」；`sweeper`（≥50）对上「塔不同情勇敢的人」的反面诱惑（并存＝两种玩法都被承认）；结局正文「碑面留白，一个名字也不刻」对上塔印 `无痕` 是最优档、`留名` 反而次一档；折戟（死亡）给余烬这件事，结算页已有正当化文案（「塔把这一局的余烬收进墙上，等下一个人」「塔不怪你——它只是照章办事」）。**唯一没正当化的一处**是「死得快也能拿余烬」，但它已被 11-26 的「每 10 只 1 点」压过（待办 346 记着），不再单独开条。
   自审八项：①回归 regress **exit 0**｜②边界：只改一段台词的字面，空档/首档/旧档/数组末位均不涉；`stripComments` 后正则取段落，段尾 `\n  ],` 唯一｜③逻辑六问：无分支改动（文案 + 断言），不涉连点/定时器/await/共享引用｜④残留：无临时文件（未起探针、未起服务）｜⑤代码质量：断言用「认得出纸」+「不许见过烛」两条正交判据，不抄整句（不把闸门变成快照）｜⑥上轮复核：15:0x 的 `writeClipboard` 单点与 `CLIP_TIMEOUT` 契约仍在（750 全绿含旧断言）｜⑦文案与代码一致：本条修的就是这一项（判据 `flags.journal` vs 台词「见过烛」）｜⑧引导四问：无新增玩家可见元素，N/A。
   ｜加练：叙事（发现 1 处 / 已修 1 处 / 留待办 1 处：锁环术语先于解释）｜变体：诊断（换视角）｜打磨：叙事一致性（发现 1 处 / 修 1 处 / 留待办 1 处——P1 台词与判据错位；P2 锁环术语顺序已记档不改）｜薄弱层：结构（第二局无理由，仍等骨架级方案）｜阻塞：`shot.html` 三取景 + HARNESS 报错仍卡在他的未提交文件上；本轮他还在改 `tools/cg-gen.js`，未碰未 add
+
+- 2026-11-27 19:1x（**用户拍板：「记忆一下这种生图方式，魔塔都用这种方式。先做好公主的人物一致性，然后给多个画面都重绘，都用这个画风」**）
+  **规程落盘 `docs/art-pipeline.md`**——这是本项目美术层的规范文档，以后所有图默认按它走，不再逐次试错。
+  默认档 = `--art=anime --lora=klein9b_anime_v3_refined.safetensors:0.9`（FLUX.2 Klein 9B GGUF + qwen_3_8b + flux2-vae，28 步 / CFG 3.0）。
+  **本轮全部换到二次元**：9 张角色立绘重出 + 序章四幕全部从二次元锚图派生（`tools/masters/` 全部换成 anime 版，写实版归档到 `masters/_realistic/`）。
+  **为什么 anime 档比写实档好推**：写实档每次都在跟「平均脸」对抗（AI 的「真实」= 路人脸），要堆五官还要压显老显幼，反复六七轮；
+  二次元的「美型」本身是 LoRA 训练数据里的强先验，不需要补结构，毛孔/次表面散射这些坑在平涂里根本不存在。
+  **anime 档的五个坑（全部实测踩到，已进 art-pipeline.md）**：
+  ① **男性会变性**：LoRA 训练集以女性为主，`male` 压不住（mowang 出成白长发女性、yanmo 差点）⇒ 负向加 `female, woman, girl, feminine face, lipstick, makeup`；
+  ② **背景会漏**：不堵就是蓝天白云 / 火山口（hero、mowang 都中过）⇒ 负向加 `bright blue sky, sunny day, meadow`，正向加 `moody dark fantasy atmosphere, deep shadow`；
+  ③ **老人会变丧尸**：candle 第一版是发光红眼的干尸 ⇒ 负向加 `zombie, undead, skull face, corpse, hollow eyes, glowing red eyes`，正向写 `kind gentle eyes`；
+  ④ **多一把武器**：`one single short sword` 压不住双刀 ⇒ 直接改成 `sheathed at his belt, nothing on his back` + 负向 `two swords, dual wield`；
+  ⑤ **暖光色相不可控**：同一段 prompt 重跑会在 19–25° 之间随机漂（黄铜族要求 26–50°），**重跑无法收敛** ⇒ `cg-post` 新增 `HUE_FIX` 表，
+  只对「暖色段（H<45）+ 高饱和（S>60）」的像素做 HSV 色相旋转，冷色月光和中性灰不动（intro2 补偿 12°）。这是确定性的，比再抽十次可靠。
+  **工具侧**：`cg-gen.js` 加 `--lora=name:strength`（LoraLoaderModelOnly 挂在 UNET 与 CFGGuider 之间）与 `anime` 档；
+  `cg-post.js` 认 `_anime` 后缀、加 `HUE_FIX`。**注意**：`HUE_FIX` 的传参位次踩过一次坑（写成 argv[11] 实际在 argv[10]），python 静默抛错、上层报「命令被安全策略拦截」，实际是参数错位。
+  **闸门**：check ✓ / code ✓ / regress 全绿（59 图 / backdrop-luma 11 项 / 可读性 0 违规）。intro4 的 DIM 从 0.88 提到 **1.00**（本身够暗，再压就掉出 20 下限）。
+  ｜阻塞：无（**未做**：20 张场景图仍是写实厚涂，与二次元人物不同源——下一轮要把场景也换过来，否则是「插画人物站在写实场景里」）

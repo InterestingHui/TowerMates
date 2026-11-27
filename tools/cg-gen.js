@@ -317,6 +317,28 @@ const ART_STYLES = {
     neg: ', illustration, painting, oil paint, brush strokes, 3D render, CGI, cartoon, anime, '
       + 'plastic skin, waxy skin, airbrushed, poreless, doll-like, beauty filter',
   },
+  // F. 日系二次元（配 klein9b_anime_v3_refined LoRA 用）：和写实几档差异最大的方向。
+  //    注意这一档要主动堵掉 photographic / oil paint，否则 LoRA 和写实词会互相打架，出四不像。
+  anime: {
+    cfg: 3.0,
+    style: 'Japanese anime game key visual, clean crisp lineart with soft cel shading, '
+      + 'large expressive eyes with detailed irises, delicate hair strands, '
+      + 'vivid but harmonious color palette, soft rim light, '
+      + 'moody dark fantasy atmosphere, deep shadow with one warm light source, dark atmospheric background, '
+      + 'three-quarter view, head lifted, centered composition, no text, no frame, no border',
+    neg: ', photorealistic, photograph, 3D render, CGI, oil paint, thick impasto, muddy brushwork, '
+      + 'western realistic face, skin pores, '
+      // anime LoRA 的训练集以女性角色为主，male 压不住（mowang 被画成白发女性、hero 多出一把刀）
+      + 'female, woman, girl, feminine face, long eyelashes, lipstick, makeup, '
+      + 'two swords, dual wield, extra weapons, '
+      // 背景也会漏：不堵就是蓝天白云 / 火山口，完全不是塔内
+      + 'bright blue sky, sunny day, daylight outdoors, meadow, flowers, '
+      // anime 档把「老人 + 暗光 + 发光眼」直接画成丧尸（candle 实测变干尸），这几组必须堵死
+      + 'zombie, undead, skull face, corpse, gaunt corpse, hollow eyes, glowing red eyes, horror, gore, '
+      + 'two people, multiple people, another person, crowd, second figure, '
+      + 'deformed hands, distorted face, child, teenager, underage',
+  },
+  //    2026-11-27 实测：semi 套到男性角色上会画成女人（yanmo → 亚洲老妇）、还会在前面加一个女模特（mowang、candle）。
   // E. 男性写实档（semi 的男性版）：同一套光影逻辑，去掉所有 beauty/妆容词，换粗粝纪实语法。
   //    2026-11-27 实测：semi 套到男性角色上会画成女人（yanmo → 亚洲老妇）、还会在前面加一个女模特（mowang、candle）。
   semiM: {
@@ -362,18 +384,26 @@ const ART = (() => {
   return m ? m.slice(6) : '';
 })();
 
+// LoRA 开关（2026-11-27）：本机 loras/ 里有一个专为 FLUX.2 Klein 训的二次元 LoRA
+// （klein9b_anime_v3_refined），一直没用。用法 --lora=文件名:强度，例 --lora=klein9b_anime_v3_refined.safetensors:0.9
+const LORA = (() => {
+  const m = process.argv.find((a) => a.startsWith('--lora='));
+  return m ? m.slice(7) : '';
+})();
+
 const PORTRAITS = {
   // 第一版出成十二三岁的少年（young wanderer 被读成 kid）。设定是「第九位勇者」成年人，
   // 改成 early twenties + 明确的身形与胡茬，压住年龄。
   hero: 'a young man in his early twenties, hooded wanderer cloak worn at the edges, '
-    + 'tilted pointed hood pushed back enough to see the face, one single short sword slung across his back, '
+    + 'tilted pointed hood pushed back enough to see the face, one single short sword sheathed at his belt, nothing on his back, '
     + 'crossed leather straps and a rough scarf, faint stubble, warm gold eyes catching the light, '
     + 'lean weathered face, determined quiet expression',
   // 2026-11-27 补：所有男性角色的描述都补上 male / his。上一版只写了 craftsman / scholar / merchant，
   // 模型在 beauty 语法下默认画成女性（实测 yanmo 出成亚洲老妇、candle 前面多站一个女模特）。
-  candle: 'an old male craftsman ghost holding a small oil lamp, gaunt hollow cheeks, hunched shoulders, '
+  candle: 'an old male craftsman ghost holding a small oil lamp, gaunt but human face with kind gentle eyes, '
+    + 'soft tired warm expression, no fear, hunched shoulders, '
     + 'faint pale blue translucent glow, the stone wall faintly visible through his body, '
-    + 'threadbare work clothes, tired kind eyes, '
+    + 'threadbare work clothes, '
     + 'the lamp is the only warm light',
   // 2026-11-26 重做（用户：「公主画得充分好看一点，要有白丝」）。
   // 上一版的问题：脸瘦、眼窝深、表情苦、年龄感 30+，而且长裙盖到脚——没有腿、没有丝袜。
@@ -399,10 +429,10 @@ const PORTRAITS = {
     + 'dark leather ankle boots with a low heel, '
     + 'a small white embroidered handkerchief knotted around her left wrist, both hands relaxed and empty, '
     + 'head lifted, regal poised bearing, calm resolute gaze',
-  mowang: 'a tall male horned demon king in rusted armour, massive curved horns, '
+  mowang: 'a tall adult male demon king with a heavy masculine build, broad shoulders and a strong jaw, massive curved horns, rusted armour, '
     + 'cracked iron plates, embers glowing in the cracks, one hand resting on a sword hilt, '
     + 'sorrowful weary posture, deep red ember light',
-  yanmo: 'a middle-aged male craftsman with smooth healed burn scars, pale tight scar tissue across his face and forearms, '
+  yanmo: 'a middle-aged male craftsman with old pale flat scar tissue on one cheek and one forearm, fully healed, no blood, no open wounds, '
     + 'heavy leather apron, '
     + 'soot-black hands, a blacksmith hammer tucked at his belt, warm ember glow from below, '
     + 'weary human face, no horns',
@@ -420,7 +450,7 @@ const PORTRAITS = {
   // 2026-11-27 新增：国王原先只出现在序章 CG 里，没有锚图 ⇒ 每次重画都是一张新脸。
   // 补一张锚图后，序章第二幕（递绣帕）从这张派生，以后任何国王出镜都认这张脸。
   king: 'an elderly king in his sixties, heavy dark iron crown, thick fur lined robes with an ermine collar, '
-    + 'gaunt grief stricken face wet with tears, grey beard, deep set tired eyes, '
+    + 'gaunt grief stricken face wet with tears, grey beard, deep set tired human eyes with grey irises, not glowing, '
     + 'holding a small white embroidered handkerchief in one hand, '
     + 'standing in a cold moonlit throne hall',
 };
@@ -480,7 +510,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // 和 SDXL 的差别是「没有内置 latent 放大这一步」——FLUX 在 896×1792 上原生就够细节，
 // 再叠一层放大只会把画面往「塑料」推（实测 SDXL 那套 hires 换到 FLUX 上是负收益）。
 function buildWorkflow(prompt, neg, w, h, seed, prefix, cfg) {
-  return {
+  const wf = {
     1: { class_type: 'UnetLoaderGGUF', inputs: { unet_name: UNET } },
     2: { class_type: 'CLIPLoader', inputs: { clip_name: TEXT_ENC, type: 'flux2' } },
     3: { class_type: 'VAELoader', inputs: { vae_name: VAE } },
@@ -498,6 +528,15 @@ function buildWorkflow(prompt, neg, w, h, seed, prefix, cfg) {
     12: { class_type: 'VAEDecode', inputs: { samples: ['11', 0], vae: ['3', 0] } },
     13: { class_type: 'SaveImage', inputs: { images: ['12', 0], filename_prefix: prefix } },
   };
+  // LoRA 挂在 UNET 和 CFGGuider 之间；GGUF 底模同样能接（都是 MODEL 类型）
+  if (LORA) {
+    const i = LORA.lastIndexOf(':');
+    const loraName = i > 0 ? LORA.slice(0, i) : LORA;
+    const strength = i > 0 ? (Number(LORA.slice(i + 1)) || 0.9) : 0.9;
+    wf[14] = { class_type: 'LoraLoaderModelOnly', inputs: { model: ['1', 0], lora_name: loraName, strength_model: strength } };
+    wf[9].inputs.model = ['14', 0];
+  }
+  return wf;
 }
 
 async function run(wf, key, seed) {
