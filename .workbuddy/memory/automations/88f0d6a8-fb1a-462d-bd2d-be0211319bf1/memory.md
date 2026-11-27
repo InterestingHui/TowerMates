@@ -1157,3 +1157,10 @@
 - **坑**：`Get-Content`/`Select-String` 中文全乱码（这台机 PowerShell 按 GBK 解 UTF-8），要判「改没改」用 ASCII 子串（`$t.Contains('BUMP_SAY_GAP')`），别靠肉眼看输出；`chrome --dump-dom` 直接 `&` 调用拿不到 stdout，要走 node `spawn` 收流（`--virtual-time-budget` 配 iframe 探针时按 30s 给）。
 - 新待办（低·未定性）：点击寻路刚落地那一下按方向键可能被吞——探针补 500ms 沉降后同序列全过，可疑来源是 walkAlong 收尾 tick / 走法提示条 / modalBlocksMove 之一，别当结论。
 - 下轮：加练顺延 **美术**（10:4x 焦点C → D）；变体最久＝**诊断**（11-26 01:2x）。可动手：缠斗卡面经验绝对值（低）、减弱动效游戏内开关（中·迁移前置·属新工作面）、dawn 重出（冻·出图）、vera 光位（低·并批·冻）。仍阻塞：shot.html 三个死亡取景 + HARNESS 报错、微信切边界、包体重压。
+
+## 2026-11-27 14:5x–15:5x 自动轮（全力，**2 段**共 ~23 分钟，commit b7cc608 / b96983b 已推 + 已部署 build 已换）
+- 判定：代码 mtime 77 分钟；唯一脏项 `tools/shot.html`（他会话 CG 探针）⇒ 全力，不碰不 add；占用表空。**中途他会话开始改 `tools/cg-gen.js`（anime LoRA）**——未碰未 add，下轮开轮要再看它是否已提交。
+- **第 1 段 · 加练 美术 焦点D + 变体 6 节奏**：24 张 CG 全量量化（tex 中位 0.36，`town` 0.82 离群但 1:1 并排证伪——高频来自星空+波光）；真缺陷是**基线本身**：`assets/cg/manifest.json` 手写、停在 SDXL（18 条 / 6 个新场景无条目）→ 新增 `tools/cg-manifest.js` 派生、`code-test` +6（含「bd-luma 遍历表 == 上场表」，KEYS 硬编码 20+4 无锁）。节奏审计与基线逐项一致、零新增元素。
+- **第 2 段 · 加练 社交 + 变体 4 自检**：`copyText`（挑战码/链接/结算分享）无超时，导出 JSON 另有一份带 350ms 超时+execCommand 的实现——WKWebView 挂起时按钮永远不动 = 手机上「点了没反应」，而这是发成绩唯一入口。收成模块级 `writeClipboard`；`fallbackCopy` 返回布尔不自己 warn；导出改调同一处。连带修掉 F13 的假成功（旧兜底 execCommand 失败也报「已复制 ✓」）。code 742→747，regress exit 0。
+- **坑**：①`if (navigator.clipboard && navigator.clipboard.writeText)` 一行含两次该串——断言「只有一处调用点」要数 `.writeText(`。②改兜底语义会让 newplayer F13 红，那是闸门正常工作，改判据别改代码。③python 里 `\n` 拼进 JS 正则会被写成真换行，破坏正则——用 indexOf 切片代替。
+- 下轮：加练顺延 **叙事**（12:1x 之后）；变体最久＝**自检已做** ⇒ 按 诊断 12:0x / 节奏 06:3x 的日期取**节奏**（但 06:3x 刚做，实际取诊断）。可动手：`Settings.fx` 动效开关（中·迁移前置）、缠斗卡面经验绝对值（低）、town tex 记账。仍阻塞：shot.html 三取景 + HARNESS、微信切边界、包体重压。
