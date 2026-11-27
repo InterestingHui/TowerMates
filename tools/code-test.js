@@ -721,8 +721,11 @@ ok(prepTry && prepCatch, 'openPrep 装配段有 catch，且 catch 里一定先�
   ok(count('js/data.js', '撞怪时先挑「格挡」') >= 1 && count('index.html', '撞怪时在战前挑「格挡」') >= 1,
     '老兵明码与玩法说明同口径');
   const mainNoCmt2 = noCmt2(read2('js/main.js'));
-  ok(/\[el\.bsBlock, el\.bsGuard, el\.bsTangle\]\.forEach/.test(mainNoCmt2) && /b\.hidden = true/.test(mainNoCmt2),
-    '战斗面板三块打法按钮开战即收起（所以「战斗中」这类说法必须删干净）');
+  // 2026-11-28（变体 3 收敛 · 做减法）：三块按钮随「决策移到战前面板」删干净了
+  // （DOM / el 引用 / 42 行 CSS / 这条契约本身）。留着它们只多一段「看着还能改」的误导，
+  // 而且不会自己报错——所以这条改成守「不许长回来」。
+  ok(!/bsBlock|bsGuard|bsTangle/.test(mainNoCmt2) && count('index.html', 'bs-block') === 0,
+    '战斗层不再有打法按钮（打法只在战前面板挑）');
 }
 
 // ---------- 线稿是同一支笔：黄铜亮档只有一个值（2026-11-24 加练·美术焦点D） ----------
@@ -1837,7 +1840,10 @@ ok(mainSrc.indexOf("searchParams.set('rival'") < 0, 'main.js 不许自己拼链�
     .map((m) => Number(m[1]));
   const wantMinus = [100 - Math.round(base * 100), 100 - Math.round(base2 * 100)];
   const badMinus = minus(htmlSrc).concat(minus(mainSrc)).filter((n) => wantMinus.indexOf(n) < 0);
-  ok(minus(htmlSrc).length >= 1, '战斗面板的格挡按钮上确实写着「承伤 −N%」（这句被删掉就没得核对）');
+  // 2026-11-28：原来这条要求「战斗面板那颗按钮的静态标记里必须有承伤 −N%」。
+  // 那颗按钮（连同它的写死 −45%）已在变体 3 收敛轮删掉，标记不复存在 ⇒ 存在性这一半作废；
+  // 盖真值的那一半留着——将来谁再往 index.html / main.js 写死一个百分点，仍然当场红。
+  // 现在上屏的承伤比例只有一个来源：`view.js` 的战前卡按 blockModel 现算（`承伤 −${pct}%`）。
   ok(badMinus.length === 0,
     `「承伤 −N%」也必须是真值 ${wantMinus.join(' / ')}%（违规：${badMinus.join(' / ') || '无'}）`);
 }

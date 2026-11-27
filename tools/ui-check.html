@@ -937,8 +937,8 @@ async function run() {
       out.bsHint.panelUp = upB;
       var hEl = d.getElementById('bsHint');
       out.bsHint.after = hEl ? hEl.textContent.trim() : '';
-      var blkB = d.getElementById('bsBlock'), gdB = d.getElementById('bsGuard'), tgB = d.getElementById('bsTangle');
-      out.bsHint.liveAfter = [blkB, gdB, tgB].filter(function (b) { return b && !b.hidden && !b.disabled; }).length;
+      // 2026-11-28：三块按钮已删除，改成数节点——「战斗里点得到打法按钮」这件事从「藏起来」变成「不存在」
+      out.bsHint.liveAfter = d.querySelectorAll('.bs-block').length;
       d.getElementById('battleScene').dispatchEvent(new MouseEvent('click', { bubbles: true }));
       await new Promise(function (r) { setTimeout(r, 600); });
     }

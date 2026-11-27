@@ -744,7 +744,7 @@
     bsHeroHp: $('bsHeroHp'), bsFoeHp: $('bsFoeHp'),
     bsName: $('bsName'), bsRounds: $('bsRounds'), bsNumbers: $('bsNumbers'),
     bsPhase: $('bsPhase'), bsPhaseTitle: $('bsPhaseTitle'), bsPhaseText: $('bsPhaseText'),
-    bsBlock: $('bsBlock'), bsGuard: $('bsGuard'), bsTangle: $('bsTangle'), bsThreat: $('bsThreat'), bsHint: $('bsHint'), blockPip: $('blockPip'), compassPip: $('compassPip'), scopePip: $('scopePip'), zealPip: $('zealPip'), finalPip: $('finalPip'),
+    bsThreat: $('bsThreat'), bsHint: $('bsHint'), blockPip: $('blockPip'), compassPip: $('compassPip'), scopePip: $('scopePip'), zealPip: $('zealPip'), finalPip: $('finalPip'),
     bsPanel: document.querySelector('.bs-panel'),
     guide: $('guide'),
     stuckBar: $('stuckBar'), stuckText: $('stuckText'),
@@ -2219,13 +2219,6 @@
     const tangleOn = !!tactic.tangle && !blockOn && !guardOn;
     const spreadActive = Engine.blockSpreadActive();
     const guardDmg = info.dmgGuard || null;
-    // 三块按钮在开战后一律收起：决策已经做完，留着只会被误读成「还能改」
-    [el.bsBlock, el.bsGuard, el.bsTangle].forEach((b) => {
-      if (!b) return;
-      b.hidden = true;
-      b.disabled = true;
-      b.onclick = null;
-    });
     // 提示行回显这一场按哪种打法结算（玩家在战前点的那一张）；文案走 View.hintPicked，
     // 与「选完必须说清选的是哪一把」这条契约同源。
     const pickedLabel = guardOn ? '架盾' : blockOn ? '格挡' : tangleOn ? '缠斗' : '';
@@ -2350,9 +2343,6 @@
       el.bsFoe.classList.remove('ko', 'hit');
       el.bsHero.classList.remove('hit', 'lunge-r', 'lunge-l');
       el.battleScene.onclick = null;
-      el.bsBlock.onclick = null;
-      if (el.bsTangle) el.bsTangle.onclick = null;
-      if (el.bsGuard) el.bsGuard.onclick = null;
       skipWaiter = null; // 战斗结束必须清掉唤醒器，别让下一次点击去唤醒上一场的等待
       sceneDone = true;
       done({ block: guardOn ? 'all' : blockOn, tangle: tangleOn });
@@ -2381,9 +2371,6 @@
     prepHandoff = false;   // 交接标记只对「下一次开战」有效：这一战没打起来就得清掉，别漏给后面
     el.battleScene.classList.remove('show', 'hero-win', 'phasing');
     el.battleScene.onclick = null;
-    el.bsBlock.onclick = null;
-    if (el.bsTangle) el.bsTangle.onclick = null;
-    if (el.bsGuard) el.bsGuard.onclick = null;
     // 探针钩子：演出「开了又收」在无头里可能整个发生在一次轮询之间，只能数次数
     window.__battleAbortCount = (window.__battleAbortCount || 0) + 1;
     if (e) {
