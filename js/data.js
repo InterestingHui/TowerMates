@@ -369,6 +369,10 @@ window.GAME_DATA = (function () {
       theme: '铁锈与第一课', color: '#c8a978', accent: 'rgba(200,169,120,0.20)',
       floors: [13, 14, 15], boss: '7', scene: 'gate',
       start: { hp: 1000, maxHp: 1000, atk: 10, def: 10 },
+      // 2026-11-28 前 8 级阈值拉长后，齿塔靠 3 层的经验密度（98/188/268）撑不起新曲线，
+      // 灰塔第 3 层会打不过灰齿。齿塔是「浓缩三层」，经验按 ×2 结算，
+      // 实测复刻原等级曲线（锈 Lv5 / 灰 Lv7 / 钟 Lv8，原为 6/8/9）。
+      expMul: 2,
       enter: 'towerRust', clear: 'clearRust',
       mark: { id: 'rust', name: '锈印', emoji: '⚙️', atk: 2, def: 2, maxHp: 150, desc: '下一座塔起始：攻 +2 / 防 +2 / 上限 +150' },
     },
@@ -377,6 +381,7 @@ window.GAME_DATA = (function () {
       theme: '烧掉的名字', color: '#b9a4a0', accent: 'rgba(185,164,160,0.20)',
       floors: [16, 17, 18], boss: '8', scene: 'namewall',
       start: { hp: 1200, maxHp: 1200, atk: 14, def: 12 },
+      expMul: 2,
       enter: 'towerAsh', clear: 'clearAsh',
       mark: { id: 'ash', name: '灰印', emoji: '🕳️', atk: 2, def: 2, maxHp: 150, desc: '下一座塔起始：攻 +2 / 防 +2 / 上限 +150' },
     },
@@ -385,6 +390,7 @@ window.GAME_DATA = (function () {
       theme: '停住的秒针', color: '#9fd8ff', accent: 'rgba(159,216,255,0.20)',
       floors: [19, 20, 21], boss: '9', scene: 'bell',
       start: { hp: 1400, maxHp: 1400, atk: 18, def: 16 },
+      expMul: 2,
       enter: 'towerBell', clear: 'clearBell',
       mark: { id: 'bell', name: '钟印', emoji: '⏱️', atk: 3, def: 3, maxHp: 200, desc: '下一座塔起始：攻 +3 / 防 +3 / 上限 +200' },
     },
@@ -406,8 +412,13 @@ window.GAME_DATA = (function () {
   };
 
   // 升到下一级所需经验（索引 = 当前等级-1）
-  // 前 9 级沿用原曲线；锁梁六层把上限抬到 Lv.19，后 10 级每级约 +300 经验。
-  const levelExp = [10, 24, 42, 64, 92, 125, 165, 205, 450, 740, 1030, 1320, 1610, 1900, 2190, 2480, 2770, 3060];
+  // 2026-11-28 重排前 8 级：原表 [10,24,42,64,92,125,165,205] 是 6 层短塔遗留值，
+  // 而怪物经验按 12 层塔给（骷髅 6 / 僵尸 10 / 怨灵 16 / 狼人 24），导致前期每 1.3~1.7 只怪
+  // 就跳一级（第 2 层 3 只骷髅连升 2 级、第 3 层墨妖一战跳 3 级），免费升级压过了金币取舍。
+  // 新前段按「每级约 3~4 只当层怪」重排，增量 15/25/30/38/44/50/56/82 平滑递增；
+  // Lv.10 起的 450/740/…/3060 一字未动 —— 后段是平衡验证过的锚点，且总封顶不变，
+  // 所以终局等级不受影响，只是前期的等级「发放时点」后移、断崖（40→245）摊平。
+  const levelExp = [15, 40, 70, 108, 152, 202, 258, 340, 450, 740, 1030, 1320, 1610, 1900, 2190, 2480, 2770, 3060];
 
   const floors = [
     {

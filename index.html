@@ -159,15 +159,17 @@
 </div>
 
 <!-- 对白 -->
-<!-- 立誓：开局选一条自约 -->
+<!-- 立誓：进塔之前，在这座塔的门前立一条（2026-11-28 起：先选塔，再立誓） -->
 <div class="overlay" id="vowOverlay">
   <div class="vow-stage">
-    <div class="vow-kicker">立 誓</div>
+    <div class="vow-kicker">入 塔 之 誓</div>
+    <div class="vow-tower" id="vowTower" hidden></div>
     <p class="vow-desc">选一条路进塔：越难走，通关时多留 ✦</p>
     <p class="vow-ember" id="vowEmber" hidden></p>
     <p class="vow-ember-note" id="vowEmberNote" hidden>✦ 是塔的记忆：走得越远留得越多，攒来解锁下面的助力</p>
     <div class="vow-cards" id="vowCards"></div>
     <div class="vow-hint">点一张开始</div>
+    <button class="vow-back" id="vowBack" type="button">← 换一座塔</button>
   </div>
 </div>
 

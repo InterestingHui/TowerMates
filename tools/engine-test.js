@@ -353,7 +353,9 @@ ok(E.priceOf(D.shop.find((x) => x.id === 'atk')) === 60, '没有账本时价格�
 E.newGame(null, { tower: 'main' });
 s = E.state();
 s.flags.relic_vigor = true;
-s.exp = 9; s.hp = 1000; s.maxHp = 1000;
+// 前置按新阈值表算：Lv1→2 需 15 点，蝙蝠给 2 点，所以备 13 点即可在战后触发一次升级。
+// （2026-11-28 前 8 级门槛重排前这里是 9/10 的组合，改表后一并跟上）
+s.exp = 13; s.hp = 1000; s.maxHp = 1000;
 s.x = 2; s.y = 3;
 const vf = E.fight(0, -1);
 ok(vf.levelUps === 1 && s.maxHp === 1210, '岩的灯油：升级额外 +80 生命');

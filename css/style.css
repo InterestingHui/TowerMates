@@ -2326,6 +2326,36 @@ html.fx-low .end-sign.write > span, html.fx-low .end-sign.write > span::after { 
 .tower-marks[hidden] { display: none; }
 .tower-hint { margin-top: 12px; font-size: var(--fs-tag); color: var(--muted); }
 .vow-kicker { font-size: var(--fs-tag); letter-spacing: 9px; color: var(--gold); opacity: 0.9; }
+/* 立誓面板顶上的「这是哪座塔」：塔色一条，名字在左、副题在右，跟塔群卡片同一套变量 */
+.vow-tower {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 7px 15px 7px 13px;
+  border-radius: 22px;
+  border: 1px solid var(--tw, rgba(232, 196, 106, 0.34));
+  background: var(--tw-wash, rgba(232, 196, 106, 0.08));
+  text-align: left;
+  max-width: 100%;
+}
+.vow-tower[hidden] { display: none; }
+.vow-tower .vt-ico { font-size: 19px; line-height: 1; }
+.vow-tower b { display: block; font-size: var(--fs-aux); color: var(--tw, var(--gold)); letter-spacing: 0.5px; }
+.vow-tower i { display: block; font-style: normal; font-size: var(--fs-tag); color: var(--muted); margin-top: 1px; }
+.vow-back {
+  display: block;
+  margin: 14px auto 0;
+  padding: 4px 10px;
+  background: none;
+  border: 0;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: var(--fs-tag);
+  letter-spacing: 1px;
+  cursor: pointer;
+}
+.vow-back:hover, .vow-back:active { color: var(--gold); }
 .vow-desc { font-size: var(--fs-aux); line-height: 1.85; color: #b9bfcc; margin: 10px 0 16px; }
 .vow-ember {
   font-size: var(--fs-aux);

@@ -98,8 +98,13 @@
     // 2026-11-28 多塔：新局从第一座齿塔（锈塔）开始，属性取该塔的起始值。
     // 主塔的 12 层索引没有动，齿塔接在末尾（13–21），所以这里只是把起点从 0 换成 13。
     // opts.tower：工具/单测可以直接从主塔开局（默认仍是玩家路径：第一座齿塔）。
-    // 从主塔开局不给塔印——单测要的是 10/10/1000 的原始基线。
+    // opts.carry：玩家从「打过的小塔」直接开局时，把它前面的塔视为已拔齿——塔印一并带上。
+    //   这样从灰塔开局是 16/14/1350（14/12/1200 + 锈印），和文档里的成长曲线同一条线；
+    //   工具不传 carry，从主塔开局仍是 10/10/1000 的裸基线（单测与 sim --main 要的是原始数值）。
     const first = (opts && opts.tower && D.towers.find((t) => t.id === opts.tower)) || D.towers[0];
+    const pre = (opts && opts.carry)
+      ? D.towers.slice(0, Math.max(0, D.towers.indexOf(first)))
+      : [];
     s = {
       floor: first.floors[0], x: 1, y: 1,
       hp: first.start.hp, maxHp: first.start.maxHp, atk: first.start.atk, def: first.start.def,
@@ -114,8 +119,8 @@
         daily: daily,
         // 塔群进度：当前塔 / 已通关的齿塔 / 已带走的塔印
         tower: first.id,
-        towersCleared: first.main ? ['rust', 'ash', 'bell'] : [],
-        marks: [],
+        towersCleared: first.main ? ['rust', 'ash', 'bell'] : pre.map((t) => t.id),
+        marks: pre.map((t) => t.mark.id),
       },
       ver: 5,
       steps: 0,
@@ -191,6 +196,8 @@
     s.gold = 0; s.exp = 0; s.level = 1;
     s.keys = { y: t.main ? 1 : 0, r: 0 };
     s.flags.tower = id;
+    s.flags.towerMax = s.flags.towerMax || {};
+    s.flags.towerMax[id] = t.floors[0];
     s.flags.hasBlock = false;
     s.flags.rings = [];
     // 每座塔自己的一份账：遗物、商店涨价记录、格挡/祭坛/路遇的按层标记都不跨塔。
@@ -903,6 +910,11 @@
     }
     s.x = nx; s.y = ny;
     s.flags.maxFloor = Math.max(s.flags.maxFloor || 0, target);
+    // 每座塔自己的足迹：层阶之钥只认这份，不认全局 maxFloor（见 visitedMax）
+    const tw = D.towerOf(target);
+    s.flags.towerMax = s.flags.towerMax || {};
+    s.flags.towerMax[tw.id] = Math.max(
+      s.flags.towerMax[tw.id] === undefined ? tw.floors[0] : s.flags.towerMax[tw.id], target);
     // 誓约/锁环的「每上一层回复」只在**第一次踏上这一层**时结算（floor_healed_f{n} 标记）：
     // 否则残血玩家在两层楼之间来回走楼梯，每趟上楼都回一口——无限刷血。
     // 标记按楼层记录，同一层只能吃一次；跳层（jumpTo）不走这里，不受影响。
@@ -1222,9 +1234,19 @@
   }
 
   // ---------- 层阶之钥：在走过的楼层之间跳 ----------
+  // 2026-11-28 多塔：进度按「当前这座塔」记，不按全局平铺索引。
+  // 旧实现读 maxFloor（全局最高），玩家拔完三枚齿后进主塔，行囊里的 Q 会把
+  // 主塔 13 层全算成「走过」——能从第 1 层直接跳到碑魔面前，也能跳进别的塔。
+  // towerMax 是每座塔自己的一份足迹；旧档没有这份字段时按塔的入口层算。
+  function towerMaxOf(t) {
+    if (!s || !s.flags || !t) return 0;
+    const m = s.flags.towerMax && s.flags.towerMax[t.id];
+    return typeof m === 'number' ? m : t.floors[0];
+  }
   function visitedMax() {
     if (!s) return 0;
-    return Math.max(s.flags.maxFloor || 0, s.floor);
+    const t = D.towerOf(s.floor);
+    return Math.max(towerMaxOf(t), s.floor);
   }
 
   // 往前开一层的代价：封掉目标层最值钱的两件消耗品/装备。
@@ -1253,8 +1275,9 @@
     if (!s) return { ok: false, msg: '没有进行游戏' };
     if (!hasRelic('gate')) return { ok: false, msg: '你没有层阶之钥' };
     if (s.flags.gateForth) return { ok: false, msg: '钥匙只能往前开一次' };
+    const t = D.towerOf(s.floor);
     const target = visitedMax() + 1;
-    if (target >= D.floors.length) return { ok: false, msg: '前面已经没有楼层了' };
+    if (target > t.floors[t.floors.length - 1]) return { ok: false, msg: '这座塔的顶已经在你脚下了' };
     if (s.floor !== visitedMax()) return { ok: false, msg: '先回到你走过的最高层' };
     // 锁匠守着的章末层不能绕过去，否则四个 Boss 与章节叙事会被一脚跨掉
     if (D.floors[target].boss) return { ok: false, msg: '锁匠守着那一层，钥匙绕不过去' };
@@ -1276,6 +1299,7 @@
     if (!s) return { type: 'refuse', msg: '没有进行游戏' };
     if (!hasRelic('gate')) return { type: 'refuse', msg: '你没有层阶之钥' };
     if (target < 0 || target >= D.floors.length) return { type: 'refuse', msg: '没有那一层' };
+    if (D.towerOf(target).id !== D.towerOf(s.floor).id) return { type: 'refuse', msg: '层阶之钥只认当前这座塔' };
     if (target === s.floor) return { type: 'refuse', msg: '你就在这一层' };
     const max = visitedMax();
     const forth = target > max ? gateForth() : null;
@@ -1289,6 +1313,9 @@
       s.flags.maxFloor = Math.max(s.flags.maxFloor || 0, target);
     }
     s.floor = target;
+    const tid = D.towerOf(target);
+    s.flags.towerMax = s.flags.towerMax || {};
+    s.flags.towerMax[tid.id] = Math.max(towerMaxOf(tid), target);
     const map = s.maps[target];
     let pos = null;
     for (let y = 0; y < SIZE && !pos; y++) {
@@ -1319,7 +1346,7 @@
     return {
       type: 'floor', dir: 0, jump: true, forth: !!forth,
       sealed: sealed.map((x) => x.name),
-      msg: `层阶之钥：第 ${target + 1} 层 · ${D.floors[target].name}${sealMsg}`,
+      msg: `层阶之钥：第 ${D.floorNo(target)} 层 · ${D.floors[target].name}${sealMsg}`,
       at: { floor: target, x: s.x, y: s.y, heal: 0 },
     };
   }
@@ -1570,7 +1597,9 @@
     // 苦行之誓：这一战的经验整体 +40%（与缠斗乘算，不走两套账）
     // 击杀计数与战意照常（人确实倒了），掉金/遗物/锁环也不受影响
     const expMul = vow() === 'ascetic' ? 1.4 : 1;
-    const expGain = Math.round((tangled ? m.exp * TANGLE_EXP : m.exp) * expMul);
+    // 齿塔系数：三座齿塔每层怪少、经验密度低，按 ×2 结算（见 data.js towers 注释）
+    const towerMul = (D.towerOf(s.floor) || {}).expMul || 1;
+    const expGain = Math.round((tangled ? m.exp * TANGLE_EXP : m.exp) * expMul * towerMul);
     s.exp += expGain;
     s.flags.killCount = (s.flags.killCount || 0) + 1;    s.flags['kill_' + ch] = true;
     // 净芯之环：锁芯层（第 13 层，s.floor 12）每倒一只都记着，结算按 2 余烬/只 换（上限 4）
@@ -1816,9 +1845,9 @@
       : item.relic
         ? `获得遗物「${item.name}」· ${D.relics[item.relic].desc}`
         : item.block
-          ? '秤把盾谱后半卷摊开：「学不会就再来。」——你学会了**格挡**'
+          ? '秦权把盾谱后半卷摊开：「学不会就再来。」——你学会了**格挡**'
           : item.heartShard
-            ? '秤用绒布包起那枚碎片：「塔的心跳，带一点出去也无妨。」——通关时它会化为余烬'
+            ? '秦权用绒布包起那枚碎片：「塔的心跳，带一点出去也无妨。」——通关时它会化为余烬'
             : `购买了${item.name}`;
     return { type: 'buy', item, price, healed, msg };
   }
