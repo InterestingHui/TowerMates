@@ -3052,6 +3052,29 @@ ok(mainSrc.indexOf("searchParams.set('rival'") < 0, 'main.js 不许自己拼链�
   ok(/\.col-detail \{[^}]*flex-wrap: wrap/.test(cssSrc), '详情条允许换行（否则 flex-basis 不生效）');
 }
 
+// ---------- 台词不许跨段复读（2026-11-28 自检·叙事） ----------
+// 第 6 层 afterJu 与锁芯 afterChoiceTrue 里炎魔那句「八十年了。谢谢你，第九个。」曾一字不差，
+// 真结局线上玩家 10 分钟内听同一句两遍，而第二次恰是情感最高的一拍。
+// 允许的重复只有「互斥变体」：princessPlain / princessPlainSword 两条按 flags 二选一，永远只播一条。
+{
+  const DUP_OK = ['princessPlain', 'princessPlainSword'];
+  const seen = new Map();
+  let sec = '?';
+  storySrcTop.split(/\r?\n/).forEach((ln) => {
+    const h = ln.match(/^  ([A-Za-z0-9_]+):/);
+    if (h) sec = h[1];
+    const r = /'([^'\\]{6,})'/g;
+    let g;
+    while ((g = r.exec(ln))) {
+      if (!/[\u4e00-\u9fa5]/.test(g[1])) continue;
+      if (!seen.has(g[1])) seen.set(g[1], []);
+      seen.get(g[1]).push(sec);
+    }
+  });
+  const badDup = [...seen].filter(([, ss]) => ss.length > 1 && !ss.every((x) => DUP_OK.indexOf(x) >= 0));
+  ok(badDup.length === 0, `台词不跨段复读（复读：${badDup.map(([t]) => t.slice(0, 10)).join(' / ') || '无'}）`);
+}
+
 console.log(`挑战码 / 触控 / 桥接 / 视图模型单测：${pass} 项通过${bad ? `，${bad} 项失败` : ''}`);
 
 process.exit(bad ? 1 : 0);

@@ -2800,5 +2800,23 @@ ok(Array.isArray(E.load().flags.rings), 'rings 不是数组：归一成空列表
   ok(noFrom.length === 0, `遗物都写明出处（缺 from：${noFrom.length ? noFrom.join(',') : '无'}）`);
 }
 
+// ---------- 成就档：删项没迁移（2026-11-28 自检 第 3 面） ----------
+// 11-12 拆塔规时删掉 echo_perfect / echo_master 两项，但老档里这两个键还在（在线玩家真赚到过）；
+// count() 数的是键数 ⇒ 老玩家会读到「成就 37/35」这种不可能的数。载入时就地清洗并回写。
+{
+  const A0 = window.Achievements;
+  const ACH_KEY = "towermates_ach_v1";
+  store[ACH_KEY] = JSON.stringify({ first_blood: 1, echo_perfect: 1, echo_master: 1 });
+  const ap = require.resolve("../js/achievements.js");
+  delete require.cache[ap];
+  require(ap);
+  const A1 = window.Achievements;
+  ok(A1.count() === 1, `幽灵成就键载入时清掉：1/${A1.DEFS.length}（不清会是 3）`);
+  ok(A1.isUnlocked("echo_perfect") === false, "已删成就 isUnlocked 恒假");
+  ok(JSON.parse(store[ACH_KEY]).echo_perfect === undefined, "清洗结果立刻回写存档");
+  ok(A1.DEFS.length === A0.DEFS.length, "重载不改变成就表条数");
+  window.Achievements = A0;
+}
+
 console.log(fail === 0 ? '\n✓ 全部通过' : `\n✗ ${fail} 项失败`);
 process.exit(fail ? 1 : 0);

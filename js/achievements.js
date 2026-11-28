@@ -46,10 +46,27 @@
   try {
     unlocked = JSON.parse(localStorage.getItem(KEY) || '{}');
   } catch (e) {}
+  // 2026-11-28 自检（数据与存档 · 删项没迁移）：11-12 拆塔规时删掉了 `echo_perfect` /
+  // `echo_master` 两项，但老档里这两个键还在（在线玩家真赚到过）。`count()` 是
+  // `Object.keys` 计数 ⇒ 老玩家会读到「成就 37/35」这种不可能的数，比 35 还多。
+  // 就地清洗：只留 DEFS 里还认得的 id，清掉过任何东西就立刻回写一次（不清则不动存档）。
+  const known = new Set(DEFS.map((d) => d.id));
+  let droppedGhost = 0;
+  if (unlocked && typeof unlocked === 'object') {
+    const keep = {};
+    for (const k of Object.keys(unlocked)) {
+      if (known.has(k)) keep[k] = unlocked[k];
+      else droppedGhost++;
+    }
+    if (droppedGhost) unlocked = keep;
+  } else {
+    unlocked = {};   // 脏值（数组 / 字符串 / null）当空档，别让后面的 Object.keys 炸
+  }
 
   function persist() {
     try { localStorage.setItem(KEY, JSON.stringify(unlocked)); } catch (e) {}
   }
+  if (droppedGhost) persist();   // 清洗结果立刻落盘，否则每次开游戏都要再洗一遍
   function isUnlocked(id) { return !!unlocked[id]; }
   function unlock(id, notify) {
     if (unlocked[id]) return false;
