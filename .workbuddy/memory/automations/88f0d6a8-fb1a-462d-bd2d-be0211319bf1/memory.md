@@ -1320,3 +1320,10 @@
 - 闸门（只读）：`check` ✓。未跑 code-test/regress/sim（零运行时改动）。
 - 坑：①`--window-size=320/360` 截图**不可信**（Chrome 最小窗口宽度 ⇒ 按更宽布局再裁，HUD 与面板「被裁」全是假象），量窄屏必须 iframe 撑（`shot.html?scene=board&w=320`）②`opacity` 降透明会把不透明卡底一起降掉——要「内容变暗、底不变」用覆盖层 ③临时服务必须同轮杀（本轮已复查 8931 监听 0、/tmp 文件已删）。
 - 下轮：加练顺延**社交**；变体取**诊断**。可动手（须全力）：锁定卡透背景（中·一行 CSS）/ 塔印 `markIn`（中）/ `fade` 参数归一（低）/ 塔群取景 + `okTowerPanel`（中·需 shot.html 解占）/ 多塔追认（中·硬截止）。
+
+## 15:3x 自动轮（**谨慎模式**，2 段 ~22 分钟，commit e326277 + 2a99549 已推，未部署）
+- 判定：index.html mtime 11:32（4 小时+）本该全力，但树上仍有他会话 5 项（publish 4 张 intro*.webp + tools/shot.html）⇒ 谨慎，只读 + 文档，publish/shot 一字节没碰。
+- 加练 社交：**22 层口径上线后老名录 / 老挑战码层号没迁移**。5456c67 把 summary().floor 从 s.floor+1（1–13）换成 D.progressNo（齿塔 1–9 + 主塔 10–22），loadBoard 与 challenge.decode(v≤5) 都没 +9。探针实测「层=13 结局=未竟」，应为「22 · 第六个名字」；连带 endOf 抹结局列、cmpBoard 排序错位、rivalVerdict 混刻度相减方向反。已入待办（中 · 三步改法 + 老码断言翻面）。
+- 变体 1 诊断：口径迁移覆盖率——12 键只有 4 类有护栏，board/rivals 裸 JSON；根因「幂等迁移的一元标记只能扛一次变更」，migrateFloors 第二次变更直接 return ⇒ deepest/lastFallFloor 同停旧刻度（待办·低）。
+- 闸门：check ✓ / code-test 830 ✓（工作区）。零运行时改动，未跑 sim/regress，未部署。
+- 下轮：加练顺延**美术**；变体取**收敛**（12:1x）。可动手（须全力）：层号迁移三步（中·跨三处）/ 锁定卡透背景（中）/ 塔印 markIn（中）/ fade 归一（低）/ 塔群取景（中·需 shot.html）。
