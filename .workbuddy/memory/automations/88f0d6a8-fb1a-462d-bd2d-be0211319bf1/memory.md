@@ -1304,3 +1304,11 @@
 - 坑：①「mtime 够久」≠ 全力，树上只要有人未提交就得降级；②叙事体检必须**跨章对同一事实**比对，单段看不出矛盾；③判断新面板要不要进 pace-audit 先看调用点——`openTower()` 只挂塔门结算后，不占首局预算。
 - 观察：`diag_move_ui_t213.js`（node PID 85280）在跑，非本轮启动、归属不明，未动。
 - 下轮：加练顺延**游戏性**；变体取**自检**（08:2x 之后最久，已 4 轮）。
+
+## 13:1x 自动轮（**谨慎模式**，~12 分钟，零运行时改动，commit 0ce6fbd + b6c1b75 已推，未部署）
+- 判定：main.js mtime 109 分钟，但树上仍有他会话两项（`publish/assets/cg/intro1-4.webp` 10:47 同步、`tools/shot.html`）⇒ 谨慎，只读 + 文档；publish 四张与 `assets/cg/` md5 逐字节相同，是同步不是重出图。占用表空。
+- 加练 **游戏性**（四塔落地后首次）：2 中 2 低 —— ①`story.js:535 stuckDef` 写死「墨妖」+ 让他去「秤的摊子」买训练，而三座齿塔零商店砖（9 层零 `M`/`$`）②重进齿塔出生在 `n` 砖上→走回即 `towerExit`，塔群无 banner（探针实证：`newGame` 清入口砖 `engine.js:142`，`enterTower` `:211` 没清）③齿塔金 144/268/380 死资源 ④`s.flags.tower` 死字段。
+- 变体 4 **自检六面**（只出结论）：状态机无「出不去」但「已进未通关」无标识；时序只有 `armOpening` 350ms 轮询（对白关即停、`tipsOpening` 防重入、innerHTML 先清后绑）；老档 13→22 层与 `towersCleared`/`marks` 双回填已核；`changeFloor` 两个特判无 off-by-one（`nextFloorOf(12)=13`、`towerOf(22+)` 两条回落不可达）；空 catch 25 处仍全在降级路径；`stuckDef` 写死怪名＝同一事实第二份实现。
+- 闸门（只读）：check ✓ / code-test **830 ✓**（工作区）。未跑 regress/sim（零运行时改动）。
+- 坑：①齿塔地图 `d` 是**铁盾**，下楼是 `n`（差点读反）②`towerOf` 越界回落主塔，判末层分支前先确认该层真有 `u` 砖 ③「mtime 够久」≠ 全力，树上有人未提交就降级。
+- 下轮：加练顺延**美术**；变体取**节奏**（收敛 12:1x 刚落，校准按阶段封着）。可动手（须全力）：待办 ①②各 5–10 分钟（`engine.js:211` +3 行、`story.js` 两句 + `{monster}` 占位 + 两条 code-test 断言）。
