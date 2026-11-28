@@ -1887,12 +1887,15 @@
   // 收下的人叫什么：码里有落款就用落款（v6），v5 及更老的码没有这一字段 → 退回匿名
   const rivalName = (rec) => (rec && rec.name) || View.NAME_FALLBACK;
   function decodeChallenge(code) {
-    const d = window.Challenge.decode(code);
+    // 刻度迁移在 `challenge.js` 的 adopt：v1–v5 的码产自 13 层时代，层号要 +9 才与现在的 1..22 同刻度
+    const d = window.Challenge.adopt(window.Challenge.decode(code));
     if (!d) return null;
     const rec = {
       name: d.name || '',
       ending: d.ending,
       floor: d.floor,
+      // 层号刻度戳（见 View.migrateFloorRecs）：带着它进名录，下次读名录时不会被再迁一遍
+      fs: d.fs,
       level: d.level,
       steps: d.steps,
       time: d.time,
@@ -1908,7 +1911,10 @@
   }
   // 贴进来的码去重：同一个码只留一条幽灵行
   function loadRivals() {
-    try { return JSON.parse(localStorage.getItem('towermates_rivals') || '[]'); } catch (e) { return []; }
+    try {
+      // 名录可能是 11-28 11:35 换刻度之前写的：读侧统一迁到 1..22（纯函数、幂等，见 View.migrateFloorRecs）
+      return View.migrateFloorRecs(JSON.parse(localStorage.getItem('towermates_rivals') || '[]'));
+    } catch (e) { return []; }
   }
   function saveRival(code, rec) {
     const list = loadRivals().filter((x) => x.code !== code);
@@ -1925,14 +1931,17 @@
     } catch (e) { return { ok: false, evicted: false }; }
   }
   function loadBoard() {
-    try { return JSON.parse(localStorage.getItem('towermates_board') || '[]'); } catch (e) { return []; }
+    try {
+      return View.migrateFloorRecs(JSON.parse(localStorage.getItem('towermates_board') || '[]'));
+    } catch (e) { return []; }
   }
   // 名录按「爬到多深 → 有没有走到真结局 → 谁更快」排，不再比一个算出来的分数
   // 排序与展示口径现在只有一处定义：js/view.js（此前这里与榜单渲染各写一份）
   const cmpBoard = View.cmpBoard;
   function saveBoard(entry) {
     const list = loadBoard();
-    list.push(entry);
+    // 盖刻度戳：这份名录将来再换刻度时，靠它分辨「这条是新刻度写的」还是「老记录要迁」
+    list.push(Object.assign({ fs: View.FLOOR_SCALE }, entry));
     list.sort(cmpBoard);
     try { localStorage.setItem('towermates_board', JSON.stringify(list.slice(0, 30))); } catch (e) {}
   }
@@ -1941,11 +1950,15 @@
 
   let boardFilter = 'all';
 
-  // 影子勇者的脚注：名字后面带一句他们的终点——川那句与断剑小传、薇拉台词三方互证
+  // 影子勇者的脚注：名字后面带一句他们的终点——川那句与断剑小传、薇拉台词三方互证。
+  // 层号用**进度号**（与榜首的「层」列同一刻度：齿塔 1–9 + 主塔 10–22）。
+  // 2026-11-28 换刻度前这里写的是「第 2/3/5 层」＝主塔层号，而层列已经是进度号 11/12/14：
+  // 同一行里两个刻度互相打脸（同 11-25「停在第 3 层 / 铁与霜」那一类）。剧情文本里的「第五层」
+  // 指主塔楼层（地名，狼厅就在那儿），不进这一行。
   const RIVAL_NOTE = {
-    '第二位勇者·鸦': '停在第 2 层',
-    '第五位勇者·岩': '停在第 3 层',
-    '第八位勇者·川': '剑断在第五层',
+    '第二位勇者·鸦': '停在第 11 层',
+    '第五位勇者·岩': '停在第 12 层',
+    '第八位勇者·川': '剑断在第 14 层',
   };
   // 表头：六格的顺序就是 boardRowHtml 的格子顺序，改一个必须改另一个（code-test 按类名序列比对）。
   // 为什么要有：第三列写「未竟」「铁与霜」，第六列是「15分5秒」——没有表头时第三到第六列连成一串数字 + 词，

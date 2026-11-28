@@ -10,6 +10,33 @@
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.View = api;
 })(typeof window !== 'undefined' ? window : globalThis, function () {
+  // ---------- 层号刻度：1..13 → 1..22（2026-11-28 三齿塔上线） ----------
+  // `summary().floor` 在 11-28 11:35 从「主塔层号 1..13」换成「总进度号 1..22」
+  // （齿塔 1–9 + 主塔 10–22，见 data.js 的 progressNo）。而本地名录（`towermates_board` /
+  // `towermates_rivals`）里还躺着换刻度之前的记录，它们既没有版本号也**没有时间戳**。
+  // 只修「能证明是老的」那一条：**有结局却只到 13 层**——结局只在塔顶成立，13 是换刻度前的塔顶
+  // （新刻度下塔顶是 22）。这类记录正是社交层上最伤的一种：老玩家的通关局被读成「主塔第 4 层」、
+  // 结局列被 `endOf` 判成「未竟」、排序被排到只爬了两层齿塔的新人之后。
+  // 其余记录**一律不动**，只盖章：1..12 在两种刻度里都合法（老的主塔层号 / 新的齿塔层号），
+  // 无时间戳就判不出来——硬 +9 会把今天爬了锈塔第 2 层的人读成 11 层（本轮第一版就是这么错的，
+  // `ui-test` 的「贴自己的码」当场抓到）。开测期没有真实玩家，剩下的歧义记进 PROGRESS 待办。
+  // 章的作用：这个问题只问一次——盖过戳的记录不会再被迁一遍（幂等）。
+  const FLOOR_SCALE = 22;
+  const FLOOR_OFFSET = 9;
+  const OLD_TOP = 13;
+  // 纯函数、幂等：返回新数组，不改入参（榜单每开一次都会过这里，改原地会让存档越读越偏）。
+  function migrateFloorRecs(list) {
+    return (list || []).map((r) => {
+      if (!r || r.fs) return r;                                   // 盖过戳 / 空行：原样
+      const f = Math.round(r.floor || 0);
+      if (f === OLD_TOP && r.ending) {
+        // 换刻度前的通关局：13 → 22（结局只在塔顶成立，所以「有结局 + 13 层」只可能是老刻度）
+        return Object.assign({}, r, { floor: Math.min(FLOOR_SCALE, f + FLOOR_OFFSET), fs: FLOOR_SCALE });
+      }
+      return Object.assign({ fs: FLOOR_SCALE }, r);               // 判不出来：只盖章，不动层号
+    });
+  }
+
   // ---------- 榜单：排序口径（走到哪层 → 结局 → 决战余裕 → 用时 → 步数） ----------
   const MARGIN_RANK = { S: 4, A: 3, B: 2, C: 1 };
   const marginRank = (r) => MARGIN_RANK[r && r.margin] || 0;
@@ -75,7 +102,9 @@
   };
   const BOARD_CAP = 10;
   const NOTE_DAILY = '这一座塔每天零点换一次：同一天走进来的人遇到的是同一座，所以「今天谁走得远」是能比的。贴进来的朋友码只要也是今天这座，就会进这一档。';
-  const NOTE_CRUSHED = '影子勇者都停在前五层。你已经走到他们没到过的地方。';
+  // 数字由影子勇者的实际层数算出来（boardModel 的 shadowBest）：写死「前五层」时换刻度后它就成了假话，
+  // 而这句话与 story.js 的 shadowRivals 是同一件事的两处硬编码（同 C 段「同一阈值多处硬编码」）。
+  const NOTE_CRUSHED = (deepest) => `影子勇者最远只走到第 ${deepest} 层。你已经走到他们没到过的地方。`;
   // 「榜上没有我」是一句话，不能靠玩家自己猜。它有两个人：①一局都还没通关——名录只记走到塔顶的那局
   // （`saveBoard` 只在 showEnd 调），所以榜上永远只有三位影子和贴码进来的朋友；②这一档把我的局筛掉了。
   // 前者才是多数人的第一屏：打了五局全折在半路，打开榜找不到自己，也没有一个字解释。
@@ -124,13 +153,16 @@
     const notes = o.rivalNotes || {};
     const cap = o.cap || BOARD_CAP;
     const filter = o.filter || 'all';
-    // 塔顶层（13 = 12 主塔 + 锁芯）。结局只在这一层成立：铁与霜要打完碑魔选「带走王冠/留下」，
-    // 第六个名字要念出那个名字——都发生在塔顶，层列写着 3 层时不可能有结局。
+    // 塔顶层（22 = 三座齿塔 9 层 + 主塔 13 层，与 data.js 的 progressNo 同一刻度）。
+    // 结局只在这一层成立：铁与霜要打完碑魔选「带走王冠/留下」，
+    // 第六个名字要念出那个名字——都发生在主塔塔顶，层列写着 3 层时不可能有结局。
     // 为什么要在读取侧拦：挑战码的线格式只有 t / p 两位（`challenge.js` 的 p = 普通结局），
     // 「没走到结局」与「普通结局」在码里是同一串 ⇒ 死在第 5 层的码解开就是 ending:'plain'，
     // 微信托管数据缺 tm_ending 时也一样，影子勇者的数据当年也是这么填的。三个写入方各自都在编，
     // 改线格式只能救新码，救不了已存在本地的名录；所以口径收在唯一读它做展示的地方。
-    const top = o.topFloor || 13;
+    // 默认值就是当前刻度：2026-11-28 之前这里是 13（主塔 12 层 + 锁芯），换刻度时漏了这一处，
+    // 于是不带 topFloor 的调用方（单测 / 将来的新屏）会拿老的上限去判结局。
+    const top = o.topFloor || FLOOR_SCALE;
     const endOf = (r) => ((r.floor || 0) >= top ? (r.ending || '') : '');
     const mine = (o.mine || []).map((x) => Object.assign({ mine: true, vow: x.vow || 'none' }, x));
     const all = (o.shadows || []).map((x) => Object.assign({ vow: 'none' }, x))
@@ -188,7 +220,7 @@
         + (staleRivals ? `<br>${NOTE_STALE(staleRivals)}` : '')
         + (offBoard ? `<br>${offBoard}` : '')
         + (noMineNote ? `<br>${noMineNote}` : '')
-      : (offBoard || noMineNote || (crushed ? NOTE_CRUSHED : ''));
+      : (offBoard || noMineNote || (crushed ? NOTE_CRUSHED(shadowBest) : ''));
     // 空档的说法分两种：立得起的（指路去立）／还没买下的（先说要花多少）。
     // `hasVow` 不传＝按「能立」算，老调用方（含单测）行为不变。
     const emptyFor = (id) => {
@@ -1340,6 +1372,7 @@
     endScoreModel, emberDetailModel, emberDetailHtml, winBrief, deathBrief, briefModel, hintSweep, HINT_TTL,
     sealOf, nextSealHint, sealTarget, emberModel,
     cmpBoard, fmtTime, endName, marginRank, sameRun, isMine, RUN_KEYS, rivalVerdict, VERDICT_NONE, NAME_FALLBACK,
+    FLOOR_SCALE, FLOOR_OFFSET, migrateFloorRecs,
     deathStatsModel, winStatsModel, memModel, floorNo, migrateFloors,
     foeName, traitNote, threatModel, blockModel, guardModel, tangleModel, prepOptions, lastTacticLine, coreRingLine, PREP_FIRST, PREP_HINT,
     autoPickTactic, AUTO_PREP_NAME, AUTO_PREP_ON, AUTO_PREP_OFF, AUTO_PREP_TIP,

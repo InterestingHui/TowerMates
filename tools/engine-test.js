@@ -1238,15 +1238,15 @@ const storyAll = JSON.stringify(S);
 ok(storyAll.indexOf('半路') < 0 && storyAll.indexOf('村里') < 0, '剧情无「半路/村里」类歧义词（登塔不是赶路，故事在灰港镇）');
 ok(S.eighthSword.some((l) => String(l[1]).includes('第五层')) && String(S.eighthSword[1][1]).includes('秦权'), '断剑小传点破第五层，且信息源锚定秦权（拾取在 第5层，此时玩家还没见到塔顶的薇拉）');
 ok(S.eighthSword.every((l) => !String(l[1]).includes('薇拉')), '断剑小传不得引用薇拉的话（时间线：她还没出场）');
-ok(String(S.princessPlain[1][1]).includes('第五层'), '薇拉台词与他死在第五层互证（对齐榜单 floor:5）');
+ok(String(S.princessPlain[1][1]).includes('第五层'), '薇拉台词与他死在第五层互证（主塔第 5 层 = 榜单进度号 14）');
 ok(String(S.princessPlain[3][1]).includes('窗台') && String(S.princessPlain[3][1]).includes('海崖'), '绣帕传递链在薇拉台词里点破（窗台 → 风 → 海崖 → 国王）');
 ok(Array.isArray(S.princessPlainSword) && S.princessPlainSword.length === S.princessPlain.length && /半截剑|断剑/.test(String(S.princessPlainSword[1][1])), 'princessPlainSword 变体存在：带断剑时薇拉认出剑，行数与原段一致');
 ok(String(S.merchant[2][1]).includes('死在了上面'), '秤的铺垫仍在（断剑小传引用它）');
-ok(S.shadowRivals.some((r) => r.name === '第八位勇者·川' && r.floor === 5), '榜单第八勇者·川 floor:5（断剑层/薇拉台词互证）');
+ok(S.shadowRivals.some((r) => r.name === '第八位勇者·川' && r.floor === 14), '榜单第八勇者·川 floor:14（进度号；= 主塔第 5 层，断剑层/薇拉台词互证）');
 // 第八勇者线终章锚点（2026-11-13）：结局剑去处 / 榜单脚注互证 / 小传呼应
 ok(String(S.eighthSword[1][1]).includes('第五层'), '断剑小传点破第五层');
-ok(S.shadowRivals.some((r) => r.name === '第二位勇者·鸦' && r.floor === 2) && S.shadowRivals.some((r) => r.name === '第五位勇者·岩' && r.floor === 3), '榜单鸦 floor:2 / 岩 floor:3（小传呼应的数据锚）');
-ok(String(S.relicLore.steel[0][1]).includes('第 2 层') && String(S.relicLore.vigor[0][1]).includes('第 3 层'), '鸦/岩遗物小传与榜单脚注呼应（第 2 层 / 第 3 层）');
+ok(S.shadowRivals.some((r) => r.name === '第二位勇者·鸦' && r.floor === 11) && S.shadowRivals.some((r) => r.name === '第五位勇者·岩' && r.floor === 12), '榜单鸦 floor:11 / 岩 floor:12（进度号；= 主塔第 2/3 层）');
+ok(String(S.relicLore.steel[0][1]).includes('第 11 层') && String(S.relicLore.vigor[0][1]).includes('第 12 层'), '鸦/岩遗物小传与榜单脚注呼应（第 11/12 层，进度号）');
 ok(S.princessPlainSword && S.princessPlainSword.some((l) => String(l[1]).includes('第五层')), '薇拉认剑变体保留第五层互证');
 ok(JSON.stringify(S).indexOf('剑断在第五层') < 0, '榜单脚注文本属于 main.js（RIVAL_NOTE），story.js 不重复维护');
 // 影子勇者的「结局」必须与「层数」是同一件事：三人都没走到塔顶（2 / 3 / 5 层），结局只能是空的。

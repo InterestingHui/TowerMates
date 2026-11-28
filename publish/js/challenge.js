@@ -171,5 +171,24 @@
     } catch (e) { return null; }
   }
 
-  return { encode, decode, nameOf, PREFIX, SEAL_CODE, CODE_SEAL };
+  // ---------- 层号刻度：把解出来的码迁到当前刻度 ----------
+  // 2026-11-28 11:35 三齿塔上线，`summary().floor` 从「主塔层号 1..13」换成「总进度号 1..22」
+  // （齿塔 1–9 + 主塔 10–22）。v1–v5 的码全部产自 13 层时代 ⇒ 层号 +9；
+  // v6 起于 11-28 05:49、刻度换于 11-28 11:35，中间约 5 小时 45 分的 v6 码仍是老刻度——
+  // 码里没有时间戳，判不出来（按新刻度读；开测期没有真实玩家，行为记在 PROGRESS 待办）。
+  // 为什么不改 `decode`：编解码必须对称（`decode(encode(x)).floor === x.floor` 是单测的锚），
+  // 刻度是「读这份码的人当下怎么理解它」，属于读取侧，所以单独一个 `adopt`。
+  const FLOOR_SCALE = 22;
+  const FLOOR_OFFSET = 9;
+  function adopt(d) {
+    if (!d) return null;
+    if (d.fs === FLOOR_SCALE) return d;   // 已经迁过（读名录回来的记录也走这条路）：不再叠一次 +9
+    const f = Math.round(d.floor || 0);
+    const floor = d.version <= 5
+      ? (f ? Math.min(FLOOR_SCALE, f + FLOOR_OFFSET) : 0)
+      : Math.min(FLOOR_SCALE, f);
+    return Object.assign({}, d, { floor, fs: FLOOR_SCALE });
+  }
+
+  return { encode, decode, adopt, nameOf, PREFIX, SEAL_CODE, CODE_SEAL, FLOOR_SCALE };
 });

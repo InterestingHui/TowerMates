@@ -141,6 +141,42 @@ const shadows = [
 ];
 const notes = { '第二位勇者·鸦': '停在第 2 层' };
 
+// 层号刻度迁移（2026-11-28 三齿塔上线：1..13 → 1..22）。
+// 名录与挑战码是**没有版本号也没有时间戳**的裸 JSON/裸码，换刻度后老记录会被照新刻度读：
+// 老玩家通关那局（13）读成「主塔第 4 层」、结局列判成「未竟」、排序排到新人之后。
+// 处置：读侧 `View.migrateFloorRecs`（名录）+ `Challenge.adopt`（码）。
+{
+  const legacy = { floor: 13, ending: 'true', time: 500 };        // 换刻度前的通关局
+  const out = V.migrateFloorRecs([legacy]);
+  ok(out[0].floor === 22 && out[0].fs === 22, '老通关局 13 层 → 22 层（结局只在塔顶成立，所以这条能证明是老的）');
+  ok(out[0].ending === 'true' && out[0].time === 500, '迁移只动层号，结局与用时原样');
+  ok(legacy.floor === 13 && legacy.fs === undefined, '迁移不改入参（榜单每开一次都过这里，改原地会越读越偏）');
+  ok(V.migrateFloorRecs([{ floor: 13, ending: 'plain' }])[0].floor === 22, '普通结局的老通关局同样 13 → 22');
+  // 判不出来的**一律不动**：1..12 在两种刻度里都合法（老的主塔层号 / 新的齿塔层号）。
+  // 硬 +9 会把「今天爬了锈塔第 2 层」读成 11 层——ui-test 的「贴自己的码」当场抓到过这一版。
+  ok(V.migrateFloorRecs([{ floor: 5 }])[0].floor === 5, '无结局的 5 层不迁（判不出来就不动）');
+  ok(V.migrateFloorRecs([{ floor: 2, ending: 'plain' }])[0].floor === 2, '新刻度齿塔的通关局不迁（13 层才是老塔顶）');
+  ok(V.migrateFloorRecs([{ floor: 5, fs: 22 }])[0].floor === 5, '盖过戳的记录不迁');
+  ok(V.migrateFloorRecs([{ floor: 0 }])[0].floor === 0, '没有层号（0）不迁，也别把 0 读成 9');
+  ok(V.migrateFloorRecs([legacy]).length === 1 && V.migrateFloorRecs(null).length === 0, '空名录给空数组（不是 null）');
+  const twice = V.migrateFloorRecs(V.migrateFloorRecs([legacy]));
+  ok(twice[0].floor === 22, '幂等：读两次不会变成 31');
+  // 接线：两处读名录的口子都必须过迁移，否则「老记录」只是换了个地方说谎
+  ok(/function loadBoard\(\)[\s\S]{0,400}?View\.migrateFloorRecs/.test(mainSrc), 'loadBoard 读名录时过刻度迁移');
+  ok(/function loadRivals\(\)[\s\S]{0,400}?View\.migrateFloorRecs/.test(mainSrc), 'loadRivals 读名录时过刻度迁移');
+  ok(/function saveBoard\(entry\)[\s\S]{0,400}?fs: View\.FLOOR_SCALE/.test(mainSrc), 'saveBoard 写名录时盖刻度戳');
+  // 挑战码侧：v1–v5 产自 13 层时代 ⇒ +9；v6 起在新刻度，不动；上限一律夹到 22
+  const Cx = require('../js/challenge.js');
+  const a5 = Cx.adopt(Cx.decode(old5));
+  ok(a5 && a5.floor === 18 && a5.fs === 22, 'v5 老码的 9 层读作 18 层（13 层时代的层号 +9）');
+  const a1 = Cx.adopt(Cx.decode(v1('1.13.18.640.512')));
+  ok(a1 && a1.floor === 22, 'v1 老码的 13 层（当年塔顶）读作 22 层');
+  const a6 = Cx.adopt(Cx.decode(Cx.encode(Object.assign({}, sum, { floor: 22 }))));
+  ok(a6 && a6.floor === 22 && a6.fs === 22, 'v6 新码不动层号，只盖戳');
+  ok(Cx.adopt(null) === null, '解不出来的码给 null（调用方已有判空）');
+  ok(Cx.adopt(a5).floor === 18, 'adopt 幂等：迁过的不再 +9');
+}
+
 // 空榜：不该出现任何行，且说的是「这一档还没有人」而不是空白
 const emptyAll = V.boardModel({ mine: [], rivals: [], shadows: [], filter: 'all', todayKey: '2026-11-16', vows: VOWS });
 ok(emptyAll.rows.length === 0 && emptyAll.empty === V.EMPTY_OTHER, '空榜给「这一档还没有人」，不是空白');
@@ -177,7 +213,7 @@ const crushed = V.boardModel({
   filter: 'all', todayKey: '2026-11-16', vows: VOWS, rivalNotes: notes,
 });
 ok(crushed.rows[0].name === '你' && crushed.rows[0].rank === 1, '自己的局按层数排到第一');
-ok(crushed.note === V.NOTE_CRUSHED, '压过全部影子时才出「走到他们没到过的地方」');
+ok(crushed.note === V.NOTE_CRUSHED(3), '压过全部影子时才出「走到他们没到过的地方」（数字取影子实际最高层，不写死）');
 ok(crushed.rows[1].name === '第五位勇者·岩' && crushed.rows[2].name === '第二位勇者·鸦', '影子按层数从深到浅');
 ok(crushed.rows[2].note === '停在第 2 层', '影子脚注挂在对应名字上');
 ok(crushed.rows[0].vowTag === '羽', '誓约徽记取 tag 末字（首字会撞：重压/重金）');
@@ -209,13 +245,13 @@ ok(crushed.rows[2].vowTag === '' || crushed.rows[2].vowTag, '不立誓行不挂�
 // 排序口径：同层先看结局，再看决战余裕，最后才是用时
 // 用 rivals 而不是 mine 来测：榜单上一人一行（见「同一个人只占一行」那条），
 // 三条 mine 会被折叠成一行——排序口径就只能拿三位朋友来验了。
-// 层必须是塔顶层（13）：结局只在塔顶成立，写 5 层的话三行全被归一成「未竟」，这条口径就没得验了。
+// 层必须是塔顶层（22 = 三齿塔 9 + 主塔 13）：结局只在塔顶成立，写 5 层的话三行全被归一成「未竟」，这条口径就没得验了。
 const tie = V.boardModel({
   mine: [],
   rivals: [
-    { code: 'c1', rival: true, floor: 13, ending: 'plain', margin: 'C', time: 100, steps: 10 },
-    { code: 'c2', rival: true, floor: 13, ending: 'true', margin: 'C', time: 900, steps: 20 },
-    { code: 'c3', rival: true, floor: 13, ending: 'plain', margin: 'A', time: 500, steps: 30 },
+    { code: 'c1', rival: true, floor: 22, ending: 'plain', margin: 'C', time: 100, steps: 10 },
+    { code: 'c2', rival: true, floor: 22, ending: 'true', margin: 'C', time: 900, steps: 20 },
+    { code: 'c3', rival: true, floor: 22, ending: 'plain', margin: 'A', time: 500, steps: 30 },
   ], shadows: [], filter: 'all', todayKey: '2026-11-16', vows: VOWS,
 });
 ok(tie.rows[0].ended === true, '同层时真结局排在前面（哪怕用时更久）');
@@ -225,43 +261,48 @@ ok(tie.rows[2].time === '1分40秒', '用时 100 秒渲染成 1分40秒');
 // 结局列只在塔顶层成立：社交榜上「这个人是什么结局」是给别人的第一印象，
 // 而死在第 N 层的码 / 缺 tm_ending 的好友行 / 影子勇者的旧数据都带着 'plain' 进来。
 // 层列写着 5 层、结局列写着「铁与霜」，就是同一行里两个字段互相打脸。
+// 塔顶是 22（换刻度前是 13）：21 层是「差一层」的边界，得一起咬住。
 {
   const endRows = V.boardModel({
     mine: [],
     rivals: [
       { code: 'e5', rival: true, floor: 5, ending: 'plain', time: 100, steps: 10 },
-      { code: 'e13p', rival: true, floor: 13, ending: 'plain', time: 200, steps: 20 },
-      { code: 'e13t', rival: true, floor: 13, ending: 'true', time: 300, steps: 30 },
-      { code: 'e12', rival: true, floor: 12, ending: 'true', time: 400, steps: 40 },
+      { code: 'e22p', rival: true, floor: 22, ending: 'plain', time: 200, steps: 20 },
+      { code: 'e22t', rival: true, floor: 22, ending: 'true', time: 300, steps: 30 },
+      { code: 'e21', rival: true, floor: 21, ending: 'true', time: 400, steps: 40 },
     ], shadows: [], filter: 'all', todayKey: '2026-11-16', vows: VOWS,
   });
   // rows 不带 code（只留画出来要用的字段），按层数取
   const r5 = endRows.rows.find((r) => r.floor === 5);
-  const r12 = endRows.rows.find((r) => r.floor === 12);
-  const r13 = endRows.rows.filter((r) => r.floor === 13);
+  const r21 = endRows.rows.find((r) => r.floor === 21);
+  const r22 = endRows.rows.filter((r) => r.floor === 22);
   ok(r5.end === '未竟' && r5.ended === false, '5 层的行不写结局（码里那位 ' + "'plain'" + ' 是线格式没有第三态导致的）');
-  ok(r12.end === '未竟' && r12.ended === false, '12 层（塔顶却没选结局/码里编的）也不写结局');
-  ok(r13.some((r) => r.end === '铁与霜') && r13.some((r) => r.end === '第六个名字' && r.ended === true),
-    '13 层的两行照写：普通结局 / 真结局分得开');
-  ok(r13.every((r) => r.end !== '未竟'), '塔顶层的行不会出现「未竟」以外的降级');
+  ok(r21.end === '未竟' && r21.ended === false, '21 层（塔顶前一层却没选结局/码里编的）也不写结局');
+  ok(r22.some((r) => r.end === '铁与霜') && r22.some((r) => r.end === '第六个名字' && r.ended === true),
+    '22 层的两行照写：普通结局 / 真结局分得开');
+  ok(r22.every((r) => r.end !== '未竟'), '塔顶层的行不会出现「未竟」以外的降级');
 }
 
 // 影子勇者是榜单上唯一的「内置的人」：他们的层数与结局必须是同一件事。
-// 11-25 之前三人 ended 全是 'plain'，于是「停在第 3 层」的岩在结局列写着「铁与霜」。
+// 11-25 之前三人 ended 全是 'plain'，于是「停在第 12 层」的岩在结局列写着「铁与霜」。
+// 层号是进度号（11/12/14 = 主塔第 2/3/5 层），与 story.js 的 shadowRivals 同一组数。
 {
-  const top = 13;
+  const top = 22;
   const sh = [
-    { name: '第二位勇者·鸦', ending: '', floor: 2 },
-    { name: '第五位勇者·岩', ending: '', floor: 3 },
-    { name: '第八位勇者·川', ending: '', floor: 5 },
+    { name: '第二位勇者·鸦', ending: '', floor: 11 },
+    { name: '第五位勇者·岩', ending: '', floor: 12 },
+    { name: '第八位勇者·川', ending: '', floor: 14 },
   ];
   const m = V.boardModel({ mine: [], rivals: [], shadows: sh, filter: 'all', todayKey: '2026-11-16', vows: VOWS, topFloor: top });
   ok(m.rows.every((r) => r.end === '未竟' && r.ended === false), '影子勇者都写「未竟」（他们都没走到塔顶）');
   const sloppy = V.boardModel({ mine: [], rivals: [], shadows: [{ name: 'X', ending: 'plain', floor: 3 }], filter: 'all', todayKey: '2026-11-16', vows: VOWS, topFloor: top });
   ok(sloppy.rows[0].end === '未竟', '数据就算填错（3 层 + plain），读取侧也不许把它画成通关');
-  // 默认 13 只是 Node 单测的兜底：线上必须由 openBoard 注入真实塔层数，
-  // 否则将来加一层（结局改在第 14 层发生）时，所有通关行会被一律判成「未竟」——一个静默的、全榜级别的假话。
-  ok(mainSrc.indexOf('topFloor: D.floors.length') >= 0, '塔友榜拿真实塔层数（默认 13 只在单测兜底）');
+  // 默认上限必须**就是当前刻度**：线上由 openBoard 注入真实塔层数，但默认值一旦落后（换刻度时忘改），
+  // 所有通关行会被一律判成「未竟」——一个静默的、全榜级别的假话。
+  const dflt = V.boardModel({ mine: [], rivals: [{ code: 'd', rival: true, floor: 22, ending: 'true', time: 100, steps: 10 }], shadows: [], filter: 'all', todayKey: '2026-11-16', vows: VOWS });
+  ok(dflt.rows[0].ended === true, '不传 topFloor 时默认上限也是 22（不是换刻度前的 13）');
+  ok(V.FLOOR_SCALE === 22, 'FLOOR_SCALE 与 data.js 的进度号上限同一刻度');
+  ok(mainSrc.indexOf('topFloor: D.floors.length') >= 0, '塔友榜拿真实塔层数');
 }
 
 // 10 行上限：总条数要如实报出来，页面上只画前 10 行（用朋友行测，自己只会占一行）

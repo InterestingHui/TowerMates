@@ -368,15 +368,17 @@ async function run() {
     out.mineRows = d.querySelectorAll('#boardList .bd-row.mine').length;
     out.mineRowFloor = (d.querySelector('#boardList .bd-row.mine .bd-floor') || {}).textContent || '';
     var inp4 = d.getElementById('pasteCode');
+    // 量具口径：数「这一贴有没有让榜多出行」——不是数「有没有一行写着 11 层」。
+    // 11-28 影子勇者的层号换成进度号（鸦 11 / 岩 12 / 川 14）之后，后者会命中鸦那一行，
+    // 于是「贴自己的码没进榜」这条永远红——量具在数别人的层号，不是在验这一贴的后果。
+    var rowsBeforePaste = d.querySelectorAll('#boardList .bd-row').length;
+    var rivalsBeforePaste = d.querySelectorAll('#boardList .bd-row.rival').length;
     inp4.value = selfCode;
     d.getElementById('btnPasteCode').click();
     var warnNow = d.getElementById('warnPill');
     out.selfWarn = warnNow ? warnNow.textContent.replace(/\s+/g, '') : '';
-    var selfRows = [].filter.call(d.querySelectorAll('#boardList .bd-row'), function (r) {
-      return /11\s*层/.test(r.textContent);
-    });
-    out.selfBoardRows = selfRows.length;
-    out.selfRivalRows = selfRows.filter(function (r) { return r.classList.contains('rival'); }).length;
+    out.selfBoardRows = d.querySelectorAll('#boardList .bd-row').length - rowsBeforePaste;
+    out.selfRivalRows = d.querySelectorAll('#boardList .bd-row.rival').length - rivalsBeforePaste;
     out.selfPasteCleared = inp4.value === '';
 
     // 榜单档位：三路主路各一档 + 五条助力合并一格（2026-11-26 三路改版）
