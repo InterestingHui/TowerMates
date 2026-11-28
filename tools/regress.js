@@ -356,6 +356,35 @@ if (!process.argv.includes('--no-shot')) {
         geomLine = parts.join(' · ');
         console.log((okGeom ? '✓' : '✗') + ` 浮层几何 ${geomLine}`);
       }
+      // 榜单列几何：六格在窄屏放不放得下（2026-11-28 加练·美术焦点B 实拍发现两处溢出：
+      // 320 档「用时」44px 装 48px、341–390 档勇者脚注被硬切半个字）。此前全套截图只有 430 一档，
+      // 三档断点里有两档从来没被看过。三档各跑一遍：320（丢「步」列）/ 360（Android 常见）/ 390（iPhone）。
+      console.log('== 附加 · 榜单列几何自检（320/360/390）==');
+      let okBdGeom = true, bdGeomLine = '';
+      {
+        const os = require('os');
+        const args = (w) => [
+          '--headless=new', '--disable-gpu', '--no-sandbox', '--no-first-run', '--disable-extensions',
+          '--user-data-dir=' + path.join(os.tmpdir(), 'tm-bdgeom-' + process.pid + '-' + w),
+          '--virtual-time-budget=60000',
+          '--dump-dom', `http://127.0.0.1:${PORT}/tools/board-geom-check.html?gate=1&w=${w}`,
+        ];
+        const read = (w) => {
+          const p = spawnSync(chrome, args(w), { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+          const t = p.stdout || '';
+          const bits = /(?:ALLPASS|HASFAIL|ERR)\|([01]+)/.exec(t);
+          return { pass: /ALLPASS\|1+/.test(t), bits: bits ? bits[1] : '' };
+        };
+        const parts = [];
+        for (const w of [320, 360, 390]) {
+          let r = read(w);
+          if (!r.bits) r = read(w);
+          okBdGeom = okBdGeom && r.pass;
+          parts.push(`${w}:${r.bits ? (r.bits.match(/1/g) || []).length + '/' + r.bits.length : '读数失败'}`);
+        }
+        bdGeomLine = parts.join(' · ');
+        console.log((okBdGeom ? '✓' : '✗') + ` 榜单列几何 ${bdGeomLine}`);
+      }
       // 序章只播一次：首次必播、老玩家跳过、设置里能重看
       console.log('== 附加 · 序章重播自检 ==');
       let okIntro = true, introLine = '';
@@ -1144,8 +1173,8 @@ if (!process.argv.includes('--no-shot')) {
       const ui = run(process.execPath, ['tools/ui-test.js']);
       const okUi = ui.code === 0;
       console.log((okUi ? '✓' : '✗') + ' ui-test.js' + (okUi ? '' : '\n' + ui.out));
-      const all = okFuzz && okCheck && okSim && okSkip && okRoute && okTest && okCode && okBsim && okOd && okUi && okProbe && okAds && okGeom && okIntro && okWxb && okNew && okWx && okSwordGate && okPace && okDaily && okVowFirst && okZeal && okFinal && okTangle && okGuard && okThreat && okVp && okVm && okTap && okContrast && okMotion && okSfx && okRm && okErr && okSto && okTime && okTab && bad === 0;
-      if (!all) console.log('  闸门明细:', JSON.stringify({ okCheck, okSim, okSkip, okRoute, okTest, okCode, okBsim, okOd, okUi, okProbe, probeA3, okAds, adsLine, okGeom, geomLine, okIntro, introLine, okWxb, wxbLine, okNew, newLine, okWx, okSwordGate, okPace, paceLine, okDaily, dailyLine, okVowFirst, vowFirstLine, okZeal, zealLine, okFinal, finalLine, okTangle, tangleLine, okGuard, guardLine, okThreat, threatLine, okVp, vpLine, okVm, vmLine, okTap, tapLine, okContrast, contrastLine, okMotion, motionLine, okSfx, sfxLine, okRm, rmLine, okErr, errLine, okSto, stoLine, okTime, timeLine, okTab, tabLine, okFuzz, fzMax, bad }));
+      const all = okFuzz && okCheck && okSim && okSkip && okRoute && okTest && okCode && okBsim && okOd && okUi && okProbe && okAds && okGeom && okBdGeom && okIntro && okWxb && okNew && okWx && okSwordGate && okPace && okDaily && okVowFirst && okZeal && okFinal && okTangle && okGuard && okThreat && okVp && okVm && okTap && okContrast && okMotion && okSfx && okRm && okErr && okSto && okTime && okTab && bad === 0;
+      if (!all) console.log('  闸门明细:', JSON.stringify({ okCheck, okSim, okSkip, okRoute, okTest, okCode, okBsim, okOd, okUi, okProbe, probeA3, okAds, adsLine, okGeom, geomLine, okBdGeom, bdGeomLine, okIntro, introLine, okWxb, wxbLine, okNew, newLine, okWx, okSwordGate, okPace, paceLine, okDaily, dailyLine, okVowFirst, vowFirstLine, okZeal, zealLine, okFinal, finalLine, okTangle, tangleLine, okGuard, guardLine, okThreat, threatLine, okVp, vpLine, okVm, vmLine, okTap, tapLine, okContrast, contrastLine, okMotion, motionLine, okSfx, sfxLine, okRm, rmLine, okErr, errLine, okSto, stoLine, okTime, timeLine, okTab, tabLine, okFuzz, fzMax, bad }));
       console.log(all ? '✓ 质量闸门通过' : '✗ 质量闸门有失败项');
       process.exit(all ? 0 : 1);
     })();

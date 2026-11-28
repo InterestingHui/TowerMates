@@ -954,13 +954,16 @@ html.fx-low .bd-shot { animation: sceneIn 0.9s ease-out both; }
 .shop-deal:empty { display: none; }
 
 /* ================= 塔友榜 ================= */
-.board-panel { max-width: 384px; --bd-cols: 20px 1fr 76px 30px 36px 54px; }
-/* 表头与数据行共用 --bd-cols：列宽只有一处定义，改宽窄不会出现「头是头、行是行」的错位。
-   1px 透明边 + 同样的左右内边距 = 与 .bd-row 的**内容盒**同宽，右对齐的层/步/用时才对得上。 */
+/* 列宽与列间距都只有一处定义（--bd-cols / --bd-gap），表头与数据行共用：
+   改宽窄不会出现「头是头、行是行」的错位，窄屏降间距也只改一个数。
+   （2026-11-28 之前 gap 在 .bd-head 与 .bd-row 各写了一份 4px —— 三档断点里只有一处能改到，
+   320 屏「用时」溢出 4px 吃掉列间距时才发现这两个字面量是两份。） */
+.board-panel { max-width: 384px; --bd-cols: 20px 1fr 76px 30px 36px 54px; --bd-gap: 4px; }
+/* 1px 透明边 + 同样的左右内边距 = 与 .bd-row 的**内容盒**同宽，右对齐的层/步/用时才对得上。 */
 .bd-head {
   display: grid;
   grid-template-columns: var(--bd-cols);
-  gap: 4px;
+  gap: var(--bd-gap);
   align-items: center;
   padding: 0 8px;
   border: 1px solid transparent;
@@ -972,7 +975,7 @@ html.fx-low .bd-shot { animation: sceneIn 0.9s ease-out both; }
 .bd-row {
   display: grid;
   grid-template-columns: var(--bd-cols);
-  gap: 4px;
+  gap: var(--bd-gap);
   align-items: center;
   font-size: var(--fs-aux);
   padding: 6px 8px;
@@ -984,12 +987,16 @@ html.fx-low .bd-shot { animation: sceneIn 0.9s ease-out both; }
 .bd-note { font-size: var(--fs-tag); color: #8a93a5; padding: 6px 8px; border-left: 2px solid rgba(232,196,106,0.4); margin-bottom: 4px; line-height: 1.5; }
 .bd-rank { color: var(--dim); font-variant-numeric: tabular-nums; }
 .bd-name { color: #c6cdda; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* 影子勇者脚注：独立成第二行（同格 nowrap 会把 11 字脚注截成省略号——430/390/360 实测全溢出） */
+/* 影子勇者脚注：独立成第二行（同格 nowrap 会把 11 字脚注截成省略号——430/390/360 实测全溢出）
+   white-space:normal（2026-11-28 实拍）：独立成行只让它「不被名字的那一行挤掉」，
+   窄屏下名字列只有 41–62px 而「剑断在第五层」要 66px —— inline-block 溢出时**不给省略号**，
+   是硬切半个字。允许它折成两行：多 13px 行高，换回一个完整的「第几层」。 */
 .bd-rnote {
   display: inline-block;
   font-style: normal;
   font-size: var(--fs-tag);
   color: var(--muted);
+  white-space: normal;
   margin-top: 1px;
 }
 .bd-end { color: var(--dim); font-size: var(--fs-tag); display: flex; align-items: center; gap: 3px; white-space: nowrap; }
@@ -1602,16 +1609,20 @@ html.fx-low .bd-shot { animation: sceneIn 0.9s ease-out both; }
   #log { height: 80px; font-size: var(--fs-tag); }
   #bottom { min-height: 80px; }
   #dpad { grid-template-columns: repeat(3, 34px); grid-template-rows: repeat(3, 34px); }
-  .board-panel { --bd-cols: 18px 1fr 64px 26px 30px 50px; }
+  /* 名字列在 341–380 之间只剩 41px（320 档反而有 68px——它丢了「步」列）：
+     结局 64→58（「第六个名字」实测正好 58）、层 26→24（「13层」实测 24 够），把这 8px 全给名字。 */
+  .board-panel { --bd-cols: 18px 1fr 58px 24px 30px 50px; }
   .bd-row { font-size: var(--fs-tag); }
   .dlg-portrait { width: 68px; }
   .dlg-text { font-size: var(--fs-body); }
   .choice-card { min-height: 168px; }
   .cc-title { font-size: var(--fs-body); }
 }
-/* 320 屏（iPhone SE 一代及以下）：六列放不下，名字列被压到 30px。丢「步」列换名字可读。 */
+/* 320 屏（iPhone SE 一代及以下）：六列放不下，名字列被压到 30px。丢「步」列换名字可读。
+   间距也从 4px 收到 3px、把这 4px 补给「用时」：20分20秒 在 44px 里量到 48px（2026-11-28 实拍
+   row 的 time:…+44/ovf48），溢出正好吃掉 4px 列间距 —— 层号与用时贴死，读成一串「5层20分20秒」。 */
 @media (max-width: 340px) {
-  .board-panel { --bd-cols: 18px 1fr 58px 24px 44px; }
+  .board-panel { --bd-cols: 18px 1fr 58px 24px 48px; --bd-gap: 3px; }
   .bd-steps { display: none; }
 }
 

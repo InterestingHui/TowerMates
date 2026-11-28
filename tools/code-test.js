@@ -2545,6 +2545,25 @@ ok(mainSrc.indexOf("searchParams.set('rival'") < 0, 'main.js 不许自己拼链�
     `表头只在一处渲染（调用 ${headCalls} 处；index.html 里没有独立表头容器）`);
 }
 
+// 窄屏列宽（2026-11-28 加练·美术 焦点B 实拍 320/360/390/430 四档）：
+// 320 屏「用时」列只有 44px 而「20分20秒」量到 48px —— 右对齐的溢出正好吃掉那 4px 列间距，
+// 「5层」与「20分20秒」贴成一片，读成一串数字。根子是列间距在 .bd-head / .bd-row 各写了一份
+// 4px 字面量：改窄屏只改得到一处，另一处永远回不去。现在两处都读 --bd-gap，窄屏收 3px 补给用时。
+{
+  const colsDefs = Array.from(cssSrc.matchAll(/--bd-cols:\s*([^;]+);/g)).map((m) => m[1].trim());
+  const gapDefs = Array.from(cssSrc.matchAll(/--bd-gap:\s*([^;]+);/g)).map((m) => m[1].trim());
+  const hb = (cssSrc.match(/\.bd-head \{([\s\S]*?)\}/) || [])[1] || '';
+  const rb = (cssSrc.match(/\n\.bd-row \{([\s\S]*?)\}/) || [])[1] || '';
+  ok(colsDefs.length === 3 && gapDefs.length === 2,
+    `榜单列宽三档齐、间距两档齐（列宽 ${colsDefs.length} / 间距 ${gapDefs.length}）`);
+  const narrow = colsDefs.find((v) => v.split(/\s+/).length === 5) || '';
+  const narrowTime = narrow ? parseFloat(String(narrow.split(/\s+/).pop()).replace('px', '')) : 0;
+  ok(narrowTime >= 48, `320 档「用时」列 ≥48px（实测 20分20秒 需 48px，当前 ${narrowTime || '缺'}px）`);
+  ok(/gap:\s*var\(--bd-gap\)/.test(hb) && /gap:\s*var\(--bd-gap\)/.test(rb)
+    && !/gap:\s*\d/.test(hb) && !/gap:\s*\d/.test(rb),
+    '列间距只有一处来源（--bd-gap）：表头或行里再写死 px = 缩屏时两排错位');
+}
+
 // 语义色只走 token（style.css 顶部铁律②，2026-11-26 加练·美术 焦点D 首次上尺）。
 // 病根：--warn / --info / --success / 亮金 这些色在 CSS 里被抄了十几处裸值，
 // 改 token 改不到它们 —— 于是「同一级颜色」在两张卡上是两个值，且从此再也不会一起变。

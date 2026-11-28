@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>board-geom-check</title>
+<style>body{margin:0;background:#05070c;color:#8ef;font:12px monospace}#f{height:820px;border:0;position:absolute;left:-9999px}</style>
+</head><body>
+<iframe id="f" src="/index.html"></iframe>
+<pre id="out">…</pre>
+<script>
+// 榜单列几何闸门：塔友榜那一行六格在窄屏放不放得下。
+// 病根（2026-11-28 加练·美术焦点B 实拍 320/341/360/375/390/430 六档）：列宽三档各写死，只有 430 有截图，
+// 于是两处溢出一直没人看见——①320 档「用时」列 44px 而「20分20秒」要 48px，右对齐的溢出吃掉 4px 列间距，
+// 「5层20分20秒」读成一串；②341–390 档名字列只有 41–62px，「剑断在第五层」要 66px，inline-block 溢出
+// 不给省略号、是硬切半个字。这里把「格子里装不下」变成一条会红的闸门，免得下次再靠人眼看截图。
+// 由 tools/regress.js 按 320 / 360 / 390 三档宽度各跑一遍（?w=320 等）。
+const W = Number(new URLSearchParams(location.search).get('w') || 375);
+const f = document.getElementById('f');
+f.style.width = W + 'px';
+const out = document.getElementById('out');
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const BOARD = [
+  { ending: 'true', floor: 13, level: 19, steps: 520, time: 905, seal: 'clear', goals: 13, vow: 'greed' },
+  { ending: 'plain', floor: 11, level: 16, steps: 610, time: 1100, seal: 'name', goals: 8, vow: 'guard' },
+  // 边界：用时 99分59秒（玩家长挂机才会到），「用时」列按 6 字量；这条不进就永远只验到 5 字
+  { ending: 'plain', floor: 12, level: 18, steps: 999, time: 5999, seal: '', goals: 0, vow: 'none' },
+];
+(async () => {
+  const rows = [];
+  const bits = [];
+  const one = (cond, name, detail) => {
+    bits.push(cond ? 1 : 0);
+    rows.push((cond ? 'PASS|' : 'FAIL|') + name + '|' + detail);
+  };
+  try {
+    try { localStorage.setItem('towermates_board', JSON.stringify(BOARD)); } catch (e) {}
+    await wait(1600);
+    const w = f.contentWindow, d = f.contentDocument;
+    let T = w.__tm;
+    for (let i = 0; i < 20 && !T; i++) { await wait(200); T = w.__tm; }
+    if (!T) throw new Error('__tm 没起来');
+    // 8 字落款：最长码（v6 的码长度吃落款字数），顺带量码行会不会撑破面板
+    T.Meta.setName('不回头的人阿川呀');
+    T.openBoard();
+    await wait(420);
+    const pn = d.querySelector('#boardOverlay .board-panel');
+    one(!!pn && pn.scrollWidth <= pn.clientWidth + 1, '面板无横向滚动',
+      `panel ${pn ? pn.scrollWidth + '/' + pn.clientWidth : '缺'}`);
+    const cellRows = Array.from(d.querySelectorAll('#boardList .bd-row'));
+    one(cellRows.length >= 3, '榜单有行可量', 'rows=' + cellRows.length);
+    // 每一格都装得下自己的内容：名字列例外（省略号是设计），别的格子溢出就是真溢出
+    const bad = [];
+    cellRows.forEach((row, i) => {
+      Array.from(row.children).forEach((c) => {
+        if (c.classList.contains('bd-name')) return;
+        if (c.scrollWidth > c.clientWidth + 1) bad.push(`r${i}.${c.className.split(' ')[0]} ${c.scrollWidth}/${c.clientWidth}`);
+      });
+    });
+    one(bad.length === 0, '其余各格不溢出（名字列除外，它按省略号收）', bad.join(' ') || 'ok');
+    // 影子勇者脚注：窄屏名字列装不下时要折行，不许硬切半个字（inline-block 溢出不给省略号）。
+    // 量的是**文字实际排到哪**（Range 的矩形），不是 inline-block 自己的 scrollWidth ——
+    // 后者在 nowrap 溢出与折行两种状态下都报列宽，量不出差别（2026-11-28 实测：这条第一版是空转的）。
+    const rbad = [];
+    cellRows.forEach((row, i) => {
+      const cell = row.querySelector('.bd-name');
+      if (!cell) return;
+      const cr = cell.getBoundingClientRect();
+      Array.from(row.querySelectorAll('.bd-rnote')).forEach((n) => {
+        const rg = d.createRange();
+        rg.selectNodeContents(n);
+        const rr = rg.getBoundingClientRect();
+        if (rr.right > cr.right + 2) rbad.push(`r${i} 文字到 ${Math.round(rr.right)} / 列到 ${Math.round(cr.right)}`);
+      });
+    });
+    one(rbad.length === 0, '勇者脚注折行不硬切', rbad.join(' ') || 'ok');
+    // 层与用时之间必须留得下间距：用时右对齐，内容比列宽时向**左**溢出，先撞的就是层号
+    const tight = [];
+    cellRows.forEach((row, i) => {
+      const fl = row.querySelector('.bd-floor'), tm = row.querySelector('.bd-time');
+      if (!fl || !tm || !fl.offsetWidth) return;
+      const fb = fl.getBoundingClientRect(), tb = tm.getBoundingClientRect();
+      const gapPx = Math.round(tb.left + tb.width - tm.scrollWidth - (fb.left + fb.width));
+      if (gapPx < 2) tight.push(`r${i} ${gapPx}px`);
+    });
+    one(tight.length === 0, '层与用时之间 ≥2px', tight.join(' ') || 'ok');
+    // 码行：v6 最长码（落款满 8 字）在窄屏要折行、不许撑破面板
+    const cv = d.getElementById('myCode');
+    one(!!cv && cv.scrollWidth <= cv.clientWidth + 1, '挑战码不撑破码行',
+      cv ? `len=${cv.textContent.length} ${cv.scrollWidth}/${cv.clientWidth}` : '缺');
+    out.textContent = rows.join('\n') + '\n'
+      + (bits.every((b) => b) ? 'ALLPASS' : 'HASFAIL') + '|' + bits.join('');
+  } catch (e) {
+    out.textContent = rows.join('\n') + '\nERR|' + (e && e.message ? e.message : e);
+  }
+})();
+</script>
+</body></html>
