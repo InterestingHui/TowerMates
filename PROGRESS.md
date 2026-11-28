@@ -1363,6 +1363,10 @@
 > §八「元素登记」之后（文件末尾）**，被 §七/§八 从中间截断了。要取「最近 5 条」请用
 > `grep -n '^- 2026-' PROGRESS.md | tail -5`，别只看 §六（那会漏掉当天每一条）。结构债本身记在待办（低），不搬 700 行。
 
+- 2026-11-28：**序章四幕返工（用户三条：公主没有胁迫感 / 国王太苍老 / 第三张看不懂）**。根因不是提示词不够细（intro1 早已写到「抓手腕、脚尖离地、鞋掉了」），是**画风跑成了二次元**：`STYLE`/`STYLE_SOFT` 里的 `painterly matte painting` / `hand-painted oil texture` / `fine painterly brushwork` 一旦遇到人物主体，模型就整页滑向插画——皮肤平涂、表情简化（惊吓→睁眼、痛苦→皱眉），于是物理证据全在、读出来的却是「美少女被扶着」。①**新增 `STYLE_FILM`**：实拍电影段（35mm 变形镜、真实皮肤毛孔与细纹、teal-amber 调色、柔和主光），**带人物的四幕固定走它**（`styleFor(fig)` 直接返回，`--soft` 对它们失效）；负向整组堵死绘画媒介（anime/manga/cel shading/line art/digital painting/doll-like face/big glossy eyes）。②**intro1**：`young woman`→`a grown woman in her mid-twenties`、`head thrown back`→`twisted aside`（原词组被画成仰望）、补正面表情 `contorted with terror / silent scream / eyes wide with panic`。③**intro2**：`elderly` + `gaunt` + `thin shoulders` 三个词叠出八十岁白胡子 → 改 `king in his mid-forties`、`strong weathered face tight with grief`，保留泪与颤抖。④**intro3**：重写成**骑士立誓**图形语言——剑尖抵地、双手按剑柄、绣帕缠在持剑的手上、膝旁铁烛台；删掉王座（王座在场就会被读成「向王座效忠」，这才是「看不懂」的真因）。⑤**闸门**：蜡烛原来在 y≈88%（对白框压住），改到腰高后焦点过；`HUE_FIX` 补偿归零（写实烛光本就 42°，为凑数字转色相会让画面发绿，本末倒置）。
+  闸门：bd-luma 11/11（序章 33.9 / 背景 29.1 / 差 4.8；暖光极差 18°）；regress 全绿。
+  ｜加练：美术（画风纠正）｜变体：无（用户报障直修）｜薄弱层：表层｜阻塞：无
+
 ## 七、上线后看板
 
 > 提审/上线后开始填。基准线：次留 25–35%（休闲）、时长 15min+、广告人均观看 3–6 次/日为健康（EXP-01 H-05b/H-01）。

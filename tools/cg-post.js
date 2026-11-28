@@ -46,7 +46,11 @@ const H = 1800;
 //   · 其余按各自 raw 值微调，目标都落在 meanL 22–38。
 const DIM = {
   dawn: 1.15, roof: 0.95, town: 0.86, ridge: 0.86, window: 0.90,
-  intro4: 1.00, intro2: 0.92, intro1: 0.90, intro3: 0.94,
+  // 2026-11-28：四幕换成**写实实拍**（STYLE_FILM）后整体亮了 8–12（raw 47–51，
+  // 绘画版是 30 出头）——写实皮肤的高光本来就多。系数从 0.9+ 降到 0.68–0.76，
+  // 压回 34–36，与 20 张空镜（均值 31.7）同带。
+  // 二次：序章 35.3 vs 背景 29.1＝差 6.2，咬着上限。整体再降 0.02 留一格余量。
+  intro4: 0.74, intro2: 0.68, intro1: 0.68, intro3: 0.66,
   core: 0.90, corridor: 0.88, gate: 0.90, market: 0.94, namewall: 0.92,
   stairs: 0.90, reddoor: 0.90, ledger: 0.92, forge: 0.94,
 };
@@ -77,7 +81,15 @@ const HUE_FIX = {
   gate: 26, corridor: 23, market: 24, passage: 26, wolfhall: 38, empty: 21,
   stairs: 24, throne: 36, reddoor: 38, ledger: 25, ridge: 30, town: 12,
   bell: 8, namewall: 19, carve: 24, forge: 34, core: 22, roof: 27,
-  window: 18, dawn: 13, intro1: 6, intro2: 19, intro3: 8, intro4: 12,
+  // 2026-11-28：intro2 的烛光实测 58°（柠檬黄），超上限 8 度。补偿从 19 加到 30。
+  // 其余四幕的补偿值留给下一批按实测微调，别凭感觉一次改一排。
+  // 2026-11-28 二次校准：补偿是**正向旋转**，加过头会更大——intro2 从 19 加到 30，
+  // 实测反而 58°→67°（斜率约 0.82）。按斜率倒推：intro2 要 48° ⇒ 补偿 7；
+  // intro3 新图实测 57°（补偿 8）⇒ 补偿 -3。负数合法（就是往红方向转）。
+  // 2026-11-28 三校准：补偿归零。按斜率倒推，intro2 原图本身就在 42°（黄铜族中段），
+  // 补偿 7 反而把它推到 48（偏绿）。**写实烛光本来就比绘画版更黄**，
+  // 为了让数字好看去转色相是本末倒置——42° 在 26–50 里，不动它。
+  window: 18, dawn: 13, intro1: 6, intro2: 0, intro3: 0, intro4: 12,
 };
 
 const py = String.raw`
