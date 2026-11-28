@@ -3345,6 +3345,34 @@ ok(/busyState: \(\) => \(\{ battle: battleBusy/.test(mainSrc),
   ok(len <= 150, `齿塔卡关台词压在一屏内（${len} 字 ≤ 150）`);
 }
 
+// 三座齿塔的皮肤（2026-11-28 主题轮）必须是三种材质，不是同一套石灰换名字。
+// 此前没有任何闸门管这件事：`shot.html` 里 `tower` 拍的是烛的塔层 + 楼层卡、`towers` 拍的是选塔面板，
+// 两张都不画棋盘 ⇒ 三套 paint 从上线起没见过一张图（2026-11-29 补了 rust/ash/bell 三个取景）。
+// 这条只封「三个键两两不同」，不封具体色值——改配色照旧自由，改回一套才红。
+{
+  const paints = GD.towers.filter((t) => !t.main && t.paint).map((t) => ({ id: t.id, p: t.paint }));
+  ok(paints.length === 3, `三座齿塔各有一份 paint（实测 ${paints.length}）`);
+  const uniq = (f) => new Set(paints.map(f)).size;
+  ok(uniq((x) => x.p.wall) === 3, `三座塔的墙体材质互不相同（${paints.map((x) => x.p.wall).join('/')}）`);
+  ok(uniq((x) => x.p.motif) === 3, `三座塔的地纹互不相同（${paints.map((x) => x.p.motif).join('/')}）`);
+  ok(uniq((x) => String(x.p.lamp)) === 3, `三座塔的壁火光色互不相同（${paints.map((x) => x.p.lamp.join(',')).join(' / ')}）`);
+  ok(uniq((x) => String(x.p.floor)) === 3, '三座塔的地砖两档色互不相同');
+  ok(paints.every((x) => /^#[0-9a-f]{6}$/.test(x.p.floor[0]) && /^#[0-9a-f]{6}$/.test(x.p.floor[1])),
+    '地砖色是完整的 #rrggbb（少一位会在 canvas 里被当透明）');
+}
+
+// 22 层口径（2026-11-28）之后，`s.floor + 1` 只在主塔上等于「第几层」——齿塔的 s.floor 是 13..21，
+// 读出来是「第 14 层」这种既不是塔内层号、也不是进度号的第三个数。G-14 ⑪ 只许两种刻度，
+// 展示端唯一换算口是 D.floorNo()。三塔取景第一张图上就撞见了（底栏日志「第 14 层」与顶栏「第 1 层」同屏）。
+ok(!/\$\{(?:s\.floor|floor0) \+ 1\} 层/.test(mainSrc),
+  '层号文案一律走 D.floorNo（齿塔里 s.floor+1 会读出「第 14 层」）');
+// 齿塔三座零商店：撞 Boss 打不过时那条「回第 N 层找秦权」在塔内没有落点，
+// 00:59 修的是卡关条，提示条是同一事实的第二份实现——塔内只留一句「塔里没有摊子」。
+ok(/if \(inTower\) \{[\s\S]{0,120}?塔里没有摊子/.test(mainSrc),
+  '齿塔里撞 Boss 打不过，提示条不再指「回第 N 层找秦权」');
+ok(/log\(inTower[\s\S]{0,80}?塔里没有货摊/.test(mainSrc),
+  '破不了防时塔内给的是塔里做得到的事（无货摊 → 清怪/捡药/退塔）');
+
 console.log(`挑战码 / 触控 / 桥接 / 视图模型单测：${pass} 项通过${bad ? `，${bad} 项失败` : ''}`);
 
 process.exit(bad ? 1 : 0);

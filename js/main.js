@@ -2629,7 +2629,7 @@
     $('endDesc').textContent = `你倒在了${monster ? monster.name : '塔里'}的手里。塔把这一局的余烬收进墙上，等下一个人。`;
     $('endBody').textContent = '';
     // 立过誓的局，死法也带一句誓的回声（文案仍只有 data.js 那一份，与胜局同源）
-    $('endEpi').textContent = `第 ${s.floor + 1} 层 · 挨了 ${damage} 点。塔不怪你——它只是照章办事。`
+    $('endEpi').textContent = `第 ${D.floorNo(s.floor)} 层 · 挨了 ${damage} 点。塔不怪你——它只是照章办事。`
       + (vowDef.echo ? ' ' + vowDef.echo : '');
     const score = View.endScoreModel({
       mode: 'death', sealName: sealDef.name, sealDesc: sealDef.desc,
@@ -2754,7 +2754,7 @@
     Renderer.setAmbient(s.floor);
     refreshHud();
     Sound.play('level');
-    warn(`**从第 ${floor0 + 1} 层重新站起来**：生命回到四成，这一层的怪也回来了。`, null, 'info');
+    warn(`**从第 ${D.floorNo(floor0)} 层重新站起来**：生命回到四成，这一层的怪也回来了。`, null, 'info');
   }
 
   // 结算页「余烬翻倍」：只在通关结算用
@@ -3030,11 +3030,20 @@
       vibrate(20);
       Renderer.flashTile(tx, ty, 'rgba(255,80,80,0.35)', 260);
       Renderer.shake(130, 2.5);
+      // 齿塔三座都没有秦权的摊子：任何「回第 N 层找秦权」在塔内都没有落点。
+      // 「去哪儿补」这件事由卡关条那一句（长明 · stuckDefTower）负责，这里不许再说第二遍——
+      // 同一个建议两个出口，玩家会照着走不通的那个去走（2026-11-29 三塔取景实拍抓到。
+      // 00:59 那轮修的是卡关条，提示条是同一事实的第二份实现，漏在这儿）。
+      const inTower = !D.towerOf(s.floor).main;
       if (m.boss) {
         const shop = nearestShopFloor(s.floor);
-        if (Tips.mark('toostrong')) sayHint('tooStrongBoss', { n: shop });
-        else warn(`长明：打不过，**回第 ${shop} 层找秦权**`);
-        log(`打不过${m.name}——塔里还有没清完的怪，或者回第 ${shop} 层找秦权。`, 'warn');
+        if (inTower) {
+          log(`打不过${m.name}——塔里没有摊子，这一层还有没清完的怪。`, 'warn');
+        } else {
+          if (Tips.mark('toostrong')) sayHint('tooStrongBoss', { n: shop });
+          else warn(`长明：打不过，**回第 ${shop} 层找秦权**`);
+          log(`打不过${m.name}——塔里还有没清完的怪，或者回第 ${shop} 层找秦权。`, 'warn');
+        }
       } else {
         const shop2 = nearestShopFloor(s.floor);
         if (Tips.mark('toostrong')) sayHint('tooStrong', { n: shop2 });
@@ -3044,7 +3053,9 @@
       }
       // 破不了防时给出可操作的数字：还差几点攻击、去哪儿补
       if (pred.reason === '攻击力不足，无法破防') {
-        log(`破防要攻击 ≥ ${m.def + 1}（当前 ${s.atk}，还差 ${m.def + 1 - s.atk}）：去这一层/第 ${nearestShopFloor(s.floor)} 层的货摊买力量训练，或先拿遗物。`, 'warn');
+        log(inTower
+          ? `破防要攻击 ≥ ${m.def + 1}（当前 ${s.atk}，还差 ${m.def + 1 - s.atk}）：塔里没有货摊，先清没打的怪、捡全药水，或者退到门厅踩塔门出去。`
+          : `破防要攻击 ≥ ${m.def + 1}（当前 ${s.atk}，还差 ${m.def + 1 - s.atk}）：去这一层/第 ${nearestShopFloor(s.floor)} 层的货摊买力量训练，或先拿遗物。`, 'warn');
       }
       // 关键：把「差多少 + 去哪儿补」钉在顶栏，别让提示一闪而过、看着像卡死
       showStuck(m, pred, s);
@@ -4157,7 +4168,7 @@
     Sound.setPad(s.floor);
     Sound.setMotif(s.floor);
 
-    if (!first) log(`来到第 ${s.floor + 1} 层 · ${f.name}`, 'gold');
+    if (!first) log(`来到第 ${D.floorNo(s.floor)} 层 · ${f.name}`, 'gold');
     log(f.tip);
     // 塔门就在脚下：齿塔第 1 层那块 `n` 既是进来的门，也是唯一的出路。
     // 不写这一句，玩家不会知道「打不动守门的齿」时还能回头——他只会以为这局到头了。
@@ -4809,7 +4820,7 @@
       refreshHud();
       s.flags.retries = (s.flags.retries || 0) + 1;
       Engine.save();
-      log(`退回第 ${s.floor + 1} 层入口`, 'gold');
+      log(`退回第 ${D.floorNo(s.floor)} 层入口`, 'gold');
       warn('已退回本层入口', null, 'info');
     });
 
@@ -5377,7 +5388,7 @@
     el.startOverlay.classList.remove('show');
     endShown = false;
     el.log.innerHTML = '';
-    log(`继续冒险 · 第 ${s.floor + 1} 层`, 'gold');
+    log(`继续冒险 · 第 ${D.floorNo(s.floor)} 层`, 'gold');
     Renderer.setAmbient(s.floor);
     Renderer.fade(400);
     refreshHud();
@@ -5654,7 +5665,7 @@
       Renderer.setAmbient(s.floor);
       Engine.beginFloor();
       refreshHud();
-      log(`第 ${s.floor + 1} 层 · ${D.floors[s.floor].name}`, 'gold');
+      log(`第 ${D.floorNo(s.floor)} 层 · ${D.floors[s.floor].name}`, 'gold');
     }
 
     window.addEventListener('beforeunload', () => Engine.save());
