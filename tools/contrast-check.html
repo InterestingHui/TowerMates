@@ -20,7 +20,9 @@ const SCENES = ['start', 'vow', 'play', 'dialog', 'hint', 'battle', 'battleblock
   // 决策屏，bossintro 每次章末必看，三种打法战斗与日榜/终局/满 HUD 也都是高频界面。
   // 「量过的屏」和「玩家真正反复看的屏」必须是同一批，否则可读性只是抽样合格。
   'prep', 'bossintro', 'tanglebattle', 'guardbattle', 'threatbattle', 'daily', 'dailyboard',
-  'final', 'hudmax', 'stuck', 'sword', 'zeal', 'echo2', 'death1', 'codexzoom'];
+  'final', 'hudmax', 'stuck', 'sword', 'zeal', 'echo2', 'death1', 'codexzoom',
+  // 2026-11-28 加练美术焦点B：塔群（选塔屏）是每次开新局的第一屏，此前不在任何一屏的量表里。
+  'towers'];
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const out = document.getElementById('out');
 const GATE = /[?&]gate=1/.test(location.search);

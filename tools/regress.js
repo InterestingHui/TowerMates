@@ -16,7 +16,7 @@ const CHROME_CANDIDATES = [
   'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
   'C:/Program Files/Microsoft/Edge/Application/msedge.exe',
 ];
-const SCENES = ['start', 'play', 'bossintro', 'codexzoom', 'critters', 'minions', 'dialog', 'hint', 'stuck', 'battle', 'battleblock', 'prep', 'prep4', 'bossphase', 'bossyan', 'bossdef', 'probecard', 'altar', 'choice', 'end', 'board', 'challenge', 'codex', 'cfg', 'hud', 'tower', 'core', 'heart', 'stoneidle', 'vow', 'vowfirst', 'vowflash', 'event', 'eventdeep', 'gate', 'echo', 'goal', 'flow', 'showcase', 'death', 'death1', 'collection', 'adsdeath', 'adsend', 'sword', 'daily', 'dailyboard', 'dailyend', 'floor2', 'floor3', 'shop', 'echo2', 'battletwice', 'zeal', 'final', 'tanglebattle', 'guardbattle', 'threatbattle', 'hudmax'];
+const SCENES = ['start', 'play', 'bossintro', 'codexzoom', 'critters', 'minions', 'dialog', 'hint', 'stuck', 'battle', 'battleblock', 'prep', 'prep4', 'bossphase', 'bossyan', 'bossdef', 'probecard', 'altar', 'choice', 'end', 'board', 'challenge', 'codex', 'cfg', 'hud', 'tower', 'core', 'heart', 'stoneidle', 'vow', 'vowfirst', 'vowflash', 'event', 'eventdeep', 'gate', 'echo', 'goal', 'flow', 'showcase', 'death', 'death1', 'collection', 'adsdeath', 'adsend', 'sword', 'daily', 'dailyboard', 'dailyend', 'floor2', 'floor3', 'shop', 'echo2', 'battletwice', 'zeal', 'final', 'tanglebattle', 'guardbattle', 'threatbattle', 'hudmax', 'towers'];
 
 function run(cmd, args) {
   const r = spawnSync(cmd, args, { cwd: ROOT, encoding: 'utf8' });
@@ -1166,6 +1166,57 @@ if (!process.argv.includes('--no-shot')) {
         console.log((okTab ? '✓' : '✗') + ` 并发面 ${tabLine}` + (okTab ? '' : '\n   ' + r.fails.slice(0, 6).join('\n   ')));
       }
 
+      // 塔群（选塔屏）：每次开新局的第一屏，2026-11-28 之前 58 张截图里一张都没拍过。
+      // 这一屏决定「第一次进来的人点什么」，所以断言不只看有没有，还看四张卡的可点区、
+      // 状态是不是一眼可辨（一扇开着的门 + 三张暗卡），以及它有没有独占整屏。
+      console.log('== 附加 · 塔群选塔屏自检 ==');
+      let okTower2 = true, towerLine = '';
+      {
+        const readTw = (budget) => {
+          const p = spawnSync(chrome, [
+            '--headless=new', '--disable-gpu', '--no-sandbox', '--no-first-run', '--disable-extensions',
+            '--user-data-dir=' + path.join(os.tmpdir(), 'tm-towers-' + process.pid),
+            '--virtual-time-budget=' + (budget || 25000),
+            '--dump-dom', `http://127.0.0.1:${PORT}/tools/shot.html?scene=towers`,
+          ], { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+          const m = /<pre id="err">([\s\S]*?)<\/pre>/.exec(p.stdout || '');
+          const body = m ? m[1] : '';
+          // 只截一行：TOWERS 的 JSON 是单行（JSON.stringify 不折行），而它**内部还有花括号**
+          // （rows 里每张卡一个对象）——用非贪婪 `\{[\s\S]*?\}` 会停在第一张卡的 `}` 上，解析必炸。
+          const mm = /TOWERS=(\{[^\n]*\})/.exec(body);
+          if (!mm) return { js: null, raw: body };
+          try { return { js: JSON.parse(mm[1]), raw: body }; } catch (e) { return { js: null, raw: body }; }
+        };
+        // 并发负载下 boot 会变慢（整轮回归同时挂着截图与十几套探针），虚拟时间预算被吃掉时
+        // err 框还没写进 TOWERS 就 dump 了。按已有的做法重试，预算逐次加长，最后一次把现场打出来。
+        let rd = readTw(25000);
+        if (!rd.js) rd = readTw(40000);
+        if (!rd.js) rd = readTw(60000);
+        const tw = rd.js;
+        const rows = (tw && tw.rows) || [];
+        const states = rows.map((r) => r.st);
+        const checks = [
+          ['面板在场 · 四张卡', !!tw && tw.show && rows.length === 4, tw ? rows.length : 0],
+          ['独占整屏（下面不压别的浮层）', !!tw && (tw.under || []).join(',') === 'towerOverlay', tw ? (tw.under || []).join(',') : '-'],
+          ['塔序 锈→灰→钟→无名', rows.map((r) => r.id).join(',') === 'rust,ash,bell,main', rows.map((r) => r.id).join(',')],
+          ['首局一开三锁', states.filter((x) => x === 'now').length === 1 && states.filter((x) => x === 'locked').length === 3, states.join('/')],
+          ['开着的写「从这里起」', (rows[0] || {}).state === '从这里起', (rows[0] || {}).state],
+          ['锁着的都写「未解锁」', rows.slice(1).every((r) => r.state === '未解锁'), rows.slice(1).map((r) => r.state).join('/')],
+          ['可点区高 ≥44', rows.length === 4 && rows.every((r) => r.h >= 44), rows.map((r) => r.h).join('/')],
+          ['卡内文字不横溢', rows.length === 4 && rows.every((r) => r.ovf <= 0), rows.map((r) => r.ovf).join('/')],
+          ['状态标签与楼层行都在卡内', rows.length === 4 && rows.every((r) => r.stateIn && r.emIn), rows.map((r) => (r.stateIn ? '' : 'S') + (r.emIn ? '' : 'E')).join('/') || 'ok'],
+          ['提示行说清「点塔之后还要立誓」', !!tw && /誓/.test(tw.hint || ''), tw ? tw.hint : '-'],
+          ['首局不显示齿印行', !!tw && tw.marksHidden === true, tw ? String(tw.marksHidden) : '-'],
+        ];
+        okTower2 = checks.every((c) => c[1]);
+        towerLine = `${checks.filter((c) => c[1]).length}/${checks.length} 项`;
+        console.log((okTower2 ? '✓' : '✗') + ' 塔群选塔屏 ' + towerLine);
+        if (!okTower2) {
+          for (const c of checks) console.log((c[1] ? '   ✓ ' : '   ✗ ') + c[0] + ' → ' + JSON.stringify(c[2]));
+          if (!tw) console.log('   探针现场: ' + (rd.raw || '（err 框是空的——页面没跑到场景断言行）').slice(0, 300));
+        }
+      }
+
       server.kill();
       console.log(shotFail === 0
         ? `\n✓ 截图全部生成（${SCENES.length} 张，见 tools/out/）`
@@ -1176,8 +1227,8 @@ if (!process.argv.includes('--no-shot')) {
       const ui = run(process.execPath, ['tools/ui-test.js']);
       const okUi = ui.code === 0;
       console.log((okUi ? '✓' : '✗') + ' ui-test.js' + (okUi ? '' : '\n' + ui.out));
-      const all = okFuzz && okCheck && okSim && okSkip && okRoute && okTest && okCode && okBsim && okOd && okUi && okProbe && okAds && okGeom && okBdGeom && okIntro && okWxb && okNew && okWx && okSwordGate && okPace && okDaily && okVowFirst && okZeal && okFinal && okTangle && okGuard && okThreat && okVp && okVm && okTap && okContrast && okMotion && okSfx && okRm && okErr && okSto && okTime && okTab && bad === 0;
-      if (!all) console.log('  闸门明细:', JSON.stringify({ okCheck, okSim, okSkip, okRoute, okTest, okCode, okBsim, okOd, okUi, okProbe, probeA3, okAds, adsLine, okGeom, geomLine, okBdGeom, bdGeomLine, okIntro, introLine, okWxb, wxbLine, okNew, newLine, okWx, okSwordGate, okPace, paceLine, okDaily, dailyLine, okVowFirst, vowFirstLine, okZeal, zealLine, okFinal, finalLine, okTangle, tangleLine, okGuard, guardLine, okThreat, threatLine, okVp, vpLine, okVm, vmLine, okTap, tapLine, okContrast, contrastLine, okMotion, motionLine, okSfx, sfxLine, okRm, rmLine, okErr, errLine, okSto, stoLine, okTime, timeLine, okTab, tabLine, okFuzz, fzMax, bad }));
+      const all = okFuzz && okCheck && okSim && okSkip && okRoute && okTest && okCode && okBsim && okOd && okUi && okProbe && okAds && okGeom && okBdGeom && okIntro && okWxb && okNew && okWx && okSwordGate && okPace && okDaily && okVowFirst && okZeal && okFinal && okTangle && okGuard && okThreat && okVp && okVm && okTap && okContrast && okMotion && okSfx && okRm && okErr && okSto && okTime && okTab && okTower2 && bad === 0;
+      if (!all) console.log('  闸门明细:', JSON.stringify({ okCheck, okSim, okSkip, okRoute, okTest, okCode, okBsim, okOd, okUi, okProbe, probeA3, okAds, adsLine, okGeom, geomLine, okBdGeom, bdGeomLine, okIntro, introLine, okWxb, wxbLine, okNew, newLine, okWx, okSwordGate, okPace, paceLine, okDaily, dailyLine, okVowFirst, vowFirstLine, okZeal, zealLine, okFinal, finalLine, okTangle, tangleLine, okGuard, guardLine, okThreat, threatLine, okVp, vpLine, okVm, vmLine, okTap, tapLine, okContrast, contrastLine, okMotion, motionLine, okSfx, sfxLine, okRm, rmLine, okErr, errLine, okSto, stoLine, okTime, timeLine, okTab, tabLine, okTower2, towerLine, okFuzz, fzMax, bad }));
       console.log(all ? '✓ 质量闸门通过' : '✗ 质量闸门有失败项');
       process.exit(all ? 0 : 1);
     })();
