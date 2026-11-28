@@ -1901,6 +1901,23 @@ ok(mainSrc.indexOf("searchParams.set('rival'") < 0, 'main.js 不许自己拼链�
   ok(/D\.towerOf\(floor\)/.test(grab('paintOf')), 'paintOf 按楼层查塔，主塔回落原来的按层表');
 }
 
+// ---------- 每层都得有音乐动机（2026-11-28 主题轮） ----------
+// 13–21 层曾经整段没有 MOTIFS 条目 ⇒ 进齿塔之后音乐直接静音，而「有没有声音」没人量过。
+// 判据：floors 的每一层下标都必须在 MOTIFS 里出现（不是只数条数——中间缺一层同样算漏）。
+{
+  const vm = require('vm');
+  const ctx = { window: {} };
+  ctx.window = ctx;
+  vm.createContext(ctx);
+  vm.runInContext(require('fs').readFileSync(require('path').join(__dirname, '..', 'js', 'data.js'), 'utf8'), ctx);
+  const total = ctx.GAME_DATA.floors.length;
+  const keys = (mainSrc.match(/^\s{6}(\d+): \{ root: /gm) || []).map((s) => Number(s.trim().split(':')[0]));
+  const missing = [];
+  for (let i = 0; i < total; i++) if (keys.indexOf(i) < 0) missing.push(i);
+  ok(keys.length >= total && missing.length === 0,
+    `每层都有音乐动机（${total} 层 · 缺 ${missing.join(',') || '无'}）`);
+}
+
 // 图鉴详情条的进场动效（2026-11-17 焦点C）：点卡片换内容是「插入一块可读的东西」，
 // 零过渡就是硬切——而全站其它面板都有 popIn/fadeIn。且同一帧里对已有 .show 的元素再 add
 // 不会重启 CSS 动画，连点两张卡时第二张会退化成硬切，故必须有「remove → 回流 → add」的重播。

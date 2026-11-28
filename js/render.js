@@ -730,6 +730,14 @@
     '4': { c: '亡', f: priestShape },     // 灰烬祭司：尖帽长袍
     '5': { c: '兽', f: rustKingShape },   // 锈王：宽体 + 王冠
     '6': { c: '构', f: wardenShape },     // 守名人：巨碑方身
+    // 三座齿塔的住户（2026-11-28 主题轮）：每只一个母题零件，别堆细节
+    t: { c: '兽', f: ratShape },          // 锈鼠：低身大耳长尾
+    i: { c: '异', f: swarfShape },        // 铁屑虫：三段刨花串成的 S
+    z: { c: '构', f: gearToothShape },    // 咬齿：崩下来的齿，下缘一排咬口
+    e: { c: '异', f: mothShape },         // 灰蛾：两片垂翅
+    q: { c: '构', f: huskShape },         // 炉壳：塌炉膛带烟囱口
+    w: { c: '构', f: pendulumShape },     // 摆锤：吊杆 + 偏一侧的锤
+    g: { c: '亡', f: ravenShape },        // 停摆鸦：回头看的鸟
     G: { c: '魂', f: candleShape },       // 烛：烛台光焰（ghost 不画瞳）
   };
   function batShape(c, s, L) {
@@ -1024,8 +1032,145 @@
     c.stroke();
     eyes(c, -3.8, 3.8, -10.5, 1.3, L);
   }
-  function candleShape(c, s, L) {
-    // 烛（ghost，NPC）：细烛台 + 摇曳焰。不画瞳，光就是它的脸
+  // ---------- 齿塔的住户（2026-11-28 主题轮） ----------
+  // 每只只留一个读点：锈鼠的尾巴、铁屑虫的节、咬齿的咬口、灰蛾的垂翅、
+  // 炉壳的烟囱口、摆锤的偏锤、鸦的回头。造型坐标仍守 [x∈-14,14, y∈-14,12]。
+  function ratShape(c, s, L) {
+    c.beginPath();
+    c.moveTo(-12 * s, 7 * s);
+    c.quadraticCurveTo(-13 * s, -2 * s, -7 * s, -4 * s);   // 背
+    c.quadraticCurveTo(-1 * s, -6 * s, 5 * s, -3 * s);
+    c.lineTo(11 * s, -2 * s);                              // 吻
+    c.quadraticCurveTo(13 * s, 0.4 * s, 10 * s, 2.6 * s);
+    c.lineTo(4 * s, 5 * s);
+    c.quadraticCurveTo(-2 * s, 9 * s, -8 * s, 8 * s);
+    c.closePath(); c.fill();
+    // 尾巴：填成一条扫起来的弯钩（用描边画会在暗地板上直接消失——剪影只有近黑）
+    c.beginPath();
+    c.moveTo(-11 * s, 4 * s);
+    c.quadraticCurveTo(-17.5 * s, 0, -14 * s, -8 * s);
+    c.quadraticCurveTo(-12.6 * s, -9.6 * s, -11.2 * s, -7.8 * s);
+    c.quadraticCurveTo(-13 * s, -2 * s, -8.4 * s, 2.6 * s);
+    c.closePath(); c.fill();
+    // 大圆耳
+    c.beginPath();
+    c.arc(1.5 * s, -7 * s, 4.4 * s, 0, Math.PI * 2);
+    c.fill();
+    eyes(c, 5, 9.6, -0.6, 1.1, L);
+  }
+  function swarfShape(c, s, L) {
+    // 四段铁屑串成一条斜着的 S：不是软虫，是一截会咬人的刨花
+    [[-3.4, -9], [0.6, -4.2], [3.2, 1.6], [0.2, 7]].forEach(([dx, dy], i) => {
+      c.beginPath();
+      c.ellipse(dx * s, dy * s, (4.4 - i * 0.5) * s, 3.4 * s, i * 0.5 - 0.5, 0, Math.PI * 2);
+      c.fill();
+    });
+    // 头钳 + 三只短足（虫的读点）
+    c.beginPath(); c.moveTo(-6 * s, -13 * s); c.lineTo(-10.5 * s, -15.5 * s); c.lineTo(-4 * s, -14.5 * s); c.closePath(); c.fill();
+    c.beginPath(); c.moveTo(-1.2 * s, -12.5 * s); c.lineTo(2.6 * s, -15.5 * s); c.lineTo(1.6 * s, -11.6 * s); c.closePath(); c.fill();
+    [[-4.6, -2], [5.4, -0.6], [-3.4, 9.4]].forEach(([dx, dy]) => {
+      c.fillRect(dx * s, dy * s, 3.4 * s, 1.8 * s);
+    });
+    eyes(c, -2.4, 0.6, -9.4, 1.05, L);
+  }
+  function gearToothShape(c, s, L) {
+    // 从锁上崩下来的一枚齿：上窄下宽，下缘一排咬口
+    c.beginPath();
+    c.moveTo(-8.5 * s, -3 * s);
+    c.lineTo(-5.5 * s, -12 * s);
+    c.lineTo(5.5 * s, -12 * s);
+    c.lineTo(8.5 * s, -3 * s);
+    c.lineTo(7 * s, 5 * s);
+    c.lineTo(3 * s, 5 * s);
+    c.lineTo(2.4 * s, 10 * s);
+    c.lineTo(-2.4 * s, 10 * s);
+    c.lineTo(-3 * s, 5 * s);
+    c.lineTo(-7 * s, 5 * s);
+    c.closePath(); c.fill();
+    eyes(c, -3.2, 3.2, -3.2, 1.35, L);
+  }
+  function mothShape(c, s, L) {
+    // 灰蛾：两片下垂的翅 + 一根细身（烧完还剩的形状）
+    c.beginPath();
+    c.moveTo(0, -6 * s);
+    c.quadraticCurveTo(-14 * s, -10 * s, -13 * s, 1 * s);
+    c.quadraticCurveTo(-12 * s, 9 * s, -2 * s, 4.5 * s);
+    c.lineTo(0, 3.5 * s);
+    c.lineTo(2 * s, 4.5 * s);
+    c.quadraticCurveTo(12 * s, 9 * s, 13 * s, 1 * s);
+    c.quadraticCurveTo(14 * s, -10 * s, 0, -6 * s);
+    c.closePath(); c.fill();
+    c.beginPath();
+    c.ellipse(0, -0.5 * s, 2.3 * s, 6.5 * s, 0, 0, Math.PI * 2);
+    c.fill();
+    c.strokeStyle = 'rgba(0,0,0,0.85)';
+    c.lineWidth = 1.2 * s;
+    c.lineCap = 'round';
+    c.beginPath();
+    c.moveTo(-1.1 * s, -6.5 * s); c.quadraticCurveTo(-5 * s, -12 * s, -8.5 * s, -12.5 * s);
+    c.moveTo(1.1 * s, -6.5 * s); c.quadraticCurveTo(5 * s, -12 * s, 8.5 * s, -12.5 * s);
+    c.stroke();
+    eyes(c, -2.2, 2.2, -5, 0.95, L);
+  }
+  function huskShape(c, s, L) {
+    // 塌下来的炉膛：方形壳 + 顶上烟囱口 + 底下拱形缺口
+    c.beginPath();
+    c.moveTo(-10 * s, 9 * s);
+    c.lineTo(-10 * s, -3 * s);
+    c.lineTo(-6 * s, -7 * s);
+    c.lineTo(-2 * s, -5 * s);
+    c.lineTo(-2 * s, -12 * s);
+    c.lineTo(3 * s, -12 * s);
+    c.lineTo(3 * s, -5 * s);
+    c.lineTo(7 * s, -7 * s);
+    c.lineTo(10 * s, -3 * s);
+    c.lineTo(10 * s, 9 * s);
+    c.lineTo(3.5 * s, 9 * s);
+    c.quadraticCurveTo(0, 3 * s, -3.5 * s, 9 * s);
+    c.closePath(); c.fill();
+    eyes(c, -4.4, 4.4, -0.5, 1.25, L);
+  }
+  function pendulumShape(c, s, L) {
+    // 钟锤：从顶上垂下来的链子 + 一颗泪滴形配重。
+    // 原本画的是「细杆 + 小圆锤」，48px 缩到 34px 后杆只剩一条 1px 的暗线，读成一个球；
+    // 换成「链 + 大配重」，剪影本身就够重，缩略时也认得出是钟里的东西。
+    [-13.5, -11, -8.5].forEach((y) => {
+      c.beginPath();
+      c.arc(0, y * s, 1.9 * s, 0, Math.PI * 2);
+      c.fill();
+    });
+    c.beginPath();
+    c.moveTo(0, -7 * s);
+    c.quadraticCurveTo(-7.6 * s, -1 * s, -7.6 * s, 4 * s);
+    c.quadraticCurveTo(-7.6 * s, 10 * s, 0, 10 * s);
+    c.quadraticCurveTo(7.6 * s, 10 * s, 7.6 * s, 4 * s);
+    c.quadraticCurveTo(7.6 * s, -1 * s, 0, -7 * s);
+    c.closePath(); c.fill();
+    eyes(c, -3.2, 3.2, 1.2, 1.3, L);
+  }
+  function ravenShape(c, s, L) {
+    // 背对镜头、头回过来的鸦
+    c.beginPath();
+    c.moveTo(-6 * s, 9 * s);
+    c.quadraticCurveTo(-9.5 * s, 0, -5.5 * s, -6 * s);
+    c.quadraticCurveTo(-2 * s, -10 * s, 2.5 * s, -7.5 * s);
+    c.lineTo(5.5 * s, -9.5 * s);
+    c.lineTo(10.5 * s, -7.6 * s);      // 喙
+    c.lineTo(5.5 * s, -5 * s);
+    c.quadraticCurveTo(8 * s, 2 * s, 6 * s, 9 * s);
+    c.closePath(); c.fill();
+    c.beginPath();                      // 尾羽
+    c.moveTo(-5 * s, 4 * s); c.lineTo(-13 * s, 9 * s); c.lineTo(-4 * s, 8.5 * s); c.closePath(); c.fill();
+    c.strokeStyle = 'rgba(0,0,0,0.85)';
+    c.lineWidth = 1.2 * s;
+    c.beginPath();
+    c.moveTo(1 * s, 9 * s); c.lineTo(1 * s, 12 * s);
+    c.moveTo(3.6 * s, 9 * s); c.lineTo(3.6 * s, 12 * s);
+    c.stroke();
+    eyes(c, 4, 6.4, -7.4, 0.85, L);
+  }
+
+  function candleShape(c, s, L) {    // 烛（ghost，NPC）：细烛台 + 摇曳焰。不画瞳，光就是它的脸
     c.fillRect(-2.2 * s, -1 * s, 4.4 * s, 12 * s);            // 烛身
     c.fillRect(-6 * s, 9.5 * s, 12 * s, 2.6 * s);            // 托盘
     // 焰：双层光焰，随时间轻摆
