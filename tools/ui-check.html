@@ -1223,6 +1223,9 @@ async function run() {
     out.shopChain = [];
     for (var si = 0; si < 3; si++) {
       var fi = [7, 10, 12][si];
+      // 每一轮自己清一次浮层：上一轮末尾可能留下 echoOverlay（章末回响）这类整屏面板，
+      // 它 modalBlocksMove() = true，第二轮起 clickMove 一步都走不动（实测第二轮 ovOpen=echoOverlay）。
+      d.querySelectorAll('.overlay.show').forEach(function (o) { o.classList.remove('show'); });
       E.newGame(null, { tower: 'main' });
       var ss = E.state();
       ss.floor = fi;
@@ -1246,6 +1249,7 @@ async function run() {
         ss.x = start.x; ss.y = start.y;
         w.__tm.refreshHud();
         await new Promise(function (r) { setTimeout(r, 80); });
+        rec.ovOpen = Array.prototype.map.call(d.querySelectorAll('.overlay.show'), function (o) { return o.id; }).join(',');
         w.__tm.clickMove(mx, my);
         // 走到商人跟前是逐格动画（路可能十几格），固定等 1.8s 在多会话并发时不够——
         // 改成轮询到「到站」为止（上限 8s）；路上若弹出首会对白就点掉，继续走。

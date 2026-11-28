@@ -687,6 +687,9 @@
       // 战斗打法的确认音（格挡/架盾/缠斗三选一）：短促中性，
       // 不占用 level 那个和弦——那是全游戏唯一的「成长」反馈，按个按钮不该听起来像升级
       choose: () => { beep(620, 0.05, 'square', 0.03); beep(930, 0.06, 'triangle', 0.018, null, 0.03); },
+      // 纯导航点击（立誓页「换一座塔」这类）：只确认「这一下收到了」，没有音高走向。
+      // 2026-11-28 补：这名字一直在源码里用、表里却没有 ⇒ 永久静音（同 11-15 的 'open'）。
+      click: () => beep(520, 0.03, 'square', 0.022),
     };
     return {
       play(n) { if (map[n]) map[n](); },
@@ -3077,10 +3080,12 @@
     // 于是这里只剩三条路：
     //   ① 没买神器 / 开关关着 → 直接开打（pred.blockSave 那一场仍由 launch 的 autoBlock 兜底救命）；
     //   ② 买了神器且开关开着 → View.autoPickTactic 在已算好的卡里挑一张（数值全同源）；
-    //   ③ `window.__prepAuto === false` → 保留旧战前面板，只给截图/探针（正文案见 PROGRESS）。
+    //   ③ `window.__prepPanel === true` → 保留旧战前面板，只给截图/探针（正文案见 PROGRESS）。
     // 面板在正式流程里一场都不弹，所以「每场做一次决定」的负担没有了。
+    // 注意与旧的 `__prepAuto`（面板内自动点哪张卡）分开：一个是「要不要这屏」，一个是「这屏选哪个」——
+    // 合用一个变量会让「弹面板并自动选直接打」这种探针组合做不到（prepFallback 就靠它）。
     const opts = prepOptions({ m, pred, dmgBase, dmgBlock, dmgGuard, dmgTangle, s, heroMax: s.maxHp || s.hp });
-    if (opts.length > 1 && window.__prepAuto === false) {
+    if (opts.length > 1 && window.__prepPanel === true) {
       battleBusy = true;   // 面板开着时不许再触发另一场战斗
       // 2026-11-24 22:3x 自检补的兜底：装配面板是纯 DOM 活，却夹在「battleBusy 已置真」
       // 与「playBattleScene 之前」这一小段里，此前没有任何 catch。paintIcon / innerHTML /
@@ -3941,7 +3946,7 @@
       const py0 = s0 ? s0.y : -1;
       act(dx, dy);
       const s1 = Engine.state();
-      if (!s1 || s1.over || s1.won || battleBusy || typing ||
+      if (!s1 || s1.over || s1.won || battleBusy ||
           el.dialogOverlay.classList.contains('show') || shopOpen ||
           el.codexOverlay.classList.contains('show') || s1.floor !== floor0 ||
           (s1.x === px0 && s1.y === py0)) {
@@ -4182,7 +4187,12 @@
   function act(dx, dy) {
     if (battleBusy) return;
     if (shopOpen || endShown) return;
-    if (typing || el.dialogOverlay.classList.contains('show')) { advanceDialog(); return; }
+    // 只认「对白框真的在屏幕上」这一件事。原来这里是 typing 会话或 overlay.show 任一为真，
+    // 于是 typing 还亮着、但对白框已经被关掉时（探针强收浮层、或将来某个面板把对白顶掉），
+    // 每一次点击都被当「翻页」吃掉：玩家看不见任何东西在翻页，人一步也走不动。实测复现：
+    // 无头探针把上一段 afterYan 的浮层收掉后，商店链三层全部 reached=false，
+    // busyState 读到 typing.idx 却在涨（看不见的翻页）。
+    if (el.dialogOverlay.classList.contains('show')) { advanceDialog(); return; }
     // 盖住整屏的浮层开着时，一步都不许走：此前速查卡 / 重置确认 / 祭坛开着，
     // 方向键会把人一路走过去（能撞怪、能上楼），浮层只是贴在画面上的一层皮。
     // 对白与首屏不算（前者上面已经接管、后者没有局可走）。
@@ -4224,7 +4234,7 @@
         break;
       case 'floor':
         Sound.play('door');
-        // 齿塔的塔门：不换层，先结算塔印，再回塔群选下一座。
+        // 齿塔的塔门：不换层，先结算齿印，再回塔群选下一座。
         if (ev.at && ev.at.towerClear) {
           const r = Engine.towerClear();
           if (r) {
@@ -4234,8 +4244,8 @@
             const line = (S[r.tower.clear] || []).join('');
             openTower(`<b>${r.tower.name} · 齿断了</b><br>${line}<br>`
               + (r.first
-                ? `获得塔印「${r.mark.emoji} ${r.mark.name}」：${r.mark.desc}`
-                : '这枚齿你已经拔过——塔印还在。'));
+                ? `获得齿印「${r.mark.emoji} ${r.mark.name}」 · 攻 +${r.mark.atk} / 防 +${r.mark.def} / 上限 +${r.mark.maxHp}，带进下一座塔`
+                : '这枚齿你已经拔过——齿印还在。'));
             Sound.play('relic');
             vibrate([10, 30, 10, 30]);
             Renderer.pulse();
@@ -5054,7 +5064,7 @@
     el.towerBanner.innerHTML = banner || '';
     el.towerMarks.hidden = !marks.length;
     el.towerMarks.innerHTML = marks.length
-      ? `<span>塔印</span>` + marks.map((m) => `<span>${m.emoji} ${m.name}</span>`).join('')
+      ? `<span>齿印</span>` + marks.map((m) => `<span>${m.emoji} ${m.name}</span>`).join('')
       : '';
     el.towerList.innerHTML = D.towers.map((t) => {
       const done = cleared.indexOf(t.id) >= 0;
@@ -5114,7 +5124,7 @@
     const kicker = document.querySelector('#vowOverlay .vow-kicker');
     const desc = document.querySelector('#vowOverlay .vow-desc');
     const hint = document.querySelector('#vowOverlay .vow-hint');
-    if (kicker) kicker.textContent = '入 塔 之 誓';
+    if (kicker) kicker.textContent = '入 塔 立 誓';
     if (desc) desc.textContent = '选一条路进塔：越难走，通关时多留 ✦';
     if (hint) hint.textContent = '点一张开始 · 灰卡＝还没买下的助力 · ← → 切换';
     // 塔徽行：进的是哪座塔、几层、谁守门——名字先摆在最上面，誓言才像是为它立的
@@ -5180,7 +5190,7 @@
     vibrate([8, 14, 8]);
     flashVow(id);
     // 进哪座塔：塔群选好的那座（pendingTower 在 openVow 里一定落定）。
-    // carry 让「直接从灰塔/钟塔/主塔起局」的玩家带上前面那几枚塔印——跳过的小塔
+    // carry 让「直接从灰塔/钟塔/主塔起局」的玩家带上前面那几枚齿印——跳过的小塔
     // 在叙事上就是「上次拔过」，成长曲线跟文档里的 16/14/1350、22/20/1700 对齐。
     startGame(id, pendingTower ? { tower: pendingTower, carry: true } : undefined);
   }
@@ -5650,6 +5660,9 @@
     showBossIntro, closeBossIntro, openPortraitZoom, enterFloor,
     resolveBattle, act, clickMove, emberOf, refreshHud, refreshStartBadges,
     // 战前面板（headless 探针用）：open 判断面板在不在，pick 等同玩家点卡（none/block/guard/tangle）
+    // 移动闸门的四个「按住不放」的旗子：无头探针点不动人时，先看是谁挡住了
+    // （否则只能看到 reached=false，得靠猜）。act() 的第一道门就是这四个 + modalBlocksMove()。
+    busyState: () => ({ battle: battleBusy, typing, shop: shopOpen, end: endShown, modal: modalBlocksMove() }),
     prepOpen: () => !!prepKeyPick,
     prepPick: (id) => { if (!prepKeyPick) return false; prepKeyPick(id); return true; },
     // 战备罗盘（2026-11-28）：探针要能读/改那个开关，以及拿到「这一场会怎么打」的判定

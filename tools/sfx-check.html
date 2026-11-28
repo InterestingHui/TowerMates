@@ -190,7 +190,10 @@ const FAKE = `
     // 2026-11-24：三种打法的按钮合并成战前面板上的一次选择（一个调用点覆盖三把），
     // 加上复制成功一处，共 3 处。改回 level 或复制掉声音都会立刻掉到 0~2。
     const chooseSites = (src.match(/Sound\.play\('choose'\)/g) || []).length;
-    rec('F4 战前选打法 + 复制成功都点 choose（3 处）', chooseSites === 3, 'choose 调用点 ' + chooseSites + ' 处');
+    // 2026-11-28：塔群选塔（新局先选塔、再立誓）也是「选一个确认」，语义与战前选打法同族，
+    // 因此第 4 处合法。这里只钉「都走 choose、不借 level 那个成长和弦」，并把上界一起量住——
+    // 上界放开成「≤4」是为了让「又出现第 5 处」仍然变红（只改数字不管上界，等于把断言废掉）。
+    rec('战前选打法 + 复制成功 + 塔群选塔 + 立誓都点 choose（4 处）', chooseSites === 4, 'choose 调用点 ' + chooseSites + ' 处');
 
     rec('G 汇总', R.every((r) => r.ok), R.filter((r) => !r.ok).length + ' 项未过 / 共 ' + R.length);
   } catch (e) {

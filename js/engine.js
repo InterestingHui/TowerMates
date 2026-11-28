@@ -98,7 +98,7 @@
     // 2026-11-28 多塔：新局从第一座齿塔（锈塔）开始，属性取该塔的起始值。
     // 主塔的 12 层索引没有动，齿塔接在末尾（13–21），所以这里只是把起点从 0 换成 13。
     // opts.tower：工具/单测可以直接从主塔开局（默认仍是玩家路径：第一座齿塔）。
-    // opts.carry：玩家从「打过的小塔」直接开局时，把它前面的塔视为已拔齿——塔印一并带上。
+    // opts.carry：玩家从「打过的小塔」直接开局时，把它前面的塔视为已拔齿——齿印一并带上。
     //   这样从灰塔开局是 16/14/1350（14/12/1200 + 锈印），和文档里的成长曲线同一条线；
     //   工具不传 carry，从主塔开局仍是 10/10/1000 的裸基线（单测与 sim --main 要的是原始数值）。
     const first = (opts && opts.tower && D.towers.find((t) => t.id === opts.tower)) || D.towers[0];
@@ -117,7 +117,7 @@
         hasBlock: false, mapSeed: mapSeed,
         rngSeed: daily ? mapSeed : null, rngN: daily ? 0 : null,
         daily: daily,
-        // 塔群进度：当前塔 / 已通关的齿塔 / 已带走的塔印
+        // 塔群进度：当前塔 / 已通关的齿塔 / 已带走的齿印
         tower: first.id,
         towersCleared: first.main ? ['rust', 'ash', 'bell'] : pre.map((t) => t.id),
         marks: pre.map((t) => t.mark.id),
@@ -153,9 +153,9 @@
   }
 
   // ---------- 塔群 ----------
-  // 齿塔独立成长：进塔时属性回到该塔的 start，只带走已获得的塔印。
+  // 齿塔独立成长：进塔时属性回到该塔的 start，只带走已获得的齿印。
   // 这样新手不会在塔一攒的属性把塔三打穿，也不会因为「换塔」觉得自己忽然变弱——
-  // 每座塔的起始值本身在递增，塔印是额外的、明写在结算页上的那一份。
+  // 每座塔的起始值本身在递增，齿印是额外的、明写在结算页上的那一份。
   const towerById = (id) => D.towers.find((t) => t.id === id) || null;
   function markBonus() {
     const ids = (s && s.flags && s.flags.marks) || [];
@@ -226,7 +226,7 @@
     emit('newgame');
     return { ok: true, tower: t, marks: b };
   }
-  // 踩上塔门：记通关、发塔印。重复进已通关的塔不会再发一次。
+  // 踩上塔门：记通关、发齿印。重复进已通关的塔不会再发一次。
   function towerClear() {
     const t = s ? D.towerOf(s.floor) : null;
     if (!t || t.main) return null;
@@ -875,7 +875,7 @@
   function changeFloor(dir) {
     const from = s.floor;
     const fromTower = D.towerOf(from);
-    // 齿塔的最后一层：u 是「塔门」，不是楼梯——不换层，交给 UI 结算塔印并回塔群。
+    // 齿塔的最后一层：u 是「塔门」，不是楼梯——不换层，交给 UI 结算齿印并回塔群。
     if (dir > 0 && !fromTower.main && from === fromTower.floors[fromTower.floors.length - 1]) {
       return { towerClear: fromTower.id, floor: from, x: s.x, y: s.y, heal: 0, gold: 0 };
     }

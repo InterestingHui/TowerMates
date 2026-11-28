@@ -3128,6 +3128,49 @@ ok(mainSrc.indexOf("searchParams.set('rival'") < 0, 'main.js 不许自己拼链�
   ok(badDup.length === 0, `台词不跨段复读（复读：${badDup.map(([t]) => t.slice(0, 10)).join(' / ') || '无'}）`);
 }
 
+// ---------- 齿印 ≠ 塔印：两个刻度不许共用一个词（2026-11-28 叙事加练）----------
+// 齿塔通关发的那枚成长印（锈印/灰印/钟印，加攻/防/上限）与 sealOf 的四档评价
+// （粗印/留名/守灯/无痕，只看这一局做到了什么）在 2026-11-28 之前**都叫「塔印」**：
+// 塔群面板的印记行、塔门结算横幅、结算页的 label 同字不同义，玩家没法从字面分出哪个是哪个，
+// 「下一枚塔印还差什么」还会被读成「下一座齿塔」。齿塔那一套改叫齿印，结算那一套留塔印。
+ok(mainSrc.indexOf('获得齿印') >= 0 && mainSrc.indexOf('获得塔印') < 0, '塔门结算的成长印叫「齿印」（不再叫塔印）');
+ok(mainSrc.indexOf('齿印还在') >= 0 && mainSrc.indexOf('塔印还在') < 0, '「这枚齿你已经拔过」那句回执也跟着改口');
+ok(/towerMarks[\s\S]{0,140}<span>齿印<\/span>/.test(mainSrc), '塔群面板的印记行标题＝齿印');
+// 塔门横幅一句话里原先套着两个冒号：「获得齿印「⚙ 锈印」：下一座塔起始：攻 +2 / 防 +2 / 上限 +150」。
+// 数值改成直读 mark 的字段——desc 是文档口径（含「下一座塔起始：」这个前缀），拼进句子就会双冒号，
+// 而且「下一座塔起始」在塔群面板上说本身就是废话。
+ok(/获得齿印「\$\{r\.mark\.emoji\} \$\{r\.mark\.name\}」 · 攻 \+\$\{r\.mark\.atk\}/.test(mainSrc),
+  '塔门横幅的数值直读 mark 字段（攻/防/上限），不再拼 desc');
+{
+  const dataSrcT = require('fs').readFileSync(require('path').join(__dirname, '..', 'js', 'data.js'), 'utf8');
+  ok(dataSrcT.indexOf('通关只带走一枚「齿印」') >= 0 && dataSrcT.indexOf('通关只带走一枚「塔印」') < 0,
+    'data.js 的塔群结构约定也用齿印（下一轮改塔的人先读到它）');
+}
+
+// ---------- 同一条事实只许一种说法（跨章比对出来的三处，2026-11-28）----------
+// ① 钟的停摆次数：钟齿（第 9 层守门）说「主塔的钟停过一次。停的那一格，就是现在」，
+//    而钟妖（第 9 章锁匠）原写「钟停过三次」——两个说话人各报一套数，且钟妖上一句
+//    刚说「八十年，一次也没漏过」。现在钟妖只说「三个人想砸钟」，停摆次数由当事人独占。
+ok(storySrcTop.indexOf('停过三次') < 0, '钟妖不再说「钟停过三次」（与钟齿的「停过一次」冲突）');
+ok(storySrcTop.split('停过一次').length - 1 === 1, '「钟停过一次」只有钟齿这一处（唯一信源）');
+// ② 齿塔战报与旁白复读：旧版 data.js 的锈齿战报写「塔门松了半寸」，afterRust 旁白也写「松了半寸」，
+//    同一句同一屏说两遍；战报现在只报本层事实（齿槽空了），「松」交给墙里那一声。
+{
+  const dataSrcT2 = require('fs').readFileSync(require('path').join(__dirname, '..', 'js', 'data.js'), 'utf8');
+  ok(dataSrcT2.indexOf('塔门松了半寸') < 0, '战斗战报不再复读旁白的「松了半寸」');
+}
+ok(storySrcTop.indexOf('又松了一寸') < 0, '松的刻度一条线（半寸 → 又半寸 → 锁开），不许半寸之后跳一寸');
+
+// ---------- 移动闸门只看「对白框在不在屏幕上」（2026-11-28 18:xx 探查闸门红时挖出来的）----------
+// 旧写法是 `if (typing || dialogOverlay.show) { advanceDialog(); return; }`：`typing` 是**对白会话对象**
+// （playStory 建的，closeDialog 才置空），它对「玩家眼前有没有一堵对白墙」这件事没有任何保证。
+// 实测：一段对白被别的路径收掉浮层后，typing 还挂着 ⇒ 每一次点击都被当「翻页」吃掉，
+// 人一步都不动、屏幕上什么也没发生（无头探针里连红 3 条）。walkAlong 的停止条件同样写着 `typing ||`，
+// 于是点商店格只走一格就停。两处都改成只看 overlay 的 show 状态。
+ok(!/battleBusy \|\| typing \|\|/.test(mainSrc) && !/if \(typing \|\|/.test(mainSrc),
+  '移动闸门（act / walkAlong）不看 typing 会话对象，只看对白框在不在屏幕上');
+ok(/busyState: \(\) => \(\{ battle: battleBusy/.test(mainSrc),
+  '探针能读到四个移动旗子（点不动人时先看是谁挡的，不用猜）');
 console.log(`挑战码 / 触控 / 桥接 / 视图模型单测：${pass} 项通过${bad ? `，${bad} 项失败` : ''}`);
 
 process.exit(bad ? 1 : 0);

@@ -80,7 +80,10 @@ function measurePanel(frame, sel) {
         s.atk = 40; s.def = 20; s.hp = 800; s.maxHp = 1000;
         s.flags.hasBlock = true; s.flags.rings = ['twice'];
         w.__tm.refreshHud();
-        w.__prepAuto = false; w.__battleSpeed = 30;
+        // 2026-11-27 起战前面板改成「探针/截图专用」：正式流程一场都不弹（__prepPanel 控制的是
+        // 「要不要这一屏」，__prepAuto 控制的是「这屏自动选哪张」）。这里要量的是那一屏，
+        // 必须先把开关打开，否则量到的是「无按钮」的空面板（四个视口各红一条）。
+        w.__prepPanel = true; w.__prepAuto = false; w.__battleSpeed = 30;
         w.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'ArrowUp' }));
         await wait(400);
         const pm = measurePanel(f, '#prepOverlay .prep-panel');
@@ -99,6 +102,7 @@ function measurePanel(frame, sel) {
         }
         // 选「直接开打」→ 战斗面板：只量整块是否溢出（这一屏不再有按钮）
         w.__tm.prepPick('none');
+        w.__prepPanel = false;
         await wait(360);
         const bm = measurePanel(f, '#battleScene .bs-panel');
         const shown = d.getElementById('battleScene').classList.contains('show');

@@ -1236,7 +1236,7 @@ ok(!!S.endingTrue.epilogue && !!S.endingPlain.epilogue, '两个结局都有后�
 // 剧情锚点回归（2026-11-13）：防止并发改稿把「半路/村里」类歧义与时间线改回去
 const storyAll = JSON.stringify(S);
 ok(storyAll.indexOf('半路') < 0 && storyAll.indexOf('村里') < 0, '剧情无「半路/村里」类歧义词（登塔不是赶路，故事在灰港镇）');
-ok(S.eighthSword.some((l) => String(l[1]).includes('第五层')) && String(S.eighthSword[1][1]).includes('秤'), '断剑小传点破第五层，且信息源锚定秤（拾取在 第5层，此时玩家还没见到塔顶的薇拉）');
+ok(S.eighthSword.some((l) => String(l[1]).includes('第五层')) && String(S.eighthSword[1][1]).includes('秦权'), '断剑小传点破第五层，且信息源锚定秦权（拾取在 第5层，此时玩家还没见到塔顶的薇拉）');
 ok(S.eighthSword.every((l) => !String(l[1]).includes('薇拉')), '断剑小传不得引用薇拉的话（时间线：她还没出场）');
 ok(String(S.princessPlain[1][1]).includes('第五层'), '薇拉台词与他死在第五层互证（对齐榜单 floor:5）');
 ok(String(S.princessPlain[3][1]).includes('窗台') && String(S.princessPlain[3][1]).includes('海崖'), '绣帕传递链在薇拉台词里点破（窗台 → 风 → 海崖 → 国王）');
@@ -1255,8 +1255,13 @@ ok(JSON.stringify(S).indexOf('剑断在第五层') < 0, '榜单脚注文本属�
 ok(S.shadowRivals.every((r) => r.floor < D.floors.length && !r.ending),
   '影子勇者没到塔顶就不挂结局（榜上「层」与「结局」同一行不许互相打脸）');
 
-// 生僻字闸门：文案里不再出现玩家基本不认识的字（2026-11-12 用户反馈「门闩」的「闩」；同日用户再次点名：Boss 名也不许用生僻字，砚/炬/铎/砧/磐/岚 已全部改名并拉黑）
-const RARE_CHARS = ['闩', '掳', '蛭', '饯', '掸', '龛', '薪', '砚', '炬', '铎', '砧', '磐', '岚'];
+// 生僻字闸门：文案里不再出现玩家基本不认识的字（2026-11-12 用户反馈「门闩」的「闩」；同日用户再次点名：
+// Boss 名也不许用生僻字，砧/磐/岚 已改名并拉黑）。
+// 2026-11-28 例外：用户点名要「真名」——六位工匠入塔把名字交给锁，只剩称呼；长明/秦权/沈砚/裴炬/顾铎/宋铭。
+// 其中砚/炬/铎 三个字原是黑名单成员（当时的黑名单条目是 Boss 的**称呼**），现在只作凡人的**真名**，
+// 且首次出现都带称呼对照（「……沈砚。这个名字，八十年没人提过了。」）。因此把这三字移出黑名单，
+// 换成一条更窄的约束：它们只许出现在真名语境里，不许被复用到别处当普通名词。
+const RARE_CHARS = ['闩', '掳', '蛭', '饯', '掸', '龛', '薪', '砧', '磐', '岚'];
 const allCopy = JSON.stringify(S) + JSON.stringify(D);
 const rareHit = RARE_CHARS.filter((c) => allCopy.indexOf(c) >= 0);
 ok(rareHit.length === 0, '剧情与道具文案不含生僻字' + (rareHit.length ? '（命中：' + rareHit.join('') + '）' : ''));

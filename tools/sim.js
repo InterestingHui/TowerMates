@@ -516,8 +516,11 @@ function floorLoop(fi) {
     if (isBoss && m.kind === '锁' && fi === 11) s.lastBattle = { hp: s.hp, maxHp: s.maxHp };
     // 缠斗的收益：这一战经验翻倍（金币/击杀计数照常，与引擎一致）
     // 齿塔系数 ×1.5：与 engine.fight 的 towerMul 同口径，否则副塔模拟会假死
+    // 取整顺序也必须同序：引擎是「先算出浮点、最后一次性 round」，这里原先多 round 了一次缠斗
+    // （Math.round(m.exp * TANGLE_EXP)）⇒ 每只怪可能差 1 点经验，模拟读数与真实引擎会慢慢分叉。
     const towerMul = (D.towerOf(fi) || {}).expMul || 1;
-    s.exp += Math.round((t.tangled ? Math.round(m.exp * TANGLE_EXP) : m.exp) * (VOW === 'ascetic' ? 1.4 : 1) * towerMul);
+    const expBase = t.tangled ? m.exp * TANGLE_EXP : m.exp;
+    s.exp += Math.round(expBase * (VOW === 'ascetic' ? 1.4 : 1) * towerMul);
     s.gold += VOW === 'greed' ? Math.round(m.gold * 1.5) : m.gold;
     s.flags.killCount = (s.flags.killCount || 0) + 1;
     // 无名之誓：每倒一位锁匠，攻防 +2 / 上限 +200 / 回 25%

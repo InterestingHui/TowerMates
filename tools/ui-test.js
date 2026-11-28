@@ -226,6 +226,7 @@ const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-ui-'));
   ok(out.f3Walkable === true && out.f3ReachLedge === true, '第 3 层打墨妖的立足格可直达');
   ok(Array.isArray(out.shopChain) && out.shopChain.length === 3, '三层商人（8/11/13）都跑过单击流程');
   ok(out.shopChain.every((r) => r.hasM && r.hasStart), '每层商人与可走到的起点都找得到');
+  if (!out.shopChain.every((r) => r.reached && r.dialog && r.shop)) console.log('   商店链诊断：' + JSON.stringify(out.shopChain));
   ok(out.shopChain.every((r) => r.reached), '单击商店格一次就走到商人跟前（不再被教学对白打断寻路）');
   ok(out.shopChain.every((r) => r.dialog && r.shop && r.rows >= 9), '首会对白后商店面板打开且货架满列（回调不再被覆盖丢弃）');
   ok(out.shard && out.shard.poorGap === true, '锁芯碎片：钱不够时报「还差多少金」');
