@@ -3275,18 +3275,29 @@ ok(!/battleBusy \|\| typing \|\|/.test(mainSrc) && !/if \(typing \|\|/.test(main
 ok(/busyState: \(\) => \(\{ battle: battleBusy/.test(mainSrc),
   '探针能读到四个移动旗子（点不动人时先看是谁挡的，不用猜）');
 
-// ---------- 进塔/退塔这条路：入口砖必须清（2026-11-28 19:xx 加练游戏性）----------
-// 齿塔里「下楼」＝整塔重来，触发条件是踩回入口那块 `n` 砖。newGame 走到入口时会把它清成 `.`，
-// 而 enterTower（退出塔之后重进）同一段逻辑少了一步 ⇒ 玩家一落地正站在那块砖上，
-// 走开一格再走回就被当成「自己要走」⇒ 整座塔的怪全回来，且没有任何一句话解释。
+// ---------- 进塔/退塔这条路：门必须留着（2026-11-29 加练游戏性改口径）----------
+// 原口径是「入口砖必须清」（否则重进＝站在退出机关上）。清砖的副作用是**出口消失**：
+// 齿塔第 1 层的 `n` 就是出塔的门，清掉它 ⇒ 守门的齿打不动时只能送死。
+// 新口径：门留着，人就站在门上（与「上楼落在 n 砖上」同一惯例；走开再踩回才退塔）；
+// standAtEntry 一处实现，newGame / enterTower 共用。两条断言都翻面，仍盯同一个病：两份实现不许走样。
 {
   const eng = require('fs').readFileSync(require('path').join(__dirname, '..', 'js', 'engine.js'), 'utf8');
   const ent = eng.slice(eng.indexOf('function enterTower'), eng.indexOf('function towerExit'));
-  ok(/s\.maps\[s\.floor\]\[y\]\[x\] = '\.'/.test(ent),
-    '进入齿塔时清掉脚下的入口砖（否则重进＝站在退出机关上）');
+  ok(/standAtEntry\(s\.maps\[s\.floor\], t\.main \? '@' : 'n', !t\.main\)/.test(ent),
+    'enterTower 走共享的 standAtEntry（不再自己找砖）');
+  ok(!/s\.maps\[s\.floor\]\[y\]\[x\] = '\.'/.test(ent),
+    'enterTower 不再无条件清门（清掉＝出口消失，玩家被关死在塔里）');
   const ng = eng.slice(eng.indexOf('function newGame'), eng.indexOf('function enterTower'));
-  ok(/map\[y\]\[x\] = '\.'/.test(ng),
-    'newGame 那一份仍清砖（两条「把玩家放在入口」的路径必须同一步）');
+  ok(/standAtEntry\(s\.maps\[s\.floor\], first\.main \? '@' : 'n', !first\.main\)/.test(ng),
+    'newGame 与 enterTower 同一步（同一份 standAtEntry、同一对手参数）');
+  ok(/if \(keepDoor\) return \{ x: ex, y: ey, door: true \};/.test(ng) && /map\[ey\]\[ex\] = '\.'/.test(ng),
+    'standAtEntry 只在主塔 @ 那条路上清砖（齿塔的门留着）');
+  const sc = require('fs').readFileSync(require('path').join(__dirname, '..', 'tools', 'check.js'), 'utf8');
+  ok(/塔门四周全是墙/.test(sc),
+    'check.js 验「门砖四邻有路」（人落在门上，四邻全墙就一落地动不了）');
+  const mn = require('fs').readFileSync(require('path').join(__dirname, '..', 'js', 'main.js'), 'utf8');
+  ok(/塔门就在你脚下/.test(mn) && /你退出了「/.test(mn),
+    '进出这道门各有一句话（进塔 log + 出塔 banner），不作静默处理');
 
   const lockRule = (cssSrc.match(/\.tw-card\.locked \{[^}]*\}/) || [''])[0];
   ok(lockRule.length > 0 && !/opacity/.test(lockRule),
@@ -3306,6 +3317,32 @@ ok(/busyState: \(\) => \(\{ battle: battleBusy/.test(mainSrc),
     '拿到新齿印的那一枚挂上 .new');
   ok(/\.tower-marks \.new \{ animation: markIn/.test(cssSrc) && /@keyframes markIn/.test(cssSrc),
     '新齿印有独立入场动画（markIn）');
+}
+
+// ---------- 卡关提示的说话人跟着塔走（2026-11-29 加练游戏性 → 打磨）----------
+// 齿塔里没有秦权的摊子、也没有金币出口，原台词「我这摊上买训练 / 先清怪攒钱」在那儿两句都不成立；
+// 顺带把写死的怪名「墨妖」换成 {monster}（主塔里卡在别的怪前时同样成立）。
+{
+  const lineOf = (k) => {
+    const m = new RegExp("\\b" + k + ": \\[\\['([^']+)', '([^']*)'").exec(storySrcTop);
+    return m ? { who: m[1], text: m[2] } : null;
+  };
+  const def = lineOf('stuckDef');
+  const defT = lineOf('stuckDefTower');
+  const hpT = lineOf('stuckHpTower');
+  ok(!!def && def.text.indexOf('{monster}') >= 0, '主塔卡关台词用 {monster} 占位（不再写死某只怪）');
+  ok(!!def && def.text.indexOf('墨妖') < 0, '卡关台词里没有写死的怪名');
+  ok(!!defT && defT.who === '长明', '齿塔有专用卡关台词，说话人是长明（塔里没人摆摊）');
+  ok(!!defT && defT.text.indexOf('塔门') >= 0 && defT.text.indexOf('{monster}') >= 0,
+    '齿塔台词给的是塔里做得到的路（踩塔门出去 · 按 {monster} 说话）');
+  ok(!!hpT && hpT.who === '长明', '齿塔血量型卡关也有专用台词');
+  ok(/const inTower = !D\.towerOf\(s\.floor\)\.main;/.test(mainSrc), '卡关条按当前所在塔选说话人');
+  ok(/const lineKey = inTower \? key \+ 'Tower' : key;/.test(mainSrc), '齿塔走 stuckDefTower/stuckHpTower');
+  ok(/sayHint\(stuckInfo\.lineKey \|\| stuckInfo\.key/.test(mainSrc),
+    '点开条子重播的是同一个说话人（不能条上说长明、点开是秦权）');
+  // 挂的时长按字数算（hintAutoMs），但长到读不完就等于没写：齿塔这条压在一屏内
+  const len = defT ? defT.text.replace(/\*\*/g, '').length : 999;
+  ok(len <= 150, `齿塔卡关台词压在一屏内（${len} 字 ≤ 150）`);
 }
 
 console.log(`挑战码 / 触控 / 桥接 / 视图模型单测：${pass} 项通过${bad ? `，${bad} 项失败` : ''}`);

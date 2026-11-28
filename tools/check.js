@@ -42,6 +42,19 @@ D.floors.forEach((f, fi) => {
     err(`应有且仅有 1 个下楼 n（实际 ${counts['n'] || 0}）`);
   }
 
+  // 齿塔的门必须「站得下去、走得开」（2026-11-29 加练游戏性）：进塔时人就落在门砖上
+  // （与「上楼落在 n 砖上」同一惯例），所以门砖四邻至少得有一格能走——
+  // 否则玩家一落地就动不了，除了踩门出去没有第二步。
+  if (isFirst && !tw.main) {
+    let nx = -1, ny = -1;
+    f.map.forEach((row, y) => { const x = row.indexOf('n'); if (x >= 0 && ny < 0) { nx = x; ny = y; } });
+    const spots = [[0, -1], [-1, 0], [1, 0], [0, 1]].filter(([dx, dy]) => {
+      const x = nx + dx, y = ny + dy;
+      return y >= 0 && y < SIZE && x >= 0 && x < SIZE && f.map[y][x] !== '#';
+    });
+    if (ny >= 0 && !spots.length) err(`${tw.name} 第一层的塔门四周全是墙（人一落地就动不了）`);
+  }
+
   // 连通性：把门/怪物都视为可通过，找物理隔离区
   const entryCh = isFirst ? (tw.main ? '@' : 'n') : 'n';
   const start = f.map.findIndex((r) => r.includes(entryCh));

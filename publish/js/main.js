@@ -1521,25 +1521,33 @@
       if (pred.per > allowPer) defNeed = { from: s.def, to: s.def + (pred.per - allowPer), per: pred.per, allowPer };
     }
     const vars = { need, atk: s.atk, gap, dmg: pred.damage || 0, hp: s.hp,
+      monster: m.name,
       defNow: s.def, defGap: defNeed ? defNeed.to - defNeed.from : 0, per: pred.per || 0, rounds: pred.rounds || 0 };
     const key = defBreak ? 'stuckDef' : 'stuckHp';
+    // 齿塔里没有秦权的摊子：照原话说「我这摊上买训练」「先清怪攒钱」——
+    // 前半句在那儿没人接，后半句也走不通（齿塔零商店、金币无出口）。
+    // 换成长明，说三件在塔里真做得到的事：往下走清没打的怪、退到门厅踩塔门出去、看清战前记忆。
+    const inTower = !D.towerOf(s.floor).main;
+    const speaker = inTower ? '长明' : '秦权';
+    const lineKey = inTower ? key + 'Tower' : key;
     // 还没学格挡时，把「学格挡」作为第三个解法一起给出——尤其血量型卡关。
     // 2026-11-24：第一层不再提格挡（用户要求）——那时玩家连盾谱都没见过，
     // 说「学了能省三成血」只是让他去记一个当层用不上的词。从第 2 层起才提。
     const blockTip = !s.flags.hasBlock && s.floor >= 1 && s.floor <= 4;
     // 卡关条也要有说话人：无主语的「卡在沈砚这儿？」会被读成怪自己开口（2026-11-20 用户反馈）。
-    // 诊断数字归秦权（他是管账的），与点开后的 stuckDef/stuckHp 对白同一口径。
+    // 主塔里诊断数字归秦权（他是管账的），齿塔里没人管账 ⇒ 换长明，与点开后的对白同一个说话人。
     renderRich(el.stuckText, defBreak
-      ? `秦权 · 卡在${m.name}这儿？攻击还差 **${gap}** 点（要 ≥ **${need}**）`
-      : `秦权 · 这一战预计掉 **${vars.dmg}** 血，你只有 **${vars.hp}**${defNeed ? ` · 防御再加 **${defNeed.to - defNeed.from}** 就能扛住` : ''}${blockTip ? ' · 学了**格挡**能省下三成血' : ''}`);
+      ? `${speaker} · 卡在${m.name}这儿？攻击还差 **${gap}** 点（要 ≥ **${need}**）`
+      : `${speaker} · 这一战预计掉 **${vars.dmg}** 血，你只有 **${vars.hp}**${defNeed ? ` · 防御再加 **${defNeed.to - defNeed.from}** 就能扛住` : ''}${blockTip ? ' · 学了**格挡**能省下三成血' : ''}`);
     el.stuckBar.hidden = false;
-    stuckInfo = { key, vars, floor: s.floor, monster: m.name, blockTip };
+    // key 仍然是 stuckDef/stuckHp（商店面板按它判「买几次攻能过」），换说话人只动 lineKey
+    stuckInfo = { key, lineKey, vars, floor: s.floor, monster: m.name, blockTip };
     const now = Date.now();
     if (now - stuckSayAt > 12000) {
       stuckSayAt = now;
       if (blockTip && Tips.mark('stuckblock')) {
         say([['长明', '这一战有点疼。你**还没学格挡**——第 2 层回廊有半部盾谱，或去第 3 层找秦权买。学会后每层能挡一次。', 'calm']]);
-      } else sayHint(key, vars);
+      } else sayHint(lineKey, vars);
     }
   }
   function clearStuck() {
@@ -4151,6 +4159,11 @@
 
     if (!first) log(`来到第 ${s.floor + 1} 层 · ${f.name}`, 'gold');
     log(f.tip);
+    // 塔门就在脚下：齿塔第 1 层那块 `n` 既是进来的门，也是唯一的出路。
+    // 不写这一句，玩家不会知道「打不动守门的齿」时还能回头——他只会以为这局到头了。
+    if (f.tower && !D.towerOf(s.floor).main && s.floor === D.towerOf(s.floor).floors[0]) {
+      log('塔门就在你脚下：走开再踩回来就出塔，这座塔从门厅重来。');
+    }
     showFloorCard(s.floor);
 
     logFloorReach(s);
@@ -4285,9 +4298,13 @@
           break;
         }
         // 齿塔第一层的下楼：退出这座塔，回塔群重选（进度从这座塔第 1 层重来）。
+        // 这是「打不动守门的齿」时唯一的退路，所以出去这一下必须有一句话，
+        // 不能只是面板重新铺一遍（玩家会以为自己误触了什么）。
         if (ev.at && ev.at.towerExit) {
-          Engine.towerExit();
-          openTower();
+          const ex = Engine.towerExit();
+          const nm = ex && ex.tower ? ex.tower.name : '这座塔';
+          log(`你退出了「${nm}」。`, 'gold');
+          openTower(`<b>你退出了「${nm}」</b><br>塔门在身后合上：再进来，这座塔从门厅重来——怪也都回来了。`);
           break;
         }
         // 惜挡之环：这一层一次格挡都没动，走的时候补了一笔钱——当场说明白，别让它悄悄进账
@@ -4822,7 +4839,7 @@
     $('cfgCollection').addEventListener('click', () => { el.cfgOverlay.classList.remove('show'); openCollection(); });
     $('colClose').addEventListener('click', closeCollection);
     if (el.stuckBar) el.stuckBar.addEventListener('click', () => {
-      if (stuckInfo) sayHint(stuckInfo.key, stuckInfo.vars);
+      if (stuckInfo) sayHint(stuckInfo.lineKey || stuckInfo.key, stuckInfo.vars);
     });
   }
 

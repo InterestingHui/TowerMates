@@ -140,16 +140,31 @@
     shufflePickups(s.maps[0], mapSeed);
     shufflePickups(s.maps[1], subSeed(mapSeed, SUBSEED_F2));
     shufflePickups(s.maps[2], subSeed(mapSeed, SUBSEED_F3));
-    const map = s.maps[s.floor];
-    const entryCh = first.main ? '@' : 'n';
-    outer: for (let y = 0; y < SIZE; y++) {
-      for (let x = 0; x < SIZE; x++) {
-        if (map[y][x] === entryCh) { s.x = x; s.y = y; map[y][x] = '.'; break outer; }
-      }
-    }
+    const p = standAtEntry(s.maps[s.floor], first.main ? '@' : 'n', !first.main);
+    s.x = p.x; s.y = p.y;
     save();
     emit('newgame');
     return s;
+  }
+
+  // ---------- 入口落点（两条路径共用）----------
+  // 主塔第 1 层的 `@` 只是「起点标记」，清掉就行。
+  // 齿塔第 1 层的 `n` 不一样：它既是进来的门，也是**出塔的门**（踩上去 ⇒ changeFloor(-1)
+  // ⇒ towerExit）。原先两条路径都把它清成 `.`，等于「进塔那一刻出口就没了」——
+  // 打到一半打不动守门的齿时，唯一的出路只剩送死（2026-11-29 加练游戏性修）。
+  // 现在：门留着，人就站在门上——和「上楼落在目标层的 n 砖上」是同一条惯例，
+  // 不引入第二种落点规则（试过「站到门旁边那一格」，锈塔/灰塔的门厅是齿轮的一条窄槽，
+  // 左右都是墙、头上就是怪，等于把第一次移动变成强制战斗）。
+  // `walkAlong` 的寻路本来就不许踩楼梯（engine 1896 行），所以只有玩家自己往回走才会踩到门。
+  function standAtEntry(map, entryCh, keepDoor) {
+    let ex = -1, ey = -1;
+    for (let y = 0; y < SIZE && ey < 0; y++) {
+      for (let x = 0; x < SIZE; x++) if (map[y][x] === entryCh) { ex = x; ey = y; break; }
+    }
+    if (ey < 0) return { x: 1, y: 1, door: false };
+    if (keepDoor) return { x: ex, y: ey, door: true };
+    map[ey][ex] = '.';
+    return { x: ex, y: ey, door: false };
   }
 
   // ---------- 塔群 ----------
@@ -211,17 +226,10 @@
       });
       s.maps[fi] = D.floors[fi].map.map((row) => row.split(''));
     });
-    const entryCh = t.main ? '@' : 'n';
-    let found = false;
-    outer: for (let y = 0; y < SIZE; y++) {
-      for (let x = 0; x < SIZE; x++) {
-        // 入口砖要清掉：人已经站在门厅里了，脚下再留一块 `n` 就等于「退出塔的机关」
-        // 就在脚下——走开一格再走回来，整座塔会被当成「你自己走出去的」而重置
-        // （与 newGame 那条同一段逻辑，两份实现不许一份清一份不清）。
-        if (s.maps[s.floor][y][x] === entryCh) { s.x = x; s.y = y; s.maps[s.floor][y][x] = '.'; found = true; break outer; }
-      }
-    }
-    if (!found) { s.x = 1; s.y = 1; }
+    // 与 newGame 完全同一步（抽成 standAtEntry，两份实现不许一份留门一份清门）：
+    // 齿塔的门留着，人站在门旁边——否则「进塔即锁死」，打不动守门的齿就只能送死。
+    const p = standAtEntry(s.maps[s.floor], t.main ? '@' : 'n', !t.main);
+    s.x = p.x; s.y = p.y;
     s.over = false; s.won = false; s.ending = null;
     s.snap = null;
     s.floorEnter = null;

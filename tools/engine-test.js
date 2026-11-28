@@ -2839,5 +2839,40 @@ ok(Array.isArray(E.load().flags.rings), 'rings 不是数组：归一成空列表
   window.Achievements = A0;
 }
 
+// ---------- 齿塔的门：进得去，也出得来（2026-11-29 加练游戏性） ----------
+// 齿塔第 1 层的 `n` 同时是「进来的门」与「出塔的门」。原先两份落点实现都把它清成 `.`，
+// 于是进塔那一刻出口就没了：守门的齿打不动时唯一的出路是送死（整局结束）。
+// 契约：门留着（人像踩在 n 砖上一样站在门上），走开一格再踩回来 = 退出这座塔。
+{
+  E.newGame(null, {});
+  s = E.state();
+  const t0 = D.towers[0];
+  ok(s.floor === t0.floors[0], '新局落在第一座齿塔的第 1 层');
+  ok(E.tile(s.x, s.y) === 'n', '落点就在门砖上（与「上楼落在 n 砖上」同一惯例）');
+  // 踩门出去再走回来：门必须还在
+  const up = [[0, -1], [-1, 0], [1, 0], [0, 1]].find(([dx, dy]) => {
+    const t = E.tile(s.x + dx, s.y + dy);
+    return t === '.' || !!D.monsters[t];
+  });
+  ok(!!up, '门旁边有一格能迈出去（否则一落地就动不了）');
+  if (up) {
+    const r1 = E.tryMove(up[0], up[1]);
+    ok(r1 && r1.type && !r1.at, '迈出门砖是普通一步（站在门上不会自己触发退塔）');
+    // 回到门上：这一步＝退出这座塔
+    const back = E.tryMove(-up[0], -up[1]);
+    ok(!!(back && back.at && back.at.towerExit === t0.id), '走回门砖 = 退出这座塔（towerExit 事件可达）');
+    // 退出后重进：门照样在，人照样站在门上（两条路径共用 standAtEntry）
+    E.towerExit();
+    const re = E.enterTower(t0.id);
+    s = E.state();
+    ok(re.ok && E.tile(s.x, s.y) === 'n', '退出后重进，门还在、人还站在门上');
+  }
+  // 边界：钟塔的门在左下角，门砖四邻是普通地面——同一套规则不该在地图上挑位置
+  s.flags.towersCleared = ['rust', 'ash'];
+  E.enterTower('bell');
+  s = E.state();
+  ok(D.towerOf(s.floor).id === 'bell' && E.tile(s.x, s.y) === 'n', '钟塔同样落在门砖上（不按地图特判）');
+}
+
 console.log(fail === 0 ? '\n✓ 全部通过' : `\n✗ ${fail} 项失败`);
 process.exit(fail ? 1 : 0);
