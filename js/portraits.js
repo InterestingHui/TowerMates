@@ -7,7 +7,13 @@
   // 但立绘的 img src 一直是裸路径 ⇒ 换一张 assets/portraits/*.webp，老玩家浏览器照用旧图。
   // 这个值由 tools/sync-publish.js 按 assets/portraits 目录内容指纹重写，源码里是 'dev'。
   const PT_V = '2bad4c45';
-  const KEY = { 烛: 'candle', 炎魔: 'torch', 魔王: 'mowang', 薇拉: 'vera', 秤: 'scale', 墨妖: 'yan', 钟妖: 'duo', 碑魔: 'heng', 勇者: 'hero' };
+  // 2026-11-28 起角色用真名（长明/秦权/沈砚/裴炬/顾铎/宋铭）；旧名留作别名——
+  // 老存档的 metChars 存的是旧名，读档迁移前还要靠它渲染一次。
+  const KEY = {
+    长明: 'candle', 秦权: 'scale', 沈砚: 'yan', 裴炬: 'torch', 顾铎: 'duo', 宋铭: 'heng',
+    烛: 'candle', 秤: 'scale', 炎魔: 'torch', 魔王: 'mowang', 墨妖: 'yan', 钟妖: 'duo', 碑魔: 'heng',
+    薇拉: 'vera', 勇者: 'hero',
+  };
 
   // 每个角色的基准光色 + 情绪偏移
   const COLORS = {
@@ -308,12 +314,13 @@
   // CG 立绘（2026-11-26）：assets/portraits/<id>.webp，768×960，四周已做 alpha 渐隐。
   // 文件名与 tools/cg-gen.js 的 PORTRAITS 键一致（yan/duo/heng），别再另起一套拼音缩写。
   const IMG = {
+    长明: 'candle', 秦权: 'cheng', 沈砚: 'yan', 裴炬: 'yanmo', 顾铎: 'duo', 宋铭: 'heng',
     烛: 'candle', 炎魔: 'yanmo', 魔王: 'mowang', 薇拉: 'vera',
     秤: 'cheng', 墨妖: 'yan', 钟妖: 'duo', 碑魔: 'heng', 勇者: 'hero',
   };
 
   // 四位锁匠：rim 2px + 眼神提亮（普通怪 1.2px）
-  const BOSS = { 墨妖: 1, 魔王: 1, 钟妖: 1, 碑魔: 1 };
+  const BOSS = { 墨妖: 1, 魔王: 1, 钟妖: 1, 碑魔: 1, 沈砚: 1, 裴炬: 1, 顾铎: 1, 宋铭: 1 };
 
   // 每个 <svg> 用独立 id：同页可能同时存在 9 张立绘（对白 + 图鉴八格）
   let uid = 0;

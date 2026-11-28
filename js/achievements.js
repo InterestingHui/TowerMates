@@ -11,7 +11,7 @@
     { id: 'lv5', name: '小有名气', emoji: '⭐', desc: '等级达到 Lv.5' },
     { id: 'lv8', name: '身经百战', emoji: '🌟', desc: '等级达到 Lv.8' },
     { id: 'rich', name: '小金库', emoji: '💰', desc: '同时持有 500 金币' },
-    { id: 'shopper', name: '商人旧友', emoji: '🏪', desc: '在秤那里消费 5 次' },
+    { id: 'shopper', name: '商人旧友', emoji: '🏪', desc: '在秦权那里消费 5 次' },
     { id: 'keys3', name: '开锁匠', emoji: '🔑', desc: '同时持有 3 把以上钥匙' },
     { id: 'secret1', name: '墙后的房间', emoji: '🕳️', desc: '走进不在图纸上的密道' },
     { id: 'secret2', name: '守誓者', emoji: '🛡️', desc: '打开密道红门，取回守誓之盾' },

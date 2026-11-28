@@ -47,7 +47,7 @@
   // 设置写盘失败要说的话（与存档那条同一个口径：提示条 nowrap，92vw ≈ 27 汉字，《设置存不下…》够短）
   const CFG_TIPS = '设置存不下：这台设备不让写存储，刷新会回到上次的样子。';
   const Settings = (() => {
-    let data = { fx: 'full', sfx: true, music: true, vib: true, fast: false, critters: true, dpad: false, hintSpeed: 'normal', battleSpeed: 'normal', fullRounds: false };
+    let data = { fx: 'full', sfx: true, music: true, vib: true, fast: false, critters: true, dpad: false, hintSpeed: 'normal', battleSpeed: 'normal', fullRounds: false, autoPrep: true };
     try {
       const old = JSON.parse(localStorage.getItem('towermates_cfg') || 'null');
       const cur = JSON.parse(localStorage.getItem('towermates_cfg_v2') || 'null');
@@ -83,6 +83,10 @@
       get hintSpeed() { return HINT_SCALE[data.hintSpeed] ? data.hintSpeed : 'normal'; },
       get battleSpeed() { return BATTLE_SPEED[data.battleSpeed] ? data.battleSpeed : 'normal'; },
       get fullRounds() { return data.fullRounds === true; },
+      // 战备罗盘（2026-11-28）：撞怪是否自动挑打法。默认开——买了神器的人要的就是「别再问我」；
+      // 关掉＝白打。未持有神器时这个值不起作用（开关本身也不出现，见 syncAutoPrep）。
+      get autoPrep() { return data.autoPrep !== false; },
+      toggleAutoPrep() { data.autoPrep = data.autoPrep === false; save(); return data.autoPrep !== false; },
       toggleFullRounds() { data.fullRounds = !(data.fullRounds === true); save(); return data.fullRounds === true; },
       cycleBattleSpeed() {
         const order = ['slow', 'normal', 'fast'];
@@ -154,7 +158,7 @@
           return;
         }
         const lines = (S.hints && S.hints[key]) ||
-          (S.tips && S.tips[key] ? [['烛', S.tips[key], 'calm']] : null);
+          (S.tips && S.tips[key] ? [['长明', S.tips[key], 'calm']] : null);
         if (!lines) return;
         seen[key] = 1;
         save();
@@ -168,7 +172,7 @@
           text = String(opts.text);
         } else {
           const lines = (S.hints && S.hints[key]) ||
-            (S.tips && S.tips[key] ? [['烛', S.tips[key], 'calm']] : null);
+            (S.tips && S.tips[key] ? [['长明', S.tips[key], 'calm']] : null);
           if (!lines) return;
           text = Array.isArray(lines[0]) ? lines[0][1] : lines[0];
         }
@@ -220,9 +224,16 @@
     // 决战余裕跨局统计（老档补空，不作废）
     mem.marginCounts = (mem.marginCounts && typeof mem.marginCounts === 'object') ? mem.marginCounts : {};
     mem.marginBest = mem.marginBest || '';
-    // 人物图鉴：遇见过谁（跨局累计；老档至少算认识烛——他是叙述者）
+    // 人物图鉴：遇见过谁（跨局累计；老档至少算认识长明——他是叙述者）
     mem.metChars = Array.isArray(mem.metChars) ? mem.metChars : [];
-    if (!mem.metChars.length) mem.metChars.push('烛');
+    // 2026-11-28 改名：老档的 metChars 存的是旧名（烛 / 秤 / 炎魔 / 墨妖 / 钟妖 / 碑魔），
+    // 直接比真名会让图鉴进度凭空清零——读档时就地迁移，并去重。
+    const CHAR_ALIAS = { 烛: '长明', 秤: '秦权', 炎魔: '裴炬', 墨妖: '沈砚', 钟妖: '顾铎', 碑魔: '宋铭' };
+    mem.metChars = mem.metChars.map((n) => CHAR_ALIAS[n] || n).filter((n, i, a) => a.indexOf(n) === i);
+    if (!mem.metChars.length) mem.metChars.push('长明');
+    // 塔群：曾经踩过塔门的塔（跨局）。新局先选塔时按它判「哪些塔的门认你」——
+    // 只增不减，清档才归零；老档补空数组，首次开新局仍是从锈塔走起。
+    mem.towersEver = Array.isArray(mem.towersEver) ? mem.towersEver : [];
     return {
       get ember() { return data.ember || 0; },
       get resets() { return data.resets || 0; },
@@ -245,6 +256,12 @@
       },
       hasMet(who) { return mem.metChars.indexOf(who) >= 0; },
       get metChars() { return mem.metChars; },
+      // 塔群：某座塔的齿被拔过（跨局只记一次）。重开一局时它决定塔群里哪几座亮着。
+      get towersEver() { return mem.towersEver; },
+      markTowerEver(id) {
+        if (!id || mem.towersEver.indexOf(id) >= 0) return false;
+        mem.towersEver.push(id); save(); return true;
+      },
       // 锁环被选中 / 带它通关各记一笔（统计只增不减，清档时才归零）
       ringPicked(id) {
         if (!id) return;
@@ -754,7 +771,9 @@
     cfgOverlay: $('cfgOverlay'), choiceOverlay: $('choiceOverlay'),
     heartOverlay: $('heartOverlay'), heartTake: $('heartTake'), heartLeave: $('heartLeave'),
     vowOverlay: $('vowOverlay'), vowCards: $('vowCards'), vowTag: $('vowTag'), vowFlash: $('vowFlash'),
+    vowTower: $('vowTower'), vowBack: $('vowBack'),
     towerOverlay: $('towerOverlay'), towerList: $('towerList'), towerBanner: $('towerBanner'), towerMarks: $('towerMarks'),
+    towerKicker: $('towerKicker'), towerDesc: $('towerDesc'), towerHint: $('towerHint'),
     eventOverlay: $('eventOverlay'), evEmoji: $('evEmoji'), evName: $('evName'), evText: $('evText'), evOpts: $('evOpts'),
     gateOverlay: $('gateOverlay'), gateList: $('gateList'),
     tabOverlay: $('tabOverlay'), tabKicker: $('tabKicker'), tabBody: $('tabBody'), tabMain: $('tabMain'), tabAlt: $('tabAlt'),
@@ -763,6 +782,7 @@
     toast: $('toast'), warnPill: $('warnPill'),
     battleScene: $('battleScene'),
     prepOverlay: $('prepOverlay'), prepOpts: $('prepOpts'), prepFoe: $('prepFoe'),
+    autoPrep: $('autoPrep'), autoPrepBtn: $('autoPrepBtn'), autoPrepState: $('autoPrepState'),
     shopScene: $('shopScene'), altarScene: $('altarScene'), echoScene: $('echoScene'),
     bsHero: $('bsHero'), bsFoe: $('bsFoe'),
     bsHeroBar: $('bsHeroBar'), bsFoeBar: $('bsFoeBar'),
@@ -1465,7 +1485,7 @@
   }
 
   // ---------- 卡关指引：打不过时不让提示一闪而过 ----------
-  // 条子一直挂到「攻击达标 / 离开本层 / 打赢」为止，随时点开听秤把办法说完
+  // 条子一直挂到「攻击达标 / 离开本层 / 打赢」为止，随时点开听秦权把办法说完
   function showStuck(m, pred, s) {
     if (!el.stuckBar || !m) return;
     const defBreak = pred.reason === '攻击力不足，无法破防';
@@ -1485,18 +1505,18 @@
     // 2026-11-24：第一层不再提格挡（用户要求）——那时玩家连盾谱都没见过，
     // 说「学了能省三成血」只是让他去记一个当层用不上的词。从第 2 层起才提。
     const blockTip = !s.flags.hasBlock && s.floor >= 1 && s.floor <= 4;
-    // 卡关条也要有说话人：无主语的「卡在墨妖这儿？」会被读成怪自己开口（2026-11-20 用户反馈）。
-    // 诊断数字归秤（他是管账的），与点开后的 stuckDef/stuckHp 对白同一口径。
+    // 卡关条也要有说话人：无主语的「卡在沈砚这儿？」会被读成怪自己开口（2026-11-20 用户反馈）。
+    // 诊断数字归秦权（他是管账的），与点开后的 stuckDef/stuckHp 对白同一口径。
     renderRich(el.stuckText, defBreak
-      ? `秤 · 卡在${m.name}这儿？攻击还差 **${gap}** 点（要 ≥ **${need}**）`
-      : `秤 · 这一战预计掉 **${vars.dmg}** 血，你只有 **${vars.hp}**${defNeed ? ` · 防御再加 **${defNeed.to - defNeed.from}** 就能扛住` : ''}${blockTip ? ' · 学了**格挡**能省下三成血' : ''}`);
+      ? `秦权 · 卡在${m.name}这儿？攻击还差 **${gap}** 点（要 ≥ **${need}**）`
+      : `秦权 · 这一战预计掉 **${vars.dmg}** 血，你只有 **${vars.hp}**${defNeed ? ` · 防御再加 **${defNeed.to - defNeed.from}** 就能扛住` : ''}${blockTip ? ' · 学了**格挡**能省下三成血' : ''}`);
     el.stuckBar.hidden = false;
     stuckInfo = { key, vars, floor: s.floor, monster: m.name, blockTip };
     const now = Date.now();
     if (now - stuckSayAt > 12000) {
       stuckSayAt = now;
       if (blockTip && Tips.mark('stuckblock')) {
-        say([['烛', '这一战有点疼。你**还没学格挡**——第 2 层回廊有半部盾谱，或去第 3 层找秤买。学会后每层能挡一次。', 'calm']]);
+        say([['长明', '这一战有点疼。你**还没学格挡**——第 2 层回廊有半部盾谱，或去第 3 层找秦权买。学会后每层能挡一次。', 'calm']]);
       } else sayHint(key, vars);
     }
   }
@@ -1531,7 +1551,7 @@
     // 齿塔的层名本身已经带塔名（「锈塔 · 门厅」），这里不再前置一次塔名——否则读成「锈塔 · 第 1 层 · 锈塔 · 门厅」
     el.floorName.textContent = `第 ${D.floorNo(s.floor)} 层 · ${D.floors[s.floor].name}`;
     // 主角卡：立绘只换情绪，切层/掉血才重算 SVG；情绪同时给一句人话状态。
-    // 2026-11-24 用户报障：这里原来画的是「烛」——玩家一进塔就变成了守塔人。
+    // 2026-11-24 用户报障：这里原来画的是「长明」——玩家一进塔就变成了守塔人。
     // 玩家是勇者（第九位），顶栏立绘必须是他自己：勇者专属剪影，金瞳 + 斜挎剑。
     const heroMoodNow = pct <= 30 ? 'sad' : pct <= 60 ? 'tired' : floorBossAlive(s) ? 'firm' : 'calm';
     if (heroMoodNow !== heroMood) {
@@ -1784,13 +1804,13 @@
     const line = typing.lines[typing.idx];
     const isThink = line.mood === 'think';
     $('dlgWho').textContent = line.who;
-    $('dlgWho').className = 'dlg-who ' + (line.who === '烛' ? 'ghost'
+    $('dlgWho').className = 'dlg-who ' + (line.who === '长明' ? 'ghost'
       : line.who === '薇拉' ? 'vera'
-        : line.who === '魔王' || line.who === '炎魔' ? 'boss'
-          : line.who === '墨妖' ? 'yan'
-            : line.who === '钟妖' ? 'duo'
-              : line.who === '碑魔' ? 'heng'
-                : line.who === '秤' ? 'merchant' : '');
+        : line.who === '魔王' || line.who === '裴炬' ? 'boss'
+          : line.who === '墨妖' || line.who === '沈砚' ? 'yan'
+            : line.who === '钟妖' || line.who === '顾铎' ? 'duo'
+              : line.who === '碑魔' || line.who === '宋铭' ? 'heng'
+                : line.who === '秦权' ? 'merchant' : '');
     $('dlgWho').style.display = line.who ? '' : 'none';
     const text = $('dlgText');
     renderRich(text, line.text);
@@ -2866,7 +2886,7 @@
         // 2026-11-24 19:5x 加练·美术焦点B：键盘 1–N 此前是暗能力（`pickPrepByKey` 收 1–9，面板一个字没写），
         // 而立誓页写「或 ← → 切换、Enter 确认」、回响面板写「也可按 1 / 2 / 3」。键位上限随卡片数走——
         // 写死「1–4」时只摆两张卡会教出一个按不出反应的键。
-        // 2026-11-24 22:4x 加练·叙事：首遇那一次由烛开口（11-20 定的「引导必须有归属」口径），
+        // 2026-11-24 22:4x 加练·叙事：首遇那一次由长明开口（11-20 定的「引导必须有归属」口径），
         // 之后退回通用提示行——两次都走 View.PREP_FIRST / PREP_HINT，文案不许在装配段里再抄一份。
         const first = Tips.mark('prepfirst');
         hintEl.textContent = first ? View.PREP_FIRST(opts.length) : View.PREP_HINT(opts.length);
@@ -2953,13 +2973,13 @@
       if (m.boss) {
         const shop = nearestShopFloor(s.floor);
         if (Tips.mark('toostrong')) sayHint('tooStrongBoss', { n: shop });
-        else warn(`烛：打不过，**回第 ${shop} 层找秤**`);
-        log(`打不过${m.name}——塔里还有没清完的怪，或者回第 ${shop} 层找秤。`, 'warn');
+        else warn(`长明：打不过，**回第 ${shop} 层找秦权**`);
+        log(`打不过${m.name}——塔里还有没清完的怪，或者回第 ${shop} 层找秦权。`, 'warn');
       } else {
         const shop2 = nearestShopFloor(s.floor);
         if (Tips.mark('toostrong')) sayHint('tooStrong', { n: shop2 });
         // 系统提示也带上引导者归属：无主语的「打不过」会被读成怪自己开口（2026-11-20 用户反馈）
-        else warn(pred.reason === '攻击力不足，无法破防' ? '烛：**攻击力不足，无法破防**' : '烛：这一战会要你的命，**先变强吧**');
+        else warn(pred.reason === '攻击力不足，无法破防' ? '长明：**攻击力不足，无法破防**' : '长明：这一战会要你的命，**先变强吧**');
         log(`打不过${m.name}：${pred.reason}`, 'warn');
       }
       // 破不了防时给出可操作的数字：还差几点攻击、去哪儿补
@@ -2971,7 +2991,7 @@
       return;
     }
 
-    // 用格挡才打得过的战斗：开战前直接由烛把话说明白，玩家读完再打
+    // 用格挡才打得过的战斗：开战前直接由长明把话说明白，玩家读完再打
     // 不走提示队列——这条必须赶在开战前，排队会等到战斗结束，就失去意义了
     if (pred.blockSave && Tips.mark('blocksave')) {
       playStory(S.hints.blocksave, () => resolveBattle(dx, dy), '知道了 · 点击开打');
@@ -3026,7 +3046,7 @@
             // 单一口径——面板怎么摆、引擎怎么结算、账本怎么记，三处不许各算各的
             logBattlePick(s, res.pick);
             applyFightResult(res, tx, ty);
-          } else { warn('烛：' + (res.msg || '战斗中断')); refreshHud(); }
+          } else { warn('长明：' + (res.msg || '战斗中断')); refreshHud(); }
         });
       } catch (e) {
         abandonBattle(e);
@@ -3119,7 +3139,7 @@
     const dealEl = $('shopDeal');
     if (dealEl) {
       dealEl.innerHTML = m.deal
-        ? `秤今天松了口：<b>${m.deal.name}</b> <s>${m.deal.was}</s> → <b>${m.deal.now}</b>`
+        ? `秦权今天松了口：<b>${m.deal.name}</b> <s>${m.deal.was}</s> → <b>${m.deal.now}</b>`
         : '';
     }
     const list = $('shopList');
@@ -3253,20 +3273,20 @@
   function openGate() {
     const s = Engine.state();
     if (!s || !Engine.hasRelic('gate')) return;
+    const tw = D.towerOf(s.floor);
     const max = Engine.visitedMax();
-    // 节奏纠偏：只列「走过的层」，没到过的收成一行——13 条全列出来是 13 个按钮，
-    // 玩家这一刻只需要「回哪一层」，不需要把整座塔的目录读一遍。
+    // 只列「当前这座塔里走过的层」，没到过的收成一行。
+    // 2026-11-28：不报总层数——塔的高度是探索的一部分；也避免把 22 层平铺成 22 个按钮。
     const rows = [];
-    for (let i = 0; i <= max && i < D.floors.length; i++) {
-      const f = D.floors[i];
-      const here = i === s.floor;
-      rows.push(`<button class="gate-row ${here ? 'here' : ''}" data-f="${i}" ${here ? 'disabled' : ''}>
-        <b>${i + 1}</b><span>${f.name}</span><small>${here ? '你在这里' : '跳过去'}</small>
+    tw.floors.forEach((fi) => {
+      if (fi > max) return;
+      const here = fi === s.floor;
+      rows.push(`<button class="gate-row ${here ? 'here' : ''}" data-f="${fi}" ${here ? 'disabled' : ''}>
+        <b>${D.floorNo(fi)}</b><span>${D.floors[fi].name}</span><small>${here ? '你在这里' : '跳过去'}</small>
       </button>`);
-    }
-    const hidden = D.floors.length - (max + 1);
-    if (hidden > 0) {
-      rows.push(`<div class="gate-fold"><b>未到过 · ${hidden} 层</b><small>往上走才会亮 · 塔共 ${D.floors.length} 层</small></div>`);
+    });
+    if (tw.floors.some((fi) => fi > max)) {
+      rows.push(`<div class="gate-fold"><b>未到过</b><small>往上走才会亮</small></div>`);
     }
     el.gateList.innerHTML = rows.join('');
     el.gateList.querySelectorAll('.gate-row').forEach((b) => {
@@ -3317,7 +3337,7 @@
     vibrate(14);
     log(`${res.label} · ${res.msg}`, 'gold');
     warn(res.msg, null, 'info');
-    // 这次选择教会了格挡：让烛把用法说完（老玩家读过的不再复读）
+    // 这次选择教会了格挡：让长明把用法说完（老玩家读过的不再复读）
     if (Engine.state().flags.hasBlock && !Engine.state().flags.evBlockTaught) {
       Engine.state().flags.evBlockTaught = true;
       Engine.save();
@@ -3475,7 +3495,7 @@
     // 文案在 data.js `vows[*].echo` 一处定义，败局同一句照念，不许在这儿再抄一份。
     const vowLine = (vowDef && vowDef.echo) || '';
     $('endEpi').textContent = (E.epilogue || '') + (heartLine ? ' ' + heartLine : '');
-    // 先清掉上一局可能插入的动态行（秤的纸条 / 断剑去处）——textContent 重写不会移除兄弟节点
+    // 先清掉上一局可能插入的动态行（秦权的纸条 / 断剑去处）——textContent 重写不会移除兄弟节点
     el.endOverlay.querySelectorAll('.end-epi-scale, .end-epi-sword').forEach((n) => n.remove());
     // 断剑的去处（带剑通关才有）：结局正文追加一句，剑跟着后日谈走
     // 平结局=熔剑入灯，刻上他的名字；真结局=王冠成了灯座，剑立在海崖，剑尖指着塔顶
@@ -3487,12 +3507,12 @@
     if (swordLine) $('endEpi').textContent += ' ' + swordLine;
     // 誓约回声收在这段最后：前面是「塔后来怎样了」，这一句把话头拉回玩家自己立的那条誓
     if (vowLine) $('endEpi').textContent += ' ' + vowLine;
-    // 秤的告别：第八位勇者的军需官跟了你一路，结局这一刻他的账清了。
+    // 秦权的告别：第八位勇者的军需官跟了你一路，结局这一刻他的账清了。
     // 真结局才亮（普通结局没人替川收尾）；带过断剑时，纸条直接写给他等了八十年的人。
     const scaleNote = s.ending === 'true' && s.flags.relic_edge
-      ? '下塔的时候，第三层的货摊已经空了。铜盘里压着最后一张纸条，字迹是秤的：「他说过要带我去塔顶看看。我没等到他，等到了你。——秤」'
+      ? '下塔的时候，第三层的货摊已经空了。铜盘里压着最后一张纸条，字迹是秦权的：「他说过要带我去塔顶看看。我没等到他，等到了你。——秦权」'
       : s.ending === 'true'
-        ? '下塔的时候，第三层的货摊已经空了。铜盘里压着最后一张纸条，字迹是秤的：「账清了。后头的路，自己走稳。——秤」'
+        ? '下塔的时候，第三层的货摊已经空了。铜盘里压着最后一张纸条，字迹是秦权的：「账清了。后头的路，自己走稳。——秦权」'
         : '';
     if (scaleNote) {
       const epi = $('endEpi');
@@ -3710,15 +3730,24 @@
   // 必须留在模块层：cfgReset（bindInput 内）与 btnNewRun（boot 内）两个绑定都引用它——
   // 2026-11-17 实测它误留在 bindInput 里时，boot 里的按钮一点就抛
   // ReferenceError: doResetRun is not defined（有存档的老玩家「开新局」必踩）。
+  // 一局结束/被放弃时把「本局拔过的齿」记进 Meta：新局选塔时它们才亮着。
+  // 只记到塔门（towerClear）也有一份，这里兜住「没踩塔门就走人」的那部分进度。
+  function retireRun() {
+    const st = Engine.state();
+    if (!st || !st.flags) return;
+    (st.flags.towersCleared || []).forEach((id) => Meta.markTowerEver(id));
+  }
+
   function doResetRun() {
     Sound.stopMotif();
     Sound.setPad(-1);
     Sound.stopMusic();
     const n = Meta.incReset();
+    retireRun();
     Engine.reset();
     refreshStartActions();
     closeCfg();
-    openVow();
+    openTower(null, { fresh: true });
     log('已重置本局 · 从头开始', 'gold');
     warn(`本局已重置（成就、余烬与解锁保留）· 第 ${n} 次重来`, null, 'info');
   }
@@ -3829,11 +3858,11 @@
     setChapterColor(floor);
     const ch = f.chapter ? D.chapters[f.chapter - 1] : null;
     const tw = D.towerOf(floor);
+    // 层数不露底：只报「现在是第几层」，不报「一共几层」。
+    // 2026-11-28 用户口径：塔的高度是探索的一部分，写在卡片上等于把「还有多长」提前说完。
     $('fcNum').textContent = ch
-      ? `${ch.title} · ${D.floorNo(floor)}/${tw.floors.length} 层`
-      : (tw.main
-        ? `第 ${D.floorNo(floor)} 层 / 共 ${tw.floors.length} 层`
-        : `${tw.name} · 第 ${D.floorNo(floor)} / ${tw.floors.length} 层`);
+      ? `${ch.title} · 第 ${D.floorNo(floor)} 层`
+      : (tw.main ? `第 ${D.floorNo(floor)} 层` : `${tw.name} · 第 ${D.floorNo(floor)} 层`);
     $('fcName').textContent = f.name;
     $('fcTip').textContent = f.tip;
     const card = $('floorCard');
@@ -4063,7 +4092,7 @@
       if (tw.enter && S[tw.enter]) { playStory(tw.enter); return; }
     }
 
-    // 章节入口 + 关键剧情。F4 是第二章开头，接烛的第二段。
+    // 章节入口 + 关键剧情。F4 是第二章开头，接长明的第二段。
     const seq = [];
     if (s.floor === 3) {
       if (!s.flags.ch2) { s.flags.ch2 = true; seq.push('ch2'); }
@@ -4099,8 +4128,8 @@
     if (s.floor === 11 && !s.flags.noRelicTip && Engine.ownedRelics().length === 0) {
       s.flags.noRelicTip = true;
       Engine.save();
-      warn('**烛**：一件遗物都没拿，你也走到这儿了。碑魔不给第二次机会——把它当最后一战打。');
-      log('烛：这条路走得通，我只见过一次。', 'good');
+      warn('**长明**：一件遗物都没拿，你也走到这儿了。碑魔不给第二次机会——把它当最后一战打。');
+      log('长明：这条路走得通，我只见过一次。', 'good');
     }
     if (s.floor === 4 && !s.flags.solo5) {
       s.flags.solo5 = true;
@@ -4162,6 +4191,8 @@
         if (ev.at && ev.at.towerClear) {
           const r = Engine.towerClear();
           if (r) {
+            // 跨局记一笔：下次开新局时，这座塔的门在这座塔群的选塔页上就亮着。
+            Meta.markTowerEver(r.tower.id);
             Achievements.evaluate('tower', Engine.state(), notifyAchievement);
             const line = (S[r.tower.clear] || []).join('');
             openTower(`<b>${r.tower.name} · 齿断了</b><br>${line}<br>`
@@ -4207,7 +4238,7 @@
         Sound.play('pick');
         Renderer.addFloat(ev.short || ev.msg, Engine.state().x * T + T / 2, Engine.state().y * T, '#9fe8b0');
         log(ev.msg, ev.good === false ? 'warn' : 'good');
-        // 学会格挡：先播盾谱小传，接烛的用法教学（老玩家读过的不再复读）
+        // 学会格挡：先播盾谱小传，接长明的用法教学（老玩家读过的不再复读）
         if (ev.blockLearned) {
           // 小传最后一句已经把用法说完：不再接第二段全屏对白（同一机制两个弹窗，
           // 是前 3 分钟最没必要的一次打断）。商店买盾谱仍走 Tips.show('block')。
@@ -4353,6 +4384,13 @@
       // 立誓页：开局第一个决策，此前只有鼠标能点（塔心石/结局同为「选卡片」却有 ←/→ + Enter）。
       // 高亮不预置——和那两屏一样，先按方向键才有焦点，避免一路 Enter 连点把约定了。
       if (el.vowOverlay.classList.contains('show')) {
+        // 选错塔还能退回去：Esc 与「换一座塔」同一条路
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          el.vowOverlay.classList.remove('show');
+          openTower(null, { fresh: true });
+          return;
+        }
         const cards = Array.prototype.slice.call(el.vowCards.querySelectorAll('.vow-card'));
         if (!cards.length) return;
         if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
@@ -4641,9 +4679,18 @@
     $('gateClose').addEventListener('click', () => el.gateOverlay.classList.remove('show'));
     $('btnAgain').addEventListener('click', () => {
       el.endOverlay.classList.remove('show', 'death-mode');
+      retireRun();
       Engine.reset();
-      openVow();
+      openTower(null, { fresh: true });
     });
+    // 立誓页的「换一座塔」：选错了塔还能退回去，不用重开一局
+    if (el.vowBack) {
+      el.vowBack.addEventListener('click', () => {
+        el.vowOverlay.classList.remove('show');
+        Sound.play('click');
+        openTower(null, { fresh: true });
+      });
+    }
     $('cfgRetry').addEventListener('click', () => {
       const ok = Engine.restoreFloor();
       closeCfg();
@@ -4904,13 +4951,55 @@
   }
 
   // ---------- 塔群 ----------
-  // 每次回塔群都重画：进度、塔印、下一座塔的可进状态全从 Engine 现算，
-  // 不缓存「上一屏点过哪座」——玩家的进度只有存档一个真源。
-  function openTower(banner) {
+  // 2026-11-28 二改（用户定稿）：塔群挪到立誓之前——先看见要走哪座塔，再为它立誓。
+  //   ① 新局 / 重开 / 重置（fresh）：面板是「选塔」。此时可能还没有存档，
+  //      可进哪座按「曾经拔过的齿」(Meta.towersEver) 算；点一座 → 进它的立誓页。
+  //   ② 塔内（踩塔门 / 从塔底退出）：状态从本局存档现算，点塔直接换塔，不立誓。
+  // 每次打开都重画，不缓存上一屏点过哪座——进度只有 Meta 与存档两个真源。
+  const towerOpenEver = (t, ever) => {
+    if (t.main) {
+      const need = D.towers.filter((x) => !x.main).map((x) => x.id);
+      return need.every((x) => ever.indexOf(x) >= 0);
+    }
+    const idx = D.towers.indexOf(t);
+    return idx <= 0 || ever.indexOf(D.towers[idx - 1].id) >= 0;
+  };
+  const towerLockMsg = (t) => {
+    if (t.main) return '三枚齿还没拔完，主塔的门不认你';
+    const idx = D.towers.indexOf(t);
+    const prev = idx > 0 ? D.towers[idx - 1] : null;
+    return prev ? `先拔掉「${prev.name}」的那枚齿` : '这座塔还没开';
+  };
+
+  // 教练卡要等进塔对白读完再弹：固定 350ms 时塔一的 4 句剧情还在播，两层遮罩会叠在一起
+  // （实拍确认）。改成轮询，对白关掉才弹，只弹一次。选塔进塔与立誓进塔共用。
+  function armOpeningTips() {
+    const arm = () => {
+      if (el.dialogOverlay.classList.contains('show')) { setTimeout(arm, 350); return; }
+      const st = Engine.state();
+      if (!st || quickStart || st.flags.tipsOpening) return;
+      st.flags.tipsOpening = true;
+      Engine.save();
+      Tips.show('opening');
+    };
+    setTimeout(arm, 450);
+  }
+
+  function openTower(banner, opts) {
+    const fresh = !!(opts && opts.fresh);
     const s = Engine.state();
-    if (!s) return;
-    const cleared = s.flags.towersCleared || [];
-    const marks = Engine.marks();
+    if (!s && !fresh) return;
+    const cleared = fresh ? Meta.towersEver.slice() : (s.flags.towersCleared || []);
+    const marks = fresh ? [] : Engine.marks();
+    el.towerKicker.textContent = fresh ? '选 塔' : '塔 群';
+    el.towerDesc.textContent = fresh
+      ? (cleared.length
+        ? '四座塔长在一条山脊上。挑一座进去——拔过的齿还在，塔门都认你。'
+        : '雾里立着四座塔。锈塔的门开着：先从它走起，拔下的齿会替你开下一扇门。')
+      : '主塔脚下还有三座矮塔。拔掉三枚齿，主塔的门才认你。';
+    el.towerHint.textContent = fresh
+      ? '点一座塔 · 进去之前还要为它立一条誓'
+      : '点一座塔进去 · 每座塔从第 1 层重新开始';
     el.towerBanner.hidden = !banner;
     el.towerBanner.innerHTML = banner || '';
     el.towerMarks.hidden = !marks.length;
@@ -4919,9 +5008,11 @@
       : '';
     el.towerList.innerHTML = D.towers.map((t) => {
       const done = cleared.indexOf(t.id) >= 0;
-      const can = Engine.canEnterTower(t.id).ok;
+      const can = fresh ? towerOpenEver(t, cleared) : Engine.canEnterTower(t.id).ok;
       const st = done ? 'done' : can ? 'now' : 'locked';
-      const state = done ? '已通关' : can ? (t.main ? '进主塔' : '可进') : '未解锁';
+      const state = done
+        ? (fresh ? '拔过齿' : '已通关')
+        : can ? (t.main ? '进主塔' : (fresh ? '从这里起' : '可进')) : '未解锁';
       const boss = D.monsters[t.boss];
       return `<button class="tw-card ${st}${t.main ? ' main' : ''}" data-id="${t.id}" data-st="${st}" style="--tw:${t.color};--tw-wash:${t.accent}">
         <span class="tw-ico">${t.main ? '🗼' : (t.mark ? t.mark.emoji : '🔒')}</span>
@@ -4931,8 +5022,16 @@
     }).join('');
     el.towerList.querySelectorAll('.tw-card').forEach((b) => {
       b.addEventListener('click', () => {
+        const t = D.towers.find((x) => x.id === b.dataset.id);
         if (b.dataset.st === 'locked') {
-          warn(Engine.canEnterTower(b.dataset.id).msg || '这座塔还没开');
+          warn(t ? towerLockMsg(t) : '这座塔还没开');
+          return;
+        }
+        // 新局选塔：塔群先让位，接着为这座塔立誓；真正踏进去要等誓约选定。
+        if (fresh) {
+          el.towerOverlay.classList.remove('show');
+          Sound.play('choose');
+          openVow(t.id);
           return;
         }
         const r = Engine.enterTower(b.dataset.id);
@@ -4941,30 +5040,39 @@
         Sound.play('door');
         enterFloor(true);
         refreshHud();
-        // 教练卡要等进塔对白读完再弹：以前固定 350ms，塔一的 4 句剧情还在播，
-        // 两层遮罩会叠在一起（实拍确认）。这里改成轮询，对白关掉才弹，只弹一次。
-        const armOpening = () => {
-          if (el.dialogOverlay.classList.contains('show')) { setTimeout(armOpening, 350); return; }
-          if (quickStart || Engine.state().flags.tipsOpening) return;
-          Engine.state().flags.tipsOpening = true;
-          Engine.save();
-          Tips.show('opening');
-        };
-        setTimeout(armOpening, 450);
+        armOpeningTips();
       });
     });
     el.towerOverlay.classList.add('show');
   }
 
-  function openVow(force) {
+  // 立誓页挂在「哪座塔」上：塔群选完塔才进来，页顶先交代这座塔的名字与守门人。
+  // 只有测试/快捷入口会不带参数调 openVow()——那时回落到当前局所在塔（新局就是锈塔），
+  // 保证任何入口都不会出现「无塔之誓」。
+  let pendingTower = null;
+  function openVow(towerId) {
     vowFocus = -1;
-    Funnel.push('vow_open', { first: isFirstRun() ? 1 : 0 });
+    let t = (typeof towerId === 'string' && D.towers.find((x) => x.id === towerId)) || null;
+    if (!t) {
+      const st = Engine.state();
+      t = (st && D.towerOf(st.floor)) || D.towers[0];
+    }
+    pendingTower = t.id;
+    Funnel.push('vow_open', { first: isFirstRun() ? 1 : 0, tower: t.id });
     const kicker = document.querySelector('#vowOverlay .vow-kicker');
     const desc = document.querySelector('#vowOverlay .vow-desc');
     const hint = document.querySelector('#vowOverlay .vow-hint');
-    if (kicker) kicker.textContent = '立 誓';
-    if (desc) desc.textContent = '选一条路进塔：越难走，通关时多留 ✦';
+    if (kicker) kicker.textContent = '入 塔 之 誓';
+    if (desc) desc.textContent = `${t.name}只认走进它的人：选一条路进去，越难走，通关时多留 ✦`;
     if (hint) hint.textContent = '点一张开始 · 灰卡＝还没买下的助力 · ← → 切换';
+    if (el.vowTower) {
+      const boss = D.monsters[t.boss];
+      el.vowTower.hidden = false;
+      el.vowTower.style.setProperty('--tw', t.color);
+      el.vowTower.style.setProperty('--tw-wash', t.accent);
+      el.vowTower.innerHTML = `<span class="vt-ico">${t.main ? '🗼' : (t.mark ? t.mark.emoji : '🗼')}</span>
+        <span><b>${t.name}</b><i>${t.kicker} · ${t.floors.length} 层${boss ? ' · 守门 ' + boss.name : ''}</i></span>`;
+    }
     renderVowPanel();
     el.vowOverlay.classList.add('show');
   }
@@ -5018,7 +5126,10 @@
     Sound.play('choose');
     vibrate([8, 14, 8]);
     flashVow(id);
-    startGame(id);
+    // 进哪座塔：塔群选好的那座（pendingTower 在 openVow 里一定落定）。
+    // carry 让「直接从灰塔/钟塔/主塔起局」的玩家带上前面那几枚塔印——跳过的小塔
+    // 在叙事上就是「上次拔过」，成长曲线跟文档里的 16/14/1350、22/20/1700 对齐。
+    startGame(id, pendingTower ? { tower: pendingTower, carry: true } : undefined);
   }
 
   // ---------- 启动 ----------
@@ -5051,11 +5162,22 @@
     // 想回看走设置里的「重看序章」，不占开局时间。
     const seenIntro = (Meta.memory.runs || 0) > 0;
     const begin = () => {
-      // 2026-11-28 多塔：立誓之后先看塔群，不是直接踏进主塔——
-      // 新手从锈塔开始，一座一座拔齿；主塔要三枚齿都松了才认人。
-      openTower();
+      // 2026-11-28 二改（用户定稿）：塔在立誓之前就选定了——立完誓直接踏进那座塔，
+      // 不再回到塔群多按一次。只有没带塔的入口（今日一塔）还走塔群面板。
+      const tw = (opts && opts.tower && D.towers.find((x) => x.id === opts.tower)) || null;
+      if (tw) {
+        document.body.classList.remove('at-start');
+        enterFloor(true);
+        refreshHud();
+        armOpeningTips();
+      } else {
+        // 每日一塔：约已经按日期钉死，不必再立誓——塔群面板顶部把这句说明白。
+        openTower((opts && opts.daily)
+          ? `<b>今日一塔 · ${Daily.label(opts.daily)}</b><br>今天走进来的人都是同一座塔、同一条约：${vs.name}。`
+          : null);
+      }
       if (Engine.vow() !== 'none') log(`你立下了${vs.name}：${vs.desc}`, 'gold');
-      log('你踏入了魔塔。塔顶传来极轻的、像铃声一样的声音。', 'gold');
+      log(tw ? `你踏入了${tw.name}。` : '你踏入了魔塔。塔顶传来极轻的、像铃声一样的声音。', 'gold');
       if (seenIntro) log('序章在读过了——设置里可以重看。');
     };
     if (seenIntro) begin();
@@ -5120,7 +5242,7 @@
       if (Engine.brokenSave()) {
         warn('上一局的存档读不出来（可能没写完或被改过），已在本机另存一份。成就、余烬与榜单都还在，只能从新的一局开始。', 7000);
       }
-      openVow();
+      openTower(null, { fresh: true });
       return;
     }
     // 明确接手：这一档从这一句起由本页写，另一页（如果还开着）会停写并被提示
@@ -5332,7 +5454,7 @@
     refreshStartBadges();
 
     refreshStartActions();
-    $('btnNew').addEventListener('click', openVow);
+    $('btnNew').addEventListener('click', () => openTower(null, { fresh: true }));
     $('btnNewRun').addEventListener('click', () => askConfirm({ cb: doResetRun }));
     $('btnContinue').addEventListener('click', continueGame);
     $('btnDaily').addEventListener('click', enterDaily);
@@ -5465,6 +5587,13 @@
   window.__tm = {
     playStory, showEnd, openShop, openCodex, openBoard, openCfg, closeCfg,
     showFloorCard, showEndingChoice, completeEnding, setChoiceFocus, openHeart, chooseHeart, setHeartFocus, openVow, chooseVow, openEvent, chooseEvent, openGate, jumpTo: (i) => doJump(i), Meta,
+    // 塔群（headless 探针用）：openTower 传 {fresh:true} 即新局选塔页，
+    // pickTower 等同玩家点卡片（新局模式会顺手打开那座塔的立誓页）。
+    openTower, pickTower: (id) => {
+      const b = el.towerList.querySelector(`.tw-card[data-id="${id}"]`);
+      if (b) b.click();
+      return !!b;
+    },
     showBossIntro, closeBossIntro, openPortraitZoom, enterFloor,
     resolveBattle, act, clickMove, emberOf, refreshHud, refreshStartBadges,
     // 战前面板（headless 探针用）：open 判断面板在不在，pick 等同玩家点卡（none/block/guard/tangle）
