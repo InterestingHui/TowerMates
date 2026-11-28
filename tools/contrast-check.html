@@ -167,7 +167,29 @@ function scan(doc, scene) {
     f.style.cssText = 'width:430px;height:900px;border:0;display:block';
     f.src = '/tools/shot.html?scene=' + scene;
     document.getElementById('host').appendChild(f);
-    await wait(1500);
+    // 等这一屏「停住」，不是等固定 1.5 秒。
+    // 2026-11-28 实测：首局流程 17:5x 加了一步「先选塔、再立誓」之后，场景脚本要跑
+    // 280（塔群）+340（立誓）+ 对白点击 ~600ms，1.5 秒采样时 board/codex/end/cfg/echo/dialog
+    // 六屏还停在**对白浮层**上（读数与默认盘面同为 31–43 个节点）⇒ 探针把同一张盘面量了六遍，
+    // 汇总 993 < 1500 被判红，而对比度一项都没不合格（BELOW=0）。
+    // 判据用「可见浮层集合连续两次相同」：面板一开就换集合，开完不再变；打字机文字不影响集合。
+    const settle = async (minMs, maxMs) => {
+      let last = null, same = 0;
+      const t0 = Date.now();
+      while (Date.now() - t0 < maxMs) {
+        await wait(300);
+        let sig = 'na';
+        try {
+          const fr = f.contentDocument.getElementById('f');
+          const dd = fr && fr.contentDocument;
+          sig = dd ? Array.from(dd.querySelectorAll('.overlay.show')).map((x) => x.id).sort().join(',') : 'na';
+        } catch (e) { sig = 'na'; }
+        same = sig === last ? same + 1 : 0;
+        last = sig;
+        if (Date.now() - t0 >= minMs && same >= 1) break;
+      }
+    };
+    await settle(1500, 3600);
     try {
       const inner = f.contentDocument.getElementById('f');
       if (!inner || !inner.contentDocument) throw new Error('no inner frame');
