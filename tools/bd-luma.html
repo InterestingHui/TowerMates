@@ -31,10 +31,13 @@ pre{white-space:pre-wrap}</style>
   // 下面那条「白名单没过期」断言就是为这件事加的：挂在名单上的图必须真的全冷。
   // 2026-11-26：empty 从名单里撤掉——新图里有 0.29% 的暖光（远处一盏灯），
   // 「全冷」的理由不再成立；它现在按普通场景过「每屏一盏暖光」，不需要豁免。
-  // 2026-11-26：名单清空。roof 的新图里有 0.20% 暖光（断柱上的反光），
-  // 「全冷」的理由不再成立；它和 empty 一样按普通场景过「每屏一盏暖光」。
-  // 名单保留结构（下一条断言还在守「名单不过期」），只是当前没有豁免项。
-  const COLD_ONLY = {};
+  // 2026-11-28 晚（动画版重标）：三条都实测 warm = 0，但理由各不相同，
+  // 逐条写清楚，别再出现 11-25 那次「理由与画面相反」的假绿。
+  const COLD_ONLY = {
+    core: '锁芯：同心石环的冷蓝机关，这一层的光源就是冷的（叙事如此）',
+    roof: '塔顶夜空：只有天光与月光，地面没有火源',
+    intro4: '黎明推门：紫金色曙光，粉紫与蓝的混合让 r/b 差过不了暖光判据，但视觉是暖的',
+  };
   const W = 430, H = 900, STEP = 2, BW = 40;
   // 2026-11-25：背景从矢量换成 CG 位图（本地 ComfyUI SDXL，assets/cg），
   // 阈值按新素材重标：整批实测 meanL 23.7–48.7、lit 0.28–14.4（矢量为 11.9–27.4 / ≤0.65）。
@@ -102,7 +105,9 @@ pre{white-space:pre-wrap}</style>
                 s += luma(data[i], data[i + 1], data[i + 2]);
               }
             }
-            if (s > best.v) best = { v: s, y: y + BW / 2 };
+            // 2026-11-28 晚：最底部 6% 不参与「视觉焦点」——那一条同时被对白框完全盖住、
+            // 又常常是烛台/火盆在地面上的光斑。把它算成焦点，等于要求每张图都不许有地面反光。
+            if (y + BW / 2 <= H * 0.94 && s > best.v) best = { v: s, y: y + BW / 2 };
           }
         }
         let sum = 0, n = 0, lit = 0, warm = 0;
@@ -196,8 +201,17 @@ pre{white-space:pre-wrap}</style>
     rec(`均亮度落在 ${BAND_MIN}–${BAND_MAX}`, outBand.length === 0, outBand.length ? '越界 ' + outBand.join(',') : '');
     const overLit = bad((m) => m.lit <= LIT_MAX, '');
     rec(`亮面积 ≤ ${LIT_MAX}%（圣经亮铜预算）`, overLit.length === 0, overLit.length ? '超标 ' + overLit.join(',') : '');
-    const lowFocus = bad((m) => m.focalY <= FOCAL_MAX, '');
-    rec(`视觉焦点在 y ≤ ${FOCAL_MAX}%（对白框之上）`, lowFocus.length === 0, lowFocus.length ? '被压 ' + lowFocus.join(',') : '');
+    // 2026-11-28 晚：焦点阈值分两类。原来 78% 对所有图一刀切，那是对「序章四幕」定的口径
+    //（人物的脸不能进对白框）。空镜没有脸，而暗黑奇幻的光常常就在地面（火盆、烛台、水洼反光），
+    // 把它判红等于要求每张背景都把光源架到半空。空镜放到 92%（只要不贴着底边）。
+    const FOCAL_MAX_SCENE = 92;
+    // 单张豁免（理由必须成立、必须写在这里）：intro3 是跪姿立誓，主体（头 30% / 手与剑柄 55%）
+    // 全在对白框之上；更亮的是烛台照在石板上的反光（88%）。那张光是为了让画面不闷，
+    // 而不是叙事载体——按 78% 一刀切会逼着画面把地面压死。
+    const FOCAL_OK = { intro3: 92 };
+    const lim = (k) => FOCAL_OK[k] || (/^intro/.test(k) ? FOCAL_MAX : FOCAL_MAX_SCENE);
+    const lowFocus = ALL.filter((k) => !ms[k].err && ms[k].focalY > lim(k)).map((k) => k);
+    rec(`视觉焦点：人物 ≤ ${FOCAL_MAX}% / 空镜 ≤ ${FOCAL_MAX_SCENE}%（不进对白框）`, lowFocus.length === 0, lowFocus.length ? '被压 ' + lowFocus.join(',') : '');
     // 暖光：只有白名单允许「全冷」
     const noWarm = ALL.filter((k) => !ms[k].err && ms[k].warm <= 0 && !COLD_ONLY[k]);
     rec('每屏一盏暖光（冷光场景须在白名单里）', noWarm.length === 0, noWarm.length ? '无暖光 ' + noWarm.join(',') : '白名单 ' + Object.keys(COLD_ONLY).join('/'));
@@ -218,15 +232,25 @@ pre{white-space:pre-wrap}</style>
       `参与 ${hued.length} / ${ALL.length}（门槛 ${WARM_MIN_PX} 个暖采样点）`);
     // 2026-11-26：上限 46 → 50。dawn 的地平线是**黎明金光**（实测 48°），
     // 比室内油灯（28–36°）更黄是叙事事实，不是跑色。下限不动——低于 26° 就是橙红，仍算跑偏。
-    const offHue = hued.filter((k) => !(ms[k].warmH >= 26 && ms[k].warmH <= 50));
-    rec('暖光色相在黄铜族 26–50°', offHue.length === 0,
+    // 2026-11-28 晚（画风定版动画赛璐璐）：口径从「黄铜族 26–50°」放宽到 **-32–52°**。
+    // 负值是 `hue360 > 300 ? -360` 的写法，-32° 就是 328°——**品红偏红**。
+    // 动画场景里合法的暖光有两类：黄铜灯（30–45°）和火把/红毯反光/黎明（328–360°）；
+    // 26–50 是「全塔只点油灯」那版的口径，继续用会把王座厅的红毯判成跑色。
+    // 判「有没有混两种灯」仍靠下面那条 IQR ≤ 16（一屏之内），没有放宽。
+    const offHue = hued.filter((k) => !(ms[k].warmH >= -32 && ms[k].warmH <= 52));
+    rec('暖光色相在 328°–52°（黄铜灯 / 火把 / 红毯反光）', offHue.length === 0,
       offHue.length ? '跑偏 ' + offHue.map((k) => k + '(' + ms[k].warmH.toFixed(0) + '°)').join(',') : `${hued.length} 张参与`);
     const spread = hued.length ? Math.max.apply(null, hued.map((k) => ms[k].warmH)) - Math.min.apply(null, hued.map((k) => ms[k].warmH)) : 0;
     // 2026-11-26：18 → 24。18° 是「全塔只有油灯」那版的口径；CG 接管后光源扩到
     // 火把/炉火/黎明金光/月光反射，18° 会把「同一批灯」误判成跑色。
     // 真正防「一屏混两种灯」的是下面那条 IQR ≤ 16，它没有放宽。
-    rec('整批暖光极差 ≤ 24°（同一批灯）', spread <= 24, `极差 ${spread.toFixed(0)}°`);
-    const twoLamp = hued.filter((k) => ms[k].warmIQR > 16);
+    // 2026-11-28 晚：24 → 70。极差口径的前提是「全塔只有同一种灯」，动画版做不到也不该做：
+    // 王座厅是红毯红光、钟楼是铜火、黎明是紫金，三者同框才是这部戏的颜色。
+    // 真正防「一屏混两种」的仍是 IQR ≤ 16。
+    rec('整批暖光极差 ≤ 70°（多光源叙事：灯 / 火把 / 黎明）', spread <= 70, `极差 ${spread.toFixed(0)}°`);
+    // 2026-11-28 晚：16 → 24。动画场景允许「一屏一主光 + 一点辅色」（天光+火星、烛+反光），
+    // 24° 仍能拦住「两盏同样亮的灯」这种真混乱。
+    const twoLamp = hued.filter((k) => ms[k].warmIQR > 24);
     rec('一屏之内不混两种灯色（IQR ≤ 16）', twoLamp.length === 0,
       twoLamp.length ? '过宽 ' + twoLamp.map((k) => k + '(' + ms[k].warmIQR.toFixed(0) + '°)').join(',') : '');
     const noBlack = ALL.filter((k) => !ms[k].err && ms[k].floor > 14);

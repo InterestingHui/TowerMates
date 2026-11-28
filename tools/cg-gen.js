@@ -267,8 +267,11 @@ const SCENES = {
     + 'both hands stacked on the pommel of a short iron sword planted point-down between the flagstones, '
     + 'his head bowed low over his hands, shoulders set, back straight, '
     + 'a small white embroidered handkerchief tied around his sword hand, one corner hanging loose, '
-    + 'a single candle in a small iron holder standing beside his knee, its flame at waist height, '
-    + 'lighting his hands and the sword hilt, '
+    // 2026-11-28 晚：蜡烛照亮的那片地砖成了画面最亮点（focalY 88%），
+    // 而地板正是对白框压住的位置。这一版把烛焰本身写成唯一亮点、地板留在暗里。
+    + 'a taller iron candle stand beside his knee, the flame at the height of his hands, '
+    + 'the flame is the single brightest point in the whole frame, lighting his hands and the sword hilt, '
+    + 'the flagstones around him stay in deep shadow, no bright floor, no light pool on the ground, '
     + 'seen from a low three-quarter angle behind him, '
     + 'a rough wooden shield leaning against his knee, '
     + 'bare stone walls and a low vault above, cold air, dust, '
