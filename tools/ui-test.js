@@ -266,6 +266,8 @@ const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-ui-'));
   ok(out.colRemain === totAll - 4, '收藏剩余件数按全表算（全表 − 已收录 4）');
   ok(out.colDetail === true && out.colDetailHasFrom === true, '点卡片弹详情，带获取途径');
   ok(out.colDetailOff === true, '没拿到的卡片给「未获得」与去处线索');
+  ok(typeof out.ringLore === 'string' && out.ringLore.length >= 12,
+    `点已获得的锁环卡，详情条给出那句来历（实得「${String(out.ringLore).slice(0, 14)}…」）`);
   ok(out.colDetailAnim === 'popIn 0.16s', `详情条有进场动效（实得 ${out.colDetailAnim}——零过渡就是硬切）`);
   ok(out.colNextCount === 3, '收藏面板顶部给「下一件」三件待补');
   ok(out.colNextHasFrom === true, '「下一件」带去处线索');

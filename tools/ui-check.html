@@ -1524,6 +1524,14 @@ async function run() {
         var offCard = d.querySelector('#colBody .col-card.off');
         if (offCard) offCard.click();
         out.colDetailOff = cd.textContent.indexOf('未获得') >= 0;
+        // 锁环小传（2026-11-28 加练·叙事）：已获得的锁环卡也要有一句来历，与遗物同型。
+        // 用「点完再看 .cd-lore」而不是查数据表——数据有、界面没挂上去是本项目最常见的假绿。
+        var ringCard = d.querySelector('#colBody .col-card.got.ring');
+        if (ringCard) {
+          ringCard.click();
+          var rl = cd.querySelector('.cd-lore');
+          out.ringLore = rl ? rl.textContent.replace(/\s+/g, '').trim() : '';
+        } else out.ringLore = 'NO_CARD';
         // 锁环使用统计：选中记 picks、带它通关记 wins，图鉴卡片上要能看见
         w.__tm.Meta.ringPicked('ledger');
         w.__tm.Meta.ringPicked('ledger');

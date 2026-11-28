@@ -26,15 +26,21 @@
   const OLD_TOP = 13;
   // 纯函数、幂等：返回新数组，不改入参（榜单每开一次都会过这里，改原地会让存档越读越偏）。
   function migrateFloorRecs(list) {
-    return (list || []).map((r) => {
-      if (!r || r.fs) return r;                                   // 盖过戳 / 空行：原样
-      const f = Math.round(r.floor || 0);
-      if (f === OLD_TOP && r.ending) {
-        // 换刻度前的通关局：13 → 22（结局只在塔顶成立，所以「有结局 + 13 层」只可能是老刻度）
-        return Object.assign({}, r, { floor: Math.min(FLOOR_SCALE, f + FLOOR_OFFSET), fs: FLOOR_SCALE });
-      }
-      return Object.assign({ fs: FLOOR_SCALE }, r);               // 判不出来：只盖章，不动层号
-    });
+    // 脏行先丢掉（2026-11-28 自检·错误处理面）：名录是裸 JSON，手改 / 写入中断都可能留下
+    // null、字符串、数字。旧写法直接 `.map(r => !r ? r : ...)` 把 null 原样带回榜单，
+    // 而 `cmpBoard` 第一行就是 `b.floor` ⇒ `TypeError` 整张榜打不开（不是「少一行」是白屏）。
+    // 入参本身也过一层 Array.isArray：名录被写坏时可能是 `{}` 或字符串（读的一侧已 try，这里防形状）。
+    return (Array.isArray(list) ? list : [])
+      .filter((r) => r && typeof r === 'object' && !Array.isArray(r))
+      .map((r) => {
+        if (r.fs) return r;                                       // 盖过戳：原样
+        const f = Math.round(r.floor || 0);
+        if (f === OLD_TOP && r.ending) {
+          // 换刻度前的通关局：13 → 22（结局只在塔顶成立，所以「有结局 + 13 层」只可能是老刻度）
+          return Object.assign({}, r, { floor: Math.min(FLOOR_SCALE, f + FLOOR_OFFSET), fs: FLOOR_SCALE });
+        }
+        return Object.assign({ fs: FLOOR_SCALE }, r);             // 判不出来：只盖章，不动层号
+      });
   }
 
   // ---------- 榜单：排序口径（走到哪层 → 结局 → 决战余裕 → 用时 → 步数） ----------

@@ -159,6 +159,12 @@ const notes = { '第二位勇者·鸦': '停在第 2 层' };
   ok(V.migrateFloorRecs([{ floor: 5, fs: 22 }])[0].floor === 5, '盖过戳的记录不迁');
   ok(V.migrateFloorRecs([{ floor: 0 }])[0].floor === 0, '没有层号（0）不迁，也别把 0 读成 9');
   ok(V.migrateFloorRecs([legacy]).length === 1 && V.migrateFloorRecs(null).length === 0, '空名录给空数组（不是 null）');
+  // 脏行（2026-11-28 自检·错误处理面）：名录是裸 JSON，null / 字符串 / 数组都可能躺在里面。
+  // 旧写法 `!r ? r : ...` 把 null 原样带回，`cmpBoard` 第一行 `b.floor` 直接 TypeError ⇒ 整张榜白屏。
+  const dirty = V.migrateFloorRecs([null, 'x', 42, [1, 2], { floor: 13, ending: 'true' }]);
+  ok(dirty.length === 1 && dirty[0].floor === 22, `脏行被丢掉，只剩真记录（实得 ${dirty.length} 行）`);
+  ok(V.migrateFloorRecs({}).length === 0 && V.migrateFloorRecs('abc').length === 0,
+    '入参不是数组（{} / 字符串）给空数组，不抛错');
   const twice = V.migrateFloorRecs(V.migrateFloorRecs([legacy]));
   ok(twice[0].floor === 22, '幂等：读两次不会变成 31');
   // 接线：两处读名录的口子都必须过迁移，否则「老记录」只是换了个地方说谎
@@ -3163,14 +3169,35 @@ ok(mainSrc.indexOf("searchParams.set('rival'") < 0, 'main.js 不许自己拼链�
   const orphan = Object.keys(ST.relicNote || {}).filter((id) => relicIds.indexOf(id) < 0);
   ok(orphan.length === 0, `图鉴小传的键必须都是真遗物（野键：${orphan.join('、') || '无'}）`);
   // 图鉴详情确实把小传挂上去了，且只在「已获得」时（没拿到的卡片不许剧透碎片）
-  ok(/function relicNoteOf\(id\)/.test(mainSrc), '小传读取只有一处实现（relicNoteOf）');
-  ok(/const lore = on && kind === 'relic' \? relicNoteOf\(id\) : ''/.test(mainSrc),
-    '图鉴详情只在已获得的遗物上带小传（未获得不剧透）');
+  ok(/function relicNoteOf\(id\)/.test(mainSrc), '遗物小传读取只有一处实现（relicNoteOf）');
+  ok(/function ringNoteOf\(id\)/.test(mainSrc), '锁环小传读取只有一处实现（ringNoteOf）');
+  ok(/const lore = on \? \(kind === 'relic' \? relicNoteOf\(id\) : ringNoteOf\(id\)\) : ''/.test(mainSrc),
+    '图鉴详情两种藏品都带小传，且只在已获得时（未获得不剧透）');
   ok(/if \(lore\) renderRich\(box\.querySelector\('\.cd-lore'\), lore\)/.test(mainSrc),
     '小传写进 .cd-lore（走富文本，不把星号原样漏出来）');
   // 数据层：小传的长度要装得进详情条的窄列（360 宽下 cd-main 约 200px，按 fs-tag 每行 ~13 字）
   const long = relicIds.filter((id) => noteOf(id) && noteOf(id).length > 64);
   ok(long.length === 0, `图鉴小传不超过 64 字（超长：${long.join('、') || '无'}）`);
+
+  // ---- 锁环小传（2026-11-28 加练·叙事）：与遗物同一把尺子 ----
+  const ringIds = Object.keys(DD.rings);
+  const rnote = (id) => (ST.ringNote && ST.ringNote[id]) || '';
+  const ringSilent = ringIds.filter((id) => !rnote(id));
+  ok(ringSilent.length === 0,
+    `${ringIds.length} 枚锁环在图鉴里都有一句可读的来历（哑的：${ringSilent.join('、') || '无'}）`);
+  const ringOrphan = Object.keys(ST.ringNote || {}).filter((id) => ringIds.indexOf(id) < 0);
+  ok(ringOrphan.length === 0, `锁环小传的键必须都是真锁环（野键：${ringOrphan.join('、') || '无'}）`);
+  const ringLong = ringIds.filter((id) => rnote(id).length > 64);
+  ok(ringLong.length === 0, `锁环小传不超过 64 字（超长：${ringLong.join('、') || '无'}）`);
+  // 40 句全用「环上」开头就是同一句换了数值 ⇒ 开头四字必须各自唯一（模板句检测）
+  const heads = {};
+  ringIds.forEach((id) => { const h = rnote(id).slice(0, 4); (heads[h] = heads[h] || []).push(id); });
+  const dupHead = Object.keys(heads).filter((h) => heads[h].length > 1);
+  ok(dupHead.length === 0,
+    `锁环小传开头不许撞车（撞：${dupHead.map((h) => `${h}→${heads[h].join('/')}`).join('、') || '无'}）`);
+  // 小传不许就是 desc（那样等于把数值抄一遍，还占一行）
+  const echoDesc = ringIds.filter((id) => rnote(id) === (DD.rings[id].desc || ''));
+  ok(echoDesc.length === 0, `锁环小传不许照抄 desc（照抄：${echoDesc.join('、') || '无'}）`);
   // 颜色不许降到 --dim：这一行的全部意义就是被读到
   const loreRule = (cssSrc.match(/\.col-detail \.cd-lore \{[^}]*\}/) || [''])[0];
   ok(loreRule.length > 0, '小传有独立样式（.cd-lore）');

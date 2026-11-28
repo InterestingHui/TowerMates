@@ -1343,6 +1343,13 @@
     return l[0][1] || '';
   }
 
+  // 锁环小传：与遗物同型（`ringNote` 一族一处尺子）。锁环没有「拾取演出」这张表可退，
+  // 缺句就是缺句——不写兜底句，缺的那枚在图鉴里少一行，好过显示一句模板。
+  function ringNoteOf(id) {
+    if (S.ringNote && S.ringNote[id]) return S.ringNote[id];
+    return '';
+  }
+
   // 点卡片看详情：拿到过的给完整规则 + 来源；没拿到的给「去哪儿找」的线索
   function showColDetail(kind, id) {
     const box = $('colDetail');
@@ -1355,8 +1362,8 @@
     const from = kind === 'relic'
       ? (r.from || '')
       : `第 ${r.chapter} 章 · 锁匠倒下后的三选一`;
-    // 小传只在「已经拿到过」的遗物上出现：没拿到的卡片不能先把叙事碎片剧透掉
-    const lore = on && kind === 'relic' ? relicNoteOf(id) : '';
+    // 小传只在「已经拿到过」的藏品上出现：没拿到的卡片不能先把叙事碎片剧透掉
+    const lore = on ? (kind === 'relic' ? relicNoteOf(id) : ringNoteOf(id)) : '';
     box.innerHTML = `<span class="cd-emoji">${on ? r.emoji : '❔'}</span>
       <div class="cd-main"><b>${r.name}${on ? '' : ' · 未获得'}</b><span class="cd-desc"></span></div>
       <span class="cd-from">${from}</span>
