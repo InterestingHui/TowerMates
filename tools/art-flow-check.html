@@ -85,10 +85,10 @@ async function drainDialog(d, n) {
 
   // ③ 图鉴大图：点亮角色 → 点卡 → 320px 位图 → ESC 关闭
   s.flags.codex = true;
-  ['烛', '薇拉', '秤', '墨妖'].forEach((x) => T.Meta.metChar(x));
+  ['长明', '薇拉', '秦权', '沈砚'].forEach((x) => T.Meta.metChar(x));
   T.openCodex();
   await wait(300);
-  const card = d.querySelector('.cx-char[data-who="墨妖"]');
+  const card = d.querySelector('.cx-char[data-who="沈砚"]');
   log('codex_card', !!card);
   if (card) card.click();
   await wait(700);

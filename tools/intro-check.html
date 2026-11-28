@@ -63,7 +63,9 @@ function load(url) {
       await wait(600);
       const firstFloor = w.GAME_DATA.towers[0].floors[0];
       const towerShown = d.getElementById('towerOverlay').classList.contains('show');
-      rec('A2 序章读完进入塔群（锈塔入口）', towerShown && w.Engine.state().floor === firstFloor, 'tower=' + towerShown + ' floor=' + w.Engine.state().floor);
+      // 2026-11-28 二改：塔在立誓之前就选好了（塔群选塔 → 立誓 → 直接进塔），
+      // 序章读完不该再停一屏塔群。
+      rec('A2 序章读完直接进锈塔（不再停塔群）', !towerShown && w.Engine.state().floor === firstFloor, 'tower=' + towerShown + ' floor=' + w.Engine.state().floor);
     }
 
     // ---------- B. 进过塔（runs>0）：再开一局不该播 ----------
@@ -86,11 +88,18 @@ function load(url) {
       await wait(400);
       w.__tm.chooseVow('none');
       await wait(700);
+      // 2026-11-28 二改：立完誓直接进塔，会先播「进锈塔」的对白（4 句，讲三枚齿）。
+      // 检查点仍是「序章没重播」——认序章的开头（魔王把薇拉公主抓进海崖上的黑塔），
+      // 而不是笼统地看有没有对白，否则进塔对白会被误判成序章。
       const dlg = d.getElementById('dialogOverlay');
-      rec('B1 老玩家开局不再播序章', dlg.classList.contains('show') === false, '对白遮罩=' + dlg.classList.contains('show'));
+      const dlgTextB = (dlg.textContent || '');
+      rec('B1 老玩家开局不重播序章（播的是进塔对白）',
+        dlg.classList.contains('show') && dlgTextB.indexOf('魔王把薇拉') < 0 && /矮塔|齿|锈/.test(dlgTextB),
+        dlgTextB.slice(0, 30).replace(/\s+/g, ' '));
       const firstFloorB = w.GAME_DATA.towers[0].floors[0];
       const towerShownB = d.getElementById('towerOverlay').classList.contains('show');
-      rec('B2 直接停在塔群（锈塔第 1 层）', towerShownB && w.Engine.state().floor === firstFloorB && !w.Engine.state().over, 'tower=' + towerShownB + ' floor=' + w.Engine.state().floor);
+      // 同上：塔已在立誓页之前选好，老玩家开局也直接落在锈塔第 1 层
+      rec('B2 直接落在锈塔第 1 层', !towerShownB && w.Engine.state().floor === firstFloorB && !w.Engine.state().over, 'tower=' + towerShownB + ' floor=' + w.Engine.state().floor);
       const logs = d.getElementById('log');
       rec('B3 日志说明可重看', /序章/.test(logs.textContent || ''), (logs.textContent || '').slice(0, 40).replace(/\s+/g, ' '));
     }
@@ -107,6 +116,58 @@ function load(url) {
         const dlg = d.getElementById('dialogOverlay');
         rec('C2 点了能播序章', dlg.classList.contains('show'), '对白遮罩=' + dlg.classList.contains('show'));
       }
+    }
+
+    // ---------- D. 新流程（2026-11-28 二改）：先选塔，再立誓，然后直接进塔 ----------
+    {
+      await load('/index.html?dev=1&p=i4');
+      w = f.contentWindow; d = f.contentDocument;
+      await waitFor(() => w.__tm && w.__tm.openTower);
+      w.localStorage.removeItem('towermates_meta');
+      w.localStorage.removeItem('towermates_save_v3');
+      w.localStorage.removeItem('towermates_save_v5');
+      w.localStorage.removeItem('towermates_save');
+      await load('/index.html?dev=1&p=i5');
+      w = f.contentWindow; d = f.contentDocument;
+      await waitFor(() => w.__tm && w.__tm.openTower && w.__tm.pickTower);
+      await wait(500);
+      d.getElementById('btnNew').click();
+      await wait(600);
+      const twShown = d.getElementById('towerOverlay').classList.contains('show');
+      const vwShown = d.getElementById('vowOverlay').classList.contains('show');
+      const kick = d.getElementById('towerKicker').textContent.trim();
+      rec('D1 开局第一屏是选塔（不是立誓）', twShown && !vwShown && /选\s*塔/.test(kick), `塔群=${twShown} 立誓=${vwShown} 标题「${kick}」`);
+      // 首局：四座塔都摆着，只有锈塔亮；另外三座写清为什么锁
+      const cards = Array.from(d.querySelectorAll('#towerList .tw-card'));
+      const can = cards.filter((c) => c.dataset.st !== 'locked').map((c) => c.dataset.id);
+      rec('D2 首局四座塔只开锈塔', cards.length === 4 && can.length === 1 && can[0] === 'rust', '可进=' + (can.join(',') || '无'));
+      // 点锈塔 → 立誓页；页顶的塔徽要写清是哪座塔
+      w.__tm.pickTower('rust');
+      await wait(500);
+      const vw2 = d.getElementById('vowOverlay').classList.contains('show');
+      const vt = d.getElementById('vowTower');
+      rec('D3 选完塔才跳立誓页，并写明为哪座塔立誓', vw2 && vt && !vt.hidden && /锈塔/.test(vt.textContent),
+        `立誓=${vw2} 塔徽=${vt ? vt.textContent.trim().slice(0, 24).replace(/\s+/g, ' ') : '缺失'}`);
+      // 「换一座塔」退回塔群（选错了不用重开）
+      d.getElementById('vowBack').click();
+      await wait(500);
+      rec('D4 「换一座塔」退回塔群', d.getElementById('towerOverlay').classList.contains('show') && !d.getElementById('vowOverlay').classList.contains('show'));
+      // 立完誓直接踏进去：首局会先播序章，点掉后应落在锈塔第 1 层，不再多一屏塔群
+      w.__tm.pickTower('rust');
+      await wait(500);
+      w.__tm.chooseVow('none');
+      await wait(700);
+      const dlg2 = d.getElementById('dialogOverlay');
+      for (let i = 0; i < 12 && dlg2.classList.contains('show'); i++) {
+        dlg2.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        await wait(120);
+      }
+      await wait(600);
+      const st = w.Engine.state();
+      const f1 = w.GAME_DATA.towers[0].floors[0];
+      rec('D5 立完誓直接踏进锈塔（不再停塔群）',
+        !!st && st.flags.tower === 'rust' && st.floor === f1 && !d.getElementById('towerOverlay').classList.contains('show'),
+        st ? `tower=${st.flags.tower} floor=${st.floor}` : '无存档');
     }
 
     out.textContent = R.map((r) => `${r.ok ? '✓' : '✗'} ${r.name}${r.note ? ' — ' + r.note : ''}`).join('\n')

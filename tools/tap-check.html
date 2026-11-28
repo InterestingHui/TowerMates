@@ -233,7 +233,8 @@ function audit(tag, doc, win) {
       s.flags.hasBlock = true; s.flags.rings = ['twice'];
       w.__tm.refreshHud();
       // 2026-11-24：打法按钮在战前面板上——那一屏才是要量触控的屏
-      w.__prepAuto = false; w.__battleSpeed = 30;
+      // 2026-11-28：正式流程不再弹面板，探针显式打开它（__prepPanel）并关掉自动选卡（__prepAuto=false）
+      w.__prepPanel = true; w.__prepAuto = false; w.__battleSpeed = 30;
       w.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'ArrowUp' }));
       await wait(420);
       audit(c.tag + ' 战前面板', d, w);

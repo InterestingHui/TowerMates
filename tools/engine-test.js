@@ -1317,9 +1317,19 @@ ok(E.fightDamage('F', true).damage === Math.round(dBase * 0.45), '演出用的�
 ok(dBase === E.predict('F').damage, '无修正时真实承伤等于预测承伤');
 ok(E.hasRing('parry') && E.rings().indexOf('parry') >= 0, '锁环查询接口一致');
 
-const ph = E.bossPhases('N');
-ok(Array.isArray(ph) && ph.length === 2 && !!ph[0].title && !!ph[1].text, 'Boss 每局抽两段阶段台词');
-ok(E.bossPhases('N') === ph, '同一局重复取到的台词组合不变');
+// 战中一句（2026-11-28 用户口径：一场最多说一次）——引擎一层只发一句，不再成对发阶段台词
+const bl = E.bossLine('N');
+ok(bl && !Array.isArray(bl) && !!bl.title && !!bl.text, 'Boss 战中只发一句（不再按阶段发两段）');
+ok(E.bossLine('N') === bl, '同一局重进这一战听到的是同一句');
+// 池子按局轮换：换 12 个种子至少抽到 3 句，否则「四句池」只是摆设
+const lineSet = new Set();
+for (let k = 1; k <= 12; k++) {
+  s.flags.bossLine_N = null;
+  s.flags.phaseSeed = k * 37;
+  lineSet.add(E.bossLine('N').text);
+}
+ok(lineSet.size >= 3, `台词按局抽换（12 个种子抽到 ${lineSet.size} 句）`);
+ok(E.bossLine('A') === null, '非 Boss 不发战中台词');
 
 // Boss 击败 → 章末回响的完整链路（不是只测结算函数）
 E.newGame(null, { tower: 'main' });

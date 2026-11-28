@@ -658,7 +658,7 @@
     candle2: ['passage', 'roof', 'core', 'reddoor'],
     candle3: ['stairs', 'town', 'core', 'throne'],
     ch3: ['ridge', 'town', 'ridge', 'bell', 'town', 'ridge'],
-    ch4: ['namewall', 'namewall', 'forge', 'namewall', 'namewall', 'carve', 'carve'],
+    ch4: ['namewall', 'namewall', 'namewall', 'forge', 'namewall', 'namewall', 'carve', 'carve'],
     journal: ['ledger', 'core', 'core', 'core', 'town', 'ledger', 'roof'],
 
     merchant: ['market', 'market', 'market', 'market', 'market', 'market'],
@@ -679,7 +679,7 @@
     candle5: ['carve', 'namewall', 'namewall', 'namewall', 'carve'],
 
     bossYan: ['ledger', 'ledger', 'town', 'ledger', 'ledger', 'market'],
-    afterYan: ['ledger', 'namewall', 'throne', 'ledger'],
+    afterYan: ['ledger', 'ledger', 'namewall', 'throne', 'ledger'],
     bossJu: ['throne', 'throne', 'stairs', 'town', 'stairs', 'throne', 'throne'],
     afterJu: ['throne', 'throne', 'stairs', 'core', 'stairs'],
     bossDuo: ['bell', 'bell', 'bell', 'bell', 'bell', 'bell'],
@@ -717,7 +717,7 @@
   // 换一张 assets/cg/dawn.webp 指纹不变 ⇒ 老玩家浏览器继续用旧图（结局那张已经换过一次了）。
   // 源码里是 'dev'，publish 那份由 tools/sync-publish.js 换成 assets/cg 的内容指纹——
   // 换图即换 URL，不靠人记得 bump。所有出图口子都必须走 cgSrc，别直接拼 IMG[k]。
-  const ASSET_V = 'ba9c7eda';
+  const ASSET_V = '487109a0';
   const cgSrc = (k) => { const s = IMG[k]; return s ? s + '?v=' + ASSET_V : ''; };
   // 序章用：只取图片标签（矢量分镜由 scenes.js 自己拼在下面当兜底）
   function imgTag(key) {

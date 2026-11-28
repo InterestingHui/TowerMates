@@ -155,7 +155,7 @@
 - `js/data.js`
   - `floors`：13 个楼层对象，新增 `chapter`、`boss`、`hiddenGate`、`ambient` 字段。
   - `chapters`：4 章元数据（标题、主题、层区间、Boss、简介），由 `check.js` 校验“3 层/章、Boss 在章末”。
-  - `monsters`：新增锁梁 8 种常规怪 + 3 位章节 Boss（`N` 墨妖 / `Y` 钟妖 / `U` 碑魔），炎魔沿用 `Z`。Boss 字段：`story` / `after` / `chapter` / `finalBoss` / `phases` / `defeat`。
+  - `monsters`：新增锁梁 8 种常规怪 + 3 位章节 Boss（`N` 墨妖 / `Y` 钟妖 / `U` 碑魔），炎魔沿用 `Z`。Boss 字段：`story` / `after` / `chapter` / `finalBoss` / `midLines` / `defeat`。
   - `levelExp`：18 个阈值，上限 Lv.19；`floorGoals`：12 条；`events`：新增 5 个 `tier:'c'` 锁梁事件。
 - `js/story.js`：新增 `ch2/ch3/ch4`、`candle4/5`、`bossYan/Ju/Duo/Heng`、`afterYan/Ju/Duo/Heng`、`merchant2`；改写 `candle3`、`journal`、`princessTrue`、双结局。
 - `js/engine.js`：`ver:5`（旧档作废）；Boss 首见标记改为 `boss_seen_<char>`；Boss 击杀标记 `bossKilled_<char>`；`revealCore` 改为“第 12 层 + 击败碑魔 + 塔规 ≥8”；事件池第 7 层起切 `c`。
@@ -184,5 +184,5 @@ node tools/regress.js      # 校验 + 模拟 + 单测 + 19 张截图
 ## 8. 后续可扩展
 
 - 第五章「塔外」：把锁芯之后的海崖与灰港镇做成 3 层尾声，用“回镇”替代再加塔。
-- Boss 记忆化：把四位锁匠的 `phases` 做成每局随机两段，增加重玩差异。
+- Boss 记忆化：四位锁匠各写四句 `midLines`，每局抽一句、压在血条过半时开口——一场最多说一次（2026-11-28 用户口径，原按 66% / 33% 各插一段过场太密）。
 - 塔规与章节绑定：每章完成 2/3 条给一个章节遗物，替代现在的纯分数奖励。

@@ -242,13 +242,12 @@ D.chapters.forEach((ch) => {
 Object.keys(D.monsters).forEach((ch) => {
   const m = D.monsters[ch];
   if (!m.boss) return;
-  if (!m.phasePool || !m.phasePool.p2 || !m.phasePool.p3) err(`Boss ${ch} 缺 phasePool`);
-  else {
-    if (m.phasePool.p2.length < 2 || m.phasePool.p3.length < 2) err(`Boss ${ch} 的台词池不足 2 段`);
-    m.phasePool.p2.concat(m.phasePool.p3).forEach((p) => {
-      if (!p.title || !p.text || !p.n || !p.at) err(`Boss ${ch} 的阶段台词字段不全`);
-    });
-  }
+  // 战中一句（2026-11-28）：一场最多说一次，池子至少三句才有换局的意义
+  if (!Array.isArray(m.midLines) || m.midLines.length < 3) err(`Boss ${ch} 缺战中台词池（midLines ≥3 句）`);
+  else m.midLines.forEach((p) => {
+    if (!p.title || !p.text) err(`Boss ${ch} 的战中台词字段不全`);
+    if (p.title.length > 14) err(`Boss ${ch} 的台词标题过长（横幅一行放不下）：${p.title}`);
+  });
 });
 Object.keys(D.rings).forEach((id) => {
   const r = D.rings[id];

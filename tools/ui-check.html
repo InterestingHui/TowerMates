@@ -554,7 +554,7 @@ async function run() {
     // 这里在第 4 层造出真实一场（架盾卡要 floor ≥ 3），面板不许自动跳过（__prepAuto=false），
     // 逐张读卡 id，再点「格挡」走完结算——玩家手上的操作必须与卡上承诺的后果一致。
     out.prepSave = {};
-    (function () { w.__prepAuto = false; })();
+    (function () { w.__prepPanel = true; w.__prepAuto = false; })();
     E.newGame(null, { tower: 'main' });
     var sp = E.state();
     sp.flags.hasBlock = true;
@@ -625,7 +625,7 @@ async function run() {
     // 这里用真实局面验一遍：血 = 白打 + 1 去撞第 5 层的怪 —— 面板上不许出现缠斗那张，
     // 且每张卡写的承伤都 < 当前血（otherwise 就是一张点了必死、又没有二次确认的卡）。
     out.prepLethal = {};
-    (function () { w.__prepAuto = false; })();
+    (function () { w.__prepPanel = true; w.__prepAuto = false; })();
     E.newGame(null, { tower: 'main' });
     var sd = E.state();
     sd.flags.hasBlock = true;
@@ -881,6 +881,10 @@ async function run() {
     // 战前打法面板（2026-11-24）：三把打法挪到开战前，战斗里只回显选择。
     // 这里走真实链路：第 5 层那一战 → 战前面板 → 按格挡 → 战斗面板的提示行必须回显「打法 · 格挡」，
     // 而且战斗里不再留任何能点的打法按钮（决策已经做完，留着只会被误读成还能改）。
+    // 2026-11-28：正式流程撞怪不再弹面板（改由右侧战备罗盘开关自动打），本段测的是面板本身，
+    // 所以要显式打开探针逃生口 `__prepPanel === true`（见 main.js resolveBattle）。
+    w.__prepPanel = true;
+    w.__prepAuto = false;
     out.bsHint = {};
     d.querySelectorAll('.overlay.show').forEach(function (o) { o.classList.remove('show'); });
     E.newGame(null, { tower: 'main' });
@@ -949,10 +953,91 @@ async function run() {
     w.__battleSpeed = 1;
     d.querySelectorAll('.overlay.show').forEach(function (o) { o.classList.remove('show'); });
 
+    // 自动战备（2026-11-28，用户口径「撞怪直接打，买了神器才自动挑」）：
+    // 正式流程撞怪一场都不许弹面板；买了战备罗盘且开关开着才按格挡结算；关掉开关就回到白打。
+    // 三场都走真实链路（clickMove → 战斗演出 → 结算），每场挑一只「白打能活且承伤 ≥8% 上限」的怪，
+    // 这样自动策略一定会动用格挡——数值门槛取 View.autoPickTactic 的同一口径。
+    delete w.__prepAuto;
+    delete w.__prepPanel;
+    out.autoPrep = { runs: [] };
+    // 这一段会临时点亮 relic_tactic（真实链路），而 rememberCollection 会把「见过」写进跨局图鉴。
+    // 后面的图鉴探针按「已收录 4 件」算剩余件数——不还原就会让它多数一件，红在与本段无关的地方。
+    var seenSaveAuto = w.__tm.Meta.memory.seenRelics.slice();
+    async function prepRun(label, withRelic, on) {
+      E.newGame(null, { tower: 'main' });
+      var st = E.state();
+      st.flags.hasBlock = true;
+      if (withRelic) st.flags.relic_tactic = true;
+      st.floor = 4;
+      st.atk = 40; st.def = 20; st.hp = 1500; st.maxHp = 1500;
+      w.__tm.setAutoPrep(on);
+      w.__tm.refreshHud();
+      var fa = null;
+      for (var ay = 1; ay < 10 && !fa; ay++) {
+        for (var ax = 1; ax < 10 && !fa; ax++) {
+          var chA = st.maps[4][ay][ax];
+          var moA = w.GAME_DATA.monsters[chA];
+          if (!moA || moA.ghost || moA.boss) continue;
+          var fdA = E.fightDamage(chA, false);
+          if (!fdA || fdA.damage == null || fdA.damage >= st.hp || fdA.damage < st.maxHp * 0.08) continue;
+          [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (o) {
+            if (fa) return;
+            var qx2 = ax + o[0], qy2 = ay + o[1];
+            if (qx2 < 1 || qx2 > 9 || qy2 < 1 || qy2 > 9) return;
+            if (st.maps[4][qy2][qx2] !== '.') return;
+            fa = { x: ax, y: ay, hx: qx2, hy: qy2, ch: chA };
+          });
+        }
+      }
+      var row = { label: label, prep: false, panel: false, hint: '', killed: false, switch: null };
+      row.switch = !d.getElementById('autoPrep').hidden;
+      if (!fa) { row.err = 'no-foe'; out.autoPrep.runs.push(row); return; }
+      st.x = fa.hx; st.y = fa.hy;
+      w.__battleSpeed = 30;
+      var k0 = st.flags.killCount || 0;
+      w.__tm.clickMove(fa.x, fa.y);
+      var tA = Date.now();
+      var lastTap = 0;
+      while (Date.now() - tA < 8000) {
+        if (d.getElementById('prepOverlay').classList.contains('show')) row.prep = true;
+        if (d.getElementById('battleScene').classList.contains('show') && !row.panel) {
+          row.panel = true;
+          var hA = d.getElementById('bsHint');
+          row.hint = hA ? hA.textContent.trim() : '';
+        }
+        if ((st.flags.killCount || 0) > k0) { row.killed = true; break; }
+        // 演出在等「点这里直接看结果」：模拟玩家点一下（节流 400ms，别把演出点碎）
+        if (row.panel && Date.now() - lastTap > 400) {
+          lastTap = Date.now();
+          d.getElementById('battleScene').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        }
+        await new Promise(function (r) { setTimeout(r, 30); });
+      }
+      // 收掉战斗层，别让遮幕挡住下一段
+      var tB2 = Date.now();
+      while (Date.now() - tB2 < 4000 && d.getElementById('battleScene').classList.contains('show')) {
+        d.getElementById('battleScene').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        await new Promise(function (r) { setTimeout(r, 80); });
+      }
+      d.querySelectorAll('.overlay.show').forEach(function (o) { o.classList.remove('show'); });
+      out.autoPrep.runs.push(row);
+    }
+    await prepRun('no-relic', false, true);
+    await prepRun('relic-on', true, true);
+    await prepRun('relic-off', true, false);
+    w.__tm.setAutoPrep(true);
+    w.__tm.Meta.memory.seenRelics = seenSaveAuto;
+    w.__tm.Meta.saveMemory();
+    w.__battleSpeed = 1;
+
     // 战前面板装配抛错不许锁死（2026-11-24 自检）：battleBusy 在开面板前置真、选完才放开，
     // 中间这段（画怪 / 拼卡 / 挂监听）2026-11-24 才新增，此前没有 catch —— 抛错会冒到
     // clickMove 外面，锁永远是 true，整局走不动点不动（与 11-17 演出链那个死角同型）。
     // 判据：异常不外泄、面板不留半开、这一战按「直接开打」放过，且下一次还能正常打完。
+    // 2026-11-28：正式流程不弹面板，这条兜底只存在于探针路径——显式打开面板，
+    // 并用 `__prepAuto='none'` 让面板弹出后自动选「直接开打」（这条测的是兜底，不是选卡）。
+    w.__prepPanel = true;
+    w.__prepAuto = 'none';
     out.prepFallback = {};
     E.newGame(null, { tower: 'main' });
     var sf = E.state();
@@ -1004,6 +1089,60 @@ async function run() {
       out.prepFallback.retryKills = (sf.flags.killCount || 0) - killsG;
       out.prepFallback.retryCleared = E.tile(pf.x, pf.y) !== pf.ch;
     }
+    w.__battleSpeed = 1;
+    d.querySelectorAll('.overlay.show').forEach(function (o) { o.classList.remove('show'); });
+
+    // 战中一句（2026-11-28 用户口径：一场最多说一次，别一掉血就开口）。
+    // 造一场真实的 Boss 战（第 3 层墨妖）打完，全程数「横幅亮起」的次数：
+    // 判据只能是实际演出次数——静态读代码看不出「66% / 33% 各插一段」的病。
+    out.bossLine = {};
+    // 上一档若停在战前面板上（它显式关了自动选择），输入仍锁着——先把浮层收干净再开这一场
+    d.querySelectorAll('.overlay.show').forEach(function (o) { o.classList.remove('show'); });
+    await new Promise(function (r) { setTimeout(r, 150); });
+    E.newGame(null, { tower: 'main' });
+    var sb = E.state();
+    sb.flags.boss_seen_N = true;    // 跳过首次见面的对白
+    sb.flags.boss_meet_N = true;    // 跳过亮相卡
+    sb.floor = 2;                   // 第 3 层（floor 是 0 起的层索引）
+    sb.atk = 90; sb.def = 45; sb.hp = 6000; sb.maxHp = 6000;
+    var bp = null;
+    for (var by = 1; by < 10 && !bp; by++) {
+      for (var bx = 1; bx < 10 && !bp; bx++) {
+        if (sb.maps[2][by][bx] !== 'N') continue;
+        [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (o) {
+          if (bp) return;
+          var ax = bx + o[0], ay = by + o[1];
+          if (ax < 1 || ax > 9 || ay < 1 || ay > 9) return;
+          if (sb.maps[2][ay][ax] !== '.') return;
+          bp = { x: bx, y: by, hx: ax, hy: ay };
+        });
+      }
+    }
+    out.bossLine.found = !!bp;
+    if (bp) {
+      sb.x = bp.hx; sb.y = bp.hy;
+      w.__tm.refreshHud();
+      await new Promise(function (r) { setTimeout(r, 60); });
+      var says = 0;
+      var phEl = d.getElementById('bsPhase');
+      var obs = new w.MutationObserver(function () {
+        if (phEl.classList.contains('show')) says++;
+      });
+      obs.observe(phEl, { attributes: true, attributeFilter: ['class'] });
+      w.__prepAuto = true;                       // 跳过战前面板（这一档不测打法）
+      var killsB = sb.flags.killCount || 0;
+      w.__tm.clickMove(bp.x, bp.y);
+      var tB = Date.now();
+      while (Date.now() - tB < 9000 && (sb.flags.killCount || 0) === killsB) {
+        await new Promise(function (r) { setTimeout(r, 60); });
+      }
+      obs.disconnect();
+      out.bossLine.says = says;
+      out.bossLine.killed = (sb.flags.killCount || 0) > killsB;
+      out.bossLine.title = (d.getElementById('bsPhaseTitle') || {}).textContent || '';
+      out.bossLine.sceneClosed = !d.getElementById('battleScene').classList.contains('show');
+    }
+    w.__prepAuto = 'none';
     w.__battleSpeed = 1;
     d.querySelectorAll('.overlay.show').forEach(function (o) { o.classList.remove('show'); });
 
@@ -1108,11 +1247,23 @@ async function run() {
         w.__tm.refreshHud();
         await new Promise(function (r) { setTimeout(r, 80); });
         w.__tm.clickMove(mx, my);
-        await new Promise(function (r) { setTimeout(r, 1800); });
+        // 走到商人跟前是逐格动画（路可能十几格），固定等 1.8s 在多会话并发时不够——
+        // 改成轮询到「到站」为止（上限 8s）；路上若弹出首会对白就点掉，继续走。
+        var tSh = Date.now(), dlgSeen = false;
+        while (Date.now() - tSh < 8000) {
+          var dlN = d.getElementById('dialogOverlay');
+          if (dlN.classList.contains('show')) {
+            dlgSeen = true;
+            dlN.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+          }
+          var sN = E.state();
+          if (sN.x === mx && sN.y === my) break;
+          await new Promise(function (r) { setTimeout(r, 100); });
+        }
         var s9 = E.state();
         var dlS = d.getElementById('dialogOverlay');
         rec.reached = s9.x === mx && s9.y === my;
-        rec.dialog = dlS.classList.contains('show');
+        rec.dialog = dlgSeen || dlS.classList.contains('show');
         for (var ci = 0; ci < 12; ci++) {
           if (!dlS.classList.contains('show')) break;
           dlS.dispatchEvent(new MouseEvent('click', { bubbles: true }));

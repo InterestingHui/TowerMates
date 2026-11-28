@@ -45,22 +45,6 @@ const NEG = 'people, person, character, human, figure, face, hands, text, letter
   + 'cartoon, anime, illustration, cel shading, low contrast, washed out, blurry, jpeg artifacts, '
   + 'oversaturated, lens flare, multiple light sources, cluttered, busy';
 
-// ---------- 写实电影版（2026-11-28，用户三条反馈）----------
-// 病根不在提示词细节：intro1 已经把「她抓他手腕 / 双脚离地 / 一只鞋掉了」写全了，
-// 但出来还是二次元美少女——因为 STYLE / STYLE_SOFT 里有 painterly matte painting、
-// hand-painted oil texture、fine painterly brushwork。这三个词一旦遇到人物主体，
-// 模型就整页滑向插画：皮肤变成平涂、表情被简化成动漫脸（惊吓→睁眼、痛苦→皱眉），
-// 于是「被胁迫」的物理证据全在，读出来的却是「一个美少女被扶着」。
-// 结论：**有人物的画面不能用绘画风格段**，必须锁死实拍。
-// 空镜场景（20 张）继续用 STYLE，它们的岩壁/铁门/雾气正是靠 painterly 出质感的。
-const STYLE_FILM = 'still frame from a live-action dark fantasy film, photorealistic, '
-  + 'shot on 35mm anamorphic lenses, shallow depth of field, '
-  + 'natural human skin with visible pores and fine lines, subsurface scattering, real anatomy, '
-  + 'cinematic teal and amber colour grade, one soft diffused key light, gentle shadow falloff, '
-  + 'soft atmospheric haze, floating dust motes, fine film grain, '
-  + 'vertical composition, foreground midground background layers, '
-  + 'no text, no watermark, this is a photograph of actors on a set, not a painting, not an illustration';
-
 // 有人物的场景专用：上面那份 STYLE 结尾硬写了 no people / no characters，
 // 直接拿来画序章只会出空镜（2026-11-26 实测：intro2/intro3 两页一个人都没有，
 // 旁白里国王在递绣帕、勇者在收剑，画面里只有石台）。FIG 版只去掉这一句。
@@ -93,26 +77,39 @@ const SOFT_EXTRA_NEG = ', harsh shadows, hard edged light, extreme contrast, pit
   + 'pale corpse skin, sunken eyes, hollow cheeks, glowing eyes, red glowing eyes, demonic eyes, '
   + 'dancing, ballerina, ballet pose, waltz, pointed toes, flowing skirt, graceful leap, elegant graceful pose';
 
+// ---------- 动画场景段（2026-11-28，用户：不要中世纪复古，要立绘那套）----------
+// 病根：`STYLE` 是油画厚涂（painterly matte painting / hand-painted oil texture / impasto），
+// 出来的空镜是深蓝暗调油画，四幕的人物也被拽成半写实——用户的原话是「中世纪复古」。
+// 而立绘走的是 ART_STYLES.anime（clean crisp lineart + soft cel shading），两边不是同一个世界。
+// 这一段就是把「动画电影背景」的语法写清楚：线稿 + 赛璐璐上色 + 明亮通透的光，
+// 但保留暗黑奇幻的题材（夜、雾、石塔），不是把画面提亮成白天。
+const ANIME_SCENE = 'Japanese anime film key visual, dark fantasy anime background art, '
+  + 'clean crisp lineart with soft cel shading, two-tone shadow shapes, '
+  + 'vivid but not oversaturated colours, luminous rim light on every edge, '
+  + 'detailed hand-painted background in the style of a high-budget animated feature, '
+  + 'dramatic single light source with visible volumetric light shafts, floating dust motes, '
+  + 'clear readable silhouettes, vertical composition, foreground midground background layers, '
+  + 'no text, no watermark';
+
+// 动画场景的负向：把油画/写实两套质感全部堵死，否则 LoRA 和 STYLE 会打架出四不像
+const ANIME_SCENE_NEG = 'oil paint, impasto, thick brush strokes, painterly texture, '
+  + 'photorealistic, photograph, film still, real skin pores, 3d render, cgi, '
+  + 'text, letters, watermark, signature, ui, frame, border, blurry, low contrast, washed out, '
+  + 'oversaturated, multiple light sources, cluttered';
+
 function styleFor(fig, soft) {
-  // 有人物的四幕固定走实拍（--soft 对它们不生效）：见 STYLE_FILM 的注释——
-  // 绘画风格段 + 人物 = 动漫脸，这正是 11-28 用户报的「没有胁迫感 / 国王太老 / 看不懂」。
-  if (fig) return STYLE_FILM;
-  return soft ? STYLE_SOFT : STYLE;
+  // 2026-11-28：全批统一走动画场景段。上一版只有人物走动画、空镜仍是油画厚涂，
+  // 结果序章是亮的动画、一进塔对白背景又变回深蓝油画——同一款游戏两套画风。
+  // 空镜没有人物，但「中世纪复古」的观感有一半来自它们的厚涂质感，所以要一起换。
+  return ANIME_SCENE;
 }
 
 function negFor(fig, soft) {
-  let n = NEG;
   if (fig) {
-    // 2026-11-28：动漫否定要加倍。FLUX 在 cfg 5.0 下对单个 anime 几乎不响应，
-    // 必须把「绘画媒介」整组堵死（anime / manga / cel shading / line art / digital painting /
-    // doll-like face / big glossy eyes），否则写实提示词会被画风词拉回去。
-    n = n.replace('people, person, character, human, figure, face, hands, ', '')
-      + ', holding hands gently, walking together like a couple, '
-      + 'anime, manga, cel shading, comic book, line art, inked outlines, digital painting, '
-      + 'illustration, cartoon, chibi, stylized, 3d render, cgi, '
-      + 'doll-like face, porcelain skin, big glossy eyes, simplified features, '
-      + 'child, teenager, little girl, extra limbs, deformed hands, distorted face, extra fingers';
+    // 人物的负向：油画质感 + 写实照片全堵死（走动画），再补上多人/畸形这几组
+    return ANIME_SCENE_NEG + ', child, teenager, little girl, extra limbs, deformed hands, distorted face, extra fingers';
   }
+  let n = NEG;
   if (soft) n += SOFT_EXTRA_NEG;
   return n;
 }
@@ -215,40 +212,43 @@ const SCENES = {
   // 同时把「她是剪影」改成「她被月光照亮、魔王才是剪影」——柔版和暗版都能用，对比还更强。
   // 四修：舞姿止住了（死重语义有效），但魔王露出獠牙脸——比原来的纯黑剪影更像 B 级片。
   // 给它扣一顶封闭铁盔：体量压迫还在，五官和獠牙全部消失。
-  // 2026-11-28 三修（用户：公主完全没有被胁迫感）：上一版画面里她表情平静、甚至有点困惑。
-  // 物理证据（抓手腕、脚尖离地、鞋掉了）都在，缺的是**脸**和**朝向**：
-  //   · 动漫脸做不出微表情 → 已把画风锁成实拍（STYLE_FILM）；
-  //   · `head thrown back` 被画成「仰望/被托举」→ 改成 `twisted away from him`；
-  //   · 缺一句正面写恐惧 → `contorted with terror / silent scream / eyes wide with panic`；
-  //   · `young woman` 会掉进少女区 → `a grown woman in her mid-twenties`。
-  intro1: 'an ancient ruined gothic throne room, low camera angle looking up, '
-    + 'a huge horned demon in black armour on the left, his horns and heavy armour rimmed with cold light, '
+  // 2026-11-28 重做（用户三条：公主认不出是同一个人 / 要有众目睽睽 / 别用复古写实）。
+  // ① **服装必须用定妆那套**（蓝裙+白丝+毛领+左腕绣帕）——上一版写「深灰羊毛旅行装」，
+  //    于是 CG 里的她和立绘判若两人；设定里「旅行装留给序章」这条注释已作废，用户要的是一眼认得出。
+  // ② **人群**：原图只有两个人＝独角戏。改成王座厅里满殿朝臣与卫兵，全部转为暗部剪影
+  //    （只给轮廓、不给脸——FLUX 画一群正脸必崩，而「众目睽睽」要的正是那种被围观的窒息感）。
+  // ③ 表情：她不是被「扶着」，是被单手拎离地面、身体后弓、张嘴尖叫。
+  intro1: 'an ancient gothic throne hall, low camera angle looking up, '
+    + 'a huge horned demon in black armour on the left, horns and armour rimmed with cold light, '
     + 'a closed iron helm with no face opening, '
-    + 'his arm reaching down from above, his fist clamped hard around the upper arm of a grown woman in her mid-twenties, '
-    + 'she hangs from his grip as dead weight, both feet off the ground, knees bent, legs hanging limp and heavy, '
+    + 'his arm reaching down from above, his fist clamped hard around the upper arm of a young woman, '
+    + 'she hangs from his grip as dead weight, both feet off the ground, knees bent, legs hanging limp, '
     + 'one small shoe fallen onto the red carpet below her, '
-    + 'her captured arm pulled perfectly straight and taut, her shoulder wrenched upward, '
+    + 'her captured arm pulled taut, her shoulder wrenched upward, '
     + 'her free hand clawing at his wrist, fingers digging in to pry his grip open, '
-    + 'her body recoiling and twisting away from him, head twisted aside, '
-    + 'her face contorted with terror, mouth open in a silent scream, '
-    + 'eyes wide and glistening with panic, brows drawn up and together, '
-    + 'she wears a dark grey wool dress, the skirt hangs heavy and still, '
-    + 'cold moonlight behind her catches her sheer white silk stockings, '
-    + 'dark red carpet leading forward, embers rising in the air, exactly two figures, '
-    + 'not dancing, not embracing, not a posed portrait',
+    + 'her body recoiling and twisting away, head twisted aside, '
+    + 'her face contorted with terror, mouth open in a silent scream, eyes wide with panic, brows drawn up, '
+    + 'she wears a deep midnight-blue princess gown with silver embroidery and puffed short sleeves, '
+    + 'a short fur trimmed royal cloak thrown back over one shoulder, '
+    + 'white thigh-high stockings with a band of bare thigh above them, '
+    + 'a small white embroidered handkerchief knotted around her left wrist, '
+    + 'long pale honey blonde hair half braided falling loose, '
+    + 'around them in the vast hall, a crowd of courtiers and royal guards standing as dark silhouettes, '
+    + 'all turned toward the throne, frozen and watching, faces in shadow, '
+    + 'dark red carpet leading forward, embers rising in the air, '
+    + 'one prisoner and one demon in the light, the crowd kept in darkness, not dancing',
   // 旁白第 2 句：「国王把绣帕塞进我手里，他的手一直在抖，只说了一句：求你。」
   // 上一版是空镜（石台上放着一方布）——STYLE 带 no people 的锅，人是被提示词禁掉的。
   // 现在改成**勇者第一人称**：国王朝镜头递帕子。一个人 + 一只手 + 一个物件，
   // 比「两人交接」稳得多（FLUX 画多人互动的失败率很高，intro1 已经验过一次）。
   // 柔和版修正：`his eyes red` 被画成发光的红眼（恐怖片标配），第二版写 `red rimmed from weeping` 依然发光。
   // 干脆不提眼睛颜色——只写「脸上有泪痕」，发光眼直接进负向。
-  // 2026-11-28 三修（用户：国王太苍老）：`elderly` + `gaunt` + `thin shoulders` 三个词叠起来
-  // 直接画成了八十岁白胡子。设定里他是「手一直在抖、只说了一句求你」的君主——
-  // 是**强撑着的**中年人，不是垂危老人。改成 mid-forties，去掉 thin/gaunt，保留泪与颤抖。
+  // 2026-11-28：国王改中年（锚图已同步改）。其余不动——这一幕的「递帕 + 泪 + 手抖」是准的。
   intro2: 'a cold moonlit throne hall at midnight, a king in his mid-forties standing before his high throne, '
-    + 'a heavy dark iron crown on his head, a heavy fur-lined mantle over a plain dark tunic, '
-    + 'a strong weathered face tight with grief, jaw clenched, tears on his cheeks, '
-    + 'short dark hair with a little grey at the temples, close-trimmed beard, '
+    + 'a strong broad-shouldered build, a heavy dark iron crown on his head, '
+    + 'thick fur lined robes with an ermine collar over a plain dark tunic, '
+    + 'a weathered strong face tight with grief, jaw clenched, tears on his cheeks, '
+    + 'short dark hair with grey at the temples, a close trimmed dark beard, '
     + 'he holds out a small folded white embroidered handkerchief toward the camera with one trembling hand, '
     + 'his other hand half raised in a silent plea, '
     + 'shot from the eye level of the person standing in front of him, at arm\'s length, '
@@ -260,19 +260,15 @@ const SCENES = {
   // 用背影是刻意的——既不跟第 2 页的国王抢脸，也避开「正脸崩」。
   // 柔和版修正：`empty throne dais` 在柔光下被画成椅背上嵌一张巨脸浮雕（像神殿雕像），
   // 明确写成「空的高背椅 + 石阶」，把「神像」这条路堵掉。
-  // 2026-11-28 三修（用户：第三张不知道在表达什么）。
-  // 病根是「跪 + 捧帕 + 背后王座」这组符号：它读出来是**哀悼**或**受封**，不是立誓。
-  // 立誓有一个全世界都认得的图形语言——剑尖抵地、双手按在剑柄上。换成它，并把王座整个删掉
-  // （王座在场就会被读成「向王座效忠」）。绣帕缠在持剑的手上，把「为她而起誓」也写进同一个动作。
+  // 2026-11-28：语义用「骑士立誓」（剑尖抵地 + 双手按剑柄 + 绣帕缠手），这是全世界都认得的图形；
+  // 上一版「跪 + 捧帕 + 背后王座」读出来是哀悼或受封，用户说「不知道在表达什么」。
+  // 画风现在由 anime LoRA 给，这里只描述动作与光。
   intro3: 'a young man kneeling on one knee in a dark stone chapel, '
     + 'both hands stacked on the pommel of a short iron sword planted point-down between the flagstones, '
     + 'his head bowed low over his hands, shoulders set, back straight, '
     + 'a small white embroidered handkerchief tied around his sword hand, one corner hanging loose, '
-    // 2026-11-28 四修：蜡烛原来画在画面最底部（y≈88%），正是对白框压住的位置——
-    // bd-luma 的「视觉焦点 ≤78%」直接判红，玩家也看不到唯一的暖光。
-    // 改成「铁烛台立在膝旁、火焰齐腰高」，把亮点提到画面中段，顺便照亮按剑的双手。
-    + 'a single candle in a small iron holder standing beside his knee, its flame at waist height in the middle '
-    + 'of the frame, lighting his hands and the sword hilt, '
+    + 'a single candle in a small iron holder standing beside his knee, its flame at waist height, '
+    + 'lighting his hands and the sword hilt, '
     + 'seen from a low three-quarter angle behind him, '
     + 'a rough wooden shield leaning against his knee, '
     + 'bare stone walls and a low vault above, cold air, dust, '
@@ -512,8 +508,14 @@ const PORTRAITS = {
     + 'warm lantern light, shrewd friendly smile, coins on the counter',
   // 2026-11-27 新增：国王原先只出现在序章 CG 里，没有锚图 ⇒ 每次重画都是一张新脸。
   // 补一张锚图后，序章第二幕（递绣帕）从这张派生，以后任何国王出镜都认这张脸。
-  king: 'an elderly king in his sixties, heavy dark iron crown, thick fur lined robes with an ermine collar, '
-    + 'gaunt grief stricken face wet with tears, grey beard, deep set tired human eyes with grey irises, not glowing, '
+  // 2026-11-28 定妆修订（用户：国王太苍老）：`elderly` + `sixties` + `gaunt` + `grey beard`
+  // 四个词叠起来画成八十岁垂危老人。设定里他是「手在抖、只说一句求你」的君主——
+  // 是强撑着的中年人。改成 mid-forties，肤色/胡须/体型都跟着改，锚图不更新等于白改。
+  king: 'a king in his mid-forties, a strong broad-shouldered build, heavy dark iron crown, '
+    + 'thick fur lined robes with an ermine collar over a plain dark tunic, '
+    + 'a weathered strong face tight with grief, jaw clenched, tears on his cheeks, '
+    + 'short dark hair with grey at the temples, a close trimmed dark beard, '
+    + 'deep set tired human eyes, not glowing, '
     + 'holding a small white embroidered handkerchief in one hand, '
     + 'standing in a cold moonlit throne hall',
 };

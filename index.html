@@ -7,7 +7,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="build" content="81194fbf98">
+<meta name="build" content="f56b532f4f">
 <title>TowerMates · 魔塔</title>
 <!-- 分享卡：挑战链接（?rival=）是全作唯一传播路径，没有这几条时粘进微信是一条裸链接 + 灰占位图，
      点开前看不出是什么。图是 tools/sharecard.html 用无头 Chrome 渲的 1200×1200 正方卡（1:1 裁切不丢字）。
@@ -22,7 +22,7 @@
 <meta property="og:image:height" content="1200">
 <meta property="og:url" content="https://towermates.app.workbuddy.host/?sharecode=U7XMLC2NKJ">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="stylesheet" href="css/style.css?v=81194fbf98">
+<link rel="stylesheet" href="css/style.css?v=f56b532f4f">
 </head>
 <body>
 <div id="app">
@@ -90,6 +90,16 @@
       <div class="fc-tip" id="fcTip"></div>
     </div>
     <div class="guide" id="guide"><span class="g-ico">✦</span><span id="guideText"></span></div>
+    <!-- 战备罗盘（2026-11-28）：撞怪不再每场弹「选打法」面板。买了商店里那件神器，
+         这里才出现一个开关——开着＝自动挑最省血的打法，关掉＝白打。
+         放在画布上方的留白里（画布是居中的正方形，竖屏时上方一定有空），不挡格子。 -->
+    <div id="autoPrep" hidden>
+      <button id="autoPrepBtn" type="button" aria-pressed="true">
+        <span class="ap-emoji">🧭</span>
+        <span class="ap-text"><b id="autoPrepName">战备罗盘</b><i id="autoPrepState">自动战备 · 开</i></span>
+        <span class="ap-switch" aria-hidden="true"><i></i></span>
+      </button>
+    </div>
   </main>
 
   <footer id="bottom">
@@ -162,7 +172,7 @@
 <!-- 立誓：进塔之前，在这座塔的门前立一条（2026-11-28 起：先选塔，再立誓） -->
 <div class="overlay" id="vowOverlay">
   <div class="vow-stage">
-    <div class="vow-kicker">入 塔 之 誓</div>
+    <div class="vow-kicker">入 塔 立 誓</div>
     <div class="vow-tower" id="vowTower" hidden></div>
     <p class="vow-desc">选一条路进塔：越难走，通关时多留 ✦</p>
     <p class="vow-ember" id="vowEmber" hidden></p>
@@ -372,7 +382,7 @@
     </div>
     <div class="cfg-help">
       <div class="cfg-help-title">玩法</div>
-      <p>方向键 / WASD 走一格，点远处自动寻路。触屏上也可以在地图上滑动走一格（连续滑动连走）；右下角的方向键可以点小箭头收起或展开。撞上怪物即战斗，打不过会被拦住。钥匙开对应的门，商人在第 3 层和第 8 层。塔共 12 层，分四章，每章三层、章末一位锁匠 Boss；四个锁匠全倒后，塔顶后面会露出一段窄梯通向隐藏层「锁芯」。每层有一次「格挡」，撞怪时在战前挑「格挡」能把这一场的承伤降到 55%（读到后半部盾谱再降到 42%）。开局可以立一条誓约改变整局规则，越难走的誓约通关留下的余烬越多。打完每章的锁匠，可以从三枚锁环里挑一枚，锁环改写的是整局规则。第 7 层起的怪是同族的深色变体，脚下一圈细环——威胁类型不变，只是更硬。走到锁芯时，塔心石周围会亮起你带下来的锁环。</p>
+      <p>方向键 / WASD 走一格，点远处自动寻路。触屏上也可以在地图上滑动走一格（连续滑动连走）；右下角的方向键可以点小箭头收起或展开。撞上怪物即战斗，打不过会被拦住。钥匙开对应的门，商人在第 3 层和第 8 层。塔共 12 层，分四章，每章三层、章末一位锁匠 Boss；四个锁匠全倒后，塔顶后面会露出一段窄梯通向隐藏层「锁芯」。每层有一次「格挡」——学会后，在第 3 层秤那里买一件「战备罗盘」，撞怪时就会自动替你格挡，把这一场的承伤降到 55%（读到后半部盾谱再降到 42%）；右侧的开关可以随时关掉它。开局可以立一条誓约改变整局规则，越难走的誓约通关留下的余烬越多。打完每章的锁匠，可以从三枚锁环里挑一枚，锁环改写的是整局规则。第 7 层起的怪是同族的深色变体，脚下一圈细环——威胁类型不变，只是更硬。走到锁芯时，塔心石周围会亮起你带下来的锁环。</p>
     </div>
     <div class="actions">
       <button class="btn" id="cfgRetry">↺ 重来本层</button>
@@ -591,24 +601,24 @@
   </div>
 </div>
 
-<script src="js/data.js?v=81194fbf98"></script>
-<script src="js/vow-icons.js?v=81194fbf98"></script>
-<script src="js/story.js?v=81194fbf98"></script>
-<script src="js/portraits.js?v=81194fbf98"></script>
-<script src="js/backdrops.js?v=81194fbf98"></script>
-<script src="js/scenes.js?v=81194fbf98"></script>
-<script src="js/achievements.js?v=81194fbf98"></script>
-<script src="js/daily.js?v=81194fbf98"></script>
-<script src="js/view.js?v=81194fbf98"></script>
-<script src="js/engine.js?v=81194fbf98"></script>
-<script src="js/render.js?v=81194fbf98"></script>
-<script src="js/devgate.js?v=81194fbf98"></script>
-<script src="js/ads.js?v=81194fbf98"></script>
-<script src="js/main.js?v=81194fbf98"></script>
-<script src="js/challenge.js?v=81194fbf98"></script>
-<script src="js/wxbridge.js?v=81194fbf98"></script>
-<script src="js/touch.js?v=81194fbf98"></script>
-<script src="js/gate-forth.js?v=81194fbf98"></script>
-<script src="js/wxwire.js?v=81194fbf98"></script>
+<script src="js/data.js?v=f56b532f4f"></script>
+<script src="js/vow-icons.js?v=f56b532f4f"></script>
+<script src="js/story.js?v=f56b532f4f"></script>
+<script src="js/portraits.js?v=f56b532f4f"></script>
+<script src="js/backdrops.js?v=f56b532f4f"></script>
+<script src="js/scenes.js?v=f56b532f4f"></script>
+<script src="js/achievements.js?v=f56b532f4f"></script>
+<script src="js/daily.js?v=f56b532f4f"></script>
+<script src="js/view.js?v=f56b532f4f"></script>
+<script src="js/engine.js?v=f56b532f4f"></script>
+<script src="js/render.js?v=f56b532f4f"></script>
+<script src="js/devgate.js?v=f56b532f4f"></script>
+<script src="js/ads.js?v=f56b532f4f"></script>
+<script src="js/main.js?v=f56b532f4f"></script>
+<script src="js/challenge.js?v=f56b532f4f"></script>
+<script src="js/wxbridge.js?v=f56b532f4f"></script>
+<script src="js/touch.js?v=f56b532f4f"></script>
+<script src="js/gate-forth.js?v=f56b532f4f"></script>
+<script src="js/wxwire.js?v=f56b532f4f"></script>
 </body>
 </html>

@@ -477,7 +477,8 @@ function load(url) {
       // 否则小架根本不弹面板，测到的是「没得选」而不是「选了要记账」。
       st.hp = 400; st.maxHp = 400;
       st.atk = 10; st.def = 10;
-      w.__prepAuto = false;      // 这一段要看到战前面板本身（格挡卡在不在）
+      w.__prepPanel = true;      // 2026-11-28：正式流程不弹面板，探针显式打开（这一段要看到面板本身）
+      w.__prepAuto = false;      // 且不自动选卡（格挡卡在不在）
       w.__tm.refreshHud();
       w.__tm.resolveBattle(2, 0);
       await wait(450);

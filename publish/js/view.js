@@ -235,7 +235,9 @@
   }
 
   // ---------- 商店：货架与「明码取舍」的每一句话 ----------
-  const SHOP_CORE = ['key', 'potion', 'atk', 'def'];
+  // core 是第 3 层折叠首屏的那几件。战备罗盘（tactic）2026-11-28 进 core：
+  // 它现在是「撞怪怎么打」这条规则唯一的操作入口，藏进「更多货」等于让新玩家错过整套打法。
+  const SHOP_CORE = ['key', 'potion', 'atk', 'def', 'tactic'];
   // 副标题是单行区（最多两行）：写满会正好截在「承伤 −45%」这个数字上，
   // 「每层一次」与「怎么用」的关系由买下后的提示条补（「格挡已学会：每层一次，撞怪时先挑「格挡」」）
   const TIP_BLOCK = '格挡：每层一次，承伤 −45%';
@@ -539,7 +541,7 @@
   // 2026-11-20 加练美术焦点B 实测：`log()` 把「开打前它先打你一下」投到 `#log` 最下缘，
   // 而那一刻战斗遮罩正盖在上面 —— 规则投递到了被自己遮住的面，玩家只能打完之后低头找。
   // 说话人固定是烛（引导角色），不新造系统旁白；文案原文取自 data.js TRAITS[*].tip，不另写一份。
-  const TRAIT_WHY = '烛：';
+  const TRAIT_WHY = '长明：';
   function traitNote(traitDef) {
     if (!traitDef || !traitDef.tip) return '';
     return TRAIT_WHY + traitDef.tip;
@@ -618,10 +620,10 @@
 
   // 战前面板的提示行（2026-11-24 22:4x 加练·叙事）：首遇那一屏必须有归属。
   // 11-20 已定口径「无主语的系统文案会被读成怪自己开口，引导必须有归属（烛 / 秤 / 塔灵）」，
-  // 而已有的归属做法是 `TRAIT_WHY = '烛：'`（首遇特性把规则念在玩家正在看的面板里）。
+  // 而已有的归属做法是 `TRAIT_WHY = '长明：'`（首遇特性把规则念在玩家正在看的面板里）。
   // 战前面板是 11-24 新加的第一处战前决策，原先只有一句系统口吻，玩家只能自己猜为什么突然多一屏。
   // 只首遇那一次由烛说；之后退回通用提示行——同一句规则不再请人复述，字数也回到原样。
-  const PREP_WHY = '烛：';
+  const PREP_WHY = '长明：';
   const PREP_FIRST = (n) => `${PREP_WHY}撞上了就先定这一场怎么打——定下不再改 · 或按 1–${n}`;
   const PREP_HINT = (n) => `选一种打法再开打 · 或按 1–${n} · 决定之后这一场不再改`;
 
@@ -700,6 +702,9 @@
         id: 'guard', ico: PREP_ICON.guard, name: '架盾 · 盖住本层余下',
         sub: `此后 ${gm.rest} 场每场 −${Math.round((1 - (o.guard.scale || 0.85)) * 100)}% · 同样花掉一次格挡`,
         dmg: o.guard.damage,
+        // 自动战备（View.autoPickTactic）要拿它跟单场格挡比「谁更省」：
+        // rest 是本层这一场之外的余下场次，与卡面「此后 N 场」同一个数，不另算一份。
+        rest: gm.rest,
       });
     }
     if (o.tangle && !blockSave) {
@@ -720,6 +725,41 @@
     }
     return out;
   }
+
+  // ---------- 自动战备：把「战前面板」压成一个开关（2026-11-28） ----------
+  // 用户要求：撞怪直接开打，不要每场选一次；买了商店的「战备罗盘」后，右侧出现一个开关，
+  // 开着就由系统替他挑打法（关着就白打）。这里只负责「挑哪一张卡」——每个数都取自
+  // View.prepOptions 已经算好的 dmg（与面板、战斗演出、引擎结算同一笔账），本函数不碰任何乘区。
+  //
+  // 规则：①「只有格挡能活」的那一场必须挡（block；引擎开打时本来也会强制挡，这里让它按玩家
+  //          「自己挡」记账，而不是记成系统兜底的 'f'）；
+  //       ② 额度每层只有 1–2 次，不能见怪就用：只在这场够疼（Boss，或承伤 ≥ 生命上限 8%）时动用；
+  //       ③ 架盾盖住本层余下场次，余下 ≥ 4 场才比单场格挡更省（0.15×4 ≈ 0.45×1 起反超）；
+  //       ④ 缠斗不自动：它明确要多掉血换经验，是「赌」不是「省」——替玩家赌，输了算谁的。
+  //          （战前面板本身仍保留在截图/探针路径里，见 main.js 的 `__prepAuto === false`。）
+  const AUTO_MIN_SHARE = 0.08;
+  const AUTO_GUARD_REST = 4;
+  function autoPickTactic(opts, f) {
+    const o = f || {};
+    const list = opts || [];
+    const has = (id) => list.some((x) => x.id === id);
+    if (o.blockSave) return has('block') ? 'block' : has('guard') ? 'guard' : 'none';
+    if (!has('block') && !has('guard')) return 'none';
+    const noneCard = list.find((x) => x.id === 'none');
+    const base = noneCard ? noneCard.dmg : 0;
+    const worth = !!o.boss || base >= (o.maxHp || 1) * AUTO_MIN_SHARE;
+    if (!worth) return 'none';
+    const guard = list.find((x) => x.id === 'guard');
+    if (guard && (guard.rest || 0) >= AUTO_GUARD_REST) return 'guard';
+    if (has('block')) return 'block';
+    return 'none';
+  }
+
+  // 开关上的两行字（状态由 main.js 写进 DOM；文案只此一份，截图与探针都读它）
+  const AUTO_PREP_NAME = '战备罗盘';
+  const AUTO_PREP_ON = '自动战备 · 开';
+  const AUTO_PREP_OFF = '自动战备 · 关';
+  const AUTO_PREP_TIP = '撞怪时自动挑最省血的打法（格挡/架盾）；关掉就白打';
 
   // ---------- 结算页：两块面板的标签与履历（2026-11-16 11:xx 切边界第四刀） ----------
   // 这一屏有两块面板（败局 / 胜局），同一件事各写了一遍，于是同一件事有两个口径：
@@ -1112,17 +1152,19 @@
   // ①怪物顺序＝首次出现的楼层（那是玩家认识它们的顺序，手抄名单在扩层后漏过 8 只锁梁怪）；
   // ②承伤染色按「占最大生命的比例」分档（1/4 以上标红）；③边际收益那一行还要分三种写法
   // （有特性、打不过、已无伤）。搬进来之后这三条都能用 Node 单测直接盯。
+  // 2026-11-28 改名：人物图鉴用真名（长明/秦权/沈砚/裴炬/顾铎/宋铭）。
+  // 「魔王」单独留一格——它是玩家在第 6 层实际打的那张脸，也是镇上叫了八十年的名字。
   const CODEX_CHARS = [
-    { who: '烛', role: '守灯人', cap: '守灯人 · 塔里唯一还肯说话的人' },
+    { who: '长明', role: '守灯人', cap: '长明 · 守灯人 · 塔里唯一还肯说话的人' },
     { who: '薇拉', role: '锁里的公主', cap: '薇拉 · 锁里的公主 · 王冠与面纱两种样子' },
-    { who: '秤', role: '流浪商人', cap: '秤 · 流浪商人 · 什么都收，什么都卖' },
-    { who: '炎魔', role: '守炉者', cap: '炎魔 · 守炉者 · 一炉里烧出来的东西' },
-    { who: '墨妖', role: '名册之锁', cap: '墨妖 · 第二位工匠 · 名册之锁 · 第 3 层' },
-    { who: '魔王', role: '炉心之锁', cap: '魔王 · 第一位工匠 · 炉心之锁 · 第 6 层' },
-    { who: '钟妖', role: '时辰之锁', cap: '钟妖 · 第四位工匠 · 时辰之锁 · 第 9 层' },
-    { who: '碑魔', role: '无名之锁', cap: '碑魔 · 第五位工匠 · 无名之锁 · 第 12 层' },
+    { who: '秦权', role: '流浪商人', cap: '秦权 · 流浪商人 · 什么都收，什么都卖' },
+    { who: '裴炬', role: '守炉者', cap: '裴炬 · 第一位工匠 · 镇上叫他炎魔，后来叫他魔王' },
+    { who: '魔王', role: '炉心之锁', cap: '魔王 · 裴炬被锈吃掉之后的那一面 · 第 6 层' },
+    { who: '沈砚', role: '名册之锁', cap: '沈砚 · 第二位工匠 · 塔里叫他墨妖 · 第 3 层' },
+    { who: '顾铎', role: '时辰之锁', cap: '顾铎 · 第四位工匠 · 塔里叫他钟妖 · 第 9 层' },
+    { who: '宋铭', role: '无名之锁', cap: '宋铭 · 第五位工匠 · 塔里叫他碑魔 · 第 12 层' },
   ];
-  const CODEX_BOSSES = { 墨妖: 1, 魔王: 1, 钟妖: 1, 碑魔: 1 };
+  const CODEX_BOSSES = { 魔王: 1, 沈砚: 1, 顾铎: 1, 宋铭: 1 };
   // 承伤占最大生命 1/4 以上＝这一战会要命，标红；比它轻的只提醒（warn）
   const LOSS_DANGER = 0.25;
   const NO_FIRST_FLOOR = 99;
@@ -1300,6 +1342,7 @@
     cmpBoard, fmtTime, endName, marginRank, sameRun, isMine, RUN_KEYS, rivalVerdict, VERDICT_NONE, NAME_FALLBACK,
     deathStatsModel, winStatsModel, memModel, floorNo, migrateFloors,
     foeName, traitNote, threatModel, blockModel, guardModel, tangleModel, prepOptions, lastTacticLine, coreRingLine, PREP_FIRST, PREP_HINT,
+    autoPickTactic, AUTO_PREP_NAME, AUTO_PREP_ON, AUTO_PREP_OFF, AUTO_PREP_TIP,
     hintPicked, HINT_PICK, HINT_AUTO,
     BOARD_TABS, BOARD_CAP, SHOP_CORE, SEALS, CHAPTERS, isAid,
     NOTE_DAILY, NOTE_STALE, NOTE_CRUSHED, NOTE_NO_RUN, NOTE_NO_MINE_TAB, EMPTY_OTHER, TIP_BLOCK, TIP_SHARD,

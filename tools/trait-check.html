@@ -100,7 +100,7 @@ f.onload = async () => {
     const shown1 = !!n1 && w.getComputedStyle(n1).display !== 'none';
     const txt1 = n1 ? (n1.textContent || '').trim() : '';
     rec('首遇先攻：面板内出现规则行', shown1, shown1 ? txt1 : '名字块里没有 bs-why');
-    rec('规则由烛开口', shown1 && /^烛：/.test(txt1), txt1.slice(0, 12));
+    rec('规则由长明开口', shown1 && /^长明：/.test(txt1), txt1.slice(0, 12));
     rec('规则正文含「残血时不能碰」', shown1 && txt1.indexOf('残血时不能碰') >= 0, txt1);
 
     // 读数（不是断言）：那一刻日志那行到底看不看得见——它被战斗遮罩压着，

@@ -350,6 +350,68 @@ html, body {
 .g-ico { color: var(--cyan); animation: twinkle 2.2s infinite; }
 @keyframes twinkle { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
 
+/* ---------- 战备罗盘开关（2026-11-28） ----------
+   撞怪不再每场弹「选打法」面板：买了商店的战备罗盘，这里才出现一个开关。
+   位置：画布右上方。画布是居中的正方形，竖屏时左右顶满、上下留白——所以只有贴在
+   上沿才不挡格子（横屏时画布缩在中间，这块也落在留白里）。
+   开关本身不解释规则，只回答「现在自不自动」；一句 title 补全「开着会怎样」。 */
+#autoPrep {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 4;
+}
+#autoPrep[hidden] { display: none; }
+#autoPrepBtn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 7px 4px 6px;
+  border: 1px solid var(--line-regular);
+  border-radius: var(--r-pill);
+  background: linear-gradient(180deg, rgba(27, 34, 48, 0.94), rgba(11, 15, 24, 0.94));
+  color: var(--muted);
+  font-family: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.36);
+  transition: border-color 0.15s, transform 0.07s;
+}
+/* 触控命中区：视觉 34 高，向上/向左各撑一点（右侧贴边不再往外撑） */
+#autoPrepBtn::after { content: ''; position: absolute; inset: -6px -2px -6px -6px; border-radius: var(--r-pill); }
+#autoPrepBtn:active { transform: scale(0.97); }
+.ap-emoji { font-size: 13px; line-height: 1; }
+.ap-text { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; line-height: 1.15; }
+.ap-text b { font-size: var(--fs-tag); font-weight: 600; letter-spacing: 0.5px; color: var(--dim); }
+.ap-text i { font-style: normal; font-size: 10px; color: var(--dim); }
+.ap-switch {
+  position: relative;
+  width: 30px;
+  height: 17px;
+  flex: none;
+  border-radius: var(--r-pill);
+  background: #262d3a;
+  border: 1px solid var(--line-strong);
+  transition: background 0.16s, border-color 0.16s;
+}
+.ap-switch i {
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #8b93a5;
+  transition: transform 0.16s, background 0.16s;
+}
+#autoPrep.on #autoPrepBtn { border-color: var(--line-gold); }
+#autoPrep.on .ap-switch { background: rgba(232, 196, 106, 0.26); border-color: var(--line-gold); }
+#autoPrep.on .ap-switch i { transform: translateX(13px); background: var(--gold); }
+#autoPrep.on .ap-text b { color: var(--gold); }
+#autoPrep.on .ap-text i { color: var(--gold2); }
+
+
 /* ---------- 新手标注：高亮格子 + 虚线 + 说明卡（点击才收） ---------- */
 #coachSvg {
   position: absolute; inset: 0;
@@ -1242,7 +1304,7 @@ html.fx-low .bd-shot { animation: sceneIn 0.9s ease-out both; }
   padding: 13px 17px 11px;
   box-shadow: 0 26px 64px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.05);
   margin: 0 18px;
-  /* Boss 阶段换色（.p2/.p3）要与阶段横幅的 0.24s 淡入同步：以前边框和辉光是「跳」过去的，
+  /* 说出战中那一句时面板要换色（.said）·与横幅的 0.24s 淡入同步：以前边框和辉光是「跳」过去的，
      横幅还在淡入、框已经红了，读起来像两次变化。只缓动颜色与阴影，不动布局与尺寸。 */
   transition: border-color 0.24s ease, box-shadow 0.24s ease;
 }
@@ -2096,7 +2158,7 @@ body.at-start #bottom { visibility: hidden; }
 
 
 
-/* ---------- 魔王三阶段 ---------- */
+/* ---------- Boss 战中一句（整场最多一次，压在半血） ---------- */
 .bs-phase {
   position: absolute;
   inset: 0;
@@ -2122,9 +2184,10 @@ body.at-start #bottom { visibility: hidden; }
   text-shadow: 0 0 18px rgba(255, 80, 60, 0.5);
 }
 .bs-phase span { font-size: var(--fs-aux); line-height: 1.7; color: #d8b6b0; max-width: 260px; }
-.bs-panel.p2 { border-color: rgba(255, 110, 90, 0.38); }
-.bs-panel.p3 { border-color: rgba(255, 70, 60, 0.62); box-shadow: 0 0 0 1px rgba(255, 70, 60, 0.25), 0 26px 64px rgba(0, 0, 0, 0.7); }
-.bs-panel.p3 .bs-avatar { filter: drop-shadow(0 0 16px rgba(255, 60, 40, 0.85)); }
+/* 说出战中那一句时，面板边框与头像同时亮一档（原来按 66% / 33% 分 p2 / p3 两档，
+   现在整场只说一句，只留一档） */
+.bs-panel.said { border-color: rgba(255, 90, 72, 0.5); box-shadow: 0 0 0 1px rgba(255, 70, 60, 0.2), 0 26px 64px rgba(0, 0, 0, 0.7); }
+.bs-panel.said .bs-avatar { filter: drop-shadow(0 0 15px rgba(255, 60, 40, 0.78)); }
 
 /* 阶段横幅盖住时把飘字压掉；transition 写在基础规则上，退场与回场才都是 0.14s（此前回场是瞬现） */
 .battle-scene.phasing .bs-numbers { opacity: 0; }
@@ -2326,6 +2389,36 @@ html.fx-low .end-sign.write > span, html.fx-low .end-sign.write > span::after { 
 .tower-marks[hidden] { display: none; }
 .tower-hint { margin-top: 12px; font-size: var(--fs-tag); color: var(--muted); }
 .vow-kicker { font-size: var(--fs-tag); letter-spacing: 9px; color: var(--gold); opacity: 0.9; }
+/* 立誓面板顶上的「这是哪座塔」：塔色一条，名字在左、副题在右，跟塔群卡片同一套变量 */
+.vow-tower {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 7px 15px 7px 13px;
+  border-radius: 22px;
+  border: 1px solid var(--tw, rgba(232, 196, 106, 0.34));
+  background: var(--tw-wash, rgba(232, 196, 106, 0.08));
+  text-align: left;
+  max-width: 100%;
+}
+.vow-tower[hidden] { display: none; }
+.vow-tower .vt-ico { font-size: 19px; line-height: 1; }
+.vow-tower b { display: block; font-size: var(--fs-aux); color: var(--tw, var(--gold)); letter-spacing: 0.5px; }
+.vow-tower i { display: block; font-style: normal; font-size: var(--fs-tag); color: var(--muted); margin-top: 1px; }
+.vow-back {
+  display: block;
+  margin: 14px auto 0;
+  padding: 4px 10px;
+  background: none;
+  border: 0;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: var(--fs-tag);
+  letter-spacing: 1px;
+  cursor: pointer;
+}
+.vow-back:hover, .vow-back:active { color: var(--gold); }
 .vow-desc { font-size: var(--fs-aux); line-height: 1.85; color: #b9bfcc; margin: 10px 0 16px; }
 .vow-ember {
   font-size: var(--fs-aux);

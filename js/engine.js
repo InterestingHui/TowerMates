@@ -698,23 +698,21 @@
     };
   }
 
-  // 每局从 Boss 的两个台词池各抽一段；结果写进存档，同一局重进战斗不会变
-  function bossPhases(ch) {
+  // 战中一句（2026-11-28 用户口径：一场最多说一次）。
+  // 原来按血量 66% / 33% 各插一段过场——小塔之齿那种几刀就打完的仗，两段横幅几乎连着出，
+  // 读起来是「刚掉一点血就开口，还没喘气又开口」。现在整场只挑一句，压在血条过半时开口；
+  // 台词池四句，每局抽一句：同一局重进这一战不变，换一局听到别的。
+  function bossLine(ch) {
     if (!s) return null;
-    const key = 'phases_' + ch;
+    const key = 'bossLine_' + ch;
     if (s.flags[key]) return s.flags[key];
     const m = D.monsters[ch];
-    if (!m) return null;
-    if (!m.phasePool) return m.phases || null;
+    if (!m || !m.midLines || !m.midLines.length) return null;
     const seed = (s.flags.phaseSeed || 1) + ch.charCodeAt(0) * 7919;
-    const pool = m.phasePool;
-    const picked = [
-      pool.p2[Math.abs(seed) % pool.p2.length],
-      pool.p3[Math.abs(seed >> 3) % pool.p3.length],
-    ];
-    s.flags[key] = picked;
+    const hit = m.midLines[Math.abs(seed) % m.midLines.length];
+    s.flags[key] = { title: hit.title, text: hit.text };
     save();
-    return picked;
+    return s.flags[key];
   }
 
   // 章末回响：击败 Boss 必得，直接开锁环三选一（塔规已移除，不再设门槛）
@@ -2135,6 +2133,6 @@
     tryMove, fight, lastTactic, canBlock, canGuard, blockLimit, blockLeft, blockUsedAt, grantBlock, blockSpreadAt, blockSpreadActive, blockSpreadScale, BLOCK_SPREAD, BLOCK_BASE, BLOCK_BASE2, buy, priceOf, shopStock, dealOf, openShopAt, floorMonsterCount, floorPickupCount, floorThreat, battleMargin, potionHeal, finish, altarChoices, pickRelic, pathTo, pathThrough, pathToNear, pathsTo,
     nextLevelExp, margin, keyName, summary, accrueActive, ACTIVE_CAP, hasRelic, ownedRelics, beginFloor, restoreFloor, revealCore, heartState, heartTake, heartLeave, vow, pickEvent, eventPool, eventCost, eventShortfall, resolveEvent, applyEffect, jumpTo, visitedMax, gateForth, sealPlan,
     enterTower, canEnterTower, towerClear, towerExit, marks, markBonus, towerById, nextFloorOf, prevFloorOf,
-    rings, hasRing, ringBlockScale, zealScale, zealNext, zealNeed, finalLedger, cleanEmber, fightDamage, tangleInfo, bossPhases, settleChapter, ringChoices, pendingRing, pickRing,
+    rings, hasRing, ringBlockScale, zealScale, zealNext, zealNeed, finalLedger, cleanEmber, fightDamage, tangleInfo, bossLine, settleChapter, ringChoices, pendingRing, pickRing,
   };
 })();

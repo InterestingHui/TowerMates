@@ -12,7 +12,7 @@ body{margin:0;background:#05070c;color:#8ef;font:12.5px/1.6 monospace}
 <pre id="out">running…</pre>
 <script>
 // 「打不过」预警归属探针：弱属性玩家直接撞第 3 层墨妖，看各条提示分别出自谁之口。
-// 口径：预警（tooStrongBoss）必须由烛/秤说；Boss 自己的战前对白（bossYan）不许在「打不过」路径出现。
+// 口径：预警（tooStrongBoss）必须由长明/秦权说；Boss 自己的战前对白（bossYan）不许在「打不过」路径出现。
 const f = document.getElementById('f');
 const out = document.getElementById('out');
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -81,12 +81,12 @@ f.onload = async () => {
     const warnPill = d.getElementById('warnPill').classList.contains('show') ? d.getElementById('warnPill').textContent : '';
     const biShown = d.getElementById('bossIntroOverlay').classList.contains('show');
     rec('预警不是墨妖自己说的', whoNow !== '墨妖', `who="${whoNow}"`);
-    rec('预警由引导者开口（烛/秤）', whoNow === '烛' || whoNow === '秤', `who="${whoNow}" text="${textNow.slice(0, 40)}"`);
+    rec('预警由引导者开口（长明/秦权）', whoNow === '长明' || whoNow === '秦权', `who="${whoNow}" text="${textNow.slice(0, 40)}"`);
     rec('Boss 出场卡未在打不过路径弹出', !biShown);
     rec('卡关条挂出', !stuckHidden, stuckText.slice(0, 50));
-    rec('卡关条有说话人（秤）', /^秤\s·|秤：/.test(stuckText), stuckText.slice(0, 12));
+    rec('卡关条有说话人（秤）', /^秦权\s·|秦权：/.test(stuckText), stuckText.slice(0, 12));
     rec('warn 药丸不冒充墨妖', !/墨妖/.test(warnPill), warnPill.slice(0, 40));
-    rec('warn 药丸带引导者归属', !warnPill || /烛/.test(warnPill), warnPill.slice(0, 24));
+    rec('warn 药丸带引导者归属', !warnPill || /长明/.test(warnPill), warnPill.slice(0, 24));
 
     // 点掉对白后：Boss 站前对白（bossYan 剧本）也不许接续弹出
     await clickDlg(10);

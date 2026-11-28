@@ -49,10 +49,12 @@ const DIM = {
   // 2026-11-28：四幕换成**写实实拍**（STYLE_FILM）后整体亮了 8–12（raw 47–51，
   // 绘画版是 30 出头）——写实皮肤的高光本来就多。系数从 0.9+ 降到 0.68–0.76，
   // 压回 34–36，与 20 张空镜（均值 31.7）同带。
-  // 二次：序章 35.3 vs 背景 29.1＝差 6.2，咬着上限。整体再降 0.02 留一格余量。
-  intro4: 0.74, intro2: 0.68, intro1: 0.68, intro3: 0.66,
-  core: 0.90, corridor: 0.88, gate: 0.90, market: 0.94, namewall: 0.92,
-  stairs: 0.90, reddoor: 0.90, ledger: 0.92, forge: 0.94,
+  // 2026-11-28 晚（全批换动画风后重标）：新图 raw 差异极大——intro1 26.8 / intro2 49.1 /
+  // intro3 53.1 / intro4 78.7（黎明那张是紫粉晚霞）。系数按「压到 28–34」倒推，
+  // 不再是同一套乘数。空镜的 raw 实测 21–35，本来就在带内，系数全部给 1.0。
+  intro4: 0.43, intro2: 0.57, intro1: 1.04, intro3: 0.53,
+  core: 1.00, corridor: 1.00, gate: 1.00, market: 1.00, namewall: 1.00,
+  stairs: 1.00, reddoor: 1.00, ledger: 1.00, forge: 1.00,
 };
 
 // 2026-11-26 柔版：出图脚本带 --soft 时文件名是 <key>_soft_<seed>.png，落盘要覆盖同名正式资产，
@@ -71,12 +73,10 @@ const DIM_SOFT = {
 
 // anime 场景的提亮系数：二次元底图普遍压得很暗（实测 7-22），按 DIM 暗版系数再压会掉出 bd-luma 下限。
 // 目标均值 24 上下（20-50 带的中下段，和序章 32-38 留出层级差）。dawn 是结局远景，本身 7.2，系数给太大会毁氛围，先 2.4。
-const DIM_ANIME = {
-  gate: 1.9, corridor: 1.5, market: 2.1, passage: 1.25, wolfhall: 2.05, empty: 1.99,
-  stairs: 2.5, throne: 1.85, reddoor: 1.9, ledger: 1.59, ridge: 2.27, town: 1.83,
-  bell: 1.52, namewall: 1.84, forge: 1.97, carve: 1.65, core: 1.09, roof: 1.63,
-  window: 1.83, dawn: 2.4,
-};
+// 2026-11-28 晚：**清空**。这套 1.5–2.5 的提亮系数是「二次元底图普遍很暗（7–22）」那批的口径，
+// 而换成 ANIME_SCENE（线稿+赛璐璐+明亮光）之后，实测 raw 已经在 21–35，再乘 1.9 直接顶穿到 59。
+// 留一个空对象而不是删掉分支：确认优先级 bug（DIM_ANIME 分支在 DIM 之前）不再复发。
+const DIM_ANIME = {};
 const HUE_FIX = {
   gate: 26, corridor: 23, market: 24, passage: 26, wolfhall: 38, empty: 21,
   stairs: 24, throne: 36, reddoor: 38, ledger: 25, ridge: 30, town: 12,
@@ -207,12 +207,18 @@ for key, (p, soft) in sorted(cands.items()):
             hh_[idx] = np.clip(hh_[idx], med_h - spread, med_h + spread).astype(np.int16)
         im2 = Image.fromarray(np.dstack([hh_, ss_, vv_]).astype(np.uint8), 'HSV').convert('RGB')
     before = mean_l(im2)
+    # 2026-11-28 晚：改成**按目标反算系数**。手填的表（DIM / DIM_SOFT / DIM_ANIME 三套）
+    # 在「整批换画风」时必然过期一次——实际已经过期两次（厚涂→写实→动画），
+    # 每次都把一批图顶到 59 或压到 13。真正要守的只有一条：落进 20–50 且整批同带。
+    # 特例只留两个：dawn（黑海占九成，允许更暗）、序章四幕（叙事要亮一点）。
+    tgt = 30.0
+    if key == 'dawn':
+        tgt = 24.0
+    elif key.startswith('intro'):
+        tgt = 32.0
     if soft:
-        k = DIM_SOFT.get(key, 0.84)
-    elif key in DIM_ANIME:
-        k = DIM_ANIME[key]
-    else:
-        k = DIM.get(key, 0.92)
+        tgt -= 2
+    k = 1.0 if before <= 1e-3 else max(0.30, min(3.0, tgt / before))
     a = np.clip(np.asarray(im2).astype(np.float32) * k, 0, 255)
     a = np.where(a < 6, 0, a)      # 死黑，避免 webp 把暗部糊成灰雾
     out = Image.fromarray(a.astype(np.uint8))

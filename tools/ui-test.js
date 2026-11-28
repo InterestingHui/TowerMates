@@ -217,6 +217,12 @@ const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-ui-'));
   ok(br.fmt === true, `右上角写法是「共 N 回合」（实测「${br.text}」）`);
   ok(br.same === true, `N 与引擎 pred.rounds 同源（实测 ${br.rounds}）`);
   ok(br.stable === true, `演出走到中途这个数不变（中途实测「${br.mid}」——变了就是又退回进度条写法）`);
+  // 战中一句（2026-11-28 用户口径：一场最多说一次）：墨妖那一战全程只许横幅亮一次。
+  // 原来 66% / 33% 各插一段，小塔之齿那种几刀就完的仗两段几乎连着出。
+  const bol = out.bossLine || {};
+  ok(bol.found === true && bol.killed === true, '造出一场真实的 Boss 战（第 3 层墨妖）并打完');
+  ok(bol.says === 1, `整场 Boss 战只在中途说一句（实测横幅亮起 ${bol.says} 次）`);
+  ok(!!bol.title && bol.title.length <= 14, `那一次说的是真台词（实测「${bol.title}」）`);
   ok(out.f3Walkable === true && out.f3ReachLedge === true, '第 3 层打墨妖的立足格可直达');
   ok(Array.isArray(out.shopChain) && out.shopChain.length === 3, '三层商人（8/11/13）都跑过单击流程');
   ok(out.shopChain.every((r) => r.hasM && r.hasStart), '每层商人与可走到的起点都找得到');
@@ -333,6 +339,21 @@ const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-ui-'));
   ok(typeof bh.veilAlpha === 'number' && bh.veilAlpha >= 0.9,
     `选完打法 30ms 时遮幕已就位，不闪棋盘（实测 opacity ${bh.veilAlpha}）`);
   ok(bh.liveAfter === 0, `战斗里不再留能点的打法按钮（实测 ${bh.liveAfter}）`);
+  // 自动战备（2026-11-28，用户口径「撞怪直接打，买了神器才自动挑」）：
+  // 三场真实链路——没买罗盘 / 买了且开 / 买了但关；判据是「面板弹没弹」与「提示行按哪种打法」。
+  const ap = out.autoPrep || {};
+  const apRuns = ap.runs || [];
+  const apOf = (label) => apRuns.filter((r) => r.label === label)[0] || {};
+  ok(apRuns.length === 3 && apRuns.every((r) => r.killed),
+    `自动战备探针：三场都真的打完了（${apRuns.map((r) => r.label + ':' + (r.killed ? 'ok' : 'fail')).join(' ')}）`);
+  ok(apOf('no-relic').prep === false && apOf('no-relic').panel === true,
+    '没买战备罗盘：撞怪不弹面板，直接进战斗');
+  ok(apOf('no-relic').switch === false, '没买战备罗盘：右侧不出现开关（不摆按了没用的控件）');
+  ok(apOf('relic-on').prep === false && apOf('relic-on').switch === true
+    && /格挡|架盾/.test(apOf('relic-on').hint || ''),
+    `买了罗盘且开着：不弹面板，但这一场自动用了打法（实测「${apOf('relic-on').hint}」）`);
+  ok(!/格挡|架盾/.test(apOf('relic-off').hint || ''),
+    `开关关掉：同一场回到白打（实测「${apOf('relic-off').hint}」）`);
   ok(/按「格挡」打/.test(bh.after || ''), `战斗提示行回显已选打法（实测：${bh.after}）`);
   ok(!/可点下面的打法/.test(bh.after || ''), '战斗中不再说「可点下面的打法」');
   // 战前面板装配抛错（2026-11-24 自检）：battleBusy 在面板这段是置真的，没有 catch 就会永久锁住输入。

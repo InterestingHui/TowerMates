@@ -748,10 +748,12 @@ ok(prepTry && prepCatch, 'openPrep 装配段有 catch，且 catch 里一定先�
     .map(([rel]) => rel);
   ok(stale.length === 0, `没有一处把打法指到「战斗中」（命中：${stale.join(',') || '无'}）`);
   const count = (rel, w) => noCmt2(read2(rel)).split(w).length - 1;
-  ok(count('js/story.js', '撞怪时先挑「格挡」') >= 2, '盾谱小传与「还没学格挡」两处都改口到战前');
-  ok(count('js/main.js', '撞怪时先挑「格挡」') >= 2, '格挡 pip 与「格挡已学会」提示条都改口到战前');
-  ok(count('js/data.js', '撞怪时先挑「格挡」') >= 1 && count('index.html', '撞怪时在战前挑「格挡」') >= 1,
-    '老兵明码与玩法说明同口径');
+  // 2026-11-28：撞怪不再每场弹「选打法」面板（用户要求），格挡改由商店的「战备罗盘」开关自动使用。
+  // 所有教「怎么用格挡」的地方都改口到罗盘 / 右侧开关——再教一个不会出现的面板就是教错操作。
+  ok(count('js/story.js', '战备罗盘') >= 2, '盾谱小传与「还没学格挡」两处都改口到战备罗盘');
+  ok(count('js/main.js', '战备罗盘') >= 2, '格挡 pip 与「格挡已学会」提示条都改口到战备罗盘');
+  ok(count('js/data.js', '战备罗盘') >= 1 && count('index.html', '战备罗盘') >= 1,
+    '老兵明码与玩法说明同口径（都指向战备罗盘）');
   const mainNoCmt2 = noCmt2(read2('js/main.js'));
   // 2026-11-28（变体 3 收敛 · 做减法）：三块按钮随「决策移到战前面板」删干净了
   // （DOM / el 引用 / 42 行 CSS / 这条契约本身）。留着它们只多一段「看着还能改」的误导，
@@ -984,12 +986,12 @@ ok(V.foeName({ name: '骸犬', trait: 'thick' }, { icon: '🛡', name: '厚甲' 
 // 首遇特性的规则行（2026-11-20 加练美术焦点B）：说话人固定烛，正文逐字复用 TRAITS[*].tip。
 // 原来这行只用 log() 投到 #log 最下缘，而战斗遮罩正盖在上面——规则投递到了被自己挡住的面。
 const TRAIT_FIRST = { icon: '⚡', name: '先攻', tip: '开打前它先打你一下，残血时不能碰' };
-ok(V.traitNote(TRAIT_FIRST) === '烛：开打前它先打你一下，残血时不能碰', '首遇规则由烛开口（不新造系统旁白）');
+ok(V.traitNote(TRAIT_FIRST) === '长明：开打前它先打你一下，残血时不能碰', '首遇规则由长明开口（不新造系统旁白）');
 ok(V.traitNote(TRAIT_FIRST).indexOf(TRAIT_FIRST.tip) > 0, '正文逐字取自特性表（两份文案必然漂）');
 ok(V.traitNote(null) === '' && V.traitNote({}) === '' && V.traitNote({ name: '先攻' }) === '', '没有特性 / 没有 tip 时不留空行');
 ok(mainSrc.indexOf('开打前它先打你') < 0, '规则正文不许在 main.js 里再写一份');
-ok(mainSrc.indexOf('View.traitNote') >= 0, '面板必须走 View.traitNote（不许自己拼「烛：」）');
-ok(V.foeName({ name: '蝙蝠' }, { icon: '⚡', name: '先攻' }, '烛：先手') === '蝙蝠 <i class="bs-trait">⚡先攻</i><em class="bs-why">烛：先手</em>', '规则行折在名字块里（不另开一块，面板块数已到顶）');
+ok(mainSrc.indexOf('View.traitNote') >= 0, '面板必须走 View.traitNote（不许自己拼「长明：」）');
+ok(V.foeName({ name: '蝙蝠' }, { icon: '⚡', name: '先攻' }, '长明：先手') === '蝙蝠 <i class="bs-trait">⚡先攻</i><em class="bs-why">长明：先手</em>', '规则行折在名字块里（不另开一块，面板块数已到顶）');
 ok(V.foeName({ name: '蝙蝠' }, { icon: '⚡', name: '先攻' }, '') === '蝙蝠 <i class="bs-trait">⚡先攻</i>', '没有规则时不渲染空 em（第二次遇见不留残影）');
 ok(mainSrc.indexOf("firstMeet ? View.traitNote(bTrait) : ''") >= 0, '只在首遇那一战把规则传进名字块');
 ok(!/bsTnote/.test(mainSrc) && !/bsTnote/.test(require('fs').readFileSync(require('path').join(__dirname, '..', 'index.html'), 'utf8')), '不许另开一块放规则（首章面板预算 5 块）');
@@ -1142,7 +1144,7 @@ ok(prepSave.length === 2 && prepSave[0].id === 'block' && prepSave[1].id === 'gu
   `残血那一场只摆格挡/架盾（实得 ${prepSave.map((x) => x.id).join(',')}）——不摆点了也不会照做的「直接开打」「缠斗」`);
 ok(prepSave[0].dmg === 176 && prepSave[0].dmg < 200, '残血那一场格挡卡写的承伤是真实会发生的那个数（不是撑不住的白打数）');
 ok(V.prepOptions(Object.assign({}, prepF, { blockSave: true, guard: null })).length === 1,
-  '残血且还没到架盾的层：只剩一张卡 → main 见「只有一张」就不弹面板（读烛那句明话直接开打）');
+  '残血且还没到架盾的层：只剩格挡一张卡（自动战备就选它，不再有「一张卡也要确认」的屏）');
 ok(/blockSave:\s*!!pred\.blockSave/.test(stripComments(mainSrc)),
   'main.js 把 pred.blockSave 传进 View.prepOptions（不传则上面两条分支永远走不到＝死代码）');
 // 2026-11-26 04:0x 自检轮：战前面板是「必须选一个」的屏（路遇 / 祭坛 / 锁芯门同类），Esc 故意不响应；
@@ -1155,12 +1157,16 @@ ok(stripComments(mainSrc).indexOf('pickPrepByKey(1)') < 0,
   ok(branch.length > 0 && branch.indexOf('Escape') < 0,
     '战前面板的键盘分支里没有 Escape（必须选择的屏与路遇 / 祭坛 / 锁芯门同一条口径）');
 }
-// 节奏预算的执行点（2026-11-25 变体 6 节奏审计）：这张面板是**每场战斗**都要过的一屏，
-// 「只有一种打法就不弹」是它不挤占前 3 分钟的唯一开关。写成 >=1 就等于每场杂兵前都插一屏
-// 只有一个按钮的确认页——首局节奏预算是「教学弹窗 ≤2」，而这类屏不在那个计数口径里，
-// 属于「闸门看不见的加屏」。这条断言守的就是那个 `> 1`。
-ok(/\bif\s*\(\s*opts\.length\s*>\s*1\s*\)/.test(stripComments(mainSrc)),
-  '战前面板只在「不止一种打法」时弹出（opts.length > 1）——改成 >=1 就是每场杂兵前多一屏单按钮确认');
+// 节奏预算的执行点（2026-11-25 变体 6 节奏审计 + 2026-11-28 用户改口径）：
+// 11-24 那版面板是**每场战斗**都要过的一屏，所以只用 `opts.length > 1` 挡；11-28 起正式流程
+// 完全不弹（撞怪直接开打，打法交给右侧「战备罗盘」开关），面板只剩截图/探针一条路——
+// 因此两个条件必须同时在场：`opts.length > 1`（否则会摆一屏只有一个按钮的确认页）
+// 与 `__prepAuto === false`（否则又把每场选择装回玩家面前）。
+ok(/opts\.length\s*>\s*1\s*&&\s*window\.__prepPanel\s*===\s*true/.test(stripComments(mainSrc)),
+  '战前面板只在 opts.length > 1 且探针显式要求（__prepPanel === true）时才装配——正式流程一场都不弹');
+ok(/Settings\.autoPrep\s*&&\s*s\.flags\s*&&\s*s\.flags\.relic_tactic/.test(stripComments(mainSrc))
+  && /View\.autoPickTactic\(opts/.test(stripComments(mainSrc)),
+  '买了战备罗盘且开关开着时，撞怪自动挑打法（自动战斗的唯一入口）');
 // 前提（2026-11-24 焦点A 第 2 段）：战前卡里不会出现「点了必死」的一张——这是 openPrep 里
 // 把「撑不住 / disabled」那一档删掉的前提。三条各由一处保证：①「直接开打」只在白打能活时出现
 // （blockSave 时 View 撤卡，上面两条守着）②格挡/架盾永远比白打便宜 ③缠斗在引擎 tangleInfo 里
@@ -1169,11 +1175,37 @@ ok(/\bif\s*\(\s*opts\.length\s*>\s*1\s*\)/.test(stripComments(mainSrc)),
 ok(prep[1].dmg < prep[0].dmg && prep[2].dmg < prep[0].dmg,
   '格挡/架盾永远比白打便宜（比例 <1 破了，面板就会摆出一张会致死的卡）');
 
+// ---------- 自动战备（2026-11-28，用户口径：撞怪直接打，买了罗盘才自动挑） ----------
+// 这组测的是「系统替你按哪一张卡」：额度（每层 1–2 次）比血量更稀缺，见怪就挡等于浪费；
+// 缠斗明确要多掉血，自动策略不碰它。所有入参 dmg 都是 View.prepOptions 已算好的数（同源）。
+{
+  const mk = (arr) => arr.map(([id, dmg, rest]) => ({ id, dmg, rest: rest || 0 }));
+  const pick = (arr, f) => V.autoPickTactic(mk(arr), f || { maxHp: 1000 });
+  ok(pick([['none', 40], ['block', 22]]) === 'none',
+    '承伤不到生命上限 8% 的杂兵战不花格挡额度（额度留给硬仗）');
+  ok(pick([['none', 300], ['block', 165]]) === 'block',
+    '承伤 ≥8% 上限的硬仗自动格挡（单场挡 0.55，比架盾 0.85 省）');
+  ok(pick([['none', 300], ['block', 165], ['guard', 255, 5]]) === 'guard',
+    '本层余下 ≥4 场时自动架盾——0.15×5 场比 0.45×1 场省');
+  ok(pick([['none', 300], ['block', 165], ['guard', 255, 2]]) === 'block',
+    '余下不到 4 场时仍用单场格挡（架盾 0.85 只盖两场，不如挡这一场）');
+  ok(pick([['block', 165], ['guard', 255, 5]], { blockSave: true, maxHp: 1000 }) === 'block',
+    '「只有格挡能活」的那一场必须挡——架盾 0.85 可能撑不住，不许拿命省额度');
+  ok(pick([['none', 300]]) === 'none', '没有格挡/架盾可用时直接开打（不摆空决定）');
+  ok(pick([['none', 300], ['block', 165], ['tangle', 380]]) === 'block',
+    '缠斗不进自动策略（多掉血换经验是「赌」，替玩家赌、输了算谁的）');
+  const ms = stripComments(mainSrc);
+  ok(/autoPrep:\s*true/.test(ms) && /get autoPrep\(\)\s*\{\s*return data\.autoPrep !== false/.test(ms),
+    '开关默认开、存在设置里（买了罗盘的人要的就是「别再问我」）');
+  ok(/el\.autoPrep\.hidden\s*=\s*!owned/.test(ms) && /relic_tactic/.test(ms),
+    '开关只在持有战备罗盘时出现（没买神器的人不该看见一个按了没用的控件）');
+}
+
 // 战前面板的提示行：首遇必须有归属（2026-11-24 22:4x 加练·叙事）
 // 11-20 定的口径是「无主语的系统文案会被读成怪自己开口，引导必须有归属（烛 / 秤 / 塔灵）」，
 // 而战前面板原先只有一句系统口吻。这里守两件事：首遇那版由烛开口、键位上限两版都随卡片数走。
 const prepFirst4 = V.PREP_FIRST(4);
-ok(prepFirst4.indexOf('烛：') === 0, `首遇那一次由烛开口（实测「${prepFirst4}」）`);
+ok(prepFirst4.indexOf('长明：') === 0, `首遇那一次由长明开口（实测「${prepFirst4}」）`);
 ok(prepFirst4.indexOf('1–4') >= 0 && V.PREP_FIRST(2).indexOf('1–2') >= 0,
   '首遇那版也带键盘入口，且上限随卡片数走（写死 1–4 会在两张卡时教出按不动的键）');
 ok(prepFirst4.indexOf('不再改') >= 0, '首遇那版仍说清「定下就不能改」（规则不许只在第二版里）');
@@ -1622,8 +1654,8 @@ ok(r1s.reward === '3💰 2✨' && r4.reward === '9💰 8✨', '掉落行按金/�
 // 人物：分母跟着人物表走（原来写死 8），没相遇只写「尚未相遇」不剧透身份
 const cxChars = V.codexModel(Object.assign({}, cxBase, {
   characters: [
-    { who: '烛', role: '守灯人', cap: 'c1' },
-    { who: '墨妖', role: '名册之锁', cap: 'c2' },
+    { who: '长明', role: '守灯人', cap: 'c1' },
+    { who: '沈砚', role: '名册之锁', cap: 'c2' },
     { who: '无名氏', role: '谁', cap: 'c3' },
   ],
   met: (who) => who !== '无名氏',
@@ -1765,32 +1797,33 @@ ok(mainSrc.indexOf("searchParams.set('rival'") < 0, 'main.js 不许自己拼链�
   const storySrc = fs.readFileSync(p.join(__dirname, '..', 'js', 'story.js'), 'utf8');
   const dataSrc = fs.readFileSync(p.join(__dirname, '..', 'js', 'data.js'), 'utf8');
   const CN = { 一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6 };
-  const wm = /'(炎魔[^']*?)。五道刻完的名字。'/.exec(storySrc);
+  const wm = /'(裴炬[^']*?)。五道刻完的名字。'/.exec(storySrc);
   ok(!!wm, '名墙上「五道刻完的名字」那句还在（位次以它为准，别改成别的说法）');
   const wall = wm ? wm[1].split('。').filter(Boolean) : [];
   ok(wall.length === 5, `名墙正好列 5 个名字（实得 ${wall.length}：${wall.join('/')}）`);
   const cardRank = {};
   // 用 [^}] 而不是 [\s\S] 圈住同一个对象——否则「炎魔·守炉者」那条（cap 没有位次）
   // 会一路吃到下一条墨妖的 cap，把墨妖整条吞掉（本轮第一版就是这么假绿的）
-  for (const m of dataSrc.matchAll(/name:\s*'([^']+)'[^}]{0,160}?title:\s*'第([一二三四五六])位工匠/g)) {
+  for (const m of dataSrc.matchAll(/name:\s*'([^']+)'[^}]{0,160}?title:\s*'[^']{0,12}第([一二三四五六])位工匠/g)) {
     cardRank[m[1]] = CN[m[2]];
   }
   const codexRank = {};
   for (const m of viewSrc.matchAll(/who:\s*'([^']+)'[^}]{0,80}?cap:\s*'[^']*?第([一二三四五六])位工匠/g)) {
     codexRank[m[1]] = CN[m[2]];
   }
-  const alias = { 炎魔: '魔王' }; // 章节卡与图鉴里第一位工匠那格都叫「魔王」
-  for (const n of ['炎魔', '墨妖', '钟妖', '碑魔']) {
+  // 2026-11-28 真名制：名墙刻真名，章节卡的 name 仍是塔给的活计名（魔王/墨妖/钟妖/碑魔）
+  const alias = { 裴炬: '魔王', 沈砚: '墨妖', 顾铎: '钟妖', 宋铭: '碑魔' };
+  for (const n of ['裴炬', '沈砚', '顾铎', '宋铭']) {
     const rank = wall.indexOf(n) + 1;
     const key = alias[n] || n;
-    ok(rank > 0, `${n} 在名墙上有名字（空位只有一个，留给烛）`);
+    ok(rank > 0, `${n} 在名墙上有名字（空位只有一个，留给长明）`);
     ok(cardRank[key] === rank, `${n} 的章节卡位次 = 名墙位置 ${rank}（实得 ${cardRank[key]}）`);
-    ok(codexRank[key] === rank, `${n} 的图鉴位次 = 名墙位置 ${rank}（实得 ${codexRank[key]}）`);
+    ok(codexRank[n] === rank, `${n} 的图鉴位次 = 名墙位置 ${rank}（实得 ${codexRank[n]}）`);
   }
-  ok(new Set(['炎魔', '墨妖', '钟妖', '碑魔'].map((n) => cardRank[alias[n] || n])).size === 4,
+  ok(new Set(['裴炬', '沈砚', '顾铎', '宋铭'].map((n) => cardRank[alias[n] || n])).size === 4,
     '四位锁匠的位次互不重复（同一个数写两处就是对不上）');
-  ok(cardRank['碑魔'] !== 6, '无名之锁不是第六位——第六个签名位是烛空着的，否则「第六个名字」会读成碑魔');
-  ok(storySrc.indexOf('烛（第六位工匠') > 0, '注释里烛是第六位工匠（与「第六个名字」同一个位置）');
+  ok(cardRank['碑魔'] !== 6, '无名之锁不是第六位——第六个签名位是长明空着的，否则「第六个名字」会读成碑魔');
+  ok(storySrc.indexOf('长明（第六位工匠') > 0, '注释里长明是第六位工匠（与「第六个名字」同一个位置）');
 }
 
 // 「说明书让人做手机上做不到的动作」（2026-11-17 加练 · 游戏性 焦点 B）：
@@ -1926,14 +1959,14 @@ ok(mainSrc.indexOf("searchParams.set('rival'") < 0, 'main.js 不许自己拼链�
 {
   const fs = require('fs'), p = require('path');
   const src = stripComments(fs.readFileSync(p.join(__dirname, '..', 'js', 'story.js'), 'utf8'));
-  const wm = /'(炎魔[^']*?)。五道刻完的名字。'/.exec(src);
+  const wm = /'(裴炬[^']*?)。五道刻完的名字。'/.exec(src);
   ok(!!wm, '名墙那句还在（下面两条以它列的名字为准，读不到就是假绿）');
   const wall = wm ? wm[1].split('。').filter(Boolean) : [];
   const mute = wall.filter((n) => (src.match(new RegExp(n, 'g')) || []).length < 2);
   ok(wall.length === 5 && mute.length === 0,
     `名墙上的每个名字都另有戏份（只刻在墙上＝埋了钩子不回收；没下文的：${mute.join(' / ') || '无'}）`);
-  ok(/第三道[^']{0,8}锤魔|锤魔[^']{0,20}第三道/.test(src),
-    '锤魔的第三道锁有人交代（五个名字四个锁匠，缺的那位得在塔里说清去哪了）');
+  ok(/第三道[^']{0,8}程冶|程冶[^']{0,20}第三道/.test(src),
+    '程冶的第三道锁有人交代（五个名字四个锁匠，缺的那位得在塔里说清去哪了）');
   // 战前面板的键盘入口（2026-11-24 19:5x 加练·美术焦点B）：`pickPrepByKey` 一直收 1–9，
   // 面板却一个字没写——同一作里立誓页写「或 ← → 切换、Enter 确认」、回响写「也可按 1 / 2 / 3」，
   // 只有这屏把键盘当暗能力。键位上限必须随卡片数走：写死 1–4 时只摆两张卡会教出按不动的键。
@@ -1969,7 +2002,7 @@ ok(mainSrc.indexOf("searchParams.set('rival'") < 0, 'main.js 不许自己拼链�
   ok(!!seg, '读得到真结局那一支（princessTrue，读不到就是假绿）');
   const body = seg ? seg[1] : '';
   ok(/手记|纸/.test(body), '真结局那一支认得出玩家带来的是那页手记（不是「他来过」这类空话）');
-  ok(!/见过烛/.test(body), '「见过烛」不是这一支的前提——玩家第 1 层就见过他，前提是手记里那行小字');
+  ok(!/见过长明/.test(body), '「见过长明」不是这一支的前提——玩家第 1 层就见过他，前提是手记里那行小字');
 }
 
 // 世界观术语不许只抛一次（2026-11-25 加练 · 叙事）：

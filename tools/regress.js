@@ -677,9 +677,9 @@ if (!process.argv.includes('--no-shot')) {
         // 2026-11-24：打法按钮搬去战前面板，战斗内按钮数应为 0（不再靠抢点）
         const pb5 = /panelBlocks=(\d+) panelButtons=(\d+) panelChars=(\d+)/.exec(outR);
         const budgetOk = !!pb5 && Number(pb5[1]) <= 7 && Number(pb5[2]) === 0 && Number(pb5[3]) <= 120;
-        // 首章那一战（还没学盾谱）：战前面板只许给一张卡（「直接开打」），不许出现「架盾/缠斗」
-        // 2026-11-28：战斗面板内那三颗按钮已随收敛轮删掉（`.bs-block` 全族），这条现在守的是
-        // 战前面板本身——同一件事只剩一个门，首章那道门只该开一格。
+        // 2026-11-28：战斗面板内那三颗按钮已随收敛轮删掉（`.bs-block` 全族）；
+        // 同日「撞怪直接开打」之后，正式流程连战前面板都不再弹——首章这一战该看的是
+        // 「面板没开」而不是「只开一格」（面板只在 `__prepAuto === false` 的探针路径里存在）。
         const readFirst = () => {
           const args = [
             '--headless=new', '--disable-gpu', '--no-sandbox', '--no-first-run', '--disable-extensions',
@@ -695,7 +695,7 @@ if (!process.argv.includes('--no-shot')) {
         const fbM = /firstPanel=(\{[^}]*\})/.exec(outF);
         let fb = null;
         try { fb = fbM ? JSON.parse(fbM[1]) : null; } catch (e) { fb = null; }
-        const firstOk = !!fb && Array.isArray(fb.picks)
+        const firstOk = !!fb && Array.isArray(fb.picks) && fb.prepOpen === false
           && ['block', 'guard', 'tangle'].every((k) => fb.picks.indexOf(k) < 0);
         // 第 1 层首战那一屏的预算：块 ≤ 5 / 按钮 0（0 按钮＝还没学盾谱，不该有任何打法）
         const pb1 = /firstPanelBudget=panelBlocks=(\d+) panelButtons=(\d+) panelChars=(\d+)/.exec(outF)

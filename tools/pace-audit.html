@@ -164,8 +164,13 @@ function click(w, d, sel) {
     const w = f.contentWindow, d = f.contentDocument;
     click(w, d, '#btnNew');
     await wait(1200);
-    snap('B 立誓', '三条路 + 五条助力（助力锁着置灰，内容与价目全可见）');
-    await wait(16000);
+    // 2026-11-28 二改：先选塔（塔群），再为它立誓。选塔是一眼一下，给 6 秒。
+    snap('B0 选塔', '塔群：四座塔，锈塔亮着，灰塔/钟塔/主塔锁着（拔一枚齿开一座）');
+    await wait(6000);
+    click(w, d, '#towerList .tw-card');
+    await wait(1000);
+    snap('B 立誓', '入塔之誓：三条路 + 五条助力（助力锁着置灰，内容与价目全可见）');
+    await wait(10000);
     click(w, d, '.vow-card[data-vow="none"]');
     await wait(900);
     snap('C 序章对白', '4 段旁白，每段读 3-4 秒');
@@ -280,6 +285,8 @@ function click(w, d, sel) {
     click(w6, d6, '#colClose');
     await wait(400);
     click(w6, d6, '#btnNew');
+    await wait(900);
+    click(w6, d6, '#towerList .tw-card');   // 先选塔（锈塔），才有立誓页
     await wait(900);
     click(w6, d6, '#vowCards .vow-card');
     await wait(900);

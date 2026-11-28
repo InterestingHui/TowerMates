@@ -129,6 +129,25 @@
       await wait(120);
       const T = w.__tm;
       const E = w.Engine;
+      // 2026-11-28 二改：开局第一屏是「选塔」（塔群），点完一座塔才弹立誓页。
+      // 截图场景都以「立誓页点一张卡」起手，这里替玩家先过塔群这一屏（点第一张＝锈塔）。
+      const startRun = async () => {
+        const bn = d.getElementById('btnNew');
+        if (bn) bn.click();
+        await wait(280);
+        const tw = d.querySelector('#towerList .tw-card');
+        if (tw && d.getElementById('towerOverlay').classList.contains('show')) {
+          tw.click();
+          await wait(340);
+        }
+      };
+      // 2026-11-28：正式流程撞怪不再弹「选打法」面板（改由右侧战备罗盘开关自动打）。
+      // 要拍面板本尊 / 读卡面数字的场景，走探针逃生口 `__prepPanel === true` 回到旧路；
+      // `battle` 场景故意不设——它要量的正是「正式流程一场都不弹」。
+      if (scene === 'prep' || scene === 'prep4' || scene === 'battleblock' || scene === 'battletwice'
+        || scene === 'tanglebattle' || scene === 'guardbattle' || scene === 'threatbattle') {
+        w.__prepPanel = true;
+      }
       // 战前面板（2026-11-24）：开战前先选打法。截图脚本统一在这里点掉，
       // kind='block' 时选格挡，其余默认「直接开打」。
       const pickPrep = async (kind) => {
@@ -343,7 +362,7 @@
         }
       } else if (scene === 'vowflash') {
         // 立誓回执：选完那一刻顶端要亮一条「誓约已立 · 名字 + 这局改了什么」
-        d.getElementById('btnNew').click();
+        await startRun();
         await wait(320);
         // 2026-11-26：慈悲要先用 ✦ 买下才可选——探针先替玩家买掉再点（首局态不许立誓，履历也补一局）
         T.Meta.memory.runs = Math.max(1, T.Meta.memory.runs || 0);
@@ -363,11 +382,26 @@
             + ' rect=' + Math.round(r.left) + ',' + Math.round(r.top) + ',' + Math.round(r.width) + 'x' + Math.round(r.height)
             + ' vis=' + cs.visibility + ' disp=' + cs.display;
         }
+        const sc = d.getElementById('dlgScene');
+        const im = sc && sc.querySelector('.bd-img');
+        q2push('sceneImg=' + (im
+          ? ('src=' + im.getAttribute('src') + ' complete=' + im.complete + ' nw=' + im.naturalWidth
+            + ' disp=' + w.getComputedStyle(im).display + ' op=' + w.getComputedStyle(im).opacity)
+          : 'NONE') + ' head=' + (sc ? sc.innerHTML.slice(0, 48).replace(/\s+/g, ' ') : ''));
+        {
+          const A = new w.Image(); const B = new w.Image();
+          let n = 0; const res = [];
+          const fin = (tag) => { res.push(tag + '=' + (tag === 'rel' ? A.naturalWidth : B.naturalWidth)); if (++n === 2) q2push('imgProbe ' + res.join(' ')); };
+          A.onload = () => fin('rel'); A.onerror = () => fin('rel');
+          B.onload = () => fin('root'); B.onerror = () => fin('root');
+          A.src = 'assets/cg/intro1.webp';
+          B.src = '/assets/cg/intro1.webp';
+        }
         q2push('vowFlash=' + (vf && vf.classList.contains('show') ? 'ON' : 'off')
           + '|' + (vf ? vf.textContent.replace(/\s+/g, ' ').trim() : '缺')
           + '|' + vfDiag);
       } else if (scene === 'dialog') {
-        d.getElementById('btnNew').click();
+        await startRun();
         await wait(200);
         const _vc = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
         if (_vc) _vc.click();
@@ -381,7 +415,7 @@
         T.playStory('candle2');
         await wait(500);
       } else if (scene === 'boss') {
-        d.getElementById('btnNew').click();
+        await startRun();
         await wait(200);
         const _vc = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
         if (_vc) _vc.click();
@@ -394,7 +428,7 @@
         }
         await wait(200);
       } else if (scene === 'vera') {
-        d.getElementById('btnNew').click();
+        await startRun();
         await wait(200);
         const _vc = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
         if (_vc) _vc.click();
@@ -407,7 +441,7 @@
         }
         await wait(300);
       } else if (scene === 'choice') {
-        d.getElementById('btnNew').click();
+        await startRun();
         await wait(200);
         const _vc = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
         if (_vc) _vc.click();
@@ -416,7 +450,7 @@
         T.setChoiceFocus('true');
         await wait(700);
       } else if (scene === 'end') {
-        d.getElementById('btnNew').click();
+        await startRun();
         await wait(200);
         const _vc = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
         if (_vc) _vc.click();
@@ -537,7 +571,7 @@
           + ' achFinish=' + (w.Achievements && w.Achievements.isUnlocked('edge_finish') ? 'in' : 'MISS'));
       } else if (scene === 'death1') {
         // 首局死亡（runs=0）：验证「下一局可立誓」预告卡
-        d.getElementById('btnNew').click();
+        await startRun();
         await wait(200);
         const _vcD = d.querySelector('#vowCards .vow-card[data-vow="none"]');
         if (_vcD) _vcD.click();
@@ -553,7 +587,7 @@
         // 收码回执：这一屏是「谁走得更远」唯一现形的地方。2026-11-25 之前那句话无条件写
         // 「爬得比他更高」——而这张图里朋友第 12 层、我第 6 层，他明明排在我前面。
         // 走真路径（__tm.pasteCode → pasteChallenge），贴的是 Challenge.encode 现编的码。
-        d.getElementById('btnNew').click();
+        await startRun();
         await wait(200);
         const _vc3 = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
         if (_vc3) _vc3.click();
@@ -569,7 +603,7 @@
         await wait(420);
         q2push('chHint=' + d.getElementById('boardHint').textContent.replace(/\s+/g, ' ').trim());
       } else if (scene === 'board') {
-        d.getElementById('btnNew').click();
+        await startRun();
         await wait(200);
         const _vc = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
         if (_vc) _vc.click();
@@ -587,7 +621,7 @@
         q2push('rnoteChuan=' + (d.getElementById('boardList').textContent.includes('剑断在第五层') ? 'in' : 'MISS')
           + ' rnoteYan=' + (d.getElementById('boardList').textContent.includes('停在第 3 层') ? 'in' : 'MISS'));
       } else if (scene === 'codex') {
-        d.getElementById('btnNew').click();
+        await startRun();
         await wait(200);
         const _vc = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
         if (_vc) _vc.click();
@@ -600,7 +634,7 @@
         await wait(400);
       } else if (scene === 'codexzoom') {
         // 图鉴大图：320px 位图展示位（点人物卡触发）
-        d.getElementById('btnNew').click();
+        await startRun();
         await wait(200);
         const _vcz = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
         if (_vcz) _vcz.click();
@@ -615,7 +649,7 @@
         await wait(700);
       } else if (scene === 'bossintro') {
         // Boss 出场卡样板：320px 位图 + 名字条；只截图，不接管流程
-        d.getElementById('btnNew').click();
+        await startRun();
         await wait(200);
         const _vcb = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
         if (_vcb) _vcb.click();
@@ -625,7 +659,7 @@
         T.showBossIntro({ boss: true, name: '墨妖', title: '第二位工匠 · 名册之锁', chapter: 1 }, 2, null, true);
         await wait(700);
       } else if (scene === 'cfg') {
-        d.getElementById('btnNew').click();
+        await startRun();
         await wait(200);
         const _vc = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
         if (_vc) _vc.click();
@@ -633,7 +667,7 @@
         T.openCfg();
         await wait(400);
       } else if (scene === 'bossphase') {
-        d.getElementById('btnNew').click();
+        await startRun();
         await wait(200);
         const _vc = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
         if (_vc) _vc.click();
@@ -647,7 +681,7 @@
         T.resolveBattle(0, -1);
         await wait(500);
       } else if (scene === 'gate') {
-        d.getElementById('btnNew').click();
+        await startRun();
         await wait(200);
         const _vcg = d.querySelector('#vowCards .vow-card[data-vow="none"]');
         if (_vcg) _vcg.click();
@@ -664,7 +698,7 @@
         // 2026-11-26：锁着的誓约也是整张卡（内容与价目全可见），点一下用 ✦ 买下
         T.Meta.memory.runs = Math.max(3, T.Meta.memory.runs || 0);
         T.Meta.add(200);
-        d.getElementById('btnNew').click();
+        await startRun();
         await wait(400);
         const cardA = d.querySelector('#vowCards .vow-card[data-vow="ascetic"]');
         const beforeLocked = !!cardA && cardA.classList.contains('locked');
@@ -681,7 +715,7 @@
           + ' err=' + (errs.length ? errs.join('|') : 'none');
         return;
       } else if (scene === 'eventdeep') {
-        d.getElementById('btnNew').click();
+        await startRun();
         await wait(200);
         const _vc3 = d.querySelector('#vowCards .vow-card[data-vow="none"]');
         if (_vc3) _vc3.click();
@@ -694,7 +728,7 @@
         T.openEvent('broker');
         await wait(600);
       } else if (scene === 'event') {
-        d.getElementById('btnNew').click();
+        await startRun();
         await wait(200);
         const _vc2 = d.querySelector('#vowCards .vow-card[data-vow="none"]');
         if (_vc2) _vc2.click();
@@ -707,7 +741,7 @@
         T.openEvent('herbalist');
         await wait(600);
       } else if (scene === 'vow') {
-        d.getElementById('btnNew').click();
+        await startRun();
         await wait(600);
       } else if (scene === 'stoneidle') {
         const sI = E.state();
@@ -720,7 +754,7 @@
         T.refreshHud();
         await wait(1200);
       } else if (scene === 'stonegone') {
-        d.getElementById('btnNew').click();
+        await startRun();
         await wait(200);
         const _vc = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
         if (_vc) _vc.click();
@@ -739,7 +773,7 @@
         w.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'ArrowLeft' }));
         await wait(1800);
       } else if (scene === 'hearttake') {
-        d.getElementById('btnNew').click();
+        await startRun();
         await wait(200);
         const _vc = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
         if (_vc) _vc.click();
@@ -763,7 +797,7 @@
           + ' err=' + (errs.length ? errs.join('|') : 'none');
         return;
       } else if (scene === 'heart') {
-        d.getElementById('btnNew').click();
+        await startRun();
         await wait(200);
         const _vc = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
         if (_vc) _vc.click();
@@ -778,7 +812,7 @@
         T.setHeartFocus('take');
         await wait(300);
       } else if (scene === 'altar5') {
-        d.getElementById('btnNew').click();
+        await startRun();
         await wait(200);
         const _vc = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
         if (_vc) _vc.click();
@@ -791,7 +825,7 @@
         T.act(1, 0);
         await wait(600);
       } else if (scene === 'altar') {
-        d.getElementById('btnNew').click();
+        await startRun();
         await wait(200);
         const _vc = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
         if (_vc) _vc.click();
@@ -805,7 +839,7 @@
         T.act(-1, 0);
         await wait(600);
       } else if (scene === 'echo') {
-        d.getElementById('btnNew').click();
+        await startRun();
         await wait(200);
         const _vc = d.querySelector('#vowCards .vow-card[data-vow="none"]');
         if (_vc) _vc.click();
@@ -821,7 +855,7 @@
         await wait(600);
       } else if (scene === 'echo2') {
         // 第 2 章回响：手里已有两枚锁环——验证「已装」块只在有环时出现
-        d.getElementById('btnNew').click();
+        await startRun();
         await wait(200);
         const _vc = d.querySelector('#vowCards .vow-card[data-vow="none"]');
         if (_vc) _vc.click();
@@ -837,7 +871,7 @@
         T.openEcho(ec);
         await wait(600);
       } else if (scene === 'goal') {
-        d.getElementById('btnNew').click();
+        await startRun();
         await wait(200);
         const _vc = d.querySelector('#vowCards .vow-card[data-vow="none"]');
         if (_vc) _vc.click();
@@ -854,7 +888,7 @@
         T.showFloorCard(6);
         await wait(600);
       } else if (scene === 'hud') {
-        d.getElementById('btnNew').click();
+        await startRun();
         await wait(200);
         const _vc = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
         if (_vc) _vc.click();
@@ -874,7 +908,7 @@
         // 不再是「只有一张确认卡」。断言：卡数 ≥ 4、标题是「立 誓」、每张卡都有自己的主色。
         const out = [];
         for (let i = 0; i < 20 && !w.__tm; i++) await wait(200);   // 等 boot（无头解析慢）
-        d.getElementById('btnNew').click();
+        await startRun();
         for (let i = 0; i < 10 && !d.querySelector('#vowCards .vow-card'); i++) await wait(200);
         const cards = Array.prototype.slice.call(d.querySelectorAll('#vowCards .vow-card'));
         const accents = cards.map((c) => (c.getAttribute('style') || '').replace(/.*--vy:([^;]+);.*/, '$1'));
@@ -888,7 +922,7 @@
         // 新手标注端到端：开局 → coach 卡（怎么走）→ 点掉 → 画面干净
         const out = [];
         for (let i = 0; i < 20 && !w.__tm; i++) await wait(200);   // 等 boot（无头解析慢）
-        d.getElementById('btnNew').click();
+        await startRun();
         for (let i = 0; i < 10 && !d.querySelector('#vowCards .vow-card'); i++) await wait(200);
         out.push('vowOpen=' + d.getElementById('vowOverlay').classList.contains('show'));
         const _vc = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
@@ -931,7 +965,7 @@
         return;
       } else if (scene === 'flow') {
         const out = [];
-        d.getElementById('btnNew').click();
+        await startRun();
         await wait(200);
         const _vc = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
         if (_vc) _vc.click();
@@ -983,7 +1017,7 @@
         errBox.textContent = out.join('\n') + '\nerr=' + (errs.length ? errs.join('|') : 'none');
         return;
       } else if (scene === 'critters') {
-        d.getElementById('btnNew').click();
+        await startRun();
         await wait(200);
         const _vc = d.querySelector('#vowCards .vow-card[data-vow="none"]');
         if (_vc) _vc.click();
@@ -1002,7 +1036,7 @@
           const size = r.width / 11;
           cv.dispatchEvent(new w.MouseEvent('click', { bubbles: true, clientX: r.left + (tx + 0.5) * size, clientY: r.top + (ty + 0.5) * size }));
         };
-        d.getElementById('btnNew').click();
+        await startRun();
         await wait(200);
         const _vc = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
         if (_vc) _vc.click();
@@ -1021,7 +1055,7 @@
         return;
       } else if (scene === 'hint') {
         // 角色提示对白：加粗重点 + 青色「提示」角标，验证一闪而过的问题已解决
-        d.getElementById('btnNew').click();
+        await startRun();
         await wait(200);
         const _vh = d.querySelector('#vowCards .vow-card[data-vow="none"]');
         if (_vh) _vh.click();
@@ -1034,7 +1068,7 @@
         await wait(400);
       } else if (scene === 'stuck') {
         // 卡关指引：第 3 层攻击不够打不过墨妖时，顶栏钉住「还差多少攻击」
-        d.getElementById('btnNew').click();
+        await startRun();
         await wait(200);
         const _vs = d.querySelector('#vowCards .vow-card[data-vow="none"]');
         if (_vs) _vs.click();
@@ -1051,7 +1085,7 @@
         await wait(300);
       } else if (scene === 'route') {
         // 拖动选路：方向圆盘 + 候选路线预览（走 __debugRoute，不发真实指针事件）
-        d.getElementById('btnNew').click();
+        await startRun();
         await wait(200);
         const _vcR = d.querySelector('#vowCards .vow-card[data-vow="none"]');
         if (_vcR) _vcR.click();
@@ -1098,7 +1132,7 @@
         }
         await wait(700);
       } else if (scene === 'play') {
-        d.getElementById('btnNew').click();
+        await startRun();
         await wait(200);
         const _vc = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
         if (_vc) _vc.click();
@@ -1107,7 +1141,7 @@
         await wait(500);
       } else if (scene === 'bossyan') {
         // 第 3 层Boss「墨妖」的地图形象：站在玩家旁边，验证锁匠剪影画法
-        d.getElementById('btnNew').click();
+        await startRun();
         await wait(200);
         const _vcy = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
         if (_vcy) _vcy.click();
@@ -1127,7 +1161,7 @@
       } else if (scene === 'minions') {
         // 怪廊：把 19 只小怪（18 普通 + ghost 烛）按行列铺满 11x11 画布中部，
         // 逐只验证剪影造型在真实 48px 格位下的可辨性（美术管线回归靶）
-        d.getElementById('btnNew').click();
+        await startRun();
         await wait(200);
         const _vcm = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
         if (_vcm) _vcm.click();
@@ -1154,7 +1188,7 @@
         await wait(500);
       } else if (scene === 'bossdef') {
         // 窥探之镜对「破不了防的 Boss」也要有话说的验证：攻击压到防线以下
-        d.getElementById('btnNew').click();
+        await startRun();
         await wait(200);
         const _vcd = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
         if (_vcd) _vcd.click();
@@ -1173,7 +1207,7 @@
         await wait(500);
       } else if (scene === 'probecard') {
         // 怪物速查卡：长按/右键怪物格子弹出的信息卡
-        d.getElementById('btnNew').click();
+        await startRun();
         await wait(200);
         const _vcp = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
         if (_vcp) _vcp.click();
@@ -1191,7 +1225,7 @@
         await wait(600);
       } else if (scene === 'dpadclosed' || scene === 'dpadopen') {
         // 方向键收起/展开态：设置已在 iframe 加载前预置好
-        d.getElementById('btnNew').click();
+        await startRun();
         await wait(200);
         const _vc = d.querySelector('#vowCards .vow-card[data-vow="none"]');
         if (_vc) _vc.click();
@@ -1212,7 +1246,7 @@
       } else if (scene === 'showcase') {
         // 遗物高光特效播放中的一帧：延迟环负年龄曾把 arc() 炸成 IndexSizeError 冻结画面，
         // 这里触发后紧贴时间轴截图——特效在飞、画面在动，regression 直接看这张图。
-        d.getElementById('btnNew').click();
+        await startRun();
         await wait(200);
         const _vcs = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
         if (_vcs) _vcs.click();
@@ -1229,7 +1263,7 @@
       } else if (scene === 'death') {
         // 死亡结算：直接把状态摆进 over + hp=0，调 showDeath 看灰调面板与「折戟」塔印
         // 折戟成就链路：连死 3 次 → falls 累计到 3 → 「塔的常客」解锁（recordRun 每次都记，deathShown 只挡面板）
-        d.getElementById('btnNew').click();
+        await startRun();
         await wait(200);
         const _vcd = d.querySelector('#vowCards .vow-card[data-vow="guard"]');
         if (_vcd) _vcd.click();
@@ -1253,7 +1287,7 @@
         await wait(100);
       } else if (scene === 'adsdeath') {
         // 广告卡点（?ads=1 才显形）：看「看视频复活」在灰调死亡面板里的位置
-        d.getElementById('btnNew').click();
+        await startRun();
         await wait(200);
         const _vcdA = d.querySelector('#vowCards .vow-card[data-vow="guard"]');
         if (_vcdA) _vcdA.click();
@@ -1265,7 +1299,7 @@
         await wait(400);
       } else if (scene === 'adsend') {
         // 广告卡点（?ads=1 才显形）：结算页「余烬翻倍」按钮位置
-        d.getElementById('btnNew').click();
+        await startRun();
         await wait(200);
         const _vcdB = d.querySelector('#vowCards .vow-card[data-vow="guard"]');
         if (_vcdB) _vcdB.click();
@@ -1283,7 +1317,7 @@
         await wait(600);
       } else if (scene === 'collection') {
         // 收藏图鉴：预置一批「见过」的记录，检查 11 遗物 + 24 锁环（4 章分组）的卡片排版
-        d.getElementById('btnNew').click();
+        await startRun();
         await wait(200);
         const _vcc = d.querySelector('#vowCards .vow-card[data-vow="' + VOWPICK + '"]');
         if (_vcc) _vcc.click();

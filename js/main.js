@@ -1110,7 +1110,8 @@
   const ICON_CARD = 30;
   // 遗物全表顺序 = 顶栏 chip / 设置页列表 / 收藏图鉴共用一份。
   // cross 与 coin 曾漏在这张表外——玩家拿了旧十字架/幸运金币，顶栏根本不显示 chip（已修）。
-  const RELIC_ORDER = ['ward', 'edge', 'ember', 'steel', 'thrift', 'vigor', 'scout', 'gate', 'heart', 'cross', 'coin'];
+  // tactic（战备罗盘）2026-11-28 随「撞怪自动打法」一起加，紧挨商店的另一件 scout。
+  const RELIC_ORDER = ['ward', 'edge', 'ember', 'tactic', 'steel', 'thrift', 'vigor', 'scout', 'gate', 'heart', 'cross', 'coin'];
   let relicSig = null;
   function renderRelicRow(s) {
     const owned = RELIC_ORDER.filter((id) => s && s.flags['relic_' + id]);
@@ -1576,6 +1577,8 @@
     el.keyY.textContent = s.keys.y;
     el.keyR.textContent = s.keys.r;
     $('btnCodex').style.display = s.flags.codex ? '' : 'none';
+    // 战备罗盘：持有才出现的右侧开关（撞怪自动打法的唯一入口）
+    syncAutoPrep(s);
 
     buildFloorDots(s.floor);
     const twDots = D.towerOf(s.floor);
@@ -1608,7 +1611,7 @@
         const pct = Math.round(Engine.ringBlockScale() * 100);
         el.blockPip.title = used
           ? '本层格挡已用完（进下一层恢复）'
-          : `本层还剩 ${left} 次格挡：撞怪时先挑「格挡」，这一场承伤降到 ${pct}%${s.flags.hasBlock2 ? ' · 卸伤三成化为经验' : ''}`;
+          : `本层还剩 ${left} 次格挡：有战备罗盘（第 3 层秦权卖）时撞怪会自动用，承伤降到 ${pct}%${s.flags.hasBlock2 ? ' · 卸伤三成化为经验' : ''}`;
       }
     }
 
@@ -2249,7 +2252,7 @@
     el.battleScene.classList.add('show');
     el.battleScene.classList.remove('hero-win');
     el.bsPhase.classList.remove('show');
-    el.bsPanel.classList.remove('p2', 'p3');
+    el.bsPanel.classList.remove('said');
     // 战意：只有最终决战会亮，把「打怪有收益」当场说给玩家看
     const zealEl = $('bsZeal');
     if (zealEl) {
@@ -2331,13 +2334,11 @@
       // 演出刀数：默认压上限（普通 5 / Boss 8）保证节奏；设置「全量回合」时
       // 按真实回合数播放，每一刀都是真实伤害，长战斗不再被均摊
       const K = Settings.fullRounds ? pred.rounds : Math.min(pred.rounds, m.boss ? 8 : 5);
-      // Boss 三阶段：血量跨过 66% / 33% 时插一段短过场（只改表现，不改数值）
-      // 每局从 Boss 台词池抽两段：同一局固定，重开一局会听到另一组
-      const PHASES = info.phases || m.phases || [
-        { at: 0.66, n: 2, title: '第二道锁 · 裂', text: '别把我想成一道门。门后面还有东西。' },
-        { at: 0.33, n: 3, title: '第三道锁 · 塔心', text: '再近一点，你就看得见她的名字了。' },
-      ];
-      let phaseIdx = 0;
+      // Boss 战中一句（2026-11-28 用户口径：一场最多说一次）。
+      // 原来血量跨 66% / 33% 各插一段过场，小塔之齿那种几刀就完的仗两段横幅几乎连着出；
+      // 现在只留一句，压在血条过半时开口（开口那一拍仍会暂停演出，说完接着打）。
+      const LINE = info.line || null;
+      let lineSaid = false;
       // 演出里玩家会挨的总承伤：取引擎「真实承伤」（誓约/锁环/格挡/缠斗都算在内）
       let heroDamageLeft = Math.max(0, Math.round(finalDamage()));
       const showPhase = async (ph) => {
@@ -2345,7 +2346,7 @@
         el.bsPhaseText.textContent = ph.text;
         el.bsPhase.classList.add('show');
         el.battleScene.classList.add('phasing');
-        el.bsPanel.classList.add('p' + ph.n);
+        el.bsPanel.classList.add('said');
         Sound.play('hitBig');
         vibrate([24, 36, 24]);
         await wait(780);
@@ -2381,9 +2382,9 @@
         await wait(95);
         el.bsFoe.classList.remove('hit');
         if (foeHp <= 0) break;
-        if (m.boss && phaseIdx < PHASES.length && !skipped && foeHp / foeMax <= PHASES[phaseIdx].at) {
-          await showPhase(PHASES[phaseIdx]);
-          phaseIdx++;
+        if (m.boss && LINE && !lineSaid && !skipped && foeHp / foeMax <= 0.5) {
+          lineSaid = true;
+          await showPhase(LINE);
         }
         if (i < K - 1 && !skipped) {
           el.bsFoe.classList.add('lunge-l');
@@ -2942,6 +2943,23 @@
     return true;
   }
 
+  // ---------- 战备罗盘：撞怪自动打法的开关（2026-11-28） ----------
+  // 用户要求：一开始撞怪直接战斗，不要每场选；买到商店里那件神器后，右侧才出现开关。
+  // 这里只做「显不显示 / 现在是什么状态」——挑哪张卡在 View.autoPickTactic，开打在 resolveBattle。
+  function syncAutoPrep(s) {
+    if (!el.autoPrep) return;
+    const owned = !!(s && s.flags && s.flags.relic_tactic);
+    el.autoPrep.hidden = !owned;
+    if (!owned) return;
+    const on = Settings.autoPrep;
+    el.autoPrep.classList.toggle('on', on);
+    if (el.autoPrepBtn) {
+      el.autoPrepBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+      el.autoPrepBtn.title = `${View.AUTO_PREP_NAME}：${View.AUTO_PREP_TIP}`;
+    }
+    if (el.autoPrepState) el.autoPrepState.textContent = on ? View.AUTO_PREP_ON : View.AUTO_PREP_OFF;
+  }
+
   // ---------- 战斗入口 ----------
   function resolveBattle(dx, dy) {
     if (battleBusy) return;
@@ -3032,7 +3050,7 @@
       try {
         playBattleScene({
           ch, monster: m, pred, dmgBase, dmgBlock, dmgGuard, dmgTangle, tactic,
-          phases: m.boss ? Engine.bossPhases(ch) : null,
+          line: m.boss ? Engine.bossLine(ch) : null,
           skip: { x: tx, y: ty },     // 本层威胁读数要排除的格子（正在打的这只）
         }, (opt) => {
           // 打法在战前面板就定好了，这里原样透传（block 可能是 true / 'all'）。
@@ -3053,10 +3071,18 @@
       }
     };
 
-    // 战前决策（2026-11-24）：有不止一种打法时先摆面板，选完再开打。
-    // 只有一种打法（直接打）就不打断——杂兵战多弹一屏只会变成噪音。
+    // ---------- 撞怪怎么打（2026-11-28 改） ----------
+    // 用户要求：一开始撞怪就是直接战斗，不要每场让玩家选；买到商店的「战备罗盘」后，
+    // 右侧出现开关，开着由系统挑最省血的打法，关掉就白打。
+    // 于是这里只剩三条路：
+    //   ① 没买神器 / 开关关着 → 直接开打（pred.blockSave 那一场仍由 launch 的 autoBlock 兜底救命）；
+    //   ② 买了神器且开关开着 → View.autoPickTactic 在已算好的卡里挑一张（数值全同源）；
+    //   ③ `window.__prepPanel === true` → 保留旧战前面板，只给截图/探针（正文案见 PROGRESS）。
+    // 面板在正式流程里一场都不弹，所以「每场做一次决定」的负担没有了。
+    // 注意与旧的 `__prepAuto`（面板内自动点哪张卡）分开：一个是「要不要这屏」，一个是「这屏选哪个」——
+    // 合用一个变量会让「弹面板并自动选直接打」这种探针组合做不到（prepFallback 就靠它）。
     const opts = prepOptions({ m, pred, dmgBase, dmgBlock, dmgGuard, dmgTangle, s, heroMax: s.maxHp || s.hp });
-    if (opts.length > 1) {
+    if (opts.length > 1 && window.__prepPanel === true) {
       battleBusy = true;   // 面板开着时不许再触发另一场战斗
       // 2026-11-24 22:3x 自检补的兜底：装配面板是纯 DOM 活，却夹在「battleBusy 已置真」
       // 与「playBattleScene 之前」这一小段里，此前没有任何 catch。paintIcon / innerHTML /
@@ -3078,6 +3104,11 @@
         launch(null);
       }
       return;
+    }
+    if (Settings.autoPrep && s.flags && s.flags.relic_tactic) {
+      const pick = View.autoPickTactic(opts, { blockSave: !!pred.blockSave, boss: !!m.boss, maxHp: s.maxHp || s.hp });
+      if (pick === 'block') { launch({ block: true }); return; }
+      if (pick === 'guard') { launch({ block: 'all' }); return; }
     }
     launch(null);
   }
@@ -3194,7 +3225,7 @@
           if (res.item.block) {
             Renderer.ring(before.x, before.y, 'rgba(159,216,255,0.9)', TN() * 2.4, 600);
             Tips.show('block');
-            warn('**格挡已学会**：每层一次，撞怪时先挑「格挡」。', null, 'info');
+            warn('**格挡已学会**：每层一次。第 3 层秦权那里有**战备罗盘**（160 金）——买了撞怪就自动挡。', null, 'info');
           }
           if (res.item.heartShard) {
             Renderer.ring(before.x, before.y, 'rgba(255,180,200,0.9)', TN() * 2.6, 620);
@@ -3203,7 +3234,15 @@
           if (res.item.relic) {
             Renderer.ring(before.x, before.y, 'rgba(255,225,150,0.9)', TN() * 2.6, 620);
             Renderer.burst(before.x * TN() + TN() / 2, before.y * TN() + TN() / 2, { count: 14, colors: ['#ffe6a8', '#ffd27d'], speed: 110, life: [400, 800] });
-            warn(res.msg, null, 'info');
+            // 战备罗盘：买完必须当场说清两件事——开关在右边、以及「还没学格挡就挡不了」。
+            // 否则玩家会以为这件 160 金的货坏了（它的效果要等盾谱到手才看得见）。
+            if (res.item.relic === 'tactic') {
+              warn(before.flags.hasBlock
+                ? '**战备罗盘**已收好：右侧开关开着，撞怪会自动用格挡/架盾。'
+                : '**战备罗盘**已收好：右侧开关已出现——但你还不会格挡，先去第 2 层拿盾谱。', null, 'info');
+            } else {
+              warn(res.msg, null, 'info');
+            }
             Tips.show('relic');
           }
           refreshHud();
@@ -4454,6 +4493,19 @@
     }
     if (dpadToggle) dpadToggle.addEventListener('click', () => { Settings.toggleDpad(); refreshDpad(); vibrate(12); });
     refreshDpad();
+    // 战备罗盘开关（2026-11-28）：点一下切换「撞怪自动挑打法 / 白打」。
+    // 显隐由 syncAutoPrep 管（只在持有 relic_tactic 时出现），这里只管交互与回执。
+    // 回执走顶栏提示条而不是对白：玩家可能连续点两下，对白会排队、像卡住。
+    if (el.autoPrepBtn) el.autoPrepBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const on = Settings.toggleAutoPrep();
+      Sound.play(on ? 'choose' : 'lock');
+      vibrate(on ? [8, 12, 6] : 14);
+      syncAutoPrep(Engine.state());
+      warn(on
+        ? '战备罗盘：**自动战备已开**——撞怪时自动用格挡/架盾。'
+        : '战备罗盘：**自动战备已关**——撞怪直接打，不再动格挡。', null, 'info');
+    });
     // 长按连走的收尾清单：每颗方向键把 end 交进来，指针在**别处**抬起时统一收。
     // 为什么要这一层：浮层（商店/祭坛/对白）盖住按钮那一刻，按钮既收不到 pointerup 也收不到
     // pointerleave（hover 目标只在指针移动时重算），320ms 后的 setInterval 会一直替玩家走——
@@ -5047,24 +5099,27 @@
   }
 
   // 立誓页挂在「哪座塔」上：塔群选完塔才进来，页顶先交代这座塔的名字与守门人。
-  // 只有测试/快捷入口会不带参数调 openVow()——那时回落到当前局所在塔（新局就是锈塔），
-  // 保证任何入口都不会出现「无塔之誓」。
+  // 塔的来路分三种：显式传入（塔群点的）> 当前局所在塔 > 第一座塔。
+  // 单独一层是为了让 openVow 只留「填面板」三件事——别让取塔逻辑把文案挤到看不见的地方。
   let pendingTower = null;
+  function resolvePendingTower(towerId) {
+    const t = (typeof towerId === 'string' && D.towers.find((x) => x.id === towerId)) || null;
+    if (t) return t;
+    const st = Engine.state();
+    return (st && D.towerOf(st.floor)) || D.towers[0];
+  }
   function openVow(towerId) {
     vowFocus = -1;
-    let t = (typeof towerId === 'string' && D.towers.find((x) => x.id === towerId)) || null;
-    if (!t) {
-      const st = Engine.state();
-      t = (st && D.towerOf(st.floor)) || D.towers[0];
-    }
+    const t = resolvePendingTower(towerId);
     pendingTower = t.id;
     Funnel.push('vow_open', { first: isFirstRun() ? 1 : 0, tower: t.id });
     const kicker = document.querySelector('#vowOverlay .vow-kicker');
     const desc = document.querySelector('#vowOverlay .vow-desc');
     const hint = document.querySelector('#vowOverlay .vow-hint');
-    if (kicker) kicker.textContent = '入 塔 之 誓';
-    if (desc) desc.textContent = `${t.name}只认走进它的人：选一条路进去，越难走，通关时多留 ✦`;
+    if (kicker) kicker.textContent = '入 塔 立 誓';
+    if (desc) desc.textContent = '选一条路进塔：越难走，通关时多留 ✦';
     if (hint) hint.textContent = '点一张开始 · 灰卡＝还没买下的助力 · ← → 切换';
+    // 塔徽行：进的是哪座塔、几层、谁守门——名字先摆在最上面，誓言才像是为它立的
     if (el.vowTower) {
       const boss = D.monsters[t.boss];
       el.vowTower.hidden = false;
@@ -5599,6 +5654,14 @@
     // 战前面板（headless 探针用）：open 判断面板在不在，pick 等同玩家点卡（none/block/guard/tangle）
     prepOpen: () => !!prepKeyPick,
     prepPick: (id) => { if (!prepKeyPick) return false; prepKeyPick(id); return true; },
+    // 战备罗盘（2026-11-28）：探针要能读/改那个开关，以及拿到「这一场会怎么打」的判定
+    autoPrepOn: () => Settings.autoPrep,
+    setAutoPrep: (on) => {
+      if (Settings.autoPrep !== !!on) Settings.toggleAutoPrep();
+      syncAutoPrep(Engine.state());
+      return Settings.autoPrep;
+    },
+    autoPick: (opts, ctx) => View.autoPickTactic(opts, ctx),
     // 收码那条真路径（截图探针用）：解码 → 查重 → 进名录 → 榜面板那行回执，与玩家贴码走同一段代码
     pasteCode: (code) => { const i = $('pasteCode'); if (!i) return false; i.value = String(code || ''); pasteChallenge(); return true; },
     testRelicShowcase: () => { const st = Engine.state(); if (st) relicShowcase(st.x, st.y); },
