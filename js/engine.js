@@ -1597,7 +1597,7 @@
     // 苦行之誓：这一战的经验整体 +40%（与缠斗乘算，不走两套账）
     // 击杀计数与战意照常（人确实倒了），掉金/遗物/锁环也不受影响
     const expMul = vow() === 'ascetic' ? 1.4 : 1;
-    // 齿塔系数：三座齿塔每层怪少、经验密度低，按 ×2 结算（见 data.js towers 注释）
+    // 齿塔系数：三座齿塔每层怪少、经验密度低，按 ×1.5 结算（见 data.js towers 注释）
     const towerMul = (D.towerOf(s.floor) || {}).expMul || 1;
     const expGain = Math.round((tangled ? m.exp * TANGLE_EXP : m.exp) * expMul * towerMul);
     s.exp += expGain;

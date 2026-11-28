@@ -515,7 +515,7 @@ function floorLoop(fi) {
     // 后面「把余钱换成药水」不影响难度，别用它当难度指标
     if (isBoss && m.kind === '锁' && fi === 11) s.lastBattle = { hp: s.hp, maxHp: s.maxHp };
     // 缠斗的收益：这一战经验翻倍（金币/击杀计数照常，与引擎一致）
-    // 齿塔系数 ×2：与 engine.fight 的 towerMul 同口径，否则副塔模拟会假死
+    // 齿塔系数 ×1.5：与 engine.fight 的 towerMul 同口径，否则副塔模拟会假死
     const towerMul = (D.towerOf(fi) || {}).expMul || 1;
     s.exp += Math.round((t.tangled ? Math.round(m.exp * TANGLE_EXP) : m.exp) * (VOW === 'ascetic' ? 1.4 : 1) * towerMul);
     s.gold += VOW === 'greed' ? Math.round(m.gold * 1.5) : m.gold;

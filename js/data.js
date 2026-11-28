@@ -375,10 +375,11 @@ window.GAME_DATA = (function () {
       theme: '铁锈与第一课', color: '#c8a978', accent: 'rgba(200,169,120,0.20)',
       floors: [13, 14, 15], boss: '7', scene: 'gate',
       start: { hp: 1000, maxHp: 1000, atk: 10, def: 10 },
-      // 2026-11-28 前 8 级阈值拉长后，齿塔靠 3 层的经验密度（98/188/268）撑不起新曲线，
-      // 灰塔第 3 层会打不过灰齿。齿塔是「浓缩三层」，经验按 ×2 结算，
-      // 实测复刻原等级曲线（锈 Lv5 / 灰 Lv7 / 钟 Lv8，原为 6/8/9）。
-      expMul: 2,
+      // 2026-11-28 前 8 级阈值拉长后，齿塔靠 3 层的经验密度撑不起新曲线，
+      // 灰塔第 3 层会打不过灰齿。齿塔是「浓缩三层」，经验按 ×1.5 结算。
+      // 实测（新地图）：锈 Lv5 / 灰 Lv8 / 钟 Lv9，原表为 6/8/9，差一级以内；
+      // 小怪段每层最多升一级，升级不再压在每一只怪上（Boss 仍是 2~3 级的大节点）。
+      expMul: 1.5,
       enter: 'towerRust', clear: 'clearRust',
       mark: { id: 'rust', name: '锈印', emoji: '⚙️', atk: 2, def: 2, maxHp: 150, desc: '下一座塔起始：攻 +2 / 防 +2 / 上限 +150' },
     },
@@ -387,7 +388,7 @@ window.GAME_DATA = (function () {
       theme: '烧掉的名字', color: '#b9a4a0', accent: 'rgba(185,164,160,0.20)',
       floors: [16, 17, 18], boss: '8', scene: 'namewall',
       start: { hp: 1200, maxHp: 1200, atk: 14, def: 12 },
-      expMul: 2,
+      expMul: 1.5,
       enter: 'towerAsh', clear: 'clearAsh',
       mark: { id: 'ash', name: '灰印', emoji: '🕳️', atk: 2, def: 2, maxHp: 150, desc: '下一座塔起始：攻 +2 / 防 +2 / 上限 +150' },
     },
@@ -396,7 +397,7 @@ window.GAME_DATA = (function () {
       theme: '停住的秒针', color: '#9fd8ff', accent: 'rgba(159,216,255,0.20)',
       floors: [19, 20, 21], boss: '9', scene: 'bell',
       start: { hp: 1400, maxHp: 1400, atk: 18, def: 16 },
-      expMul: 2,
+      expMul: 1.5,
       enter: 'towerBell', clear: 'clearBell',
       mark: { id: 'bell', name: '钟印', emoji: '⏱️', atk: 3, def: 3, maxHp: 200, desc: '下一座塔起始：攻 +3 / 防 +3 / 上限 +200' },
     },
