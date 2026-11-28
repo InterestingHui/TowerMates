@@ -4245,7 +4245,7 @@
             openTower(`<b>${r.tower.name} · 齿断了</b><br>${line}<br>`
               + (r.first
                 ? `获得齿印「${r.mark.emoji} ${r.mark.name}」 · 攻 +${r.mark.atk} / 防 +${r.mark.def} / 上限 +${r.mark.maxHp}，带进下一座塔`
-                : '这枚齿你已经拔过——齿印还在。'));
+                : '这枚齿你已经拔过——齿印还在。'), { newMark: r.first });
             Sound.play('relic');
             vibrate([10, 30, 10, 30]);
             Renderer.pulse();
@@ -5063,9 +5063,13 @@
     el.towerBanner.hidden = !banner;
     el.towerBanner.innerHTML = banner || '';
     el.towerMarks.hidden = !marks.length;
+    // 刚刚拔下来的那枚齿印要「到手一下」：塔门结算与棋盘白脉冲同帧，而暗幕 0.88 压在上面，
+    // 脉冲的可见度只剩 0.086（等于看不见）⇒ 演出得挂在这一层，不能指望画布那边。
+    const freshMark = !!(opts && opts.newMark) && marks.length > 0;
     el.towerMarks.innerHTML = marks.length
       ? `<span>齿印</span>` + marks.map((m) => `<span>${m.emoji} ${m.name}</span>`).join('')
       : '';
+    if (freshMark) el.towerMarks.lastElementChild.classList.add('new');
     el.towerList.innerHTML = D.towers.map((t) => {
       const done = cleared.indexOf(t.id) >= 0;
       const can = fresh ? towerOpenEver(t, cleared) : Engine.canEnterTower(t.id).ok;

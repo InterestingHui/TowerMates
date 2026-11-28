@@ -2373,7 +2373,17 @@ html.fx-low .end-sign.write > span, html.fx-low .end-sign.write > span::after { 
   opacity: 0.9;
 }
 .tw-card:active { transform: scale(0.985); }
-.tw-card.locked { opacity: 0.42; cursor: not-allowed; }
+/* 未解锁：不降整卡透明度（那会把卡底那层 0.95 的黑一起打四折，身后的地图剪影从卡面透出来），
+   改成盖一层不透明暗罩——底还是实的，字和图标照样变暗。::before 已被左侧竖条占用。 */
+.tw-card.locked { cursor: not-allowed; }
+.tw-card.locked::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: rgba(6, 7, 10, 0.55);
+  pointer-events: none;
+}
 .tw-card.locked::before { opacity: 0.35; }
 .tw-card.done { border-color: rgba(111, 227, 160, 0.25); }
 .tw-card.now { border-color: var(--tw, var(--gold)); box-shadow: 0 0 0 1px var(--tw-wash, rgba(232,196,106,0.16)) inset; }
@@ -2387,6 +2397,13 @@ html.fx-low .end-sign.write > span, html.fx-low .end-sign.write > span::after { 
 .tw-card.now .tw-state { color: var(--tw, var(--gold)); }
 .tower-marks { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin-top: 11px; font-size: var(--fs-tag); color: var(--gold); }
 .tower-marks[hidden] { display: none; }
+/* 刚到手的那枚齿印：面板一推开就弹一下（棋盘上的白脉冲被 0.88 暗幕吃掉，只能在这儿演） */
+.tower-marks .new { animation: markIn 0.52s cubic-bezier(0.2, 0.9, 0.25, 1) both; }
+@keyframes markIn {
+  0% { transform: scale(0.62); opacity: 0; }
+  55% { transform: scale(1.16); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
 .tower-hint { margin-top: 12px; font-size: var(--fs-tag); color: var(--muted); }
 .vow-kicker { font-size: var(--fs-tag); letter-spacing: 9px; color: var(--gold); opacity: 0.9; }
 /* 立誓面板顶上的「这是哪座塔」：塔色一条，名字在左、副题在右，跟塔群卡片同一套变量 */

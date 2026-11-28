@@ -215,7 +215,10 @@
     let found = false;
     outer: for (let y = 0; y < SIZE; y++) {
       for (let x = 0; x < SIZE; x++) {
-        if (s.maps[s.floor][y][x] === entryCh) { s.x = x; s.y = y; found = true; break outer; }
+        // 入口砖要清掉：人已经站在门厅里了，脚下再留一块 `n` 就等于「退出塔的机关」
+        // 就在脚下——走开一格再走回来，整座塔会被当成「你自己走出去的」而重置
+        // （与 newGame 那条同一段逻辑，两份实现不许一份清一份不清）。
+        if (s.maps[s.floor][y][x] === entryCh) { s.x = x; s.y = y; s.maps[s.floor][y][x] = '.'; found = true; break outer; }
       }
     }
     if (!found) { s.x = 1; s.y = 1; }

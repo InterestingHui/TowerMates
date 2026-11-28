@@ -526,9 +526,12 @@ if (!process.argv.includes('--no-shot')) {
         // 首战 ≤70s：60 秒是「1 个核心动词」预算，探针含 10 秒模拟犹豫，留 10 秒余量
         const ffOk = r.firstFight > 0 && r.firstFight <= 70;
         const gateOk = /^1+$/.test(r.bits || '');
+        // 两行（首局节奏 / 全屏元素预算）此前共用一个 gateOk：商店那一条超预算，会把
+        // 「首局 1/1/4/1/1/1/63.9s 全在预算内」的那一行也一起判红 —— 于是每轮都要重新
+        // 排查一遍「是不是首局又塞了东西」。节奏只看自己那七个数，预算红留给预算那行说。
         okPace = r.start >= 0 && r.start <= 1 && r.hud === 1
           && r.vow >= 0 && r.vow <= 8 && r.floor1 >= 0 && r.floor1 <= 4 && r.ready >= 0 && r.ready <= 3
-          && r.modals >= 0 && r.modals <= 3 && ffOk && gateOk;   // 多塔：多一段进塔对白（2 → 3）
+          && r.modals >= 0 && r.modals <= 3 && ffOk;   // 多塔：多一段进塔对白（2 → 3）
         paceLine = `首屏 ${r.start} / HUD隐藏 ${r.hud} / 立誓 ${r.vow} / 首层 ${r.floor1} / 可操作 ${r.ready} / 教学弹窗 ${r.modals} / 首战 ${r.firstFight < 0 ? '—' : r.firstFight + 's'}`;
         console.log((okPace ? '✓' : '✗') + ' 首局节奏 ' + paceLine + '（预算 1 / 1 / ≤8 / 4 / 3 / ≤2 / ≤70s）');
         const gBits = r.bits || '';

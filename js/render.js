@@ -16,7 +16,7 @@
   const flashes = [];
   const rings = [];
   let shakeUntil = 0, shakeMag = 6, shakeDur = 200;
-  let fadeUntil = 0;
+  let fadeUntil = 0, fadeDur = 260;
   let pulseStart = -9999;
   // 遗物拾取高光：一道从拾取点冲天的十字星芒（竖轴冲出画面顶、横轴扫过全屏）
   let relicBeam = null;
@@ -87,7 +87,7 @@
     shakeDur = ms || 200;
     shakeMag = mag || 6;
   }
-  function fade(ms) { fadeUntil = performance.now() + (ms || 260); }
+  function fade(ms) { fadeDur = ms || 260; fadeUntil = performance.now() + fadeDur; }
   function pulse() { pulseStart = performance.now(); }
 
   function addFloat(text, x, y, color, big) {
@@ -2288,9 +2288,9 @@
       }
     }
 
-    // 换层淡入
+    // 换层淡入：斜坡必须用调用方给的时长（写死 280 会让 fade(420) 前 140ms 纯黑）
     if (now < fadeUntil) {
-      const p = (fadeUntil - now) / 280;
+      const p = (fadeUntil - now) / fadeDur;
       ctx.fillStyle = `rgba(5,7,12,${Math.min(1, p)})`;
       ctx.fillRect(-TILE, -TILE, TILE * (SIZE + 2), TILE * (SIZE + 2));
     }

@@ -3171,6 +3171,40 @@ ok(!/battleBusy \|\| typing \|\|/.test(mainSrc) && !/if \(typing \|\|/.test(main
   '移动闸门（act / walkAlong）不看 typing 会话对象，只看对白框在不在屏幕上');
 ok(/busyState: \(\) => \(\{ battle: battleBusy/.test(mainSrc),
   '探针能读到四个移动旗子（点不动人时先看是谁挡的，不用猜）');
+
+// ---------- 进塔/退塔这条路：入口砖必须清（2026-11-28 19:xx 加练游戏性）----------
+// 齿塔里「下楼」＝整塔重来，触发条件是踩回入口那块 `n` 砖。newGame 走到入口时会把它清成 `.`，
+// 而 enterTower（退出塔之后重进）同一段逻辑少了一步 ⇒ 玩家一落地正站在那块砖上，
+// 走开一格再走回就被当成「自己要走」⇒ 整座塔的怪全回来，且没有任何一句话解释。
+{
+  const eng = require('fs').readFileSync(require('path').join(__dirname, '..', 'js', 'engine.js'), 'utf8');
+  const ent = eng.slice(eng.indexOf('function enterTower'), eng.indexOf('function towerExit'));
+  ok(/s\.maps\[s\.floor\]\[y\]\[x\] = '\.'/.test(ent),
+    '进入齿塔时清掉脚下的入口砖（否则重进＝站在退出机关上）');
+  const ng = eng.slice(eng.indexOf('function newGame'), eng.indexOf('function enterTower'));
+  ok(/map\[y\]\[x\] = '\.'/.test(ng),
+    'newGame 那一份仍清砖（两条「把玩家放在入口」的路径必须同一步）');
+
+  const lockRule = (cssSrc.match(/\.tw-card\.locked \{[^}]*\}/) || [''])[0];
+  ok(lockRule.length > 0 && !/opacity/.test(lockRule),
+    '锁定塔卡不再用整卡 opacity（会把不透明卡底一起降掉）');
+  ok(/\.tw-card\.locked::after\s*\{[^}]*background: rgba\(6, 7, 10, 0\.5/.test(cssSrc),
+    '锁定塔卡改用 ::after 暗罩（底保持不透明）');
+
+  const rnd = require('fs').readFileSync(require('path').join(__dirname, '..', 'js', 'render.js'), 'utf8');
+  ok(/let fadeUntil = 0, fadeDur = 260;/.test(rnd) && /function fade\(ms\) \{ fadeDur = ms \|\| 260;/.test(rnd),
+    'fade(ms) 把时长存进 fadeDur');
+  ok(/const p = \(fadeUntil - now\) \/ fadeDur;/.test(rnd),
+    '淡入斜坡用 fadeDur，不写死 280（同一数值不许两处定义）');
+
+  ok(/\{ newMark: r\.first \}/.test(mainSrc),
+    '塔门结算把「这枚齿第一次拔」传给塔群面板');
+  ok(/if \(freshMark\) el\.towerMarks\.lastElementChild\.classList\.add\('new'\)/.test(mainSrc),
+    '拿到新齿印的那一枚挂上 .new');
+  ok(/\.tower-marks \.new \{ animation: markIn/.test(cssSrc) && /@keyframes markIn/.test(cssSrc),
+    '新齿印有独立入场动画（markIn）');
+}
+
 console.log(`挑战码 / 触控 / 桥接 / 视图模型单测：${pass} 项通过${bad ? `，${bad} 项失败` : ''}`);
 
 process.exit(bad ? 1 : 0);
