@@ -380,18 +380,22 @@ E.newGame(null, { tower: 'main' });
 s = E.state();
 ok(E.jumpTo(1).type === 'refuse', '没有钥匙时跳不了');
 s.flags.relic_gate = true;
-s.flags.maxFloor = 2;
+// 2026-11-28 多塔：足迹按塔记（towerMax），不再读全局 maxFloor。
+// 旧口径会把「拔完三枚齿」的 21 层算成主塔也走过，Q 能从第 1 层直接跳到碑魔。
+s.flags.towerMax = { main: 2 };
 ok(E.visitedMax() === 2, '最远到过第 3 层');
 ok(E.jumpTo(4).type === 'refuse', '没到过的楼层跳不过去');
+ok(E.jumpTo(13).type === 'refuse', '层阶之钥不能跨塔（主塔里跳不到齿塔）');
 ok(E.jumpTo(0).type === 'refuse', '不能原地跳');
 const jr = E.jumpTo(1);
 ok(jr.type === 'floor' && jr.jump === true, '跳层成功');
 ok(s.floor === 1, '真的到了第 2 层');
 ok(E.tile(s.x, s.y) === 'n', '落在该层的上楼口');
 ok(E.jumpTo(1).type === 'refuse', '同一层不能重复跳');
+delete s.flags.towerMax;
 s.flags.maxFloor = 0;
 s.floor = 0;
-ok(E.visitedMax() === 0, '旧存档没有 maxFloor 时按当前层算');
+ok(E.visitedMax() === 0, '旧存档没有 towerMax 时按塔的入口层算');
 
 // ---------- 9k. 纯增益誓约（苦行 / 无名） ----------
 E.newGame('ascetic', { tower: 'main', tower: 'main' });

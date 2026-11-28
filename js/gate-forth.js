@@ -45,7 +45,7 @@
       const r = Engine.gateForth();
       if (r.ok) {
         btn.disabled = false;
-        btn.textContent = `↥ 往前开一层 · 第 ${r.target + 1} 层（仅此一次）`;
+        btn.textContent = `↥ 往前开一层 · 第 ${window.GAME_DATA.floorNo(r.target)} 层（仅此一次）`;
         tip.innerHTML = `代价：封印 <b>${sealNames(r)}</b>，且跳过这一层之前的东西。点两次确认。`;
       } else {
         btn.disabled = true;
