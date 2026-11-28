@@ -50,6 +50,10 @@
     threatbattle: base + '?dev=1#demo=7,5,5',
     shop: base + '?dev=1#demo=2,4,3,424242',
     tower: base + '?dev=1#demo=5,5,7',
+    // 塔群（选塔屏）：2026-11-28 二改后**每次开新局的第一屏**，而它此前 58 张截图里一张都没拍过、
+    // 一条断言都没有——「雾里立着四座塔」那句话、三张暗着的卡到底长什么样，全靠脑补。
+    // 不带 dev=1：这一屏是玩家从标题页点「新开一局」看到的原样。
+    towers: base,
     core: base + '?dev=1#demo=12,5,8',
     stoneidle: base + '?dev=1#demo=12,5,8',
     adsdeath: base + '?ads=1&dev=1',
@@ -86,7 +90,8 @@
       }));
     }
     // vowfirst 场景要「首局」态：清掉一切履历（runs=0）→ 立誓页只有「不立誓」可选，其余五条锁着
-    if (scene === 'vowfirst') {
+    // towers 同理：首局选塔屏必须是一扇开着的门 + 三张暗卡，带着旧履历就拍不到那个形态
+    if (scene === 'vowfirst' || scene === 'towers') {
       localStorage.removeItem('towermates_meta');
       localStorage.removeItem('towermates_save');
     }
@@ -743,6 +748,46 @@
       } else if (scene === 'vow') {
         await startRun();
         await wait(600);
+      } else if (scene === 'towers') {
+        // 首局选塔屏：点「新开一局」把塔群叫起来，然后**停在上面**（不点任何一座塔）。
+        // 量的是这一屏本身：四张卡各是什么状态、卡里的字有没有挤出去、状态标签有没有被切、
+        // 提示行有没有说清「点塔之后还有一步」。
+        const bnT = d.getElementById('btnNew');
+        if (bnT) bnT.click();
+        await wait(420);
+        const ovT = d.getElementById('towerOverlay');
+        const cardsT = Array.from(d.querySelectorAll('#towerList .tw-card'));
+        const rowsT = cardsT.map((b) => {
+          const r = b.getBoundingClientRect();
+          const bodyEl = b.querySelector('.tw-body');
+          const stateEl = b.querySelector('.tw-state');
+          const emEl = b.querySelector('.tw-body em');
+          const sr = stateEl ? stateEl.getBoundingClientRect() : null;
+          const er = emEl ? emEl.getBoundingClientRect() : null;
+          return {
+            id: b.dataset.id,
+            st: b.dataset.st,
+            state: stateEl ? stateEl.textContent.trim() : 'MISS',
+            h: Math.round(r.height),
+            top: Math.round(r.top),
+            // 卡内两行字有没有横溢出（有的话右端会被裁 —— 名字/来路/守门人三样都在这一块）
+            ovf: bodyEl ? bodyEl.scrollWidth - bodyEl.clientWidth : -1,
+            // 状态标签必须整个落在卡内（它是最右一列，被挤出卡外就只剩半个词）
+            stateIn: sr ? sr.right <= r.right + 0.5 : false,
+            emIn: er ? (er.right <= r.right + 0.5 && er.top >= r.top - 0.5) : false,
+          };
+        });
+        q2push('TOWERS=' + JSON.stringify({
+          show: !!ovT && ovT.classList.contains('show'),
+          n: cardsT.length,
+          // 同时挂着的浮层清单：选塔屏必须独占（开始页还挂在下面时，那颗金色按钮会从卡缝里透出来）
+          under: Array.from(d.querySelectorAll('.overlay.show')).map((x) => x.id),
+          kicker: (d.getElementById('towerKicker') || {}).textContent || '',
+          desc: ((d.getElementById('towerDesc') || {}).textContent || '').trim(),
+          hint: ((d.getElementById('towerHint') || {}).textContent || '').trim(),
+          marksHidden: !!(d.getElementById('towerMarks') || {}).hidden,
+          rows: rowsT,
+        }));
       } else if (scene === 'stoneidle') {
         const sI = E.state();
         const rowI = sI.maps[12][5];

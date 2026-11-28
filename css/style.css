@@ -2328,12 +2328,17 @@ html.fx-low .end-sign.write > span, html.fx-low .end-sign.write > span::after { 
     radial-gradient(110% 78% at 50% 38%, rgba(52, 42, 24, 0.55), rgba(6, 6, 9, 0) 70%),
     #050507;
 }
+/* 立誓页的滚动交给 .vow-stage 自己（它有 92dvh 上限，见下方「矮屏兜底」那一节）；
+   这两条只保证宽屏居中、窄屏不被 flex 压扁。 */
+#vowOverlay .vow-stage { margin: auto; flex: none; }
 .vow-stage { width: 100%; max-width: 470px; text-align: center; animation: popIn var(--pop-in) ease-out; }
 
 /* ---------- 塔群（2026-11-28）：三座齿塔 + 主塔 ---------- */
 .tower-stage { width: 100%; max-width: 470px; text-align: center; animation: popIn var(--pop-in) ease-out; }
 .tower-kicker { font-size: var(--fs-tag); letter-spacing: 9px; color: var(--gold); opacity: 0.9; }
-.tower-desc { font-size: var(--fs-aux); line-height: 1.8; color: #b9bfcc; margin: 10px 0 4px; }
+/* text-wrap: balance —— 首局那句说明在 430 屏上折成两行时，第二行只剩「门。」两个字（孤字成行）。
+   均衡断行把两行拉成等长，不改文案也不改字号。单行时是空操作。 */
+.tower-desc { font-size: var(--fs-aux); line-height: 1.8; color: #b9bfcc; margin: 10px 0 4px; text-wrap: balance; }
 .tower-banner {
   margin: 12px 0 2px;
   padding: 9px 12px;
@@ -2425,8 +2430,8 @@ html.fx-low .end-sign.write > span, html.fx-low .end-sign.write > span::after { 
 .vow-tower i { display: block; font-style: normal; font-size: var(--fs-tag); color: var(--muted); margin-top: 1px; }
 .vow-back {
   display: block;
-  margin: 14px auto 0;
-  padding: 4px 10px;
+  margin: 7px auto 0;
+  padding: 2px 10px;
   background: none;
   border: 0;
   color: var(--muted);

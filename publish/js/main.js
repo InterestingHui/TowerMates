@@ -5107,6 +5107,10 @@
         armOpeningTips();
       });
     });
+    // 塔群一推开就等于接管整屏：开始页若还挂在它下面，0.88 的暗幕挡不住——
+    // 那颗金色「开始游戏」与 TOWERMATES 标题会从卡片缝隙里透出来，读成卡面上的污渍
+    // （2026-11-28 焦点B 实拍：钟塔/无名塔两条卡缝里各有一道金光）。选塔没有返回路径，藏掉不丢东西。
+    el.startOverlay.classList.remove('show');
     el.towerOverlay.classList.add('show');
   }
 
