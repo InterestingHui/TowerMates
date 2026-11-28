@@ -2266,6 +2266,65 @@ html.fx-low .end-sign.write > span, html.fx-low .end-sign.write > span::after { 
     #050507;
 }
 .vow-stage { width: 100%; max-width: 470px; text-align: center; animation: popIn var(--pop-in) ease-out; }
+
+/* ---------- 塔群（2026-11-28）：三座齿塔 + 主塔 ---------- */
+.tower-stage { width: 100%; max-width: 470px; text-align: center; animation: popIn var(--pop-in) ease-out; }
+.tower-kicker { font-size: var(--fs-tag); letter-spacing: 9px; color: var(--gold); opacity: 0.9; }
+.tower-desc { font-size: var(--fs-aux); line-height: 1.8; color: #b9bfcc; margin: 10px 0 4px; }
+.tower-banner {
+  margin: 12px 0 2px;
+  padding: 9px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(232, 196, 106, 0.32);
+  background: rgba(232, 196, 106, 0.07);
+  color: var(--gold);
+  font-size: var(--fs-aux);
+  line-height: 1.7;
+}
+.tower-banner[hidden] { display: none; }
+.tower-list { display: flex; flex-direction: column; gap: 9px; width: 100%; margin-top: 12px; }
+.tw-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  padding: 11px 14px 11px 15px;
+  border-radius: 14px;
+  border: 1px solid rgba(232, 196, 106, 0.20);
+  background:
+    linear-gradient(90deg, var(--tw-wash, rgba(232, 196, 106, 0.10)), rgba(0, 0, 0, 0) 22%),
+    linear-gradient(180deg, rgba(30, 28, 24, 0.95), rgba(11, 11, 15, 0.96));
+  color: var(--text);
+  font-family: inherit;
+  cursor: pointer;
+  position: relative;
+  transition: transform 0.16s cubic-bezier(0.2, 0.9, 0.25, 1), border-color 0.2s, box-shadow 0.22s;
+}
+.tw-card::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 11px; bottom: 11px;
+  width: 2px; border-radius: 2px;
+  background: var(--tw, var(--gold));
+  opacity: 0.9;
+}
+.tw-card:active { transform: scale(0.985); }
+.tw-card.locked { opacity: 0.42; cursor: not-allowed; }
+.tw-card.locked::before { opacity: 0.35; }
+.tw-card.done { border-color: rgba(111, 227, 160, 0.25); }
+.tw-card.now { border-color: var(--tw, var(--gold)); box-shadow: 0 0 0 1px var(--tw-wash, rgba(232,196,106,0.16)) inset; }
+.tw-ico { flex: none; width: 28px; text-align: center; font-size: 21px; }
+.tw-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.tw-body b { font-size: var(--fs-aux); font-weight: 700; letter-spacing: 0.5px; color: var(--tw, var(--gold)); }
+.tw-body i { font-size: var(--fs-tag); font-style: normal; color: var(--muted); }
+.tw-body em { font-size: var(--fs-tag); font-style: normal; color: #9aa3b5; }
+.tw-state { flex: none; font-size: var(--fs-tag); color: var(--muted); text-align: right; }
+.tw-card.done .tw-state { color: var(--success); }
+.tw-card.now .tw-state { color: var(--tw, var(--gold)); }
+.tower-marks { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin-top: 11px; font-size: var(--fs-tag); color: var(--gold); }
+.tower-marks[hidden] { display: none; }
+.tower-hint { margin-top: 12px; font-size: var(--fs-tag); color: var(--muted); }
 .vow-kicker { font-size: var(--fs-tag); letter-spacing: 9px; color: var(--gold); opacity: 0.9; }
 .vow-desc { font-size: var(--fs-aux); line-height: 1.85; color: #b9bfcc; margin: 10px 0 16px; }
 .vow-ember {

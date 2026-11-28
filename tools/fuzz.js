@@ -40,6 +40,7 @@ function bad(msg, seed, step) {
   seen.add(k);
   fail++;
   console.log(`✗ [seed ${seed} step ${step}] ${msg}`);
+  if (global.__hist) console.log('   最近几步:\n' + global.__hist.join('\n'));
 }
 
 const fin = (v) => typeof v === 'number' && isFinite(v);
@@ -70,7 +71,7 @@ function invariants(s, seed, step, where) {
   // 站位必须是「人能站的格子」——'.'、楼梯、货摊、祭坛、路遇、石座、公主格。
   // （'@' 是起始标记，newGame 读完就抹成 '.'；这里一并放行，老档可能还带着它）
   if ('.unMX?TK@'.indexOf(map[s.y][s.x]) < 0) {
-    return bad(`${tag}脚踩在非法格子「${map[s.y][s.x]}」上（${s.x},${s.y}）`, seed, step);
+    return bad(`${tag}脚踩在非法格子「${map[s.y][s.x]}」上（${s.x},${s.y}）floor=${s.floor} tower=${s.flags.tower}`, seed, step);
   }
 }
 
@@ -89,6 +90,7 @@ function run(seed) {
   s.keys.y = 6; s.keys.r = 4;
   let maxFloor = s.floor;
   let still = 0, lastPos = '';
+  const hist = [];
   for (let step = 0; step < STEPS; step++) {
     if (!s || s.over || s.won) {
       E.reset();
@@ -96,14 +98,19 @@ function run(seed) {
       s = E.state();
     }
     const before = `${s.floor},${s.x},${s.y}`;
+    let act = '?';
     let r = null;
     try {
       const roll = R();
+      act = roll.toFixed(3);
       const stepTo = (dx, dy) => {
         const res = E.tryMove(dx, dy);
         if (res && res.type === 'battle') {
           const opt = pick([null, { block: true }, { block: 'all' }, { tangle: true }]);
-          return E.fight(dx, dy, opt) || res;
+          act += ' fight(' + dx + ',' + dy + ')';
+          const fr = E.fight(dx, dy, opt) || res;
+          act += '->' + (fr && fr.type);
+          return fr;
         }
         return res;
       };
@@ -186,6 +193,9 @@ function run(seed) {
     } catch (e) {
       bad(`动作抛异常：${String(e && e.message || e)}`, seed, step);
     }
+    hist.push(`${step}: ${before} ${act} => ${s.floor},${s.x},${s.y}`);
+    global.__hist = hist;
+    if (hist.length > 8) hist.shift();
     invariants(s, seed, step, '');
     // 卡住（门没钥匙 / 全方向堵死）时补几把钥匙，让探索继续；只补资源，不改结构
     const now2 = `${s.floor},${s.x},${s.y}`;

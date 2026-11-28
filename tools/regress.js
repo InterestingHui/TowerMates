@@ -528,7 +528,7 @@ if (!process.argv.includes('--no-shot')) {
         const gateOk = /^1+$/.test(r.bits || '');
         okPace = r.start >= 0 && r.start <= 1 && r.hud === 1
           && r.vow >= 0 && r.vow <= 8 && r.floor1 >= 0 && r.floor1 <= 4 && r.ready >= 0 && r.ready <= 3
-          && r.modals >= 0 && r.modals <= 2 && ffOk && gateOk;
+          && r.modals >= 0 && r.modals <= 3 && ffOk && gateOk;   // 多塔：多一段进塔对白（2 → 3）
         paceLine = `首屏 ${r.start} / HUD隐藏 ${r.hud} / 立誓 ${r.vow} / 首层 ${r.floor1} / 可操作 ${r.ready} / 教学弹窗 ${r.modals} / 首战 ${r.firstFight < 0 ? '—' : r.firstFight + 's'}`;
         console.log((okPace ? '✓' : '✗') + ' 首局节奏 ' + paceLine + '（预算 1 / 1 / ≤8 / 4 / 3 / ≤2 / ≤70s）');
         const gBits = r.bits || '';

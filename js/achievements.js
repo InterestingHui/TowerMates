@@ -40,6 +40,10 @@
     { id: 'sweeper', name: '清塔者', emoji: '🗡️', desc: '击败至少 50 只怪，走到结局' },
     { id: 'fall3', name: '塔的常客', emoji: '💀', desc: '累计折戟 3 次——塔记住了你倒下的地方' },
     { id: 'fall10', name: '不死不休', emoji: '⚰️', desc: '累计折戟 10 次——每一层都留过你的名字' },
+    // 2026-11-28 多塔：三座齿塔各有自己的齿；第三枚拔掉＝主塔的门认了你
+    { id: 'tooth1', name: '第一枚齿', emoji: '⚙️', desc: '拔掉锈塔的齿' },
+    { id: 'tooth2', name: '第二枚齿', emoji: '🕳️', desc: '拔掉灰塔的齿' },
+    { id: 'tooth3', name: '三齿皆松', emoji: '⏱️', desc: '拔掉三座齿塔的齿，主塔的门认了你' },
   ];
 
   let unlocked = {};
@@ -132,6 +136,11 @@
       if ((f.falls || 0) >= 3) unlock('fall3', notify);
       if ((f.falls || 0) >= 10) unlock('fall10', notify);
     }
+    // 齿塔：走过塔门就记（towerClear 在 main 的塔门分支里发 evaluate('tower')）
+    const cleared = Array.isArray(f.towersCleared) ? f.towersCleared : [];
+    if (cleared.indexOf('rust') >= 0) unlock('tooth1', notify);
+    if (cleared.indexOf('ash') >= 0) unlock('tooth2', notify);
+    if (cleared.indexOf('rust') >= 0 && cleared.indexOf('ash') >= 0 && cleared.indexOf('bell') >= 0) unlock('tooth3', notify);
   }
 
   function reset() {

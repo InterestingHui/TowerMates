@@ -95,9 +95,14 @@
     const mapSeed = opts && typeof opts.seed === 'number' ? opts.seed : (Math.random() * 1e9) | 0;
     // 今日一塔：带着日期键进来，本局的地图换位 / 路遇 / 锁环与祭坛候选 / Boss 台词全部按同一颗种子复现
     const daily = opts && typeof opts.daily === 'string' && opts.daily ? opts.daily : null;
+    // 2026-11-28 多塔：新局从第一座齿塔（锈塔）开始，属性取该塔的起始值。
+    // 主塔的 12 层索引没有动，齿塔接在末尾（13–21），所以这里只是把起点从 0 换成 13。
+    // opts.tower：工具/单测可以直接从主塔开局（默认仍是玩家路径：第一座齿塔）。
+    // 从主塔开局不给塔印——单测要的是 10/10/1000 的原始基线。
+    const first = (opts && opts.tower && D.towers.find((t) => t.id === opts.tower)) || D.towers[0];
     s = {
-      floor: 0, x: 1, y: 1,
-      hp: 1000, maxHp: 1000, atk: 10, def: 10,
+      floor: first.floors[0], x: 1, y: 1,
+      hp: first.start.hp, maxHp: first.start.maxHp, atk: first.start.atk, def: first.start.def,
       gold: 0, exp: 0, level: 1,
       keys: { y: 1, r: 0 },
       maps: floorMaps(),
@@ -107,6 +112,10 @@
         hasBlock: false, mapSeed: mapSeed,
         rngSeed: daily ? mapSeed : null, rngN: daily ? 0 : null,
         daily: daily,
+        // 塔群进度：当前塔 / 已通关的齿塔 / 已带走的塔印
+        tower: first.id,
+        towersCleared: first.main ? ['rust', 'ash', 'bell'] : [],
+        marks: [],
       },
       ver: 5,
       steps: 0,
@@ -120,20 +129,121 @@
     // 开新局是玩家的明确选择：这一页从此拥有这一档，哪怕另一页刚写过（那次写会把它顶掉）
     saveConflict = false;
     forceNextWrite = true;
-    // 前 3 层「先走哪边、先捡什么」每局都不同（今日一塔=同一天同一座塔）：
+    // 主塔前 3 层「先走哪边、先捡什么」每局都不同（今日一塔=同一天同一座塔）：
     // 第 1 层用主种子（工具场景传 seed 0 即原版布局），第 2/3 层各派生一颗子种子。
+    // 齿塔不洗牌：三座小塔是教学，每局同一张图才教得会。
     shufflePickups(s.maps[0], mapSeed);
     shufflePickups(s.maps[1], subSeed(mapSeed, SUBSEED_F2));
     shufflePickups(s.maps[2], subSeed(mapSeed, SUBSEED_F3));
-    const map = s.maps[0];
+    const map = s.maps[s.floor];
+    const entryCh = first.main ? '@' : 'n';
     outer: for (let y = 0; y < SIZE; y++) {
       for (let x = 0; x < SIZE; x++) {
-        if (map[y][x] === '@') { s.x = x; s.y = y; map[y][x] = '.'; break outer; }
+        if (map[y][x] === entryCh) { s.x = x; s.y = y; map[y][x] = '.'; break outer; }
       }
     }
     save();
     emit('newgame');
     return s;
+  }
+
+  // ---------- 塔群 ----------
+  // 齿塔独立成长：进塔时属性回到该塔的 start，只带走已获得的塔印。
+  // 这样新手不会在塔一攒的属性把塔三打穿，也不会因为「换塔」觉得自己忽然变弱——
+  // 每座塔的起始值本身在递增，塔印是额外的、明写在结算页上的那一份。
+  const towerById = (id) => D.towers.find((t) => t.id === id) || null;
+  function markBonus() {
+    const ids = (s && s.flags && s.flags.marks) || [];
+    let atk = 0, def = 0, maxHp = 0;
+    D.towers.forEach((t) => {
+      if (t.mark && ids.indexOf(t.mark.id) >= 0) {
+        atk += t.mark.atk; def += t.mark.def; maxHp += t.mark.maxHp;
+      }
+    });
+    return { atk, def, maxHp };
+  }
+  function canEnterTower(id) {
+    const t = towerById(id);
+    if (!t) return { ok: false, msg: '没有这座塔' };
+    const cleared = (s && s.flags && s.flags.towersCleared) || [];
+    if (t.main) {
+      const need = D.towers.filter((x) => !x.main).map((x) => x.id);
+      if (!need.every((x) => cleared.indexOf(x) >= 0)) {
+        return { ok: false, msg: '三枚齿还没拔完，主塔的门不认你' };
+      }
+      return { ok: true };
+    }
+    const idx = D.towers.indexOf(t);
+    if (idx <= 0) return { ok: true };
+    const prev = D.towers[idx - 1];
+    if (cleared.indexOf(prev.id) >= 0) return { ok: true };
+    return { ok: false, msg: `先拔掉「${prev.name}」的那枚齿` };
+  }
+  function enterTower(id) {
+    const r = canEnterTower(id);
+    if (!r.ok) return r;
+    const t = towerById(id);
+    const b = markBonus();
+    s.floor = t.floors[0];
+    s.hp = s.maxHp = t.start.maxHp + b.maxHp;
+    s.atk = t.start.atk + b.atk;
+    s.def = t.start.def + b.def;
+    s.gold = 0; s.exp = 0; s.level = 1;
+    s.keys = { y: t.main ? 1 : 0, r: 0 };
+    s.flags.tower = id;
+    s.flags.hasBlock = false;
+    s.flags.rings = [];
+    // 每座塔自己的一份账：遗物、商店涨价记录、格挡/祭坛/路遇的按层标记都不跨塔。
+    // 只清这两类前缀 + 本塔的按层标记，别把成就/塔群进度清掉。
+    Object.keys(s.flags).forEach((k) => {
+      if (k.indexOf('relic_') === 0 || k.indexOf('buy_') === 0) delete s.flags[k];
+    });
+    t.floors.forEach((fi) => {
+      Object.keys(s.flags).forEach((k) => {
+        if (k.endsWith('_f' + fi)) delete s.flags[k];
+      });
+      s.maps[fi] = D.floors[fi].map.map((row) => row.split(''));
+    });
+    const entryCh = t.main ? '@' : 'n';
+    let found = false;
+    outer: for (let y = 0; y < SIZE; y++) {
+      for (let x = 0; x < SIZE; x++) {
+        if (s.maps[s.floor][y][x] === entryCh) { s.x = x; s.y = y; found = true; break outer; }
+      }
+    }
+    if (!found) { s.x = 1; s.y = 1; }
+    s.over = false; s.won = false; s.ending = null;
+    s.snap = null;
+    s.floorEnter = null;
+    save();
+    emit('newgame');
+    return { ok: true, tower: t, marks: b };
+  }
+  // 踩上塔门：记通关、发塔印。重复进已通关的塔不会再发一次。
+  function towerClear() {
+    const t = s ? D.towerOf(s.floor) : null;
+    if (!t || t.main) return null;
+    const cleared = s.flags.towersCleared || (s.flags.towersCleared = []);
+    const first = cleared.indexOf(t.id) < 0;
+    if (first) {
+      cleared.push(t.id);
+      const marks = s.flags.marks || (s.flags.marks = []);
+      if (marks.indexOf(t.mark.id) < 0) marks.push(t.mark.id);
+    }
+    save();
+    return { tower: t, first, mark: t.mark, cleared: cleared.slice() };
+  }
+  function towerExit() {
+    const t = s ? D.towerOf(s.floor) : null;
+    if (!t || t.main) return null;
+    save();
+    return { tower: t };
+  }
+  function marks() {
+    return ((s && s.flags && s.flags.marks) || []).map((id) => {
+      const t = D.towers.find((x) => x.mark && x.mark.id === id);
+      return t ? t.mark : null;
+    }).filter(Boolean);
   }
 
   // ---------- 存档校验：坏档一律挡在「进游戏」之前 ----------
@@ -168,6 +278,11 @@
   function sanitizeSave(p) {
     if (!p || typeof p !== 'object') return null;
     if (p.ver !== 5) return null;
+    // 2026-11-28 多塔：floors 从 13 扩到 22，老档的地图只有 13 层。
+    // 不判坏档——把新增的 9 层初始地图补在后面，老玩家接着玩（塔群进度按「主塔已开」算）。
+    if (Array.isArray(p.maps) && p.maps.length === 13) {
+      p.maps = p.maps.concat(D.floors.slice(13).map((f) => f.map.map((row) => row.split(''))));
+    }
     if (!okMaps(p.maps)) return null;
     for (let i = 0; i < NEED_NUM.length; i++) if (!isFiniteNum(p[NEED_NUM[i]])) return null;
     if (p.atk < 0 || p.def < 0 || p.hp < 0) return null;
@@ -186,6 +301,14 @@
     const f = p.flags;
     if (!Array.isArray(f.rings)) f.rings = [];
     else f.rings = f.rings.filter((x) => typeof x === 'string');
+    // 塔群进度：老档没有这三个字段 = 已经在主塔里的人（按已通关三座齿塔补），
+    // 这样老玩家读档不会被扔回锈塔第 1 层。
+    const towerIds = D.towers.map((t) => t.id);
+    if (typeof f.tower !== 'string' || towerIds.indexOf(f.tower) < 0) f.tower = 'main';
+    if (!Array.isArray(f.towersCleared)) f.towersCleared = ['rust', 'ash', 'bell'];
+    else f.towersCleared = f.towersCleared.filter((x) => towerIds.indexOf(x) >= 0 && x !== 'main');
+    if (!Array.isArray(f.marks)) f.marks = ['rust', 'ash', 'bell'];
+    else f.marks = f.marks.filter((x) => towerIds.indexOf(x) >= 0 && x !== 'main');
     if (!Array.isArray(f.fr)) f.fr = [];
     if (typeof f.hasBlock !== 'boolean') f.hasBlock = false;   // 格挡要学：老档缺字段＝未学会
     if (!isFiniteNum(f.eventEmber)) f.eventEmber = 0;
@@ -725,18 +848,58 @@
     return true;
   }
 
+  // 塔内连续、塔间断开：齿塔接在主塔之后（13–21），所以「上一层」不再等于 floor+1。
+  // 塔的最后一层不出这个函数——那里是塔门，由 changeFloor 拦下走结算。
+  function nextFloorOf(f) {
+    const tw = D.towerOf(f);
+    const i = tw.floors.indexOf(f);
+    if (i >= 0 && i < tw.floors.length - 1) return tw.floors[i + 1];
+    const ti = D.towers.indexOf(tw);
+    if (ti >= 0 && ti < D.towers.length - 1) return D.towers[ti + 1].floors[0];
+    return f + 1;
+  }
+  function prevFloorOf(f) {
+    const tw = D.towerOf(f);
+    const i = tw.floors.indexOf(f);
+    if (i > 0) return tw.floors[i - 1];
+    const ti = D.towers.indexOf(tw);
+    if (ti > 0) return D.towers[ti - 1].floors[D.towers[ti - 1].floors.length - 1];
+    return f - 1;
+  }
+
   function changeFloor(dir) {
-    const target = s.floor + dir;
-    if (target < 0 || target >= D.floors.length) return null;
     const from = s.floor;
+    const fromTower = D.towerOf(from);
+    // 齿塔的最后一层：u 是「塔门」，不是楼梯——不换层，交给 UI 结算塔印并回塔群。
+    if (dir > 0 && !fromTower.main && from === fromTower.floors[fromTower.floors.length - 1]) {
+      return { towerClear: fromTower.id, floor: from, x: s.x, y: s.y, heal: 0, gold: 0 };
+    }
+    // 齿塔的第一层：往下走＝退出这座塔（回塔群），进度从本塔第 1 层重来。
+    if (dir < 0 && !fromTower.main && from === fromTower.floors[0]) {
+      return { towerExit: fromTower.id, floor: from, x: s.x, y: s.y, heal: 0, gold: 0 };
+    }
+    const target = dir > 0 ? nextFloorOf(from) : prevFloorOf(from);
+    if (target < 0 || target >= D.floors.length) return null;
     s.floor = target;
     const map = s.maps[target];
     const mark = dir > 0 ? 'n' : 'u';
     let nx = s.x, ny = s.y;
-    for (let y = 0; y < SIZE; y++) {
+    let found = false;
+    for (let y = 0; y < SIZE && !found; y++) {
       for (let x = 0; x < SIZE; x++) {
-        if (map[y][x] === mark) { nx = x; ny = y; y = SIZE; break; }
+        if (map[y][x] === mark) { nx = x; ny = y; found = true; break; }
       }
+    }
+    // 目标层没有对应楼梯（隐藏层的 u 还没生成、主塔第 1 层只有 @）：不能沿用源层坐标——
+    // 那边可能正好站着一只怪（fuzz 实测从锁芯下楼踩到第 12 层的「3」）。找一块能站的地。
+    if (!found) {
+      nx = -1; ny = -1;
+      for (let y = 0; y < SIZE && nx < 0; y++) {
+        for (let x = 0; x < SIZE; x++) {
+          if ('.unMX?TK@'.indexOf(map[y][x]) >= 0) { nx = x; ny = y; break; }
+        }
+      }
+      if (nx < 0) { nx = s.x; ny = s.y; }
     }
     s.x = nx; s.y = ny;
     s.flags.maxFloor = Math.max(s.flags.maxFloor || 0, target);
@@ -988,7 +1151,7 @@
       moveTo(nx, ny);
       const r = changeFloor(ch === 'u' ? 1 : -1);
       save();
-      return { type: 'floor', msg: `来到第 ${s.floor + 1} 层 · ${D.floors[s.floor].name}`, dir: ch === 'u' ? 1 : -1, at: r };
+      return { type: 'floor', msg: `来到第 ${D.floorNo(s.floor)} 层 · ${D.floors[s.floor].name}`, dir: ch === 'u' ? 1 : -1, at: r };
     }
 
     if (ch === 'T') {
@@ -1134,6 +1297,18 @@
     if (!pos) {
       for (let y = 0; y < SIZE && !pos; y++) {
         for (let x = 0; x < SIZE; x++) if (map[y][x] === 'u') { pos = { x, y }; break; }
+      }
+    }
+    // 主塔第 1 层既没有 n 也没有 u（只有 @）：跳过去时必须另找一块能站的地，
+    // 否则人物保留原坐标，可能正好落在怪物格上（fuzz 实测踩到「3」）。
+    if (!pos) {
+      for (let y = 0; y < SIZE && !pos; y++) {
+        for (let x = 0; x < SIZE; x++) if (map[y][x] === '@') { pos = { x, y }; break; }
+      }
+    }
+    if (!pos) {
+      for (let y = 0; y < SIZE && !pos; y++) {
+        for (let x = 0; x < SIZE; x++) if ('.unMX?TK'.indexOf(map[y][x]) >= 0) { pos = { x, y }; break; }
       }
     }
     if (pos) { s.x = pos.x; s.y = pos.y; }
@@ -1441,7 +1616,7 @@
         s.hp += h; heal += h;
       }
     }
-    if (s.floor === D.floors.length - 1 && !floorHasMonster()) s.flags.coreClear = true;
+    if (s.floor === 12 && !floorHasMonster()) s.flags.coreClear = true;   // 锁芯仍是主塔末层（索引 12）；齿塔接在它后面，不能用数组末位
     const ups = levelUp();
     save();
     emit('kill', { name: m.name, boss: !!m.boss });
@@ -1915,7 +2090,9 @@
     } else {
       time = Math.max(0, Math.round(((s.finishedAt || Date.now()) - s.startedAt) / 1000));
     }
-    return { ending: s.ending, floor: s.floor + 1, level: s.level, steps: s.steps, time };
+    // 榜单/结算里的「第几层」＝总进度号（三座齿塔 1–9 + 主塔 10–22），
+    // 不能用 floor+1：齿塔索引是 13 起，直接加一会记成「第 14 层」。
+    return { ending: s.ending, floor: D.progressNo(s.floor), level: s.level, steps: s.steps, time };
   }
 
   window.Engine = {
@@ -1928,6 +2105,7 @@
     },
     tryMove, fight, lastTactic, canBlock, canGuard, blockLimit, blockLeft, blockUsedAt, grantBlock, blockSpreadAt, blockSpreadActive, blockSpreadScale, BLOCK_SPREAD, BLOCK_BASE, BLOCK_BASE2, buy, priceOf, shopStock, dealOf, openShopAt, floorMonsterCount, floorPickupCount, floorThreat, battleMargin, potionHeal, finish, altarChoices, pickRelic, pathTo, pathThrough, pathToNear, pathsTo,
     nextLevelExp, margin, keyName, summary, accrueActive, ACTIVE_CAP, hasRelic, ownedRelics, beginFloor, restoreFloor, revealCore, heartState, heartTake, heartLeave, vow, pickEvent, eventPool, eventCost, eventShortfall, resolveEvent, applyEffect, jumpTo, visitedMax, gateForth, sealPlan,
+    enterTower, canEnterTower, towerClear, towerExit, marks, markBonus, towerById, nextFloorOf, prevFloorOf,
     rings, hasRing, ringBlockScale, zealScale, zealNext, zealNeed, finalLedger, cleanEmber, fightDamage, tangleInfo, bossPhases, settleChapter, ringChoices, pendingRing, pickRing,
   };
 })();

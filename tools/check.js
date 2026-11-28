@@ -20,18 +20,32 @@ D.floors.forEach((f, fi) => {
   const counts = {};
   for (const ch of flat) counts[ch] = (counts[ch] || 0) + 1;
   console.log('  元素:', Object.keys(counts).sort().map((k) => `${k}:${counts[k]}`).join(' '));
-  if (fi === 0 && counts['@'] !== 1) err('第一层应有且仅有 1 个 @');
-  if (fi > 0 && counts['@']) err('只有第一层能有 @');
-  // 每一层（除顶层）都必须有且仅有 1 个上楼，否则会卡层
-  if (fi < D.floors.length - 1 && !f.hiddenGate && counts['u'] !== 1) err(`应有且仅有 1 个上楼 u（实际 ${counts['u'] || 0}）`);
+  // 塔结构（2026-11-28）：层不再按数组首尾判，而是按它所属的塔判——
+  // 主塔第一层有 @、没有 n；齿塔第一层有 n（回塔群）；只有主塔最后一层（锁芯）没有 u，
+  // 齿塔最后一层的 u 是「塔门」，必须有且只有一个。
+  const tw = D.towerOf(fi);
+  const isFirst = fi === tw.floors[0];
+  const isLast = fi === tw.floors[tw.floors.length - 1];
+  if (fi === 0 && counts['@'] !== 1) err('主塔第一层应有且仅有 1 个 @');
+  if (fi !== 0 && counts['@']) err('只有主塔第一层能有 @');
+  if (isLast) {
+    const wantUp = tw.main ? 0 : 1;
+    if ((counts['u'] || 0) !== wantUp) err(`${tw.name} 最后一层应有 ${wantUp} 个塔门 u（实际 ${counts['u'] || 0}）`);
+  } else if (!f.hiddenGate && counts['u'] !== 1) {
+    err(`应有且仅有 1 个上楼 u（实际 ${counts['u'] || 0}）`);
+  }
   if (f.hiddenGate && counts['u']) err('隐藏门层的上楼应由脚本生成，不应写在地图里');
-  if (fi > 0 && counts['n'] !== 1) err(`应有且仅有 1 个下楼 n（实际 ${counts['n'] || 0}）`);
-  if (fi === D.floors.length - 1 && counts['u']) err('顶层不应有上楼');
-  if (fi === 0 && counts['n']) err('第一层不应有下楼');
+  if (isFirst) {
+    const wantDown = tw.main ? 0 : 1;
+    if ((counts['n'] || 0) !== wantDown) err(`${tw.name} 第一层应有 ${wantDown} 个 n（实际 ${counts['n'] || 0}）`);
+  } else if (counts['n'] !== 1) {
+    err(`应有且仅有 1 个下楼 n（实际 ${counts['n'] || 0}）`);
+  }
 
   // 连通性：把门/怪物都视为可通过，找物理隔离区
-  const start = fi === 0 ? f.map.findIndex((r) => r.includes('@')) : f.map.findIndex((r) => r.includes('n'));
-  const sx = f.map[start].indexOf(fi === 0 ? '@' : 'n');
+  const entryCh = isFirst ? (tw.main ? '@' : 'n') : 'n';
+  const start = f.map.findIndex((r) => r.includes(entryCh));
+  const sx = f.map[start].indexOf(entryCh);
   const seen = Array.from({ length: SIZE }, () => new Array(SIZE).fill(false));
   const q = [[sx, start]];
   seen[start][sx] = true;
@@ -181,6 +195,35 @@ D.chapters.forEach((ch) => {
     if (D.floors[i - 1].chapter !== ch.id) err(`第 ${i} 层章节标记不是 ${ch.id}`);
   }
 });
+// ---------- 塔群结构（2026-11-28） ----------
+// 四条硬口径：层不重不漏、order 连续、齿塔 3 层/主塔 13 层、Boss 必须在塔的最后一层。
+// 任何一条破了，解锁顺序或塔门结算都会出现「进得去出不来」的死角。
+{
+  const seen = new Set();
+  D.towers.forEach((t, i) => {
+    if (!Array.isArray(t.floors) || !t.floors.length) err(`塔 ${t.id} 没有楼层`);
+    if (t.order !== i + 1) err(`塔 ${t.id} 的 order=${t.order}，应为 ${i + 1}`);
+    const want = t.main ? 13 : 3;
+    if (t.floors.length !== want) err(`${t.name} 应有 ${want} 层（实际 ${t.floors.length}）`);
+    t.floors.forEach((fi) => {
+      if (seen.has(fi)) err(`第 ${fi + 1} 层同时属于两座塔（${t.name}）`);
+      seen.add(fi);
+    });
+    // 塔内层必须连续（13,14,15 而不是 13,15,16）
+    for (let k = 1; k < t.floors.length; k++) {
+      if (t.floors[k] !== t.floors[k - 1] + 1) err(`${t.name} 的楼层不连续：${t.floors.join(',')}`);
+    }
+    // 主塔的最后一层是隐藏锁芯（没有 Boss），守门 Boss 在倒数第二层（第 12 层·碑魔）；
+    // 齿塔没有隐藏层，Boss 就在最后一层。
+    const bossFi = t.main ? t.floors[t.floors.length - 2] : t.floors[t.floors.length - 1];
+    const bossFloor = D.floors[bossFi];
+    if (!bossFloor || bossFloor.boss !== t.boss) err(`${t.name} 的守门层（第 ${bossFi + 1} 层）没有它的 Boss ${t.boss}`);
+  });
+  if (seen.size !== D.floors.length) err(`塔群只覆盖 ${seen.size}/${D.floors.length} 层`);
+  // 非主塔必须能顺序解锁：第 N 座的下一座存在，且主塔排最后
+  if (!D.towers[D.towers.length - 1].main) err('主塔必须是塔群里的最后一座');
+}
+
 // 塔规系统已移除（2026-11-12）：章末回响改为击败 Boss 必得锁环三选一
 
 // 图例覆盖：地图里不允许出现没登记的字符

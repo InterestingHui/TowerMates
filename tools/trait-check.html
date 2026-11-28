@@ -48,12 +48,10 @@ f.onload = async () => {
     const noteEl = () => d.querySelector('#bsName .bs-why');
     const logTxt = () => (d.getElementById('log').textContent || '').replace(/\s+/g, ' ');
 
-    d.getElementById('btnNew').click();
-    await wait(200);
-    const vc = d.querySelector('#vowCards .vow-card[data-vow="none"]');
-    if (vc) vc.click();
-    await wait(300);
-    await clickDlg(16);
+    // 2026-11-28 多塔：探针只验战斗特性行，直接以主塔基线开局（第 1 层有蝙蝠）。
+    w.Engine.newGame(null, { tower: 'main' });
+    d.querySelectorAll('.overlay.show').forEach(function (o) { o.classList.remove('show'); });
+    w.__tm.refreshHud();
     await wait(300);
 
     const s = w.Engine.state();
@@ -170,14 +168,10 @@ f.onload = async () => {
       await wait(600);
       const w2 = f2.contentWindow, d2 = f2.contentDocument;
       await waitFor(() => w2.__tm && w2.__tm.act, 8000);
-      const dl2 = () => d2.getElementById('dialogOverlay');
-      for (let i = 0; i < 4; i++) { dl2().dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(40); }
-      d2.getElementById('btnNew').click();
-      await wait(250);
-      const vc2 = d2.querySelector('#vowCards .vow-card[data-vow="none"]');
-      if (vc2) vc2.click();
-      await wait(250);
-      for (let i = 0; i < 16; i++) { dl2().dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(45); }
+      // 2026-11-28 多塔：窄屏段同样直接以主塔基线开局（不经过序章/塔群）。
+      w2.Engine.newGame(null, { tower: 'main' });
+      d2.querySelectorAll('.overlay.show').forEach(function (o) { o.classList.remove('show'); });
+      w2.__tm.refreshHud();
       await wait(300);
       const s2 = w2.Engine.state();
       delete s2.flags.traitSeen_first;

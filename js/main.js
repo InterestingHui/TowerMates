@@ -553,7 +553,8 @@
       } catch (e) {}
     }
     // 深层垫音：越往上基频越低，锁梁最沉
-    const PAD = [0, 0, 0, 55, 49, 43.65, 41.2, 38.9, 36.7, 34.65, 32.7, 30.87, 29.14];
+    const PAD = [0, 0, 0, 55, 49, 43.65, 41.2, 38.9, 36.7, 34.65, 32.7, 30.87, 29.14,
+      46.2, 44.1, 41.2, 48.0, 45.9, 43.0, 50.5, 48.0, 45.2];   // 13–21 三座齿塔
     function setPad(floor) {
       const f = PAD[floor] || 0;
       if (!Settings.music || !f) { stopPad(); return; }
@@ -753,6 +754,7 @@
     cfgOverlay: $('cfgOverlay'), choiceOverlay: $('choiceOverlay'),
     heartOverlay: $('heartOverlay'), heartTake: $('heartTake'), heartLeave: $('heartLeave'),
     vowOverlay: $('vowOverlay'), vowCards: $('vowCards'), vowTag: $('vowTag'), vowFlash: $('vowFlash'),
+    towerOverlay: $('towerOverlay'), towerList: $('towerList'), towerBanner: $('towerBanner'), towerMarks: $('towerMarks'),
     eventOverlay: $('eventOverlay'), evEmoji: $('evEmoji'), evName: $('evName'), evText: $('evText'), evOpts: $('evOpts'),
     gateOverlay: $('gateOverlay'), gateList: $('gateList'),
     tabOverlay: $('tabOverlay'), tabKicker: $('tabKicker'), tabBody: $('tabBody'), tabMain: $('tabMain'), tabAlt: $('tabAlt'),
@@ -1445,13 +1447,21 @@
   function setChapterColor(floor) {
     const f = D.floors[floor];
     const ch = f && f.chapter ? D.chapters[f.chapter - 1] : null;
+    // 齿塔没有章节，用塔自己的主色（三座塔三套温度），别让它们都落回同一个金色
+    const tw = D.towerOf(floor);
     const root = document.documentElement.style;
-    root.setProperty('--chapter', ch ? ch.color : D.PALETTE.gold);
-    root.setProperty('--chapter-soft', ch ? ch.accent : 'rgba(232,196,106,0.20)');
+    root.setProperty('--chapter', ch ? ch.color : (tw.main ? D.PALETTE.gold : tw.color));
+    root.setProperty('--chapter-soft', ch ? ch.accent : (tw.main ? 'rgba(232,196,106,0.20)' : tw.accent));
   }
 
-  function buildFloorDots() {
-    el.floorDots.innerHTML = D.floors.map((f, i) => `<i data-ch="${f.chapter || 0}" title="第 ${i + 1} 层"></i>`).join('');
+  // 顶栏的层点只画「当前这座塔」：22 个点在 320 屏上是一条挤不下的虚线。
+  // 主塔 13 个点仍按原样画（含锁芯），齿塔只画 3 个。
+  let dotsTower = '';
+  function buildFloorDots(floor) {
+    const tw = D.towerOf(floor === undefined ? (Engine.state() ? Engine.state().floor : 0) : floor);
+    if (dotsTower === tw.id) return;
+    dotsTower = tw.id;
+    el.floorDots.innerHTML = tw.floors.map((fi) => `<i data-ch="${D.floors[fi].chapter || 0}" title="${tw.name} · 第 ${D.floorNo(fi)} 层"></i>`).join('');
   }
 
   // ---------- 卡关指引：打不过时不让提示一闪而过 ----------
@@ -1518,7 +1528,8 @@
     lastPct = pct;
     $('hpText').textContent = `${Math.max(0, Math.round(s.hp))}/${Math.round(maxHp)}`;
     wrap.classList.toggle('low', pct <= 25);
-    el.floorName.textContent = `第 ${s.floor + 1} 层 · ${D.floors[s.floor].name}`;
+    // 齿塔的层名本身已经带塔名（「锈塔 · 门厅」），这里不再前置一次塔名——否则读成「锈塔 · 第 1 层 · 锈塔 · 门厅」
+    el.floorName.textContent = `第 ${D.floorNo(s.floor)} 层 · ${D.floors[s.floor].name}`;
     // 主角卡：立绘只换情绪，切层/掉血才重算 SVG；情绪同时给一句人话状态。
     // 2026-11-24 用户报障：这里原来画的是「烛」——玩家一进塔就变成了守塔人。
     // 玩家是勇者（第九位），顶栏立绘必须是他自己：勇者专属剪影，金瞳 + 斜挎剑。
@@ -1546,8 +1557,11 @@
     el.keyR.textContent = s.keys.r;
     $('btnCodex').style.display = s.flags.codex ? '' : 'none';
 
+    buildFloorDots(s.floor);
+    const twDots = D.towerOf(s.floor);
+    const local = s.floor - twDots.floors[0];
     Array.from(el.floorDots.children).forEach((d, i) => {
-      d.className = i === s.floor ? 'now' : i < s.floor ? 'done' : '';
+      d.className = i === local ? 'now' : i < local ? 'done' : '';
     });
     renderRelicRow(s);
     renderRingRow(s);
@@ -3786,7 +3800,10 @@
   const CN_NUM = ['一', '二', '三', '四', '五', '六'];
   function showBossIntro(m, floor, cb, hold) {
     if (!m || !m.boss) { if (cb) cb(); return; }
-    $('biKicker').textContent = `第 ${CN_NUM[(m.chapter || 1) - 1]} 章 · 第 ${floor + 1} 层`;
+    const biTw = D.towerOf(floor);
+    $('biKicker').textContent = biTw.main
+      ? `第 ${CN_NUM[(m.chapter || 1) - 1]} 章 · 第 ${D.floorNo(floor)} 层`
+      : `${biTw.name} · 第 ${D.floorNo(floor)} 层`;
     $('biName').textContent = m.name;
     $('biTitle').textContent = m.title || '';
     $('biPortrait').innerHTML = window.Portraits ? Portraits.render(m.name, 'hard', null, 'lg') : '';
@@ -3811,9 +3828,12 @@
     const f = D.floors[floor];
     setChapterColor(floor);
     const ch = f.chapter ? D.chapters[f.chapter - 1] : null;
+    const tw = D.towerOf(floor);
     $('fcNum').textContent = ch
-      ? `${ch.title} · ${floor + 1}/${D.floors.length} 层`
-      : `第 ${floor + 1} 层 / 共 ${D.floors.length} 层`;
+      ? `${ch.title} · ${D.floorNo(floor)}/${tw.floors.length} 层`
+      : (tw.main
+        ? `第 ${D.floorNo(floor)} 层 / 共 ${tw.floors.length} 层`
+        : `${tw.name} · 第 ${D.floorNo(floor)} / ${tw.floors.length} 层`);
     $('fcName').textContent = f.name;
     $('fcTip').textContent = f.tip;
     const card = $('floorCard');
@@ -4034,6 +4054,15 @@
     logFloorReach(s);
     Engine.beginFloor();
 
+    // 齿塔第一次进来：播一段进塔对白（每座塔一次）。放在章节剧情之前——
+    // 齿塔没有章节，这两套触发条件互斥。
+    if (f.tower && !s.flags['towerEntered_' + f.tower]) {
+      const tw = D.towerOf(s.floor);
+      s.flags['towerEntered_' + f.tower] = true;
+      Engine.save();
+      if (tw.enter && S[tw.enter]) { playStory(tw.enter); return; }
+    }
+
     // 章节入口 + 关键剧情。F4 是第二章开头，接烛的第二段。
     const seq = [];
     if (s.floor === 3) {
@@ -4129,6 +4158,29 @@
         break;
       case 'floor':
         Sound.play('door');
+        // 齿塔的塔门：不换层，先结算塔印，再回塔群选下一座。
+        if (ev.at && ev.at.towerClear) {
+          const r = Engine.towerClear();
+          if (r) {
+            Achievements.evaluate('tower', Engine.state(), notifyAchievement);
+            const line = (S[r.tower.clear] || []).join('');
+            openTower(`<b>${r.tower.name} · 齿断了</b><br>${line}<br>`
+              + (r.first
+                ? `获得塔印「${r.mark.emoji} ${r.mark.name}」：${r.mark.desc}`
+                : '这枚齿你已经拔过——塔印还在。'));
+            Sound.play('relic');
+            vibrate([10, 30, 10, 30]);
+            Renderer.pulse();
+            log(`塔门开了：${r.tower.name} 的齿断了。`, 'gold');
+          }
+          break;
+        }
+        // 齿塔第一层的下楼：退出这座塔，回塔群重选（进度从这座塔第 1 层重来）。
+        if (ev.at && ev.at.towerExit) {
+          Engine.towerExit();
+          openTower();
+          break;
+        }
         // 惜挡之环：这一层一次格挡都没动，走的时候补了一笔钱——当场说明白，别让它悄悄进账
         if (ev.at && ev.at.gold > 0) {
           log(`惜挡之环：这一层没动格挡，上楼时留下 ${ev.at.gold} 金币。`, 'gold');
@@ -4744,7 +4796,9 @@
     // 「另一页在玩」：整屏遮罩 + 两个按钮，与速查卡 / 重置确认同一类。
     // 它从加进 index.html 那天就漏登记了——页面这时已经停止保存，方向键却还替玩家往前走，
     // 走了的路一条都进不了档（进度丢失）。加新浮层一律先看这份名单。
-    'tabOverlay'];
+    'tabOverlay',
+    // 2026-11-28 塔群：开局/塔门结算都在这一层，方向键绝不能替玩家走
+    'towerOverlay'];
   function covered() {
     for (const id of FULL_OVERLAYS) {
       if (el[id] && el[id].classList.contains('show')) return true;
@@ -4849,6 +4903,59 @@
     });
   }
 
+  // ---------- 塔群 ----------
+  // 每次回塔群都重画：进度、塔印、下一座塔的可进状态全从 Engine 现算，
+  // 不缓存「上一屏点过哪座」——玩家的进度只有存档一个真源。
+  function openTower(banner) {
+    const s = Engine.state();
+    if (!s) return;
+    const cleared = s.flags.towersCleared || [];
+    const marks = Engine.marks();
+    el.towerBanner.hidden = !banner;
+    el.towerBanner.innerHTML = banner || '';
+    el.towerMarks.hidden = !marks.length;
+    el.towerMarks.innerHTML = marks.length
+      ? `<span>塔印</span>` + marks.map((m) => `<span>${m.emoji} ${m.name}</span>`).join('')
+      : '';
+    el.towerList.innerHTML = D.towers.map((t) => {
+      const done = cleared.indexOf(t.id) >= 0;
+      const can = Engine.canEnterTower(t.id).ok;
+      const st = done ? 'done' : can ? 'now' : 'locked';
+      const state = done ? '已通关' : can ? (t.main ? '进主塔' : '可进') : '未解锁';
+      const boss = D.monsters[t.boss];
+      return `<button class="tw-card ${st}${t.main ? ' main' : ''}" data-id="${t.id}" data-st="${st}" style="--tw:${t.color};--tw-wash:${t.accent}">
+        <span class="tw-ico">${t.main ? '🗼' : (t.mark ? t.mark.emoji : '🔒')}</span>
+        <span class="tw-body"><b>${t.name}</b><i>${t.kicker} · ${t.theme}</i><em>${t.floors.length} 层${boss ? ' · 守门 ' + boss.name : ''}</em></span>
+        <span class="tw-state">${state}</span>
+      </button>`;
+    }).join('');
+    el.towerList.querySelectorAll('.tw-card').forEach((b) => {
+      b.addEventListener('click', () => {
+        if (b.dataset.st === 'locked') {
+          warn(Engine.canEnterTower(b.dataset.id).msg || '这座塔还没开');
+          return;
+        }
+        const r = Engine.enterTower(b.dataset.id);
+        if (!r.ok) { warn(r.msg); return; }
+        el.towerOverlay.classList.remove('show');
+        Sound.play('door');
+        enterFloor(true);
+        refreshHud();
+        // 教练卡要等进塔对白读完再弹：以前固定 350ms，塔一的 4 句剧情还在播，
+        // 两层遮罩会叠在一起（实拍确认）。这里改成轮询，对白关掉才弹，只弹一次。
+        const armOpening = () => {
+          if (el.dialogOverlay.classList.contains('show')) { setTimeout(armOpening, 350); return; }
+          if (quickStart || Engine.state().flags.tipsOpening) return;
+          Engine.state().flags.tipsOpening = true;
+          Engine.save();
+          Tips.show('opening');
+        };
+        setTimeout(armOpening, 450);
+      });
+    });
+    el.towerOverlay.classList.add('show');
+  }
+
   function openVow(force) {
     vowFocus = -1;
     Funnel.push('vow_open', { first: isFirstRun() ? 1 : 0 });
@@ -4944,14 +5051,12 @@
     // 想回看走设置里的「重看序章」，不占开局时间。
     const seenIntro = (Meta.memory.runs || 0) > 0;
     const begin = () => {
-      enterFloor(true);
+      // 2026-11-28 多塔：立誓之后先看塔群，不是直接踏进主塔——
+      // 新手从锈塔开始，一座一座拔齿；主塔要三枚齿都松了才认人。
+      openTower();
       if (Engine.vow() !== 'none') log(`你立下了${vs.name}：${vs.desc}`, 'gold');
       log('你踏入了魔塔。塔顶传来极轻的、像铃声一样的声音。', 'gold');
       if (seenIntro) log('序章在读过了——设置里可以重看。');
-      // 开局教学：棋盘标注（高亮格子 + 虚线 + 说明卡），点击「知道了」才收。
-      // 用 setTimeout 避开对白关闭的同步栈：等遮罩过渡完、布局稳定后再量尺寸定位。
-      // 直达链接 ?play=1 不弹这张卡，保证扫码/点链接落地即可操作；普通入口保留引导。
-      if (!quickStart) setTimeout(() => Tips.show('opening'), 350);
     };
     if (seenIntro) begin();
     else playStory('intro', begin);

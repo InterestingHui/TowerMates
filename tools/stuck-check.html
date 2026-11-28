@@ -42,13 +42,11 @@ f.onload = async () => {
     const text = () => d.getElementById('dlgText').textContent;
     const clickDlg = async (n) => { for (let i = 0; i < n; i++) { dlg().dispatchEvent(new MouseEvent('click', { bubbles: true })); await wait(60); } };
 
-    // 开新局 → 立誓 → 关序章对白
-    d.getElementById('btnNew').click();
-    await wait(200);
-    const vc = d.querySelector('#vowCards .vow-card[data-vow="none"]');
-    if (vc) vc.click();
-    await wait(300);
-    await clickDlg(14);
+    // 2026-11-28 多塔：探针只验卡关提示，不验开局流程。
+    // 直接以主塔基线开局并关掉所有遮罩，避免序章/塔群把对白层占住。
+    w.Engine.newGame(null, { tower: 'main' });
+    d.querySelectorAll('.overlay.show').forEach(function (o) { o.classList.remove('show'); });
+    w.__tm.refreshHud();
     await wait(300);
 
     // 削弱玩家：攻 1（远低于墨妖防 16），血压到最低——保证「打不过」两条路径都触发

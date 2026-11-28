@@ -50,12 +50,19 @@ const TANGLE_HIT = (() => {
   return a ? Number(a.split('=')[1]) : 1;
 })();
 const SPREAD = process.argv.includes('--spread');
+// 2026-11-28 多塔：默认跑「三座齿塔 + 主塔」的完整一局；--main 只跑主塔（旧基线，10/10/1000 无塔印）。
+// 齿塔各自独立成长，塔与塔之间只带走塔印——模拟口径必须和 enterTower 一致。
+const MAIN_ONLY = process.argv.includes('--main');
+// 避战流是主塔的极限路线验证（齿塔的 Boss 堵在唯一路上，避不开），所以 --skip-fights 也只跑主塔。
+const TOWER_SEQ = (MAIN_ONLY || SKIP_FIGHTS) ? ['main'] : ['rust', 'ash', 'bell', 'main'];
 
+const FIRST = D.towers.find((t) => t.id === TOWER_SEQ[0]);
 let s = {
-  floor: 0, x: 0, y: 0,
-  hp: 1000, maxHp: 1000, atk: 10, def: 10, gold: 0, exp: 0, level: 1,
-  keys: { y: 1, r: 0 },
-  flags: { vow: VOW },
+  floor: FIRST.floors[0], x: 0, y: 0,
+  hp: FIRST.start.hp, maxHp: FIRST.start.maxHp, atk: FIRST.start.atk, def: FIRST.start.def,
+  gold: 0, exp: 0, level: 1,
+  keys: { y: FIRST.main ? 1 : 0, r: 0 },
+  flags: { vow: VOW, tower: FIRST.id, towersCleared: [], marks: [] },
   maps: D.floors.map((f) => f.map.map((r) => r.split(''))),
   damageTaken: 0,
 };
@@ -63,12 +70,49 @@ let s = {
 if (hasRing('vitality')) { s.maxHp += 240; s.hp += 240; }
 const NO_EVENT = false;
 
-(function place() {
-  const m = s.maps[0];
+// 每座塔的入口：主塔是 @，齿塔是 n。切塔时重新定位（见 startTower）。
+function placeEntry(t) {
+  const m = s.maps[t.floors[0]];
+  const ch = t.main ? '@' : 'n';
   for (let y = 0; y < SIZE; y++) for (let x = 0; x < SIZE; x++) {
-    if (m[y][x] === '@') { s.x = x; s.y = y; m[y][x] = '.'; return; }
+    if (m[y][x] === ch) { s.x = x; s.y = y; return; }
   }
-})();
+  s.x = 1; s.y = 1;
+}
+placeEntry(FIRST);
+
+// 塔印加成：与 engine.markBonus 同口径
+function markBonusNow() {
+  let atk = 0, def = 0, maxHp = 0;
+  D.towers.forEach((t) => {
+    if (t.mark && s.flags.marks.indexOf(t.mark.id) >= 0) {
+      atk += t.mark.atk; def += t.mark.def; maxHp += t.mark.maxHp;
+    }
+  });
+  return { atk, def, maxHp };
+}
+
+// 进塔：属性回到该塔 start + 已得塔印；金币/钥匙/遗物/商店记录全部重置。
+function startTower(t) {
+  const b = markBonusNow();
+  s.floor = t.floors[0];
+  s.atk = t.start.atk + b.atk;
+  s.def = t.start.def + b.def;
+  s.hp = s.maxHp = t.start.maxHp + b.maxHp;
+  s.gold = 0; s.exp = 0; s.level = 1;
+  s.keys = { y: t.main ? 1 : 0, r: 0 };
+  s.flags.hasBlock = false;
+  s.flags.tower = t.id;
+  Object.keys(s.flags).forEach((k) => {
+    if (k.indexOf('relic_') === 0 || k.indexOf('buy_') === 0) delete s.flags[k];
+  });
+  t.floors.forEach((fi) => {
+    s.maps[fi] = D.floors[fi].map.map((row) => row.split(''));
+    Object.keys(s.flags).forEach((k) => { if (k.endsWith('_f' + fi)) delete s.flags[k]; });
+  });
+  placeEntry(t);
+}
+if (TOWER_SEQ[0] !== 'rust') startTower(FIRST);
 
 const hasRelic = (id) => USE_RELIC && !!s.flags['relic_' + id];
 // 誓约乘区（2026-11-26 与引擎同序）：铁壁 ×0.88 → 三路 dmgMul（利齿 ×1.1 / 重压 ×1.2）。
@@ -339,6 +383,10 @@ function floorLoop(fi) {
   console.log(`\n—— 第 ${fi + 1} 层 ${D.floors[fi].name} ——`);
   // 商店层（M）：低血先补药——与玩家真实行为同口径，把补给计入承伤模型
   if (D.floors[fi].map.join('').includes('M') && s.hp < s.maxHp * 0.55) healAtShop();
+  // 最终 Boss 层：真实玩家会在最后一战前把血补满（不会卡 60% 阈值）。
+  // 不补这一条，血量上限更高的路线反而因为「比例没低到阈值」而带着半血打碑魔，
+  // 路线审计会把「补药策略」误读成「这条加点更弱」。
+  if (fi === 11 && s.hp < s.maxHp * 0.9) healAtShop();
   let guard = 0;
   let rescue = 0;
   while (guard++ < 300) {
@@ -389,6 +437,21 @@ function floorLoop(fi) {
       if (p.win || bossSave) targets.push({ x, y, ch, damage: p.damage, zeal: p.zeal || 1, tangled: !!p.tangled });
     }
     if (!targets.length) {
+      // 先看「这一层还有没有路可走」：怪清完了但能上楼/见公主，就是本层结束，
+      // 不该再触发回城补给（否则塔二 Boss 打完会莫名其妙补满药，读数全假）。
+      if (cells.some(([x, y]) => s.maps[s.floor][y][x] === 'u' || s.maps[s.floor][y][x] === 'T')) {
+        // 主塔：清完怪后按旧口径回城补给一次（扣 50 路费，最多 6 次）；
+        // 齿塔没有货摊，清完就走——否则会拿主塔的高级货把三座小塔打穿。
+        if (!D.towerOf(fi).main) break;
+        if (rescue < 6 && s.gold >= priceOf(D.shop.find((x) => x.id === 'atk')) + 50) {
+          rescue++;
+          s.gold -= 50;
+          if (s.hp < s.maxHp * 0.6) healAtShop();
+          shop();
+          continue;
+        }
+        break;
+      }
       // 卡死自救（与玩家真实行为同口径）：
       // ① 商店层：直接补药+训练
       // ② 非商店层：花 50 金路费回秤那里（层阶之钥回城），补药+训练后再战
@@ -450,7 +513,7 @@ function floorLoop(fi) {
     s.damageTaken += take;
     // 真实终局血：最后一场战斗（碑魔）打完时的血量——玩家看到的结算血就是这个，
     // 后面「把余钱换成药水」不影响难度，别用它当难度指标
-    if (isBoss && m.kind === '锁' && fi === D.floors.length - 2) s.lastBattle = { hp: s.hp, maxHp: s.maxHp };
+    if (isBoss && m.kind === '锁' && fi === 11) s.lastBattle = { hp: s.hp, maxHp: s.maxHp };
     // 缠斗的收益：这一战经验翻倍（金币/击杀计数照常，与引擎一致）
     s.exp += Math.round((t.tangled ? Math.round(m.exp * TANGLE_EXP) : m.exp) * (VOW === 'ascetic' ? 1.4 : 1));
     s.gold += VOW === 'greed' ? Math.round(m.gold * 1.5) : m.gold;
@@ -490,7 +553,7 @@ function floorLoop(fi) {
   }
   // 锁芯（最后一层）是隐藏层：没有上楼也没有公主，清到底就是终点。
   // 不补这一条，越强的构筑越会被误判「卡住」——调数值时读到的是假阴性。
-  if (fi === D.floors.length - 1) {
+  if (fi === 12) {
     console.log('  ✓ 到塔心（锁芯），清完即通关');
     return 'win';
   }
@@ -499,20 +562,32 @@ function floorLoop(fi) {
 }
 
 function climb() {
-  for (let fi = 0; fi < D.floors.length; fi++) {
-    s.floor = fi;
-    const r = floorLoop(fi);
-    if (r === 'fake-win') { console.log('\n✗ 假通关（未击败最终 Boss）'); process.exitCode = 1; return; }
-    if (r === false) { console.log('\n✗ 卡住'); return; }
-    if (r === 'win') { console.log('\n✓ 通关成功'); report(); return; }
-    if (VOW === 'mercy') s.hp = Math.min(s.maxHp, s.hp + Math.round(s.maxHp * 0.12));
-    const ringPct = (hasRing('lamp') ? 0.05 : 0) + (hasRing('stair') ? 0.04 : 0);
-    if (ringPct > 0) s.hp = Math.min(s.maxHp, s.hp + Math.round(s.maxHp * ringPct));
-    const next = s.maps[fi + 1];
-    outer: for (let y = 0; y < SIZE; y++) {
-      for (let x = 0; x < SIZE; x++) {
-        if (next[y][x] === 'n') { s.x = x; s.y = y; break outer; }
+  for (const id of TOWER_SEQ) {
+    const t = D.towers.find((x) => x.id === id);
+    startTower(t);
+    console.log(`\n=== ${t.name}（${t.floors.length} 层）===`);
+    for (let i = 0; i < t.floors.length; i++) {
+      const fi = t.floors[i];
+      s.floor = fi;
+      const r = floorLoop(fi);
+      if (r === 'fake-win') { console.log('\n✗ 假通关（未击败最终 Boss）'); process.exitCode = 1; return; }
+      if (r === false) { console.log(`\n✗ 卡住（${t.name} 第 ${i + 1} 层）`); return; }
+      if (r === 'win') { console.log('\n✓ 通关成功'); report(); return; }
+      if (VOW === 'mercy') s.hp = Math.min(s.maxHp, s.hp + Math.round(s.maxHp * 0.12));
+      const ringPct = (hasRing('lamp') ? 0.05 : 0) + (hasRing('stair') ? 0.04 : 0);
+      if (ringPct > 0) s.hp = Math.min(s.maxHp, s.hp + Math.round(s.maxHp * ringPct));
+      if (i + 1 >= t.floors.length) break;
+      const next = s.maps[t.floors[i + 1]];
+      outer: for (let y = 0; y < SIZE; y++) {
+        for (let x = 0; x < SIZE; x++) {
+          if (next[y][x] === 'n') { s.x = x; s.y = y; break outer; }
+        }
       }
+    }
+    if (!t.main) {
+      s.flags.towersCleared.push(t.id);
+      if (s.flags.marks.indexOf(t.mark.id) < 0) s.flags.marks.push(t.mark.id);
+      console.log(`✓ ${t.name} 通关 · 塔印 ${t.mark.name}（攻 +${t.mark.atk} / 防 +${t.mark.def} / 上限 +${t.mark.maxHp}）`);
     }
   }
   console.log('\n✗ 未通关');

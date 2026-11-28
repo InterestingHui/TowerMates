@@ -57,7 +57,9 @@ function audit() {
 
   // ---------- data.js 声明的剧情字段 ----------
   const declared = new Set();
-  for (const m of dataSrc.matchAll(/\b(?:story|after):\s*'([A-Za-z_][A-Za-z0-9_]*)'/g)) declared.add(m[1]);
+  // 2026-11-28 多塔：塔群的 enter / clear 也是 data 字段代播（main.js 按 tw.enter / tw.clear 取），
+  // 和 Boss 的 story/after 同一种弱引用，别把它们误判成孤儿。
+  for (const m of dataSrc.matchAll(/\b(?:story|after|enter|clear):\s*'([A-Za-z_][A-Za-z0-9_]*)'/g)) declared.add(m[1]);
 
   function refsOf(k) {
     const pats = [

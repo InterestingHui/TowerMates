@@ -19,7 +19,7 @@ function ok(cond, msg) {
 
 const D = global.GAME_DATA;
 const E = window.Engine;
-E.newGame();
+E.newGame(null, { tower: 'main' });
 let s = E.state();
 
 // ---------- 1. 初始状态 ----------
@@ -34,7 +34,7 @@ ok(ev.type === 'open' && s.keys.y === 0, '黄门打开并消耗钥匙');
 ok(E.tile(8, 9) === '.', '门变成地面');
 
 // 战前面板的记忆：打完之后要能读到「上次对这只用了什么、掉了多少血」
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.floor = 0; s.x = 3; s.y = 5;      // 第 1 层 (6,5) 是史莱姆 B
 const lf0 = E.lastTactic('B');
@@ -83,7 +83,7 @@ const poor = E.buy('atk');
 ok(poor.type === 'refuse', '金币不足时拒绝购买');
 
 // ---------- 6a-2. 阶梯定价：每次购买下一次更贵（药水 30→36→42） ----------
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.gold = 500;
 const p0 = E.priceOf(D.shop.find((x) => x.id === 'potion'));
@@ -99,7 +99,7 @@ ok(k1 === 24, '黄钥匙买后 20→24');
 
 // ---------- 6a-3. 药水回血口径：金币是唯一闸门，且必须花到买不起为止 ----------
 // 药水可反复买（不是漏洞的一部分）：每次涨价、金币扣完就买不动，靠经济收敛。
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.gold = 100;
 s.hp = 100; s.maxHp = 1000;
@@ -117,7 +117,7 @@ ok(potFull.type === 'buy' && s.maxHp > 1000, '满血买药会把生命上限顶�
 ok(E.shopStock().every((it) => !it.sell), '商店没有回收/卖出接口（不能靠买卖套利）');
 
 // ---------- 6b. 半部盾谱：商店购买 / 地图拾取 ----------
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 ok(!s.flags.hasBlock && !E.canBlock(), '开局不会格挡');
 s.gold = 200;
@@ -128,7 +128,7 @@ ok(bb2.type === 'refuse', '已学会时商店拒绝再卖');
 s.gold = 100;
 ok(E.priceOf(D.shop.find((x) => x.id === 'blockbook')) === 150, '盾谱标价 150 金');
 // 拾取：踩到第 2 层的 j
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 const gPos = (() => {
   const m = s.maps[1];
@@ -144,7 +144,7 @@ ok(gEv.story === 'blockLore' && !!global.STORY.blockLore, '拾取盾谱带小传
 // 商店铺开：每 ~5 层一副（第 3/8/11/13 层），全部可达且不焊死在唯一通路上（check.js 已验）
 ok(D.floors.filter((f) => f.map.join('').includes('M')).length === 4, '全塔 4 副货摊（3/8/11/13 层）');
 // 无遗物线的经济救济：9 层钟楼铎之前有一袋金币（+400），位置在 Boss 之前的半场
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 const oPos = (() => {
   const m = s.maps[8];
@@ -162,7 +162,7 @@ ok(E.shopStock(7).some((x) => x.id === 'bigpotion') && E.shopStock(7).every((x) 
 ok(E.shopStock(10).some((x) => x.id === 'holywater'), '第 11 层上架圣水');
 ok(E.shopStock(12).some((x) => x.id === 'holywater'), '第 13 层（锁芯）有圣水');
 ok(E.shopStock(10).every((x) => x.id !== 'heartshard'), '塔心碎片只在锁芯上架');
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.floor = 12; s.gold = 400;
 const hs1 = E.buy('heartshard');
@@ -173,7 +173,7 @@ ok(!E.shopStock(2).some((x) => x.id === 'heartshard'), '第 3 层买不到碎片
 // 保底提示的数据源：本层剩余怪数（幽灵 NPC 不算）
 ok(E.floorMonsterCount(1) > 0, '第 2 层还有怪可刷（剩余计数可用）');
 // 决战结束时的血量会被记档，供结算页按「难度基准」口径展示
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.floor = 11; s.x = 5; s.y = 4; s.hp = 99999; s.maxHp = 99999; s.atk = 999; s.def = 999;
 const hpBeforeFinal = s.hp;
@@ -194,14 +194,14 @@ delete s.flags.finalHp;
 delete s.flags.finalMaxHp;
 s.hp = 300; s.maxHp = 1000;
 ok(E.battleMargin().grade === 'B', '无决战记录时用当前血量兜底');
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 const cnt0 = E.floorMonsterCount(0);
 s.x = 1; s.y = 2;
 const killEv = E.fight(1, 0); // (2,2) 的蝙蝠
 ok(killEv.type === 'fight' && E.floorMonsterCount(0) === cnt0 - 1, '杀掉一只后剩余计数 −1');
 // 后半部盾谱：锁芯拾取 → 格挡强化（×0.42 + 卸伤三成化经验）
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 const vPos = (() => {
   const m = s.maps[12];
@@ -224,7 +224,7 @@ const vEv = s.x === vPos.x && s.y === vPos.y - 1 ? E.tryMove(0, 1) : (function (
 ok(vEv.type === 'pickup' && s.flags.hasBlock2 === true, '先学前半部再拾取 → 学会后半部');
 ok(Math.abs(E.ringBlockScale() - 0.42) < 1e-9, '后半部把格挡比例压到 0.42');
 // 格挡反击：挡下的那场多给经验
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.flags.hasBlock = true; s.flags.hasBlock2 = true;
 s.hp = 50000; s.x = 2; s.y = 3;
@@ -235,11 +235,11 @@ const rRip = E.fight(0, -1, { block: true });
 ok(rRip.blocked === true && rRip.riposte > 0 && s.exp === expBefore + rRip.riposte + mExp, '格挡反击：卸掉的伤三成化为经验');
 ok(rRip.damage === Math.round(rawPred.damage * 0.42), '承伤按 42% 结算');
 // 2026-11-26：誓约全部改为纯增益，没有任何一条再禁格挡——铁壁也能买盾谱、也能拾取
-E.newGame('guard');
+E.newGame('guard', { tower: 'main', tower: 'main' });
 s = E.state();
 s.gold = 300;
 ok(E.buy('blockbook').type === 'buy' && s.flags.hasBlock === true, '铁壁之誓：盾谱照买，学会格挡');
-E.newGame('guard');
+E.newGame('guard', { tower: 'main', tower: 'main' });
 s = E.state();
 const gjPos = (() => {
   const m = s.maps[1];
@@ -251,7 +251,7 @@ const gjEv = E.tryMove(1, 0);
 ok(gjEv.type === 'pickup' && s.flags.hasBlock === true, '铁壁之誓：地图上的盾谱也学得会');
 
 // ---------- 7. 战斗结算 ----------
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.x = 2; s.y = 5;
 ev = E.tryMove(-2, 0);
@@ -270,7 +270,7 @@ ok(s.gold === gold0 + 3 && s.exp === 2, '战利品金币/经验到账');
 ok(E.tile(2, 2) === '.', '怪物被移除');
 
 // ---------- 8. 断剑：遗物 +6 攻 ----------
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.floor = 4; s.x = 6; s.y = 1;
 const atkBefore = s.atk;
@@ -279,7 +279,7 @@ ok(ev.type === 'relic' && ev.relic === 'edge', '走到断剑触发遗物事件')
 ok(s.atk === atkBefore + 6, '断刃之锋：攻击 +6');
 
 // ---------- 9. 余烬灯芯：击杀回血 ----------
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.flags.relic_ember = true;
 s.maxHp = 1000; s.hp = 500;
@@ -290,7 +290,7 @@ ok(s.hp === 500 - healFight.damage + 20, '回血正确结算');
 
 // ---------- 9b. 祭坛三选一 ----------
 // 祭坛 X 不焊死在固定坐标：从全塔地图里找，站它旁边走上去（布局调整不用再改测试）
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 let af = -1, ax = -1, ay = -1, tx = -1, ty = -1;
 for (let f = 0; f < D.floors.length && ax < 0; f++) {
@@ -323,7 +323,7 @@ ok(D.altarPool.length === 6, '祭坛池 6 件，三选一仍然成立');
 ok(D.rings.scout2 && /还剩几件/.test(D.rings.scout2.desc), '窥探之环自带罗盘信息（不再只给一枚镜子）');
 
 // ---------- 9b+. 首发节奏的数据口径（PROGRESS《四、体验验收基线》） ----------
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 const flatMap = (f) => s.maps[f].join('');
 ok(!flatMap(0).includes('?') && !flatMap(1).includes('?'), '第 1/2 层不再放路遇点（首次路遇后移到第 3 层）');
@@ -331,7 +331,7 @@ ok(flatMap(2).includes('X'), '第 3 层祭坛保留（挪到第 4 层会让墨�
 ok(flatMap(0).includes('a') && !flatMap(0).includes('s'), '第 1 层武器升为精钢剑（补回取消首层路遇后的攻击成长）');
 
 // ---------- 9b2. 第二座祭坛（第 5 层，二选一） ----------
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.floor = 4; s.x = 8; s.y = 1;
 ev = E.tryMove(1, 0);
@@ -342,7 +342,7 @@ ok(pick2.type === 'relic' && s.flags['altar_f4'] === true, '第二座祭坛的�
 ok(!s.flags.altar_f2, '拿第 5 层的不会用掉第 3 层的');
 
 // ---------- 9c. 川的账本 / 岩的灯油 / 无名之镜 ----------
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.flags.relic_thrift = true;
 delete s.flags.buy_atk;
@@ -350,7 +350,7 @@ ok(E.priceOf(D.shop.find((x) => x.id === 'atk')) === 45, '川的账本：商店�
 delete s.flags.relic_thrift;
 ok(E.priceOf(D.shop.find((x) => x.id === 'atk')) === 60, '没有账本时价格恢复');
 
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.flags.relic_vigor = true;
 s.exp = 9; s.hp = 1000; s.maxHp = 1000;
@@ -358,23 +358,23 @@ s.x = 2; s.y = 3;
 const vf = E.fight(0, -1);
 ok(vf.levelUps === 1 && s.maxHp === 1210, '岩的灯油：升级额外 +80 生命');
 
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 E.pickRelic('scout');
 ok(s.flags.codex === true, '无名之镜：直接解锁窥探之镜');
 
 // ---------- 9d. 隐藏门「锁芯」（塔规系统已移除：击败碑魔即开窄梯） ----------
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.floor = 11;
 ok(E.revealCore() === false, '没打赢碑魔时塔顶后面没有路');
 s.flags.bossKilled_U = true;
 ok(E.revealCore() === true && E.tile(9, 2) === 'u', '击败碑魔后塔顶露出窄梯');
 ok(E.state().maps[11][2][9] === 'u', '窄梯写进地图');
-ok(D.floors.length === 13 && D.floors[12].name === '锁芯', '第十三层的锁芯存在');
+ok(D.floors.length === 22 && D.floors[12].name === '锁芯' && D.towers.length === 4, '主塔 13 层 + 三座齿塔（共 22 层）');
 
 // ---------- 9l. 层阶之钥：跳层 ----------
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 ok(E.jumpTo(1).type === 'refuse', '没有钥匙时跳不了');
 s.flags.relic_gate = true;
@@ -392,25 +392,25 @@ s.floor = 0;
 ok(E.visitedMax() === 0, '旧存档没有 maxFloor 时按当前层算');
 
 // ---------- 9k. 纯增益誓约（苦行 / 无名） ----------
-E.newGame('ascetic');
+E.newGame('ascetic', { tower: 'main', tower: 'main' });
 s = E.state();
 E.grantBlock();
 ok(E.vow() === 'ascetic' && E.canBlock(), '苦行之誓：格挡照常可用（不再禁挡）');
 s.hp = 400; s.x = 8; s.y = 8;
 ev = E.tryMove(0, 1);
 ok(ev.type === 'floor' && ev.at.heal === 0, '苦行之誓：不再靠上楼回血');
-E.newGame('ascetic');
+E.newGame('ascetic', { tower: 'main', tower: 'main' });
 s = E.state();
 s.hp = 99999; s.x = 2; s.y = 3;
 const ascRes = E.fight(0, -1);
 ok(ascRes.exp === Math.round(D.monsters.A.exp * 1.4), '苦行之誓：战斗经验 +40%');
 
-E.newGame('nameless');
+E.newGame('nameless', { tower: 'main', tower: 'main' });
 s = E.state();
 E.grantBlock();
 ok(E.canBlock(), '无名之誓：格挡照常可用');
 ok(E.priceOf(D.shop.find((x) => x.id === 'atk')) === 60, '无名之誓：物价不再加价（60）');
-E.newGame('nameless');
+E.newGame('nameless', { tower: 'main', tower: 'main' });
 s = E.state();
 s.atk = 400; s.def = 300; s.hp = 5000; s.maxHp = 10000;
 s.level = D.levelExp.length + 1; s.exp = 0;   // 经验封顶：这一战的账里只剩誓约的 +200
@@ -458,7 +458,7 @@ D.events.forEach((e) => (e.options || []).forEach((o, i) => {
 }));
 ok(evKeyBad.length === 0, '路遇 effect 只用已实现的键' + (evKeyBad.length ? '（' + evKeyBad.join('、') + '）' : ''));
 
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.floor = 3; s.gold = 0; s.keys.y = 0;
 const bridge = D.events.find((e) => e.id === 'bridge');
@@ -468,7 +468,7 @@ s.keys.y = 3;
 ok(E.eventCost(bridge.options[keyOpt]) === null, '钥匙够了就可以选');
 
 // 缺多少要有准数（展示层「还差 2 把黄钥匙」就从这里取，判据只此一处）
-E.newGame(); s = E.state();
+E.newGame(null, { tower: 'main' }); s = E.state();
 s.gold = 5; s.keys.y = 0; s.keys.r = 0;
 const shGold = E.eventShortfall({ effect: { gold: -130 } });
 ok(!!shGold && shGold.kind === 'gold' && shGold.need === 125 && shGold.msg === '金币不够', '缺钱时报出「还差 125」而不是只说不够');
@@ -484,7 +484,7 @@ ok(E.eventCost({ effect: { keys: { y: -3 } } }) === null && E.eventCost({ effect
 ok(E.eventShortfall(null) === null && E.eventShortfall({}) === null, '没有 effect 的选项不报缺（脏数据不崩）');
 
 // 11-14 扩池新增的四条路遇：落地数值必须与 tip 写的完全一致（文案说谎是本项目最高频 bug）
-E.newGame(); s = E.state();
+E.newGame(null, { tower: 'main' }); s = E.state();
 s.floor = 1; s.x = 1; s.y = 1;
 let evGold = s.gold, evHp = s.hp, evMax = s.maxHp;
 E.resolveEvent('jug', 0);
@@ -494,7 +494,7 @@ evHp = s.hp;
 E.resolveEvent('jug', 1);
 ok(s.hp === Math.min(evMax, evHp + Math.round(evMax * 0.2)), '「漏水的陶罐」喝一口：回复 20% 生命');
 
-E.newGame(); s = E.state();
+E.newGame(null, { tower: 'main' }); s = E.state();
 s.floor = 1; s.x = 1; s.y = 1;
 evGold = s.gold; evHp = s.hp; evMax = s.maxHp;
 E.resolveEvent('vent', 0);
@@ -506,14 +506,14 @@ ok(s.hp === Math.max(1, Math.min(evMax, evHp + Math.round(evMax * -0.07))), '「
 const ventOpt = D.events.find((e) => e.id === 'vent').options[1];
 ok(!!ventOpt.effect.useBlock && ventOpt.effect.atk === 1, '「墙里的风」听到底＝攻击 +1 + 用掉这一层格挡');
 
-E.newGame(); s = E.state();
+E.newGame(null, { tower: 'main' }); s = E.state();
 s.floor = 2; s.x = 8; s.y = 6;
 const atkBeforeVent = s.atk;
 let ventRes = E.resolveEvent('vent', 1);
 ok(ventRes.type === 'refuse' && ventRes.msg === '还没学会格挡', '没学盾谱时「用格挡换攻击」被拒，且说清是没学');
 ok(s.atk === atkBeforeVent && E.blockUsedAt(2) === 0, '被拒时不涨攻击、也不记格挡账');
 
-E.newGame(); s = E.state();
+E.newGame(null, { tower: 'main' }); s = E.state();
 s.floor = 2; s.x = 8; s.y = 6;
 E.grantBlock();
 const atkWithShield = s.atk;
@@ -523,20 +523,20 @@ ok(ventRes.type === 'event' && s.atk === atkWithShield + 1, '「墙里的风」�
 ok(E.blockUsedAt(2) === 1 && E.blockLeft() === 0 && !E.canBlock(), '用掉之后这一层挡不了（记在 block_n 同一本账）');
 
 // 这一层的格挡已经用过 → 拒，且说清是「用掉了」而不是「没学」
-E.newGame(); s = E.state();
+E.newGame(null, { tower: 'main' }); s = E.state();
 s.floor = 2; s.x = 8; s.y = 6;
 E.grantBlock();
 s.flags['block_n2'] = 1;
 const shUsed = E.eventShortfall(ventOpt);
 ok(!!shUsed && shUsed.kind === 'block' && shUsed.why === 'used' && shUsed.msg === '这一层的格挡已经用掉了', '额度用光时拒选并说明「这一层已经用掉了」');
 // 2026-11-26：没有禁挡誓约了——铁壁没学盾谱时，理由照实写「还没学会」
-E.newGame('guard'); s = E.state();
+E.newGame('guard', { tower: 'main', tower: 'main' }); s = E.state();
 s.floor = 2;
 const shVow = E.eventShortfall(ventOpt);
 ok(!!shVow && shVow.why === 'unlearned' && shVow.msg === '还没学会格挡', '铁壁没学盾谱时理由写「还没学会格挡」');
 ok(E.eventShortfall({ effect: { atk: 1 } }) === null, '不带 useBlock 的选项不受格挡门槛影响');
 
-E.newGame(); s = E.state();
+E.newGame(null, { tower: 'main' }); s = E.state();
 s.floor = 4; s.x = 1; s.y = 1;
 evGold = s.gold; evHp = s.hp; evMax = s.maxHp;
 E.resolveEvent('well', 0);
@@ -545,13 +545,13 @@ ok(s.hp === Math.max(1, Math.min(evMax, evHp + Math.round(evMax * -0.14))), '「
 
 // 同上：`well` 的第二个选项从「通关余烬 +2」（与 crack 同一道题）换成「黄钥匙 −1 换 3 余烬」——
 // 拿本局的钥匙买跨局的余烬，与「白拿 2 点余烬」不是同一道题。
-E.newGame(); s = E.state();
+E.newGame(null, { tower: 'main' }); s = E.state();
 s.floor = 4; s.keys.y = 1;
 const emberBeforeWell = s.flags.eventEmber || 0;
 const wellRes = E.resolveEvent('well', 1);
 ok(wellRes.type === 'event' && s.keys.y === 0, '「枯井」锁死：黄钥匙 −1');
 ok((s.flags.eventEmber || 0) === emberBeforeWell + 3, '「枯井」锁死：通关余烬 +3');
-E.newGame(); s = E.state();
+E.newGame(null, { tower: 'main' }); s = E.state();
 s.floor = 4; s.keys.y = 0;
 const shWell = E.eventShortfall(D.events.find((e) => e.id === 'well').options[1]);
 ok(!!shWell && shWell.kind === 'key' && shWell.key === 'y' && shWell.need === 1, '没黄钥匙时「枯井」锁死报出还差 1 把');
@@ -577,7 +577,7 @@ ok(E.eventCost(D.events.find((e) => e.id === 'well').options[1]) === E.eventShor
   ok(tipLine.indexOf('−' + pct + '%') >= 0, `商店「半部盾谱」副标题写的也是 −${pct}%`);
 }
 
-E.newGame(); s = E.state();
+E.newGame(null, { tower: 'main' }); s = E.state();
 s.floor = 4; s.x = 1; s.y = 1;
 let d0 = s.def;
 E.resolveEvent('scales', 1);
@@ -586,7 +586,7 @@ ok(E.eventCost(D.events.find((e) => e.id === 'scales').options[0]) === null, '�
 
 // ---------- 9i. 路遇事件 ----------
 // 节奏纠偏后第 1/2 层不再放 ?（首次路遇后移到第 3 层），这里统一用第 3 层的 ? 测
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.floor = 2;
 s.x = 6; s.y = 6;    // 2026-11-24：第 3 层的 ? 从 (8,7) 挪到 (6,7)
@@ -600,7 +600,7 @@ ok(ev.type === 'event' && !!ev.eventId, '踩到路遇点弹出事件');
 // 于是 `s.x = side.x` 在那种局面上直接 TypeError，把**整个套件**打断在第 583 行——
 // 这正是「闸门抖动」的真身：连跑两次，一次 635 项全绿，一次只剩 145 项就崩（2026-11-17 记的待办）。
 // 现在换局重找（最多 6 局）；6 局都找不到才算真缺陷，那时报一条失败的断言，而不是崩掉。
-E.newGame();
+E.newGame(null, { tower: 'main' });
 let potPos = null;
 let side = null;
 for (let potTry = 0; potTry < 6 && !side; potTry++) {
@@ -615,7 +615,7 @@ for (let potTry = 0; potTry < 6 && !side; potTry++) {
   side = [[0, -1], [0, 1], [-1, 0], [1, 0]]
     .filter(([dx, dy]) => E.tile(potPos.x + dx, potPos.y + dy) === '.')
     .map(([dx, dy]) => ({ x: potPos.x + dx, y: potPos.y + dy, dx: dx, dy: dy }))[0] || null;
-  if (!side && potTry < 5) E.newGame();
+  if (!side && potTry < 5) E.newGame(null, { tower: 'main' });
 }
 ok(!!potPos, '第 1 层找得到红药水');
 ok(!!side, '药水旁有可站立的格子（六局内至少一局能找到）');
@@ -631,7 +631,7 @@ if (potPos && side) {
   ok(s.hp === 500 && again.type === 'move', '在同一格来回走不会重复回血');
 }
 // ② 路遇事件结算后格变地面、同层不再触发（ev_f 标记）
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.floor = 2;
 // 2026-11-24：第 3 层的 ? 从 (8,7) 挪到 (6,7)
@@ -650,7 +650,7 @@ ok(evAgain.type === 'move' && s.hp === 500, '事件格不能再踩出第二次�
 
 // ---------- 9m. 第一层的碑文 ----------
 // 石碑立在第 1 层 (3,3)：撞它读一遍，读过再撞只是blocked；寻路把它当墙绕开
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 const steleTile = (() => {
   const m = s.maps[0];
@@ -680,7 +680,7 @@ if (steleTile) {
 ok(!!D.events.find((x) => x.id === ev.eventId), '事件来自数据池');
 // 用固定事件，避免随机导致用例飘。注意：上面的碑文段已 newGame 回第 1 层，
 // 所以这里要重新造一个「站在第 3 层 ? 上」的局面，否则清格/标记断言测的是另一层。
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.floor = 2;
 // 2026-11-24 地图门禁修正：第 3 层的 '?' 从 (8,7) 挪到 (6,7)（原位置被宝库的墙占了）
@@ -695,7 +695,7 @@ ok(E.tile(6, 7) === '.', '路遇点用掉后清空');
 ok(s.flags.ev_f2 === true, '本层路遇只触发一次');
 ok(D.events.find((e) => e.id === 'broker').options[0].effect.atk === 3, '深层事件「赌命的商人」存在');
 
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.floor = 2;
 s.x = 6; s.y = 6;
@@ -707,25 +707,25 @@ else ok(true, '（该事件没有花钱选项）');
 
 // ---------- 9h. 开局誓约（纯增益） ----------
 // 用种子 0 锁定原版布局（连拾取物都原位）：下面几段踩的是固定坐标，不许被随机换位碰
-E.newGame(null, { seed: 0 });
+E.newGame(null, { tower: 'main', seed: 0 });
 ok(E.vow() === 'none', '默认不立誓');
 
 // 2026-11-26：开局三路的难度乘区（利齿 +10% / 重压 +20%），预测与实战必须同源
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.hp = 9000; s.x = 2; s.y = 3;
 const baseDmg = E.predict('A').damage;
-E.newGame('dmg10');
+E.newGame('dmg10', { tower: 'main', tower: 'main' });
 s = E.state();
 s.hp = 9000; s.x = 2; s.y = 3;
 ok(E.predict('A').damage === Math.round(baseDmg * 1.1), '利齿之誓：预计承伤 +10%');
 ok(E.fight(0, -1).damage === Math.round(baseDmg * 1.1), '利齿之誓：实战与预判同源');
-E.newGame('dmg20');
+E.newGame('dmg20', { tower: 'main', tower: 'main' });
 s = E.state();
 s.hp = 9000; s.x = 2; s.y = 3;
 ok(E.predict('A').damage === Math.round(baseDmg * 1.2), '重压之誓：预计承伤 +20%');
 
-E.newGame('mercy', { seed: 0 });
+E.newGame('mercy', { tower: 'main', seed: 0 });
 s = E.state();
 ok(E.vow() === 'mercy' && s.atk === 10, '慈悲之誓：开局攻击不再扣（10）');
 s.hp = 500; s.x = 8; s.y = 8;
@@ -751,7 +751,7 @@ const evNew = E.tryMove(0, -1);
 ok(evNew.type === 'floor' && evNew.at.heal === Math.round(s.maxHp * 0.12), '新的一层照常回血');
 
 // ---------- 9h+. 锁环「借灯/回廊/长明」同样受首访标记约束（防同款刷血回归） ----------
-E.newGame(null, { seed: 0 });
+E.newGame(null, { tower: 'main', seed: 0 });
 s = E.state();
 s.flags.rings = ['lamp'];           // 借灯之环：每上一层 +5%
 s.hp = 500; s.x = 8; s.y = 8;
@@ -765,7 +765,7 @@ s.hp = 500; s.x = 8; s.y = 8;
 ev = E.tryMove(0, 1);
 ok(ev.type === 'floor' && ev.at.heal === 0 && s.hp === 500, '借灯之环：重上同一层不再回血');
 // 三枚回血环叠加上限仍是首访一次
-E.newGame(null, { seed: 0 });
+E.newGame(null, { tower: 'main', seed: 0 });
 s = E.state();
 s.flags.rings = ['lamp', 'stair', 'lamp2'];   // 5% + 4% + 4%
 s.hp = 500; s.x = 8; s.y = 8;
@@ -784,14 +784,14 @@ ok(ev.at.heal === Math.round(s.maxHp * 0.13), '三枚回血环叠加：首访回
   });
 
   // 干粮之环：药水回复 +30%（地图与商店同口径）
-  E.newGame();
+  E.newGame(null, { tower: 'main' });
   s = E.state();
   s.hp = 100; s.maxHp = 5000;
   s.maps[0][8][3] = 'p';             // (3,8) 放一瓶红药水（160）
   s.x = 2; s.y = 8;
   ev = E.tryMove(1, 0);
   ok(ev.type === 'pickup' && ev.short === '+160❤', '无干粮之环：红药水 +160');
-  E.newGame();
+  E.newGame(null, { tower: 'main' });
   s = E.state();
   s.flags.rings = ['ration'];
   s.hp = 100; s.maxHp = 5000;
@@ -805,7 +805,7 @@ ok(ev.at.heal === Math.round(s.maxHp * 0.13), '三枚回血环叠加：首访回
   ok(buyRes.type === 'buy' && buyRes.healed === 208, '干粮之环：商店药水也按 +30% 结算');
 
   // 秤砣之环：钥匙价目 −25%（药水不降价）
-  E.newGame();
+  E.newGame(null, { tower: 'main' });
   s = E.state();
   const keyItem = D.shop.find((x) => x.id === 'key');
   const potionItem = D.shop.find((x) => x.id === 'potion');
@@ -817,7 +817,7 @@ ok(ev.at.heal === Math.round(s.maxHp * 0.13), '三枚回血环叠加：首访回
   ok(E.priceOf(potionItem) === potionBase, '秤砣之环：药水价不动');
 
   // 罗盘之环：本层剩余可捡数只数道具与金币
-  E.newGame();
+  E.newGame(null, { tower: 'main' });
   s = E.state();
   const n0 = E.floorPickupCount();
   ok(n0 > 0, '罗盘：首层能数出可捡的东西');
@@ -836,7 +836,7 @@ ok(ev.at.heal === Math.round(s.maxHp * 0.13), '三枚回血环叠加：首访回
 // ---------- 9h+++. 第二轮扩容 4 枚（刻痕 / 过路 / 名录 / 落笔） ----------
 {
   // 刻痕之环：每 8 只怪 +1 黄钥匙（按累计击杀数走 8 的倍数）
-  E.newGame();
+  E.newGame(null, { tower: 'main' });
   s = E.state();
   s.flags.rings = ['tally'];
   s.flags.killCount = 7;
@@ -847,7 +847,7 @@ ok(ev.at.heal === Math.round(s.maxHp * 0.13), '三枚回血环叠加：首访回
   ok(rT.type === 'fight' && rT.tallyKey === true && s.keys.y === keyBefore + 1, '刻痕之环：第 8 只怪额外给黄钥匙');
 
   // 过路之环：路遇结算后 +40 金
-  E.newGame();
+  E.newGame(null, { tower: 'main' });
   s = E.state();
   s.flags.rings = ['toll'];
   s.gold = 100; s.floor = 2; s.x = 8; s.y = 7; s.maps[2][7][8] = '?';
@@ -856,7 +856,7 @@ ok(ev.at.heal === Math.round(s.maxHp * 0.13), '三枚回血环叠加：首访回
   ok(evT.type === 'event' && evT.tollGold === 40 && s.gold >= 140, '过路之环：路遇后额外 +40 金');
 
   // 名录之环：击败章节锁匠给一黄一红
-  E.newGame();
+  E.newGame(null, { tower: 'main' });
   s = E.state();
   s.flags.rings = ['tome'];
   s.atk = 400; s.def = 300; s.hp = 30000; s.maxHp = 30000;
@@ -874,7 +874,7 @@ ok(ev.at.heal === Math.round(s.maxHp * 0.13), '三枚回血环叠加：首访回
 // ---------- 9h++++. 第三轮扩容 4 枚（刻数 / 短链 / 基石 / 终章） ----------
 {
   // 刻数之环：每满 100 步 +20 金
-  E.newGame();
+  E.newGame(null, { tower: 'main' });
   s = E.state();
   s.flags.rings = ['notch'];
   s.gold = 0; s.steps = 99; s.x = 2; s.y = 5;
@@ -884,7 +884,7 @@ ok(ev.at.heal === Math.round(s.maxHp * 0.13), '三枚回血环叠加：首访回
   ok(s.gold === 30, '刻数之环：非整百步不给');
 
   // 短链之环：训练不涨价（药水照常涨）
-  E.newGame();
+  E.newGame(null, { tower: 'main' });
   s = E.state();
   const atkItem = D.shop.find((x) => x.id === 'atk');
   const potItem = D.shop.find((x) => x.id === 'potion');
@@ -897,13 +897,13 @@ ok(ev.at.heal === Math.round(s.maxHp * 0.13), '三枚回血环叠加：首访回
   ok(E.priceOf(potItem) === potWithStep, '短链之环：药水价不受影响');
 
   // 基石之环：残血进新层回 15%，血够不回
-  E.newGame();
+  E.newGame(null, { tower: 'main' });
   s = E.state();
   s.flags.rings = ['bulwark'];
   s.maxHp = 1000; s.hp = 200; s.x = 8; s.y = 8;
   let evB = E.tryMove(0, 1);
   ok(evB.type === 'floor' && evB.at.heal === 150, '基石之环：残血上楼回 15%');
-  E.newGame();
+  E.newGame(null, { tower: 'main' });
   s = E.state();
   s.flags.rings = ['bulwark'];
   s.maxHp = 1000; s.hp = 500; s.x = 8; s.y = 8;
@@ -914,12 +914,12 @@ ok(ev.at.heal === Math.round(s.maxHp * 0.13), '三枚回血环叠加：首访回
   ok(/四位锁匠全倒/.test(D.rings.finale.desc), '终章之环：条件写明四位锁匠');
 }
 
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.hp = 5000; s.x = 2; s.y = 3;
 const noVowDmg = E.predict('A').damage;
 
-E.newGame('guard');
+E.newGame('guard', { tower: 'main', tower: 'main' });
 s = E.state();
 E.grantBlock();
 ok(E.canBlock(), '铁壁之誓：格挡照常可用');
@@ -931,7 +931,7 @@ ok(gRes.damage === guardPred, '铁壁之誓：实战承伤与预判同一个数�
 
 // ---------- 9h+. 生死口径：预判与实战同源 ----------
 // 誓约乘区现在都写进 predictBase，预判与实际扣血不会再出现「差一截」的夹缝。
-E.newGame('guard');
+E.newGame('guard', { tower: 'main', tower: 'main' });
 s = E.state();
 s.flags.relic_ward = true;
 s.atk = 57; s.def = 37;
@@ -943,7 +943,7 @@ ok(okPred.win === true, '血量过预判线时放行');
 const okFight = E.fight(0, -1);
 ok(okFight.type === 'fight' && s.hp > 0 && !s.over, '放行后正常结算，血不为负');
 
-E.newGame('greed');
+E.newGame('greed', { tower: 'main', tower: 'main' });
 s = E.state();
 ok(E.priceOf(D.shop.find((x) => x.id === 'atk')) === 60, '贪婪之誓：价目不再加价（60）');
 s.hp = 5000; s.x = 2; s.y = 3;
@@ -953,7 +953,7 @@ ok(greedRes.gold === Math.round(D.monsters.A.gold * 1.5), '贪婪之誓：击杀
 ok(s.gold === goldBefore + Math.round(D.monsters.A.gold * 1.5), '金币真的进了口袋');
 
 // ---------- 9i. 格挡要学：没学时不可用，授予后恢复 ----------
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 ok(!s.flags.hasBlock, '开局没有格挡（不再白送）');
 ok(!E.canBlock(), '没学格挡时不可用');
@@ -965,7 +965,7 @@ ok(E.grantBlock() === true && E.grantBlock() === false, '授予一次，重复�
 ok(s.flags.hasBlock === true, '授予后标记在档');
 
 // ---------- 9g. 每层一次的格挡（已学会） ----------
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.flags.hasBlock = true;
 s.hp = 5000; s.x = 2; s.y = 3;
@@ -978,7 +978,7 @@ ok(!E.canBlock(), '本层格挡用掉后不可再用');
 s.floor = 1;
 ok(E.canBlock(), '进入下一层后格挡恢复');
 
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.flags.hasBlock = true;
 s.hp = 5000; s.x = 2; s.y = 3;
@@ -987,7 +987,7 @@ const rPlain = E.fight(0, -1);
 ok(rPlain.blocked === false && rPlain.damage === rawDmg2, '不格挡时承伤不变');
 
 // ---------- 9g-2. 双挡之环：每层两次（老档只有布尔时按一次算） ----------
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.flags.hasBlock = true;
 s.flags.rings = ['twice'];
@@ -1007,7 +1007,7 @@ s.floor = 1;
 ok(E.blockLeft() === 1, '老档只有 block_f 布尔 → 按已用一次算');
 
 // 没有这枚环时仍然只有一次（回归：别把默认值改成 2）
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.flags.hasBlock = true;
 ok(E.blockLimit() === 1 && E.blockLeft() === 1, '没有双挡之环时每层仍只有一次');
@@ -1015,7 +1015,7 @@ ok(E.blockLimit() === 1 && E.blockLeft() === 1, '没有双挡之环时每层仍�
 // 2026-11-26：没有禁挡誓约——铁壁也照常抽得到靠格挡吃饭的环
 let guardSeenBlockRing = 0;
 for (let k = 0; k < 60; k++) {
-  E.newGame('guard');
+  E.newGame('guard', { tower: 'main', tower: 'main' });
   const pool = E.ringChoices(2);
   if (pool.indexOf('parry') >= 0 || pool.indexOf('twice') >= 0) guardSeenBlockRing++;
 }
@@ -1023,7 +1023,7 @@ ok(guardSeenBlockRing > 0, `铁壁之誓照常抽得到格挡环（60 次里 ${g
 
 // ---------- 9h. 残血格挡换命（predictOpt） ----------
 // 血量撑不到打完，但挡完能活：不能再用"会要你的命"拦住玩家
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.flags.hasBlock = true;
 s.x = 2; s.y = 3;
@@ -1041,17 +1041,17 @@ ok(!E.predictOpt('A', true).win, '格挡用尽后残血：无活路');
 // 五个桶各归谁：b/g/t 是玩家按的打法，f 是「白打必死、系统替他挡」的自动挡，n 是什么都没按。
 // 这段原先写在 UI 的三元表达式里（只有代码自觉、没有断言），收口到引擎后以「真发生的事」为准：
 // 面板意图可能被引擎拒（血不够 / 盾用完 / 缠了会死），账要记真的那次。
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.hp = 5000; s.x = 2; s.y = 3;
 ok(E.fight(0, -1).pick === 'n', '打法归属：直接打记 n');
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.flags.hasBlock = true;
 s.hp = 5000; s.x = 2; s.y = 3;
 const rPickB = E.fight(0, -1, { block: true });
 ok(rPickB.pick === 'b' && rPickB.guard === false, '打法归属：自己按的格挡记 b');
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.flags.hasBlock = true;
 s.x = 2; s.y = 3;
@@ -1061,14 +1061,14 @@ const rPickF = E.fight(0, -1, { block: true, auto: true });
 ok(rPickF.type === 'fight' && rPickF.blocked === true && rPickF.pick === 'f' && s.hp > 0,
   '打法归属：系统替他挡的自动挡记 f（保命成功）');
 ok(rPickF.damage === Math.round(pickWhite * 0.55), '自动挡按格挡结算，不是白打');
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.flags.hasBlock = true;
 s.hp = 5000; s.x = 2; s.y = 3;
 const rPickT = E.fight(0, -1, { tangle: true });
 ok(rPickT.tangled === true && rPickT.pick === 't', '打法归属：缠斗记 t');
 // 缠了会死 → 引擎退成白打；玩家确实按过按钮，但账要记「真打成的」那种
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.x = 2; s.y = 3;
 const tangleWhite = E.fightDamage('A', false, true).damage;
@@ -1076,7 +1076,7 @@ s.hp = tangleWhite - 1;                     // 白打能活、缠完会死
 const rPickT2 = E.fight(0, -1, { tangle: true });
 ok(rPickT2.type === 'fight' && rPickT2.tangled === false && rPickT2.pick === 'n',
   '缠不起时退成白打，账也记 n（不记按过的按钮）');
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.flags.hasBlock = true;
 s.flags.rings = ['twice'];
@@ -1090,7 +1090,7 @@ ok(rPickG2.type === 'fight' && rPickG2.guard === false && rPickG2.pick === 'b',
   `盾已架开后再请求架盾按单场格挡记（实测 ${rPickG2.type}/${rPickG2.pick}）`);
 
 // ---------- 9f. 塔心石：带走 / 放下 ----------
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.floor = 12; s.x = 5; s.y = 6;
 ev = E.tryMove(0, -1);
@@ -1106,7 +1106,7 @@ ok(E.heartTake().type === 'refuse', '同一颗石头不能拿两次');
 s.x = 5; s.y = 6;
 ok(E.tryMove(0, -1).type === 'move', '已抉择后再踩不再弹层（无格可踩时返回 move/refuse）');
 
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.floor = 12; s.x = 5; s.y = 6;
 E.tryMove(0, -1);
@@ -1119,7 +1119,7 @@ ok(E.tile(5, 5) === 'K', '放下后石头仍在原地');
 ok(E.heartState() === 'left', '状态记为 left');
 
 // ---------- 10. 首见魔王先对白 ----------
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.floor = 5; s.x = 5; s.y = 6; s.hp = 3000; s.atk = 50; s.def = 30;
 ev = E.fight(0, -1);
@@ -1131,7 +1131,7 @@ ok(bossFight.type === 'fight' && bossFight.boss, '对白后可正常挑战魔王
 ok(s.hp < 3000, '魔王战造成真实伤害');
 
 // ---------- 11. 幽灵触发剧情（按层给不同段落） ----------
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.x = 8; s.y = 4;
 ev = E.tryMove(0, -1);
@@ -1165,7 +1165,7 @@ ok(codex2.type === 'refuse', '窥探之镜不可重复购买');
 ok(s.gold === 150, '窥探之镜扣 100 金');
 
 // ---------- 14. 本层快照与回退 ----------
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.floor = 2; s.x = 4; s.y = 3; s.hp = 900; s.gold = 120;
 E.beginFloor();
@@ -1181,10 +1181,10 @@ E.load();
 ok(E.state().hp === 777 && E.state().floor === 3, '存档写入并可读取');
 
 // ---------- 16. 十三层塔链路 ----------
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 let chainOk = true;
-for (let fi = 0; fi < D.floors.length - 1; fi++) {
+for (let fi = 0; fi < 12; fi++) {
   s.floor = fi;
   const map = s.maps[fi];
   let ux = -1, uy = -1;
@@ -1210,7 +1210,7 @@ for (let fi = 0; fi < D.floors.length - 1; fi++) {
     break;
   }
 }
-ok(chainOk, '十三层塔每一层都能正常上楼（含隐藏门）');
+ok(chainOk, '主塔每一层都能正常上楼（含隐藏门）');
 
 // ---------- 17. 剧情文本完整性 ----------
 const S = global.STORY;
@@ -1256,7 +1256,7 @@ const rareHit = RARE_CHARS.filter((c) => allCopy.indexOf(c) >= 0);
 ok(rareHit.length === 0, '剧情与道具文案不含生僻字' + (rareHit.length ? '（命中：' + rareHit.join('') + '）' : ''));
 
 // ---------- 18. v2.1 章末回响 / 锁环 / Boss 台词池 ----------
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 ok(Array.isArray(s.flags.rings) && s.flags.rings.length === 0, '新局锁环为空');
 ok(typeof s.flags.phaseSeed === 'number', '每局有独立的 Boss 台词种子');
@@ -1274,7 +1274,7 @@ ok(E.pendingRing() === null, '选完锁环后待办清除');
 // 铜币之环「选到即发 200 金」：候选三枚是随机抽的，靠运气验等于有时验有时不验
 // ——旧写法是 `if (ringOpts[0] === 'coin') ok(...)`，于是同一套件有时 635 项、有时 636 项
 // （「闸门抖动」的另一半根因，2026-11-17 记的待办）。改成**把候选摆好再选**：恒定跑，不靠抽。
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 const coinGold0 = s.gold;
 s.flags.ringPending_1 = true;
@@ -1285,7 +1285,7 @@ ok(E.pendingRing() === null && E.rings().indexOf('coin') >= 0, '选完就清待�
 // 空候选兜底（2026-11-26 09:0x 自检六面 · 第一面状态机死角）：
 // 候选被过滤空（如唯一候选是「惜挡之环」而玩家没学盾谱）时，这一章没有可挑的环。
 // 若仍挂 pending，进塔会弹一张没有卡、也不许关的面板——出不去比少拿一枚贵得多。
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 const poolBak = D.ringPools[1];
 D.ringPools[1] = ['spare'];
@@ -1294,13 +1294,13 @@ ok(!s.flags['ringPending_1'] && s.flags['ringDone_1'] === 1, '候选为空：不
 ok(E.pendingRing() === null, '候选为空的章不再要求玩家去选');
 D.ringPools[1] = poolBak;
 // 旧档：挂着 pending、候选却是空数组（新档已不会产生）——读档只跳过，不改写存档
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.flags.ringPending_2 = true;
 s.flags.ringChoices_2 = [];
 ok(E.pendingRing() === null, '旧档空候选的 pending 被跳过（不弹空面板）');
 // 回到下面几段要的局面：第 2 层、袋里只有断刃之环（数值由各条自己摆）
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.floor = 2;
 s.flags.rings = ['parry'];
@@ -1316,7 +1316,7 @@ ok(Array.isArray(ph) && ph.length === 2 && !!ph[0].title && !!ph[1].text, 'Boss 
 ok(E.bossPhases('N') === ph, '同一局重复取到的台词组合不变');
 
 // Boss 击败 → 章末回响的完整链路（不是只测结算函数）
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.floor = 2; s.x = 5; s.y = 6;
 s.atk = 80; s.def = 40; s.hp = 6000; s.maxHp = 6000;
@@ -1328,7 +1328,7 @@ ok(bossRes.echo.pending === true, 'Boss 倒下即开三选一');
 ok(s.flags['echo_1'] === 1 && (s.flags['ringChoices_1'] || []).length === 3, '回响标记与锁环候选写进存档');
 
 // ---------- 层阶之钥：一次性「往前开一层」的明码取舍 ----------
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 ok(!E.gateForth().ok, '没拿钥匙时不能往前开层');
 s.flags['relic_gate'] = true;
@@ -1344,20 +1344,20 @@ ok((s.flags.gateSeals || []).length === forth0.seals.length, '封印位置留在
 ok(!E.gateForth().ok, '一次性机会用完后不能再用');
 const j2 = E.jumpTo(0);
 ok(j2.type === 'floor' && !j2.forth, '回跳走过的楼层不受一次性限制影响');
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.flags['relic_gate'] = true;
 s.floor = 1; s.flags.maxFloor = 1;
 const fb = E.gateForth();
 ok(!fb.ok && /锁匠/.test(fb.msg), '章末锁匠层不能被钥匙绕过');
 ok(E.jumpTo(2).type === 'refuse', '直接跳到没走过的锁匠层被拒');
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.flags['relic_gate'] = true;
 ok(E.gateForth().ok && E.gateForth().seals.length > 0, '新的一局重新获得一次机会');
 
 // ---------- 19. 拖动选路：pathsTo 多最短路分组 ----------
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 ok(E.pathsTo(0, 0) === null || true, '越界/墙目标不炸（返回 null 或无候选）');
 s.floor = 0;
@@ -1418,7 +1418,7 @@ if (mTarget) ok(E.pathsTo(mTarget.x, mTarget.y) === null, '怪物目标返回 nu
 // ================= 怪物特性（先攻 / 魔攻 / 连击 / 坚固） =================
 // 特性决定「加攻还是加防」，是魔塔数值解谜的核心，必须锁住语义。
 {
-  E.newGame();
+  E.newGame(null, { tower: 'main' });
   const st = E.state();
   st.atk = 30; st.def = 20; st.hp = 5000; st.maxHp = 5000;
 
@@ -1484,7 +1484,7 @@ if (mTarget) ok(E.pathsTo(mTarget.x, mTarget.y) === null, '怪物目标返回 nu
 
 // ================= 幸运金币：战斗金币 ×2 =================
 {
-  E.newGame();
+  E.newGame(null, { tower: 'main' });
   const st = E.state();
   st.hp = 5000; st.maxHp = 5000; st.atk = 200; st.def = 200;
   // 找一只相邻可打的怪
@@ -1512,7 +1512,7 @@ if (mTarget) ok(E.pathsTo(mTarget.x, mTarget.y) === null, '怪物目标返回 nu
     ok(res1.type === 'fight' && gain1 === res1.gold, '战斗金币正常结算');
 
     // 第二局带幸运金币
-    E.newGame();
+    E.newGame(null, { tower: 'main' });
     const st2 = E.state();
     st2.hp = 5000; st2.maxHp = 5000; st2.atk = 200; st2.def = 200;
     st2.flags.relic_coin = true;
@@ -1554,7 +1554,7 @@ if (mTarget) ok(E.pathsTo(mTarget.x, mTarget.y) === null, '怪物目标返回 nu
 
 // ---------- 11. 事件扣血/扣上限的地板：hp ≥ 1、maxHp ≥ 100，不会把玩家打死或打成负上限 ----------
 {
-  E.newGame();
+  E.newGame(null, { tower: 'main' });
   const st1 = E.state();
   st1.maxHp = 1000; st1.hp = 50;
   E.applyEffect({ hp: -100 });
@@ -1566,13 +1566,13 @@ if (mTarget) ok(E.pathsTo(mTarget.x, mTarget.y) === null, '怪物目标返回 nu
 // ---------- 成就：一口空气（一件遗物都不拿走到结局） ----------
 {
   const A = window.Achievements;
-  ok(A.DEFS.length === 35, '成就总数 35 项');
-  E.newGame();
+  ok(A.DEFS.length === 38, '成就总数 38 项（35 + 三枚齿）');
+  E.newGame(null, { tower: 'main' });
   const sm = E.state();
   sm.ending = 'true'; sm.flags.relic_edge = true;
   A.evaluate('end', sm, () => {});
   ok(!A.isUnlocked('bare'), '拿了遗物不解锁「一口空气」');
-  E.newGame();
+  E.newGame(null, { tower: 'main' });
   const sn = E.state();
   sn.ending = 'plain';
   A.evaluate('end', sn, () => {});
@@ -1581,7 +1581,7 @@ if (mTarget) ok(E.pathsTo(mTarget.x, mTarget.y) === null, '怪物目标返回 nu
 // ---------- 成就：折戟里程碑（跨局 falls 计数，死亡结算喂 'dead' 事件） ----------
 {
   const A = window.Achievements;
-  E.newGame();
+  E.newGame(null, { tower: 'main' });
   const sf1 = E.state();
   sf1.flags.falls = 2;
   A.evaluate('dead', sf1, () => {});
@@ -1594,7 +1594,7 @@ if (mTarget) ok(E.pathsTo(mTarget.x, mTarget.y) === null, '怪物目标返回 nu
   ok(A.isUnlocked('fall10'), '折戟 10 次 → 解锁「不死不休」');
 }
 // 战意：只在最终决战生效，按累计击杀分档（清塔路线的独占收益）
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 const U = D.monsters.U;
 s.flags.killCount = 6;
@@ -1607,7 +1607,7 @@ s.atk = 999; s.def = 999; s.hp = 99999; s.maxHp = 99999;
 const zf = E.fightDamage('U', false);
 ok(zf && Math.abs(zf.zeal - 0.64) < 1e-9, 'fightDamage 带上战意比例供演出显示');
 // 过手之环：把战意两道门槛前移一档（25/40 → 20/33），不改公式、不改满档数值
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.flags.rings = ['merit'];
 const kz = (k) => { s.flags.killCount = k; return E.zealScale(U); };
@@ -1615,7 +1615,7 @@ ok(kz(19) === 1 && Math.abs(kz(20) - 0.84) < 1e-9, '过手之环：19 只不打�
 ok(Math.abs(kz(32) - 0.84) < 1e-9 && Math.abs(kz(33) - 0.64) < 1e-9, '过手之环：33 只吃满 −36%');
 ok(Math.abs(kz(52) - 0.64) < 1e-9, '过手之环：满档仍是 0.64（不改上限）');
 // 没这枚环时口径不变（老局/老档零影响）
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.flags.killCount = 30;
 ok(Math.abs(E.zealScale(U) - 0.84) < 1e-9, '没有过手之环：30 只仍是 0.84');
@@ -1639,13 +1639,13 @@ s.flags.rings = ['merit'];
 ok(E.zealNeed().mid === 20 && E.zealNeed().full === 33, 'zealNeed：过手之环门槛 20 / 33（HUD 与结算提示同源）');
 // 第 3 章池 9→10：40 次抽取里必须出现过它
 let sawMerit = false;
-for (let i = 0; i < 40; i++) { E.newGame('none'); if (E.ringChoices(3).indexOf('merit') >= 0) sawMerit = true; }
+for (let i = 0; i < 40; i++) { E.newGame('none', { tower: 'main', tower: 'main' }); if (E.ringChoices(3).indexOf('merit') >= 0) sawMerit = true; }
 ok(sawMerit, '第 3 章 40 次抽取里出现过过手之环');
 
 // ---------- 塔顶的账（决战三章 · 顶栏 💀 决战）：念的数必须就是真打的数 ----------
 // 这一格存在的唯一意义是「开打前就能算」，所以它不能自己算一遍——白打/格挡/战意
 // 全部取 fightDamage 的同源结果；否则玩家按面板规划，真打时挨的是另一笔。
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.flags.hasBlock = true;
 s.atk = 120; s.def = 60; s.hp = 1400; s.maxHp = 1400;
@@ -1692,7 +1692,7 @@ s.atk = 40;
 const wallL = E.finalLedger();
 ok(wallL.wall === true && wallL.white === null, '塔顶的账：破不了防时标 wall，不编数字');
 // 数值全在引擎里：这一格纯粹是读，不能反过来改状态
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 const before = JSON.stringify(s);
 E.finalLedger();
@@ -1701,7 +1701,7 @@ ok(JSON.stringify(s) === before, '塔顶的账：连读两次不改任何状态'
 
 // ---------- 净芯之环（第 4 章 9→10）：锁芯层清怪折余烬，四只封顶 ----------
 // 它服务的是第 13 层唯一还没被锁环改过的决定：上楼前要不要为角落那四只花掉最后的血。
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.flags.rings = ['clean'];
 s.floor = 12;                     // 第 13 层「锁芯」
@@ -1711,7 +1711,7 @@ let cf = E.fight(1, 0);
 ok(cf.type === 'fight' && s.flags.clean_kills === 1, '净芯之环：锁芯层倒一只记 1');
 ok(E.cleanEmber() === 2, '净芯之环：1 只折 2 余烬');
 // 别的层杀怪不记——这枚环只认锁芯那一层
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.flags.rings = ['clean'];
 s.x = 5; s.y = 5;                 // 第 1 层 (5,5)，右边 (6,5) 是蝙蝠
@@ -1719,7 +1719,7 @@ s.atk = 9999; s.def = 9999; s.hp = 9999; s.maxHp = 9999;
 cf = E.fight(1, 0);
 ok(cf.type === 'fight' && !s.flags.clean_kills && E.cleanEmber() === 0, '净芯之环：别层杀怪不记、也不折余烬');
 // 没这枚环时不记账（老局/老档零影响）
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.floor = 12;
 s.x = 1; s.y = 8;
@@ -1732,30 +1732,30 @@ s.flags.clean_kills = 7;
 ok(E.cleanEmber() === 8, '净芯之环：封顶 4 只 = 8 余烬');
 // 第 4 章池 9→10：40 次抽取里必须出现过它
 let sawClean = false;
-for (let i = 0; i < 40; i++) { E.newGame('none'); if (E.ringChoices(4).indexOf('clean') >= 0) sawClean = true; }
+for (let i = 0; i < 40; i++) { E.newGame('none', { tower: 'main', tower: 'main' }); if (E.ringChoices(4).indexOf('clean') >= 0) sawClean = true; }
 ok(sawClean, '第 4 章 40 次抽取里出现过净芯之环');
 ok(D.rings.clean.chapter === 4 && /最多 4 只/.test(D.rings.clean.desc), '净芯之环：章号 4、文案写明四只上限');
 // 两条路线的勋章
 const A = window.Achievements;
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.ending = 'true'; s.flags.killCount = 6;
 A.evaluate('end', s, () => {});
 ok(A.isUnlocked('dodger') && !A.isUnlocked('sweeper'), '6 杀 → 绕道者，不给清塔者');
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.ending = 'true'; s.flags.killCount = 52;
 A.evaluate('end', s, () => {});
 ok(A.isUnlocked('sweeper') && !isNaN(1), '52 杀 → 清塔者');
 // 执剑者：带川的断剑走到结局（第八勇者线收藏格）
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.ending = 'true'; s.flags.relic_edge = true;
 A.evaluate('end', s, () => {});
 ok(A.isUnlocked('edge_finish'), '带断剑走到结局 → 执剑者');
 // 负例前清成就存储：unlocked 跨用例共享，不清会把上一段的解锁泄漏进来
 A.reset();
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.ending = 'plain';
 A.evaluate('end', s, () => {});
@@ -1764,7 +1764,7 @@ ok(!A.isUnlocked('edge_finish'), '没带断剑不解锁执剑者');
 // ---------- 9z. 开局微变：前 3 层散落物每局换位（P-A + P-A2 / S-D1）----------
 // 目的是让第二局开局不再逐格照抄已知解；约束是「总量不变、骨架不动、数值不变、起点周围不动」。
 const floor1Spots = (seed) => {
-  const st = E.newGame(null, { seed: seed });
+  const st = E.newGame(null, { tower: 'main', seed: seed });
   const m = st.maps[0];
   const out = { p: [], $: [], start: null };
   for (let y = 0; y < 11; y++) {
@@ -1786,14 +1786,14 @@ ok(!dot(v1.p[0], base0.p[0]) && !dot(v1.$[0], base0.$[0]), '换位后两件散�
 ok(!dot(v1.p[0], v2.p[0]), '不同种子给出不同布局（每局不一样）');
 const nearStart = (spot) => spot && Math.abs(spot[0] - 2) <= 1 && Math.abs(spot[1] - 5) <= 1;
 ok(!nearStart(v1.p[0]) && !nearStart(v1.$[0]) && !nearStart(v2.p[0]), '散落物不落到起点 3×3 内（开局 60 秒节奏不变）');
-const seed777 = E.newGame(null, { seed: 777 });
+const seed777 = E.newGame(null, { tower: 'main', seed: 777 });
 ok(seed777.maps[0][7][8] === '.', '散落物挪走后原格变回地面');
 ok(E.shuffleFloor1(null, 1) === false, '空地图不崩（shuffleFloor1 边界）');
 ok(E.shufflePickups(null, 1) === false && E.shuffleFloor1([[]], 0) === false, 'shufflePickups 边界：空图 / 种子 0 都不改图');
 
 // 第 2–3 层同一套规则（P-A2：S-D1 的另一半——只治首层，中段仍是照已知解）
 const floorSpots = (seed, fi) => {
-  const st = E.newGame(null, { seed: seed });
+  const st = E.newGame(null, { tower: 'main', seed: seed });
   const m = st.maps[fi];
   const out = { p: [], $: [] };
   for (let y = 0; y < 11; y++) {
@@ -1807,7 +1807,7 @@ const floorSpots = (seed, fi) => {
 // 骨架判据（定义见下）：
 // 骨架 = 除「墙 / 空地 / 拾取物 / 起点」以外的所有格（怪 / 门 / 钥匙 / 楼梯 / 商店 / 祭坛 / 路遇 / 石座）。
 // 2026-11-18 支路开合已回退，墙与空地重新恒定；判据保留（抹平墙/空地的口径不碍事）。
-const skeleton = (seed, fi) => E.newGame(null, { seed: seed }).maps[fi]
+const skeleton = (seed, fi) => E.newGame(null, { tower: 'main', seed: seed }).maps[fi]
   .map((row) => row.map((c) => ('#.p$@'.indexOf(c) >= 0 ? '.' : c)).join('|')).join('/');
 
 const f2base = floorSpots(0, 1);
@@ -1843,7 +1843,7 @@ ok(!(sameLayout(f2a, f3a) && f2a.p.length === f3a.p.length && f2a.$.length === f
   const base3 = [0, 1, 2].map((fi) => D.floors[fi].map.map((r) => r.split('')));
   const drift = [];
   for (const seed of [1, 4, 11, 42, 20261116, 909, 31337, 8642]) {
-    const st = E.newGame(null, { seed: seed });
+    const st = E.newGame(null, { tower: 'main', seed: seed });
     for (let fi = 0; fi < 3; fi++) {
       const m = st.maps[fi];
       for (let y = 0; y < 11; y++) {
@@ -1861,7 +1861,7 @@ ok(!(sameLayout(f2a, f3a) && f2a.p.length === f3a.p.length && f2a.$.length === f
   }
   ok(drift.length === 0, `前 3 层任意种子只挪拾取物，墙/门/怪/楼梯零改动${drift.length ? '：' + drift.slice(0, 3).join('；') : ''}`);
   // Boss 层（3/6/9/12）整张图必须逐字等于数据表——Boss 横在上楼唯一通路是本作核心塔规
-  const st4 = E.newGame(null, { seed: 4 });
+  const st4 = E.newGame(null, { tower: 'main', seed: 4 });
   const badBossFloor = [];
   st4.maps.forEach((m, fi) => {
     if (!D.floors[fi].boss) return;
@@ -1880,7 +1880,7 @@ ok(!(sameLayout(f2a, f3a) && f2a.p.length === f3a.p.length && f2a.$.length === f
 }
 
 // 只动前 3 层：第 4 层起逐格与数据表一致（那是「完整一局」的平衡基准，不许跟着抖）
-E.newGame(null, { seed: 8642 });
+E.newGame(null, { tower: 'main', seed: 8642 });
 let deeperChanged = 0;
 {
   const st = E.state();
@@ -1893,7 +1893,7 @@ let deeperChanged = 0;
 }
 ok(deeperChanged === 0, `第 4 层起地图逐格不动（实测改动 ${deeperChanged} 格）`);
 // 开局烤进地图的布局（拾取物换位）存档 → 读档必须一字不动，不重摇
-E.newGame(null, { seed: 31337 });
+E.newGame(null, { tower: 'main', seed: 31337 });
 const altBaked = [0, 1, 2].map((fi) => E.state().maps[fi].join('|'));
 E.save();
 E.load();
@@ -1946,17 +1946,17 @@ ok(Daily.vowOf(dayA) === Daily.vowOf(dayA), '同一天必守同一条誓约');
 // 引擎侧：日签与誓约一起落档，规则真的按这条誓约走（纯增益，照常能格挡）
 const heavyDay = (() => { for (let i = 0; i < 400; i++) { const k = Daily.keyOf(new Date(2026, 0, 1 + i)); if (Daily.vowOf(k) === 'dmg20') return k; } return null; })();
 ok(!!heavyDay, '能造出「今日重压」这一天（供下面两条用）');
-E.newGame('dmg20', { seed: Daily.seedOf(heavyDay), daily: heavyDay });
+E.newGame('dmg20', { tower: 'main', seed: Daily.seedOf(heavyDay), daily: heavyDay });
 ok(E.vow() === 'dmg20' && E.state().flags.daily === heavyDay, '今日一塔也能带誓约：日签与誓约一起落档');
 E.grantBlock();
 ok(E.canBlock(), '今日之约是重压时，格挡照常可用（规则不是罚款单）');
-E.newGame('dmg10', { seed: dSeed, daily: dayA });
+E.newGame('dmg10', { tower: 'main', seed: dSeed, daily: dayA });
 ok(E.vow() === 'dmg10' && E.priceOf(D.shop.find((x) => x.id === 'atk')) === 60, '换一条誓约（利齿）照常生效，且不带物价惩罚');
 
-const dailyA = E.newGame('none', { seed: dSeed, daily: dayA });
+const dailyA = E.newGame('none', { tower: 'main', seed: dSeed, daily: dayA });
 const mapA = dailyA.maps[0].join('|');
-const dailyB = E.newGame('none', { seed: dSeed, daily: dayA });
-const dailyC0 = E.newGame('none', { seed: dSeed, daily: dayA });
+const dailyB = E.newGame('none', { tower: 'main', seed: dSeed, daily: dayA });
+const dailyC0 = E.newGame('none', { tower: 'main', seed: dSeed, daily: dayA });
 ok(dailyB.maps[0].join('|') === mapA, '同一天同一颗种子 → 首层换位完全一致');
 ok(dailyB.flags.daily === dayA && dailyB.flags.rngSeed === dSeed && dailyB.flags.rngN === 0, '日签/种子/计数写进存档');
 ok(dailyB.flags.phaseSeed === dSeed, 'Boss 台词同一天同一套（按日期种子定）');
@@ -1964,22 +1964,22 @@ ok(dailyC0.maps[1].join('|') === dailyB.maps[1].join('|') && dailyC0.maps[2].joi
   '今日一塔：第 2–3 层换位也跟着日签走（同一天同一座塔）');
 
 const drawSeq = () => { const out = []; for (let i = 0; i < 5; i++) out.push(E.nextRand()); return out; };
-E.newGame('none', { seed: dSeed, daily: dayA });
+E.newGame('none', { tower: 'main', seed: dSeed, daily: dayA });
 const seq1 = drawSeq();
-E.newGame('none', { seed: dSeed, daily: dayA });
+E.newGame('none', { tower: 'main', seed: dSeed, daily: dayA });
 const seq2 = drawSeq();
 ok(seq1.join(',') === seq2.join(',') && seq1.every((v) => v >= 0 && v < 1), '同种子抽取序列可复现（路遇/锁环/祭坛）');
 ok(E.state().flags.rngN === 5, '抽取计数跟着存档走（中途刷新续玩不重摇整串）');
-const dailyC = E.newGame('none', { seed: Daily.seedOf('2026-11-15'), daily: '2026-11-15' });
+const dailyC = E.newGame('none', { tower: 'main', seed: Daily.seedOf('2026-11-15'), daily: '2026-11-15' });
 ok(dailyC.maps[0].join('|') !== mapA, '明天是另一座塔');
 
-E.newGame('none', { seed: 12345 });
+E.newGame('none', { tower: 'main', seed: 12345 });
 ok(!E.state().flags.daily && typeof E.state().flags.rngSeed !== 'number', '普通局不带日签');
 const anyRand = E.nextRand();
 ok(anyRand >= 0 && anyRand < 1 && E.state().flags.rngN === null, '普通局抽取仍走 Math.random（行为不变）');
 
 // ---------- 商店行情：每层摊主给一件可重复货让价（种子定、重进不重摇） ----------
-E.newGame('none', { seed: 20261114 });
+E.newGame('none', { tower: 'main', seed: 20261114 });
 {
   const st = E.state();
   ok(st.flags['deal_2'] === undefined, '行情是懒生成的：没进过商店的层不占存档字段');
@@ -2004,7 +2004,7 @@ E.newGame('none', { seed: 20261114 });
   ok(E.dealOf(3) === null, '行情按层独立，没进过的层不会跟着打折');
 }
 // 每层都挑得出来（13 层货架都非空）
-E.newGame('none', { seed: 20261114 });
+E.newGame('none', { tower: 'main', seed: 20261114 });
 {
   let everyFloor = true;
   for (let f = 0; f < D.floors.length; f++) {
@@ -2017,18 +2017,18 @@ E.newGame('none', { seed: 20261114 });
 // 换一局换一批行情（这是「第二局不再逐格照抄」的另一半）
 {
   const picks = new Set();
-  for (let k = 1; k <= 20; k++) { E.newGame('none', { seed: k * 7919 }); E.openShopAt(2); picks.add(E.dealOf(2)); }
+  for (let k = 1; k <= 20; k++) { E.newGame('none', { tower: 'main', seed: k * 7919 }); E.openShopAt(2); picks.add(E.dealOf(2)); }
   ok(picks.size >= 3, `换一局换一批行情（20 颗种子里出现 ${picks.size} 种让价货）`);
 }
 // 今日一塔：同一天摊上让价的也是同一件
-E.newGame('none', { seed: dSeed, daily: dayA });
+E.newGame('none', { tower: 'main', seed: dSeed, daily: dayA });
 E.openShopAt(2);
 const dealDaily1 = E.dealOf(2);
-E.newGame('none', { seed: dSeed, daily: dayA });
+E.newGame('none', { tower: 'main', seed: dSeed, daily: dayA });
 E.openShopAt(2);
 ok(E.dealOf(2) === dealDaily1, '今日一塔：同一天让价的也是同一件货');
 // 行情不消耗抽取序列（路遇/锁环/祭坛的序列不被打乱）
-E.newGame('none', { seed: dSeed, daily: dayA });
+E.newGame('none', { tower: 'main', seed: dSeed, daily: dayA });
 E.openShopAt(2);
 E.dealOf(2);
 const seqAfterDeal = drawSeq();
@@ -2053,7 +2053,7 @@ function climbUp() {
   }
   return null;
 }
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.flags.rings = ['spare'];
 s.flags.hasBlock = true;
@@ -2070,7 +2070,7 @@ s.gold = 100;
   ok(up3 && up3.at.gold === 0 && s.gold === 280, '同一层来回上下楼不重复结这笔钱');
 }
 // 这一层挡过一次：没有这笔钱
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.flags.rings = ['spare'];
 s.flags.hasBlock = true;
@@ -2081,7 +2081,7 @@ s.flags['block_n0'] = 1;
   ok(upB && upB.at.gold === 0 && s.gold === 100, '惜挡之环：这一层挡过，就不再补钱');
 }
 // 没学盾谱（没有格挡可省）：不发钱，且候选池里不出现（抽到就是废卡）
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.flags.rings = ['spare'];
 s.gold = 100;
@@ -2089,11 +2089,11 @@ s.gold = 100;
   const upC = climbUp();
   ok(upC && upC.at.gold === 0 && s.gold === 100, '惜挡之环：没学盾谱拿不到这笔钱');
   let seenNoShield = 0;
-  for (let k = 0; k < 40; k++) { E.newGame('none'); if (E.ringChoices(1).indexOf('spare') >= 0) seenNoShield++; }
+  for (let k = 0; k < 40; k++) { E.newGame('none', { tower: 'main', tower: 'main' }); if (E.ringChoices(1).indexOf('spare') >= 0) seenNoShield++; }
   ok(seenNoShield === 0, '没学盾谱时第 1 章候选池里不出现惜挡之环（40 次抽取 0 次）');
 }
 // 2026-11-26：没有禁挡誓约——铁壁学了盾谱、整层没挡，同样拿得到这笔钱
-E.newGame('guard');
+E.newGame('guard', { tower: 'main', tower: 'main' });
 s = E.state();
 s.flags.rings = ['spare'];
 s.flags.hasBlock = true;
@@ -2101,12 +2101,12 @@ s.gold = 100;
 ok(climbUp().at.gold === 90 && s.gold === 190, '铁壁之誓：整层没格挡照常拿到惜挡钱（+90）');
 {
   let seen = 0;
-  for (let k = 0; k < 40; k++) { E.newGame('guard'); E.state().flags.hasBlock = true; if (E.ringChoices(1).indexOf('spare') >= 0) seen++; }
+  for (let k = 0; k < 40; k++) { E.newGame('guard', { tower: 'main', tower: 'main' }); E.state().flags.hasBlock = true; if (E.ringChoices(1).indexOf('spare') >= 0) seen++; }
   ok(seen > 0, `铁壁之誓第 1 章候选池照常出现惜挡之环（40 次里 ${seen} 次）`);
 }
 
 // ---------- 缠斗：第 2 章起的第三把打法（多挨一轮 ↔ 这一战经验 ×2）----------
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.floor = 3;                 // 第 4 层 = 第 2 章
 s.x = 5; s.y = 5;
@@ -2130,7 +2130,7 @@ ok((s.flags.killCount || 0) === tKillsBefore + 1, '缠斗：击杀计数照常 +
 ok(rTan.gold > 0 && s.gold === tGoldBefore + rTan.gold, '缠斗：金币照常进账');
 
 // 倍率不许漏到别的场次：不缠的一战只拿一份
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.floor = 3; s.x = 5; s.y = 5;
 s.maps[3][5][6] = 'A';
@@ -2138,7 +2138,7 @@ const rPlainNoT = E.fight(1, 0, {});
 ok(rPlainNoT.tangled === false && rPlainNoT.exp === D.monsters.A.exp, '不缠的一战只拿一份经验（倍率不漏场）');
 
 // 格挡优先：两个都请求时按格挡结算，缠斗的「多挨一轮」不该发生
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.flags.hasBlock = true;
 s.floor = 3; s.x = 5; s.y = 5;
@@ -2149,14 +2149,14 @@ ok(rBoth.damage === E.fightDamage('A', true).damage, '按格挡结算时承伤�
 ok(rBoth.exp === D.monsters.A.exp, '按格挡结算时经验照常（缠斗的倍率不该白送）');
 
 // 打不动你的时候不给：多挨一轮也不疼，那就成了白送经验
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.def = 999;
 ok(E.tangleInfo('A') === null, '打不到你的怪不给缠斗选项（多挨一轮也不疼＝白送经验）');
 
 // 没经验可翻的怪也不给（临时造一只，测完删掉）
 D.monsters['Ω'] = { name: '空壳', emoji: '🕳', hp: 30, atk: 8, def: 0, gold: 1, exp: 0, kind: '怪' };
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.floor = 3; s.x = 5; s.y = 5;
 s.maps[3][5][6] = 'Ω';
@@ -2164,7 +2164,7 @@ ok(E.tangleInfo('Ω') === null, '没经验可翻的怪不给缠斗选项（白�
 delete D.monsters['Ω'];
 
 // 缠完会死的时候不给：面板不摆送死按钮，引擎也不许真把人缠死
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.floor = 3; s.x = 5; s.y = 5;
 s.maps[3][5][6] = 'A';
@@ -2175,7 +2175,7 @@ const rNoT = E.fight(1, 0, { tangle: true });
 ok(rNoT.type === 'fight' && rNoT.tangled === false && rNoT.damage === plainD2, '缠不起时退成白打（点错按钮不会把自己缠死）');
 
 // 经验封顶之后不给：等级到顶了，多挨的那一轮换不回任何东西
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.floor = 3; s.x = 5; s.y = 5;
 s.maps[3][5][6] = 'A';
@@ -2184,13 +2184,13 @@ s.level = D.levelExp.length + 1;
 ok(E.tangleInfo('A') === null, '等级封顶后不给缠斗选项（经验没处放，只剩多挨一轮）');
 
 // 破不了防：连白打都给不出数，缠斗自然也没有账
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.atk = 1;
 ok(E.tangleInfo('A') === null, '破不了防时不给缠斗账（谈多挨一轮是空话）');
 
 // ---------- 本层威胁读数（floorThreat）：还剩几只 / 最贵的那只值多少血 ----------
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.floor = 3; s.x = 5; s.y = 5;
 s.maps[3] = Array.from({ length: 11 }, () => new Array(11).fill('.'));
@@ -2207,7 +2207,7 @@ ok(th.worst.damage === Math.max(E.fightDamage('A', false, false).damage, E.fight
 ok(th.wall === null, '都破得了防时不报「打不穿」');
 
 // 破不了防的那只单独报：破不了防时谈掉多少血都是空话，它比「最贵」更该先知道
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.floor = 3; s.x = 5; s.y = 5;
 s.maps[3] = Array.from({ length: 11 }, () => new Array(11).fill('.'));
@@ -2221,7 +2221,7 @@ ok(thWall.count === 2, '打不穿的照样算进「还剩几只」');
 
 // skip：战斗面板要把「正在打的这只」排除在外，否则读数会变成
 // 「这一层还剩 2 只 · 最贵的 石像鬼」而石像鬼正是眼前这只
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.floor = 3; s.x = 5; s.y = 5;
 s.maps[3] = Array.from({ length: 11 }, () => new Array(11).fill('.'));
@@ -2234,7 +2234,7 @@ ok(E.floorThreat(3, { x: 5, y: 4 }).count === E.floorThreat(3).count - 1, 'skip 
 ok(E.floorThreat(3, { x: 0, y: 0 }).count === E.floorThreat(3).count, '空格上 skip 不影响计数');
 
 // 空层 / 越界：面板据此整行不显示，引擎也不能崩
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.maps[3] = Array.from({ length: 11 }, () => new Array(11).fill('.'));
 const thEmpty = E.floorThreat(3);
@@ -2245,7 +2245,7 @@ ok(!!E.floorThreat(0), '第 1 层本身不设限（「第 2 章起才显示」�
 // ---------- 架盾（格挡的第二种用法）：集中挡一场 / 摊平盖整层 ----------
 // 花掉一次格挡，本层此后每一场都吃 0.85。与单场格挡构成取舍：
 // 单只特别贵就集中，本层还有一堆中等怪要清就摊平——这正是它要补的决策厚度
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.floor = 3; s.x = 5; s.y = 5;
 s.maps[3] = Array.from({ length: 11 }, () => new Array(11).fill('.'));
@@ -2281,7 +2281,7 @@ ok(E.blockSpreadActive() === false, '换层后架盾状态自动清掉');
 ok(E.fightDamage('A', false).damage === plainG, '新层恢复白打价（不掉档到别的层）');
 
 // 只剩最后一只时不给架盾：0.85 摊在一场上必然不如 0.55 集中挡，那是摆设不是取舍
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.floor = 3; s.x = 5; s.y = 5;
 s.maps[3] = Array.from({ length: 11 }, () => new Array(11).fill('.'));
@@ -2291,7 +2291,7 @@ ok(E.floorMonsterCount() === 1, '（前提）本层只剩这一只');
 ok(E.canGuard() === false, '只剩最后一只时不出现架盾');
 
 // 没学盾谱：架盾跟单场格挡一起消失；学了之后任何誓约都不再禁它
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.floor = 3;
 s.maps[3] = Array.from({ length: 11 }, () => new Array(11).fill('.'));
@@ -2305,7 +2305,7 @@ E.state().flags.vow = 'none';
 
 // 双挡之环：架盾吃掉 1 次，剩下的那一记还能补在同一场（0.85 × 0.55）——
 // 这是「摊平盖整层，再对最贵的一只补一刀」的第二种用法
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.flags.hasBlock = true;
 s.flags.rings = ['twice'];
@@ -2322,7 +2322,7 @@ ok(stacked === Math.round(plainG * 0.85 * 0.55), '架盾 + 单场格挡可叠（
 ok(Math.abs(E.fightDamage('A', true).blockScale - 0.85 * 0.55) < 1e-9, '叠起来的比例由引擎给出，界面不自己乘');
 
 // 威胁读数的口径要跟着架盾变：标签与数字必须是同一套说法（否则「白打 −126」其实是打过折的 107）
-E.newGame();
+E.newGame(null, { tower: 'main' });
 s = E.state();
 s.floor = 3; s.x = 5; s.y = 5;
 s.maps[3] = Array.from({ length: 11 }, () => new Array(11).fill('.'));
@@ -2342,7 +2342,7 @@ ok(!!spreadThreat.worst && spreadThreat.worst.damage === Math.round(whiteThreat 
 // 线上玩家的档会被三件事弄坏：跨版本字段增删、写入中途被关掉（JSON 半截）、手改 localStorage。
 // 这里守两件事：**该拒绝的拒绝**（并在磁盘上隔离），**能救的救回来**（不白丢进度）。
 const SAVE_KEY = 'towermates_save_v3';
-const rawSave = () => { E.reset(); E.newGame('none', { seed: 4242 }); return JSON.parse(store[SAVE_KEY]); };
+const rawSave = () => { E.reset(); E.newGame('none', { tower: 'main', seed: 4242 }); return JSON.parse(store[SAVE_KEY]); };
 const putSave = (obj) => { store[SAVE_KEY] = JSON.stringify(obj); };
 
 let good = rawSave();
@@ -2400,7 +2400,7 @@ let far = rawSave();
 far.floor = 99;
 putSave(far);
 let fs = E.load();
-ok(!!fs && fs.floor === 12, '楼层越界夹到最后一层');
+ok(!!fs && fs.floor === 21, '楼层越界夹到最后一层');
 let tileOk = true;
 try { tileOk = E.tile(1, 1) !== undefined; } catch (e) { tileOk = false; }
 ok(tileOk, '夹回来后读格子不抛错');
@@ -2486,7 +2486,7 @@ ok(Array.isArray(E.load().flags.rings), 'rings 不是数组：归一成空列表
     removeItem: (k) => { delete ks[k]; },
   };
   E.reset();
-  E.newGame('none', { seed: 4242 });
+  E.newGame('none', { tower: 'main', seed: 4242 });
   const before = JSON.parse(ks[SAVE_KEY]).hp;
 
   fail = true;
@@ -2521,7 +2521,7 @@ ok(Array.isArray(E.load().flags.rings), 'rings 不是数组：归一成空列表
 // 墙钟差还会为负（钳成 0 → 「0 秒通关」）。现在只累计「真出了一帧」的时间（单帧封顶 250ms），
 // 老档没有这个字段则退回墙钟差 —— 读数与从前一字不差。
 {
-  E.newGame('none', { seed: 4242 });
+  E.newGame('none', { tower: 'main', seed: 4242 });
   ok(E.state().activeMs === 0, '新局活跃用时从 0 起（不把墙钟起点当用时）');
 
   for (let i = 0; i < 20; i++) E.accrueActive(200);
@@ -2537,7 +2537,7 @@ ok(Array.isArray(E.load().flags.rings), 'rings 不是数组：归一成空列表
   ok(E.summary().time === 4, '系统时间回拨也不影响（用时不再来自墙钟差）');
 
   // 单帧封顶：切回标签页那一帧的 delta 可能是几分钟，那段不是「在玩」
-  E.newGame('none', { seed: 4242 });
+  E.newGame('none', { tower: 'main', seed: 4242 });
   E.accrueActive(60000);
   // 断言写死 250 而不是读 ACTIVE_CAP：后者会跟着实参走（把上限改成 60000 这条照样绿 = 假绿）
   ok(Math.round(E.state().activeMs) === 250 && E.ACTIVE_CAP === 250, '单帧最多记 250ms（后台回来那一大段不进账）');
@@ -2546,7 +2546,7 @@ ok(Array.isArray(E.load().flags.rings), 'rings 不是数组：归一成空列表
   ok(E.state().activeMs === msBefore, '非数/负数/字符串不改账（坏时间源不污染用时）');
 
   // 老档兼容：没有 activeMs 时退回墙钟差
-  E.newGame('none', { seed: 4242 });
+  E.newGame('none', { tower: 'main', seed: 4242 });
   delete E.state().activeMs;
   E.state().startedAt = Date.now() - 120000;
   ok(E.summary().time === 120, '老档没有 activeMs → 退回墙钟差（120 秒，读数与从前一致）');
@@ -2554,7 +2554,7 @@ ok(Array.isArray(E.load().flags.rings), 'rings 不是数组：归一成空列表
   ok(E.summary().time === 0, '老档 + 回拨成负数 → 钳到 0（不出现 -100 秒）');
 
   // 存档往返：activeMs 必须落盘，否则刷新一次用时就从零重算
-  E.newGame('none', { seed: 4242 });
+  E.newGame('none', { tower: 'main', seed: 4242 });
   for (let i = 0; i < 15; i++) E.accrueActive(200);
   E.save();
   ok(Math.round(JSON.parse(store[SAVE_KEY]).activeMs) === 3000, '活跃用时写进存档（3000ms）');
@@ -2573,7 +2573,7 @@ ok(Array.isArray(E.load().flags.rings), 'rings 不是数组：归一成空列表
   ok(E.state().activeMs === 0 && isFinite(E.summary().time), '存档里 activeMs 是字符串 → 归 0 且用时仍是有限数');
 
   // 重来本层不回卷用时：它是「这一局花了多久」，不是「这一层花了多久」
-  E.newGame('none', { seed: 4242 });
+  E.newGame('none', { tower: 'main', seed: 4242 });
   s = E.state();
   s.floor = 2; s.x = 4; s.y = 3;
   E.beginFloor();
@@ -2597,7 +2597,7 @@ ok(Array.isArray(E.load().flags.rings), 'rings 不是数组：归一成空列表
     return p;
   };
 
-  E.newGame('none', { seed: 4242 });
+  E.newGame('none', { tower: 'main', seed: 4242 });
   E.save();
   const mine = JSON.parse(store[SAVE_KEY]);
   ok(typeof mine.w === 'string' && mine.w.length > 0 && mine.w.length <= 16, '存档带写者标记（本页 id）');
@@ -2651,12 +2651,12 @@ ok(Array.isArray(E.load().flags.rings), 'rings 不是数组：归一成空列表
   ok(E.foreignOwnerFresh(60000) === null, '没收到过对方的存档事件 → 不提示（刷新后不误报）');
   // storage 事件转进来的外来写：不必等下一次自动存档，立刻停写
   E.setConflictHook(() => { hits++; });
-  E.newGame('none', { seed: 4242 });
+  E.newGame('none', { tower: 'main', seed: 4242 });
   E.save();
   hits = 0;
   E.noteStorageWrite(JSON.stringify({ ver: 5, w: OTHER }));
   ok(E.saveConflict() === true && hits === 1, 'storage 事件报另一页写了 → 立刻停写');
-  E.newGame('none', { seed: 4242 });
+  E.newGame('none', { tower: 'main', seed: 4242 });
   E.save();
   E.noteStorageWrite(JSON.stringify({ ver: 5, w: E.tabId() }));
   ok(E.saveConflict() === false, '自己的写入事件不误判');
@@ -2669,7 +2669,7 @@ ok(Array.isArray(E.load().flags.rings), 'rings 不是数组：归一成空列表
   ok(E.foreignOwnerFresh(1) === null, '超出窗口就不算「正在玩」');
 
   // 读档不继承别人的身份：否则两页都自称同一个写者，保护形同没有
-  E.newGame('none', { seed: 4242 });
+  E.newGame('none', { tower: 'main', seed: 4242 });
   E.save();            // 先有一份结构完整的档（上面那个假档会被读档隔离掉）
   writeOther({});
   E.load();
@@ -2704,7 +2704,7 @@ ok(Array.isArray(E.load().flags.rings), 'rings 不是数组：归一成空列表
   const healed = {};
   D.shop.forEach((item) => {
     [false, true].forEach((ring) => {
-      E.newGame('none');
+      E.newGame('none', { tower: 'main', tower: 'main' });
       const s = E.state();
       s.floor = 12; s.gold = 99999; s.hp = 100; s.maxHp = 10000; s.atk = 10; s.def = 10;
       s.flags.rings = ring ? ['ration'] : [];
@@ -2752,7 +2752,7 @@ ok(Array.isArray(E.load().flags.rings), 'rings 不是数组：归一成空列表
   const N = 120;
   [1, 2, 3, 4].forEach((c) => {
     for (let k = 0; k < N; k++) {
-      E.newGame('none');
+      E.newGame('none', { tower: 'main', tower: 'main' });
       E.state().flags.hasBlock = true;
       const cs = E.ringChoices(c);
       if (new Set(cs).size !== 3) dup.push(c + ':' + cs.join('/'));
@@ -2768,7 +2768,7 @@ ok(Array.isArray(E.load().flags.rings), 'rings 不是数组：归一成空列表
   // 第 4 章是最严重的一章：7 枚余烬环，改前三枚全余烬约 29%
   let allEmber = 0;
   for (let k = 0; k < N; k++) {
-    E.newGame('none');
+    E.newGame('none', { tower: 'main', tower: 'main' });
     E.state().flags.hasBlock = true;
     if (E.ringChoices(4).every((id) => D.rings[id].cat === 'ember')) allEmber++;
   }

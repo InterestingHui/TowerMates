@@ -171,17 +171,22 @@ function click(w, d, sel) {
     snap('C 序章对白', '4 段旁白，每段读 3-4 秒');
     for (let i = 0; i < 4; i++) { await wait(3800); click(w, d, '#dialogOverlay'); }
     counting = true;   // 序章不算教学弹窗：从踏入第 1 层开始数
-    await wait(1000);
+    // 2026-11-28 多塔：序章读完是塔群，先点第一座塔（锈塔）再等教练卡。
+    await wait(900);
+    if (d.getElementById('towerOverlay').classList.contains('show')) {
+      click(w, d, '#towerList .tw-card');
+      await wait(1400);
+    }
     snap('D 第1层·教练卡', '高亮格 + 说明卡，点「知道了」才走');
     await wait(9000);
     click(w, d, '#coachOk');
     await wait(700);
     snap('E 第1层·可操作', '首次真正可走');
-    w.__tm.clickMove(2, 4);
+    w.__tm.clickMove(5, 9);
     await wait(600);
     snap('F 首次点格子', '自动寻路 + 底部引导条（7 秒后自收）');
     await wait(6500);
-    w.__tm.clickMove(6, 5);
+    w.__tm.clickMove(4, 4);
     await wait(2200);
     snap('G 第一次战斗', '点史莱姆 → 自动近身开战');
     await wait(5000);
@@ -308,7 +313,9 @@ function click(w, d, sel) {
       ['章末回响 ≤4', nOf('R 章末回响') >= 0 && nOf('R 章末回响') <= 4],
       ['层阶之钥面板 ≤6', nOf('Q 层阶之钥面板') >= 0 && nOf('Q 层阶之钥面板') <= 6],
       ['同屏提示条 ≤2', R.every((r) => r.tips.length <= 2)],
-      ['前 3 分钟教学弹窗 =2', modalCount === 2],
+      // 2026-11-28 多塔：序章之后多了一段「进锈塔」的短对白（解释三座齿塔），
+      // 预算 2 → 3；再多就是同一机制重复打断。
+      ['前 3 分钟教学弹窗 1–3', modalCount >= 1 && modalCount <= 3],
       ['首战 ≤70 秒', nOf('G 第一次战斗') >= 0 && R.find((r) => r.tag === 'G 第一次战斗').at <= 70],
       // 三屏补量（2026-11-15 14:2x）：返回玩家首屏是「老玩家每次打开都要过的一道门」，
       // 结算页是终点屏，图鉴是主动打开的浏览屏——三者的预算口径不同，故分开写。

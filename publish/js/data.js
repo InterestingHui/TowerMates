@@ -136,6 +136,66 @@ window.GAME_DATA = (function () {
         ],
       },
     },
+    // ---- 三枚齿：主塔外围三座矮塔的守门兽（2026-11-28 多塔结构） ----
+    // 它们不是工匠，是锁上的齿。打倒一枚，主塔的锁就松一分。
+    // 数值只服务各自那座 3 层小塔（塔内独立成长，不带进下一座塔）。
+    7: {
+      name: '锈齿', emoji: '⚙️', hp: 220, atk: 32, def: 10, gold: 120, exp: 80, boss: true, kind: '构',
+      tower: 'rust', title: '锈塔之齿 · 第一枚', story: 'bossRust', after: 'afterRust',
+      defeat: '锈齿散成一地铁屑。齿槽空了，塔门松了半寸。',
+      phases: [
+        { at: 0.66, n: 2, title: '第二齿 · 咬合', text: '锈齿：你听——上面的锁，一直在磨。' },
+        { at: 0.33, n: 3, title: '第三齿 · 松', text: '锈齿：磨断了，我就散了。别停。' },
+      ],
+      phasePool: {
+        p2: [
+          { at: 0.66, n: 2, title: '第二齿 · 咬合', text: '锈齿：你听——上面的锁，一直在磨。' },
+          { at: 0.66, n: 2, title: '第二齿 · 铁腥', text: '锈齿：这层楼的铁，都是从我身上掉下去的。' },
+        ],
+        p3: [
+          { at: 0.33, n: 3, title: '第三齿 · 松', text: '锈齿：磨断了，我就散了。别停。' },
+          { at: 0.33, n: 3, title: '第三齿 · 空转', text: '锈齿：我转了八十年，一次也没咬住过谁。' },
+        ],
+      },
+    },
+    8: {
+      name: '灰齿', emoji: '🕳️', hp: 420, atk: 48, def: 16, gold: 220, exp: 150, boss: true, kind: '亡',
+      tower: 'ash', title: '灰塔之齿 · 第二枚', story: 'bossAsh', after: 'afterAsh',
+      defeat: '灰齿塌成一捧冷灰。灰里有一枚没烧完的钥匙。',
+      phases: [
+        { at: 0.66, n: 2, title: '第二齿 · 余温', text: '灰齿：这里烧过一场。没人记得烧的是什么。' },
+        { at: 0.33, n: 3, title: '第三齿 · 冷', text: '灰齿：灰是烧完的名字。你也有一个。' },
+      ],
+      phasePool: {
+        p2: [
+          { at: 0.66, n: 2, title: '第二齿 · 余温', text: '灰齿：这里烧过一场。没人记得烧的是什么。' },
+          { at: 0.66, n: 2, title: '第二齿 · 炉底', text: '灰齿：炉底压着七个人的字。字都化了。' },
+        ],
+        p3: [
+          { at: 0.33, n: 3, title: '第三齿 · 冷', text: '灰齿：灰是烧完的名字。你也有一个。' },
+          { at: 0.33, n: 3, title: '第三齿 · 吹散', text: '灰齿：别替我收。风会替我收。' },
+        ],
+      },
+    },
+    9: {
+      name: '钟齿', emoji: '⏱️', hp: 620, atk: 62, def: 24, gold: 320, exp: 220, boss: true, kind: '异',
+      tower: 'bell', title: '钟塔之齿 · 第三枚', story: 'bossBell', after: 'afterBell',
+      defeat: '钟齿裂开，里面是一圈停住的秒针。',
+      phases: [
+        { at: 0.66, n: 2, title: '第二齿 · 慢', text: '钟齿：你的心跳比进来时快了一格。' },
+        { at: 0.33, n: 3, title: '第三齿 · 停', text: '钟齿：三枚齿都松了。上面在等你。' },
+      ],
+      phasePool: {
+        p2: [
+          { at: 0.66, n: 2, title: '第二齿 · 慢', text: '钟齿：你的心跳比进来时快了一格。' },
+          { at: 0.66, n: 2, title: '第二齿 · 数', text: '钟齿：一、二、三。你走到第三座了。' },
+        ],
+        p3: [
+          { at: 0.33, n: 3, title: '第三齿 · 停', text: '钟齿：三枚齿都松了。上面在等你。' },
+          { at: 0.33, n: 3, title: '第三齿 · 让', text: '钟齿：我不拦你。我只是想看看，你上不上得去。' },
+        ],
+      },
+    },
     G: { name: '烛', emoji: '🕯️', hp: 50, atk: 0, def: 5, gold: 0, exp: 0, ghost: true, kind: '魂' },
   };
 
@@ -291,6 +351,58 @@ window.GAME_DATA = (function () {
     2: ['parry', 'cinder', 'thrift2', 'vitality', 'ash', 'scout2', 'bargain', 'toll', 'chain', 'twice'],
     3: ['bell', 'stair', 'scope', 'hour', 'ledger2', 'vitality2', 'compass', 'tome', 'bulwark', 'merit'],
     4: ['seventh', 'chisel', 'heart', 'oath', 'coin2', 'lamp2', 'signature', 'quill', 'finale', 'clean'],
+  };
+
+  // ---------- 塔群：一座主塔 + 三座齿塔（2026-11-28 多塔结构） ----------
+  // 镇上人只看得见最高的那座。走到塔基才看见，主塔脚下还立着三座矮塔——
+  // 它们是锁上的三枚齿。新手按 order 一座一座拔，四座全通才算走完这一趟。
+  //
+  // 结构约定（改这里之前先读三条）：
+  //   ① floors 数组仍是扁平索引：0–12 是主塔（原 12+1 层不动），13–21 是三座齿塔。
+  //      齿塔接在数组末尾是为了保住主塔的全部硬编码索引（candle、章节、锁芯）。
+  //   ② 每座齿塔 3 层、独立成长：进塔时属性回到 start，通关只带走一枚「塔印」。
+  //      塔印 = 攻/防/上限的固定小加成，累加进下一座塔（包括主塔）的起始值。
+  //   ③ 塔内层号从 1 数；总进度号 progressNo = (order-1)*3 + 塔内层号。
+  const towers = [
+    {
+      id: 'rust', order: 1, name: '锈塔', kicker: '第一枚齿 · 铁锈',
+      theme: '铁锈与第一课', color: '#c8a978', accent: 'rgba(200,169,120,0.20)',
+      floors: [13, 14, 15], boss: '7', scene: 'gate',
+      start: { hp: 1000, maxHp: 1000, atk: 10, def: 10 },
+      enter: 'towerRust', clear: 'clearRust',
+      mark: { id: 'rust', name: '锈印', emoji: '⚙️', atk: 2, def: 2, maxHp: 150, desc: '下一座塔起始：攻 +2 / 防 +2 / 上限 +150' },
+    },
+    {
+      id: 'ash', order: 2, name: '灰塔', kicker: '第二枚齿 · 冷灰',
+      theme: '烧掉的名字', color: '#b9a4a0', accent: 'rgba(185,164,160,0.20)',
+      floors: [16, 17, 18], boss: '8', scene: 'namewall',
+      start: { hp: 1200, maxHp: 1200, atk: 14, def: 12 },
+      enter: 'towerAsh', clear: 'clearAsh',
+      mark: { id: 'ash', name: '灰印', emoji: '🕳️', atk: 2, def: 2, maxHp: 150, desc: '下一座塔起始：攻 +2 / 防 +2 / 上限 +150' },
+    },
+    {
+      id: 'bell', order: 3, name: '钟塔', kicker: '第三枚齿 · 停摆',
+      theme: '停住的秒针', color: '#9fd8ff', accent: 'rgba(159,216,255,0.20)',
+      floors: [19, 20, 21], boss: '9', scene: 'bell',
+      start: { hp: 1400, maxHp: 1400, atk: 18, def: 16 },
+      enter: 'towerBell', clear: 'clearBell',
+      mark: { id: 'bell', name: '钟印', emoji: '⏱️', atk: 3, def: 3, maxHp: 200, desc: '下一座塔起始：攻 +3 / 防 +3 / 上限 +200' },
+    },
+    {
+      id: 'main', order: 4, name: '无名塔', kicker: '主塔 · 锁芯', main: true,
+      theme: '名字的重量', color: '#e8c46a', accent: 'rgba(232,196,106,0.20)',
+      floors: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], boss: 'U', scene: 'gate',
+      start: { hp: 1000, maxHp: 1000, atk: 10, def: 10 },
+    },
+  ];
+  const towerOf = (floor) => towers.find((t) => t.floors.indexOf(floor) >= 0) || towers[towers.length - 1];
+  const floorNo = (floor) => {
+    const t = towerOf(floor);
+    return floor - t.floors[0] + 1;
+  };
+  const progressNo = (floor) => {
+    const t = towerOf(floor);
+    return (t.order - 1) * 3 + floorNo(floor);
   };
 
   // 升到下一级所需经验（索引 = 当前等级-1）
@@ -526,6 +638,163 @@ window.GAME_DATA = (function () {
         '#....#....#',
         '#.1.?#..2.#',
         '#....n....#',
+        '###########',
+      ],
+    },
+    // ---------- 三座齿塔（索引 13–21，接在主塔之后） ----------
+    // 每座 3 层：入口 → 齿槽 → 齿（Boss 堵唯一上楼路）。
+    // 地图校验见 tools/check.js 的「每座塔」分段：塔第一层必须有 n（回塔群），
+    // 塔最后一层的 u 是塔门（通关触发），不是普通上楼。
+    {
+      name: '锈塔 · 门厅', chapter: 0, tower: 'rust',
+      tip: '铁锈味从墙缝里渗出来。楼梯只有三段，塔身矮得像一句没说完的话。',
+      map: [
+        '###########',
+        '#n.......u#',
+        '#.#######.#',
+        '#.#.....#.#',
+        '#.#.A.B.#.#',
+        '#.#.....#.#',
+        '#...###...#',
+        '#.k.#p#..s#',
+        '#...#.#.B.#',
+        '#....d....#',
+        '###########',
+      ],
+    },
+    {
+      name: '锈塔 · 齿槽', chapter: 0, tower: 'rust',
+      tip: '墙里嵌着半圈齿轮，齿口朝着上面。有人从这里拆走过什么。',
+      map: [
+        '###########',
+        '#n..C...#u#',
+        '#.#######y#',
+        '#...#..#..#',
+        '#.k.#.....#',
+        '#.###.###.#',
+        '#...p..s..#',
+        '#.#.###.#.#',
+        '#.#..A..#.#',
+        '#.d.......#',
+        '###########',
+      ],
+    },
+    {
+      name: '锈塔 · 第一枚齿', chapter: 0, tower: 'rust', boss: '7', ambient: 'boss',
+      tip: '齿轮停了。中间那枚齿还在转，很慢。',
+      map: [
+        '###########',
+        '#n......#u#',
+        '#.#######7#',
+        '#.#.....#.#',
+        '#.#..p..#.#',
+        '#.#.....#.#',
+        '#...###...#',
+        '#.k.....P.#',
+        '#.#.###.#.#',
+        '#.........#',
+        '###########',
+      ],
+    },
+    {
+      name: '灰塔 · 炉底', chapter: 0, tower: 'ash',
+      tip: '地上有一层灰，踩上去没有声音。灰里埋着几枚烧变形的金币。',
+      map: [
+        '###########',
+        '#n.......u#',
+        '#.#######.#',
+        '#.#.C.D.#.#',
+        '#.#.....#.#',
+        '#.#.###.#.#',
+        '#...#...#.#',
+        '#.k.#.#.C.#',
+        '#...#.#...#',
+        '#.s..d....#',
+        '###########',
+      ],
+    },
+    {
+      name: '灰塔 · 冷炉', chapter: 0, tower: 'ash',
+      tip: '炉膛是冷的，炉壁还留着手印。手印比你的手小一圈。',
+      map: [
+        '###########',
+        '#n..C...#u#',
+        '#.#######y#',
+        '#...#..#..#',
+        '#.k.#..#..#',
+        '#.###..#..#',
+        '#...p.....#',
+        '#.#.###.#.#',
+        '#.#..D..#.#',
+        '#....m....#',
+        '###########',
+      ],
+    },
+    {
+      name: '灰塔 · 第二枚齿', chapter: 0, tower: 'ash', boss: '8', ambient: 'boss',
+      tip: '灰里立着一枚齿，像一块没烧完的骨头。',
+      map: [
+        '###########',
+        '#n......#u#',
+        '#.#######8#',
+        '#.#.....#.#',
+        '#.#..P..#.#',
+        '#.#.....#.#',
+        '#...###...#',
+        '#.k..p..L.#',
+        '#.#.###.#.#',
+        '#.s..d....#',
+        '###########',
+      ],
+    },
+    {
+      name: '钟塔 · 钟摆', chapter: 0, tower: 'bell',
+      tip: '钟摆停在左边。你走过去时，它极轻地晃了一下。',
+      map: [
+        '###########',
+        '#n.......u#',
+        '#.#######.#',
+        '#.#.D.E.#.#',
+        '#.#.....#.#',
+        '#.#.###.#.#',
+        '#...#P#...#',
+        '#.k.#.#.C.#',
+        '#...#.#...#',
+        '#.a..b....#',
+        '###########',
+      ],
+    },
+    {
+      name: '钟塔 · 齿室', chapter: 0, tower: 'bell',
+      tip: '一整面墙都是钟面，指针全部指在同一格。',
+      map: [
+        '###########',
+        '#n..D...#u#',
+        '#.#######r#',
+        '#...#..#..#',
+        '#.k.L.....#',
+        '#.###.###.#',
+        '#...P.....#',
+        '#.#.###.#.#',
+        '#.#..C..#.#',
+        '#....c....#',
+        '###########',
+      ],
+    },
+    {
+      name: '钟塔 · 第三枚齿', chapter: 0, tower: 'bell', boss: '9', ambient: 'boss',
+      tip: '三枚齿里，只有这一枚还在走。',
+      map: [
+        '###########',
+        '#n......#u#',
+        '#.#######9#',
+        '#.#.....#.#',
+        '#.#..P..#.#',
+        '#.#.....#.#',
+        '#...###...#',
+        '#.k..p..L.#',
+        '#.#.###.#.#',
+        '#....h....#',
         '###########',
       ],
     },
@@ -830,5 +1099,5 @@ window.GAME_DATA = (function () {
     { id: 'heartshard', name: '塔心碎片', emoji: '🩷', price: 260, heartShard: true, once: true, minFloor: 13 },
   ];
 
-  return { LEGEND, PALETTE, kindColor, TRAITS, monsters, items, relics, altarPool, rings, ringPools, levelExp, floors, chapters, vows, events, shop };
+  return { LEGEND, PALETTE, kindColor, TRAITS, monsters, items, relics, altarPool, rings, ringPools, levelExp, floors, chapters, towers, towerOf, floorNo, progressNo, vows, events, shop };
 })();

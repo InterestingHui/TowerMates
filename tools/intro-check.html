@@ -61,7 +61,9 @@ function load(url) {
         await wait(120);
       }
       await wait(600);
-      rec('A2 序章读完进入第 1 层', d.getElementById('floorCard') !== null && (w.Engine.state().floor === 0), 'floor=' + w.Engine.state().floor);
+      const firstFloor = w.GAME_DATA.towers[0].floors[0];
+      const towerShown = d.getElementById('towerOverlay').classList.contains('show');
+      rec('A2 序章读完进入塔群（锈塔入口）', towerShown && w.Engine.state().floor === firstFloor, 'tower=' + towerShown + ' floor=' + w.Engine.state().floor);
     }
 
     // ---------- B. 进过塔（runs>0）：再开一局不该播 ----------
@@ -86,7 +88,9 @@ function load(url) {
       await wait(700);
       const dlg = d.getElementById('dialogOverlay');
       rec('B1 老玩家开局不再播序章', dlg.classList.contains('show') === false, '对白遮罩=' + dlg.classList.contains('show'));
-      rec('B2 直接落在第 1 层', w.Engine.state().floor === 0 && !w.Engine.state().over, 'floor=' + w.Engine.state().floor);
+      const firstFloorB = w.GAME_DATA.towers[0].floors[0];
+      const towerShownB = d.getElementById('towerOverlay').classList.contains('show');
+      rec('B2 直接停在塔群（锈塔第 1 层）', towerShownB && w.Engine.state().floor === firstFloorB && !w.Engine.state().over, 'tower=' + towerShownB + ' floor=' + w.Engine.state().floor);
       const logs = d.getElementById('log');
       rec('B3 日志说明可重看', /序章/.test(logs.textContent || ''), (logs.textContent || '').slice(0, 40).replace(/\s+/g, ' '));
     }

@@ -1640,7 +1640,8 @@ ok(cxChars.chars[1].boss === true && cxChars.chars[0].boss === false, 'Boss 标�
   ok(seq.length === live.length && new Set(seq).size === seq.length, `真数据里每只怪都在图鉴里且只出现一次（${seq.length} / ${live.length}）`);
   const names = real.rows.map((r) => r.name);
   ok(names.indexOf('墨妖') >= 0 && names.indexOf('墨妖') < names.indexOf('碑魔'), '第 3 层的锁匠排在第 12 层之前（顺序＝认识它们的顺序）');
-  ok(real.rows.filter((r) => r.boss).length === 4, '四位章节 Boss 都带 Boss 标');
+  // 2026-11-28：四位章节 Boss + 三枚齿塔守门兽，共 7 位
+  ok(real.rows.filter((r) => r.boss).length === 7, '七位 Boss（四章 + 三齿）都带 Boss 标');
 }
 
 // 源码契约：这三条规则不许在 main.js 里再手写一份

@@ -614,10 +614,13 @@
     gate, corridor, market, passage, wolfhall, throne, ridge, empty, bell, namewall, carve, roof, dawn,
   };
 
-  // 楼层 → 场景（0 基下标，锁芯是第 12）
+  // 楼层 → 场景（0 基下标，锁芯是第 12；13–21 是三座齿塔）
   const FLOOR_SCENE = [
     'gate', 'corridor', 'market', 'passage', 'wolfhall', 'throne',
     'ridge', 'empty', 'bell', 'namewall', 'carve', 'roof', 'core',
+    'gate', 'corridor', 'gate',
+    'namewall', 'empty', 'namewall',
+    'bell', 'bell', 'bell',
   ];
 
   // 剧情键 → 场景（比楼层更准：商人在货摊，锁匠在王座厅 / 钟楼 / 名墙）
@@ -633,6 +636,10 @@
     bossJu: 'throne', afterJu: 'throne',
     bossDuo: 'bell', afterDuo: 'bell',
     bossHeng: 'namewall', afterHeng: 'carve',
+    // 齿塔（2026-11-28）：锈塔用塔门/回廊，灰塔用名墙/空廊，钟塔用钟楼
+    towerRust: 'gate', bossRust: 'gate', afterRust: 'gate', clearRust: 'gate',
+    towerAsh: 'namewall', bossAsh: 'namewall', afterAsh: 'namewall', clearAsh: 'namewall',
+    towerBell: 'bell', bossBell: 'bell', afterBell: 'bell', clearBell: 'bell',
     ch2: 'passage', ch3: 'ridge', ch4: 'namewall', core: 'core',
     heartTake: 'core', heartLeave: 'core',
     princessPlain: 'roof', princessPlainSword: 'roof', princessTrue: 'roof',
@@ -710,7 +717,7 @@
   // 换一张 assets/cg/dawn.webp 指纹不变 ⇒ 老玩家浏览器继续用旧图（结局那张已经换过一次了）。
   // 源码里是 'dev'，publish 那份由 tools/sync-publish.js 换成 assets/cg 的内容指纹——
   // 换图即换 URL，不靠人记得 bump。所有出图口子都必须走 cgSrc，别直接拼 IMG[k]。
-  const ASSET_V = '9c033b3e';
+  const ASSET_V = 'ba9c7eda';
   const cgSrc = (k) => { const s = IMG[k]; return s ? s + '?v=' + ASSET_V : ''; };
   // 序章用：只取图片标签（矢量分镜由 scenes.js 自己拼在下面当兜底）
   function imgTag(key) {

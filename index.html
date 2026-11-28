@@ -7,7 +7,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="build" content="9c49e16908">
+<meta name="build" content="81194fbf98">
 <title>TowerMates · 魔塔</title>
 <!-- 分享卡：挑战链接（?rival=）是全作唯一传播路径，没有这几条时粘进微信是一条裸链接 + 灰占位图，
      点开前看不出是什么。图是 tools/sharecard.html 用无头 Chrome 渲的 1200×1200 正方卡（1:1 裁切不丢字）。
@@ -22,7 +22,7 @@
 <meta property="og:image:height" content="1200">
 <meta property="og:url" content="https://towermates.app.workbuddy.host/?sharecode=U7XMLC2NKJ">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="stylesheet" href="css/style.css?v=9c49e16908">
+<link rel="stylesheet" href="css/style.css?v=81194fbf98">
 </head>
 <body>
 <div id="app">
@@ -173,6 +173,18 @@
 
 <!-- 誓约回执：选完之后在画面顶端亮一条，说明这局改了什么（3.4 秒自己淡出，不挡操作） -->
 <div class="vow-flash" id="vowFlash"></div>
+
+<!-- 塔群：三座齿塔 + 主塔，按顺序解锁（2026-11-28 多塔结构） -->
+<div class="overlay" id="towerOverlay">
+  <div class="tower-stage">
+    <div class="tower-kicker" id="towerKicker">塔 群</div>
+    <p class="tower-desc" id="towerDesc">主塔脚下还有三座矮塔。拔掉三枚齿，主塔的门才认你。</p>
+    <div class="tower-banner" id="towerBanner" hidden></div>
+    <div class="tower-list" id="towerList"></div>
+    <div class="tower-marks" id="towerMarks" hidden></div>
+    <div class="tower-hint" id="towerHint">点一座塔进去 · 每座塔从第 1 层重新开始</div>
+  </div>
+</div>
 
 <div class="overlay portrait" id="portraitOverlay">
   <div class="pt-zoom-wrap">
@@ -577,24 +589,24 @@
   </div>
 </div>
 
-<script src="js/data.js?v=9c49e16908"></script>
-<script src="js/vow-icons.js?v=9c49e16908"></script>
-<script src="js/story.js?v=9c49e16908"></script>
-<script src="js/portraits.js?v=9c49e16908"></script>
-<script src="js/backdrops.js?v=9c49e16908"></script>
-<script src="js/scenes.js?v=9c49e16908"></script>
-<script src="js/achievements.js?v=9c49e16908"></script>
-<script src="js/daily.js?v=9c49e16908"></script>
-<script src="js/view.js?v=9c49e16908"></script>
-<script src="js/engine.js?v=9c49e16908"></script>
-<script src="js/render.js?v=9c49e16908"></script>
-<script src="js/devgate.js?v=9c49e16908"></script>
-<script src="js/ads.js?v=9c49e16908"></script>
-<script src="js/main.js?v=9c49e16908"></script>
-<script src="js/challenge.js?v=9c49e16908"></script>
-<script src="js/wxbridge.js?v=9c49e16908"></script>
-<script src="js/touch.js?v=9c49e16908"></script>
-<script src="js/gate-forth.js?v=9c49e16908"></script>
-<script src="js/wxwire.js?v=9c49e16908"></script>
+<script src="js/data.js?v=81194fbf98"></script>
+<script src="js/vow-icons.js?v=81194fbf98"></script>
+<script src="js/story.js?v=81194fbf98"></script>
+<script src="js/portraits.js?v=81194fbf98"></script>
+<script src="js/backdrops.js?v=81194fbf98"></script>
+<script src="js/scenes.js?v=81194fbf98"></script>
+<script src="js/achievements.js?v=81194fbf98"></script>
+<script src="js/daily.js?v=81194fbf98"></script>
+<script src="js/view.js?v=81194fbf98"></script>
+<script src="js/engine.js?v=81194fbf98"></script>
+<script src="js/render.js?v=81194fbf98"></script>
+<script src="js/devgate.js?v=81194fbf98"></script>
+<script src="js/ads.js?v=81194fbf98"></script>
+<script src="js/main.js?v=81194fbf98"></script>
+<script src="js/challenge.js?v=81194fbf98"></script>
+<script src="js/wxbridge.js?v=81194fbf98"></script>
+<script src="js/touch.js?v=81194fbf98"></script>
+<script src="js/gate-forth.js?v=81194fbf98"></script>
+<script src="js/wxwire.js?v=81194fbf98"></script>
 </body>
 </html>

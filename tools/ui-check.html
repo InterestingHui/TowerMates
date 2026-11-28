@@ -39,6 +39,10 @@ async function run() {
     var f = document.getElementById('f');
     var w = f.contentWindow, d = f.contentDocument;
     var E = w.Engine, s = E.state();
+    // 2026-11-28 多塔：UI 用例验的是主塔的旧坐标（第 1/5 层等），
+    // 页面默认开局已改到锈塔，这里先切回主塔基线再跑。
+    E.newGame(null, { tower: 'main' });
+    s = E.state();
     out.booted = !!s;
     out.modules = { touch: !!w.TouchGestures, challenge: !!w.Challenge, wx: !!w.WXBridge };
     w.localStorage.removeItem('towermates_board');
@@ -449,7 +453,7 @@ async function run() {
     // 点一次远处的怪物：应自动走到跟前并直接开打，不需要第二次点击
     // （先把上面榜单测试留下的浮层收干净——浮层开着时人不许走，这是 2026-11-16 新立的规矩）
     d.querySelectorAll('.overlay.show').forEach(function (o) { o.classList.remove('show'); });
-    E.newGame();
+    E.newGame(null, { tower: 'main' });
     var s3 = E.state();
     var target = null;
     for (var yy = 0; yy < 11 && !target; yy++) {
@@ -489,7 +493,7 @@ async function run() {
     out.decAuto = {};
     (function () { w.__prepAuto = 'none'; w.__battleSpeed = 14; })();     // 演出提速：只压动画，不改数值
     d.querySelectorAll('.overlay.show').forEach(function (o) { o.classList.remove('show'); });
-    E.newGame();
+    E.newGame(null, { tower: 'main' });
     var sf = E.state();
     sf.flags.hasBlock = true;
     sf.floor = 0;
@@ -551,7 +555,7 @@ async function run() {
     // 逐张读卡 id，再点「格挡」走完结算——玩家手上的操作必须与卡上承诺的后果一致。
     out.prepSave = {};
     (function () { w.__prepAuto = false; })();
-    E.newGame();
+    E.newGame(null, { tower: 'main' });
     var sp = E.state();
     sp.flags.hasBlock = true;
     sp.floor = 3;
@@ -622,7 +626,7 @@ async function run() {
     // 且每张卡写的承伤都 < 当前血（otherwise 就是一张点了必死、又没有二次确认的卡）。
     out.prepLethal = {};
     (function () { w.__prepAuto = false; })();
-    E.newGame();
+    E.newGame(null, { tower: 'main' });
     var sd = E.state();
     sd.flags.hasBlock = true;
     sd.floor = 4;                       // 第 5 层：缠斗从这一层起才有
@@ -692,7 +696,7 @@ async function run() {
     // 「回合 5 / 13」然后面板就关了，玩家读成「打着打着就结束了」。这里用初始攻 10 下的史莱姆
     // （13 回合 > 5 刀）当场景，量三件：写法是「共 N 回合」/ N 与引擎 pred.rounds 同源 / 演出中途不变。
     out.bsRounds = {};
-    E.newGame();
+    E.newGame(null, { tower: 'main' });
     var sr = E.state();
     sr.atk = 10; sr.hp = 9999; sr.maxHp = 9999;
     var rp = null;
@@ -752,7 +756,7 @@ async function run() {
     // 玩家只能刷新、进度退回上次存档。两条路各试一次：同步装配段（画双方形象时抛）与
     // 异步演出段（回合音效时抛）。判据统一是「这一战没算、输入立刻可用、下一次还能正常打完」。
     out.battleAbort = {};
-    E.newGame();
+    E.newGame(null, { tower: 'main' });
     w.__battleSpeed = 1;          // 这一块要数「第几帧抛的」，别让演出倍率把时序拖长
     var sb = E.state();
     sb.atk = 60; sb.def = 30; sb.hp = 4000; sb.maxHp = 4000;
@@ -816,7 +820,7 @@ async function run() {
       // ④ 结算本体抛错（Engine.fight 自己炸）。这是「修了一半」最典型的漏口：
       //    上面两条路都在演出链上，而 done 回调里的结算在演出**收场之后**才跑——
       //    场景收了、兜底没走、锁还锁着，玩家看到的是空屏点不动，只能刷新。
-      E.newGame();
+      E.newGame(null, { tower: 'main' });
       w.__battleSpeed = 1;
       var sbD = E.state();
       sbD.atk = 60; sbD.def = 30; sbD.hp = 4000; sbD.maxHp = 4000;
@@ -879,7 +883,7 @@ async function run() {
     // 而且战斗里不再留任何能点的打法按钮（决策已经做完，留着只会被误读成还能改）。
     out.bsHint = {};
     d.querySelectorAll('.overlay.show').forEach(function (o) { o.classList.remove('show'); });
-    E.newGame();
+    E.newGame(null, { tower: 'main' });
     var sh = E.state();
     sh.flags.hasBlock = true;
     sh.floor = 4;                       // 第 5 层起三把打法同屏（架盾第 4 层、缠斗第 5 层）
@@ -950,7 +954,7 @@ async function run() {
     // clickMove 外面，锁永远是 true，整局走不动点不动（与 11-17 演出链那个死角同型）。
     // 判据：异常不外泄、面板不留半开、这一战按「直接开打」放过，且下一次还能正常打完。
     out.prepFallback = {};
-    E.newGame();
+    E.newGame(null, { tower: 'main' });
     var sf = E.state();
     sf.flags.hasBlock = true;               // 有格挡 ⇒ 面板一定有两张卡（不会因为只有一张而不弹）
     sf.atk = 200; sf.def = 0; sf.hp = 100; sf.maxHp = 100;   // 承伤 ≥5% 上限，走真面板
@@ -1080,7 +1084,7 @@ async function run() {
     out.shopChain = [];
     for (var si = 0; si < 3; si++) {
       var fi = [7, 10, 12][si];
-      E.newGame();
+      E.newGame(null, { tower: 'main' });
       var ss = E.state();
       ss.floor = fi;
       ss.atk = 999; ss.def = 999; ss.hp = 99999; ss.maxHp = 99999;
@@ -1129,7 +1133,7 @@ async function run() {
     // 钱够能买（变已拥有、按钮置灰），本层清空要指路回下层找钱。
     out.shard = {};
     (function () {})();
-    E.newGame();
+    E.newGame(null, { tower: 'main' });
     var sS = E.state();
     sS.floor = 12;
     out.shard.left = E.floorMonsterCount();
@@ -1177,7 +1181,7 @@ async function run() {
     d.getElementById('shopClose').click();
     await new Promise(function (r) { setTimeout(r, 120); });
     // C. 本层清空 → 指路回下层
-    E.newGame();
+    E.newGame(null, { tower: 'main' });
     var sS3 = E.state();
     sS3.floor = 12;
     sS3.gold = 0;
@@ -1197,7 +1201,7 @@ async function run() {
 
     // 第 3 层关键通道：商店不再焊在「打墨妖 → 上楼」的唯一立足格上
     // 种子 0 锁定原版布局（连拾取物都原位）：盯固定坐标的探针永不因随机换位假红。
-    E.newGame(null, { seed: 0 });
+    E.newGame(null, { tower: 'main', seed: 0 });
     var s5 = E.state();
     s5.floor = 2; s5.x = 5; s5.y = 9;
     out.f3Ledge = E.tile(5, 6);
@@ -1283,7 +1287,7 @@ async function run() {
         out.avgEmber = M.avgEmber();
         M.memory.emberRuns = [];
         out.avgFallback = M.avgEmber();
-        E.newGame();
+        E.newGame(null, { tower: 'main' });
         var s7 = E.state();
         s7.ending = 'true'; s7.won = true; s7.startedAt = Date.now() - 360000;
         s7.flags.vow = 'none';
@@ -1305,7 +1309,7 @@ async function run() {
         out.lampLit = M.lamps === lampsBefore + 1 && M.ember === emberBefore - 20;
         // 收藏图鉴：拿过的东西跨局留档，面板按全表渲染（遗物 11 + 锁环 24）
         d.querySelectorAll('.overlay.show').forEach(function (o) { o.classList.remove('show'); });
-        E.newGame();
+        E.newGame(null, { tower: 'main' });
         var s8 = E.state();
         s8.flags.relic_steel = true;   // 模拟本局拿过两件
         s8.flags.relic_coin = true;
@@ -1416,7 +1420,7 @@ async function run() {
           var res = {};
           Object.keys(cases).forEach(function (k) {
             var c = cases[k];
-            E.newGame();
+            E.newGame(null, { tower: 'main' });
             var st = E.state();
             st.floor = c.floor;           // 9 = 第 10 层：💀决战的可见窗口
             st.maxFloor = c.floor;
@@ -1452,7 +1456,7 @@ async function run() {
                 }),
             };
           });
-          E.newGame();
+          E.newGame(null, { tower: 'main' });
           w.__tm.refreshHud();
           return res;
         })();
@@ -1507,7 +1511,7 @@ async function run() {
           r.digitWant = want2;
           clean();
           // 浮层挡走人：三种浮层各开一次，连按两次方向键，坐标一格都不许动
-          E.newGame(null, { seed: 0 });
+          E.newGame(null, { tower: 'main', seed: 0 });
           var pos = function () { var s = E.state(); return s ? s.x + ',' + s.y : '?'; };
           var stay = function (open, close) {
             var p0 = pos();
@@ -1593,7 +1597,7 @@ async function run() {
           out.scoutChipGone = !d.querySelector('#relicRow .relic[data-relic="scout"]');
           // 守誓之盾：密道最里侧那面盾必须开口（2026-11-18 叙事体检：八件剧情遗物里唯一一件哑的）。
           // 判据不是「数据里有 story 字段」（那是 check.js 的契约），而是**玩家真走上去以后对白会开**。
-          E.newGame();
+          E.newGame(null, { tower: 'main' });
           var sW = E.state();
           sW.floor = 3;              // 密道 = floors[3]，首行 #n....Q..O#
           sW.x = 8; sW.y = 1;
@@ -1645,7 +1649,7 @@ async function run() {
           out.devGateHere = G.local() === true; // 本机探针确实跑在本地
         }
         d.querySelectorAll('.overlay.show').forEach(function (o) { o.classList.remove('show'); });
-        E.newGame();
+        E.newGame(null, { tower: 'main' });
         var s9 = E.state();
         s9.floor = 2; s9.hp = 0; s9.over = true;
         // 败局余烬明细（2026-11-27 自检轮）：此前这一块被清空，只留一个总数
