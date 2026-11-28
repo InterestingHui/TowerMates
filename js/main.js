@@ -5080,7 +5080,7 @@
       const boss = D.monsters[t.boss];
       return `<button class="tw-card ${st}${t.main ? ' main' : ''}" data-id="${t.id}" data-st="${st}" style="--tw:${t.color};--tw-wash:${t.accent}">
         <span class="tw-ico">${t.main ? '🗼' : (t.mark ? t.mark.emoji : '🔒')}</span>
-        <span class="tw-body"><b>${t.name}</b><i>${t.kicker} · ${t.theme}</i><em>${t.floors.length} 层${boss ? ' · 守门 ' + boss.name : ''}</em></span>
+        <span class="tw-body"><b>${t.name}</b><i>${t.kicker} · ${t.theme}</i><em>${t.floors.length} 层${boss ? ' · 守门 ' + boss.name + (boss.epithet ? ' · ' + boss.epithet : '') : ''}</em></span>
         <span class="tw-state">${state}</span>
       </button>`;
     }).join('');

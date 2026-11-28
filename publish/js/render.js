@@ -160,6 +160,14 @@
     ['#12161c', '#0f1218'], ['#141820', '#111519'], ['#161a22', '#13161d'],
   ];
 
+  // 塔皮肤（2026-11-28 主题轮）：塔对象上的 paint 决定这一层的墙 / 地 / 火光 / 地纹。
+  // 主塔没有 paint，继续走上面那三张按层的表（四章各有温度）；
+  // 齿塔三座此前只有布局不同、材质是同一套石灰，远远看仍是同一座塔。
+  function paintOf(floor) {
+    const tw = D.towerOf ? D.towerOf(floor) : null;
+    return (tw && tw.paint) || null;
+  }
+
   function setAmbient(floorIndex, map) {
     const fdef = window.GAME_DATA && window.GAME_DATA.floors[floorIndex];
     const mode = (fdef && fdef.ambient) || 'torch';
@@ -212,7 +220,8 @@
   // ---------- 地板 ----------
   function drawFloorTile(px, py, x, y) {
     const h = hash(x, y);
-    const tint = FLOOR_TINT[lastFloor];
+    const paint = paintOf(lastFloor);
+    const tint = (paint && paint.floor) || FLOOR_TINT[lastFloor];
     let base = (x + y) % 2 === 0 ? (tint ? tint[0] : '#101622') : (tint ? tint[1] : '#0d121c');
     ctx.fillStyle = base;
     ctx.fillRect(px, py, TILE, TILE);
@@ -244,12 +253,18 @@
 
   // ---------- 墙 ----------
   function drawWall(px, py, x, y) {
-    const mat = WALL_MAT[lastFloor] || 'stone';
+    const paint = paintOf(lastFloor);
+    const mat = (paint && paint.wall) || WALL_MAT[lastFloor] || 'stone';
+    const plates = mat === 'iron';           // 铁板墙：不画砖缝，画拼板与铆钉
     const h = hash(x, y);
     let face = C.stone, edge = '#1b2130', deep = C.stone2;
     if (mat === 'brick') { face = '#2f3b4d'; edge = '#1d2634'; deep = '#26313f'; }
     else if (mat === 'wet') { face = '#232a38'; edge = '#141a24'; deep = '#1a2029'; }
     else if (mat === 'charred') { face = '#241d1e'; edge = '#120e10'; deep = '#191314'; }
+    // 齿塔三套材质：锈=铆铁板、灰=焦砖、钟=磨光石
+    else if (mat === 'iron') { face = '#3c332c'; edge = '#171310'; deep = '#2a231d'; }
+    else if (mat === 'soot') { face = '#2c2831'; edge = '#15131a'; deep = '#221f27'; }
+    else if (mat === 'cut') { face = '#3b4653'; edge = '#1a2029'; deep = '#2b323d'; }
 
     ctx.fillStyle = edge;
     ctx.fillRect(px, py, TILE, TILE);
@@ -264,35 +279,76 @@
     ctx.fillStyle = g;
     ctx.fillRect(px + 2, py + 2, TILE - 4, TILE - 4);
 
-    // 砖缝
-    ctx.strokeStyle = 'rgba(0,0,0,0.34)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    const rows = 2;
-    for (let r = 1; r < rows; r++) {
-      ctx.moveTo(px + 2, py + (TILE / rows) * r);
-      ctx.lineTo(px + TILE - 2, py + (TILE / rows) * r);
-    }
-    for (let r = 0; r < rows; r++) {
-      const off = (r % 2 ? 0.5 : 0.28) * TILE;
-      for (let c = 0; c < 2; c++) {
-        const cx = px + off + c * TILE * 0.5;
-        if (cx > px + 3 && cx < px + TILE - 3) {
-          ctx.moveTo(cx, py + (TILE / rows) * r + 2);
-          ctx.lineTo(cx, py + (TILE / rows) * (r + 1) - 2);
+    // 砖缝（铁板墙走拼板，不画砖缝）
+    if (!plates) {
+      ctx.strokeStyle = 'rgba(0,0,0,0.34)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      const rows = 2;
+      for (let r = 1; r < rows; r++) {
+        ctx.moveTo(px + 2, py + (TILE / rows) * r);
+        ctx.lineTo(px + TILE - 2, py + (TILE / rows) * r);
+      }
+      for (let r = 0; r < rows; r++) {
+        const off = (r % 2 ? 0.5 : 0.28) * TILE;
+        for (let c = 0; c < 2; c++) {
+          const cx = px + off + c * TILE * 0.5;
+          if (cx > px + 3 && cx < px + TILE - 3) {
+            ctx.moveTo(cx, py + (TILE / rows) * r + 2);
+            ctx.lineTo(cx, py + (TILE / rows) * (r + 1) - 2);
+          }
         }
       }
+      ctx.stroke();
     }
-    ctx.stroke();
 
     // 上缘高光
     ctx.fillStyle = 'rgba(255,255,255,0.055)';
     ctx.fillRect(px + 2, py + 2, TILE - 4, 1);
 
-    // 裂纹：焦砖更多
-    const crackChance = mat === 'charred' ? 0.55 : mat === 'wet' ? 0.18 : 0.13;
+    // 材质细节（齿塔三套）：一张墙就能读出「这是哪座塔」
+    if (mat === 'iron') {
+      // 竖拼缝 + 四颗铆钉 + 顺着缝往下淌的锈迹
+      ctx.strokeStyle = 'rgba(0,0,0,0.46)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(px + TILE * 0.5, py + 2);
+      ctx.lineTo(px + TILE * 0.5, py + TILE - 2);
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(16, 12, 9, 0.8)';
+      [[0.2, 0.18], [0.8, 0.18], [0.2, 0.82], [0.8, 0.82]].forEach(([rx, ry]) => {
+        ctx.beginPath();
+        ctx.arc(px + TILE * rx, py + TILE * ry, Math.max(1, TILE * 0.035), 0, Math.PI * 2);
+        ctx.fill();
+      });
+      if (h % 3 === 0) {
+        const rg = ctx.createLinearGradient(px, py, px + TILE * 0.6, py + TILE);
+        rg.addColorStop(0, 'rgba(196, 112, 52, 0.16)');
+        rg.addColorStop(1, 'rgba(196, 112, 52, 0)');
+        ctx.fillStyle = rg;
+        ctx.fillRect(px + 2, py + 2, TILE - 4, TILE - 4);
+      }
+    } else if (mat === 'soot') {
+      // 焦砖：缝里没熄的一点火，墙面上压一层冷灰
+      ctx.fillStyle = 'rgba(150, 140, 190, 0.05)';
+      ctx.fillRect(px + 2, py + 2, TILE - 4, TILE * 0.34);
+      if (h % 5 === 0) {
+        ctx.fillStyle = 'rgba(255, 96, 48, 0.12)';
+        ctx.fillRect(px + TILE * 0.2, py + TILE * 0.64, TILE * 0.36, 1.5);
+      }
+    } else if (mat === 'cut') {
+      // 磨光石：一道冷色亮边，缝比石头细
+      ctx.fillStyle = 'rgba(190, 225, 255, 0.085)';
+      ctx.fillRect(px + 2, py + 2, TILE - 4, 1.5);
+      ctx.fillStyle = 'rgba(150, 200, 235, 0.04)';
+      ctx.fillRect(px + 2, py + 2, TILE - 4, TILE * 0.22);
+    }
+
+    // 裂纹：焦砖/焦墙更多
+    const crackChance = mat === 'charred' || mat === 'soot' ? 0.55
+      : mat === 'wet' ? 0.18 : mat === 'iron' ? 0.1 : mat === 'cut' ? 0.06 : 0.13;
     if ((h % 100) / 100 < crackChance) {
-      ctx.strokeStyle = mat === 'charred' ? 'rgba(255,120,60,0.16)' : 'rgba(0,0,0,0.4)';
+      ctx.strokeStyle = mat === 'charred' || mat === 'soot' ? 'rgba(255,120,60,0.16)' : 'rgba(0,0,0,0.4)';
       ctx.lineWidth = 1;
       ctx.beginPath();
       const sx = px + TILE * (0.22 + (h % 5) * 0.09);
@@ -319,8 +375,8 @@
         ctx.stroke();
       }
     }
-    // 焦砖：余烬
-    if (mat === 'charred' && h % 13 === 0) {
+    // 焦砖 / 焦墙：余烬
+    if ((mat === 'charred' || mat === 'soot') && h % 13 === 0) {
       ctx.fillStyle = 'rgba(255,110,50,0.14)';
       ctx.beginPath();
       ctx.arc(px + TILE * 0.5, py + TILE * 0.58, TILE * 0.07, 0, Math.PI * 2);
@@ -348,6 +404,72 @@
       else if (side === 'l') ctx.fillRect(px, py, d, TILE);
       else ctx.fillRect(px + TILE - d, py, d, TILE);
     }
+  }
+
+  // ---------- 塔的地纹 ----------
+  // 三座齿塔各刻一种「机器」的痕迹，只落在可走的地面上（墙后不画，免得从墙缝里透出来）：
+  // 锈=齿环、灰=炉栅、钟=钟面刻度与停住的指针。透明度压得很低（0.05~0.08），
+  // 它只负责让三座塔在截图上就能被认出来，不抢怪、道具与数字。
+  function drawTowerMotif(map) {
+    const paint = paintOf(lastFloor);
+    if (!paint || !paint.motif) return;
+    const W = TILE * SIZE;
+    const cx = W / 2, cy = W / 2;
+    const col = paint.motifColor || 'rgba(255,255,255,0.06)';
+    ctx.save();
+    ctx.beginPath();
+    for (let y = 0; y < SIZE; y++) {
+      for (let x = 0; x < SIZE; x++) {
+        if (map[y][x] !== '#') ctx.rect(x * TILE, y * TILE, TILE, TILE);
+      }
+    }
+    ctx.clip();
+    ctx.strokeStyle = col;
+    ctx.fillStyle = col;
+    ctx.lineWidth = Math.max(1, TILE * 0.05);
+
+    if (paint.motif === 'gear') {
+      const rIn = TILE * 1.5, rOut = TILE * 1.72;
+      ctx.beginPath(); ctx.arc(cx, cy, rIn, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(cx, cy, rOut + TILE * 0.3, 0, Math.PI * 2); ctx.stroke();
+      for (let i = 0; i < 16; i++) {
+        const a = (i / 16) * Math.PI * 2;
+        ctx.save();
+        ctx.translate(cx + Math.cos(a) * (rOut + TILE * 0.14), cy + Math.sin(a) * (rOut + TILE * 0.14));
+        ctx.rotate(a);
+        ctx.fillRect(-TILE * 0.1, -TILE * 0.17, TILE * 0.2, TILE * 0.34);
+        ctx.restore();
+      }
+    } else if (paint.motif === 'grate') {
+      for (let i = 0; i < 9; i++) {
+        ctx.fillRect(TILE, TILE * (1 + i), TILE * 9, Math.max(1, TILE * 0.05));
+      }
+      for (let i = 0; i < 5; i++) {
+        ctx.fillRect(TILE * (1 + i * 2), TILE, Math.max(1, TILE * 0.04), TILE * 9);
+      }
+    } else if (paint.motif === 'clock') {
+      // 钟面顺着外圈走廊画成一个方盘（这张图的外圈本来就是方的）：
+      // 方框压在走道中线上，十二个刻度朝里指——圆盘在方走廊里会被墙吃掉大半，
+      // 只剩下四段孤弧，读不出「钟」。
+      const r = TILE * 4;                       // 走道中线：中心到边距 4 格
+      const half = r;
+      ctx.strokeRect(cx - half, cy - half, half * 2, half * 2);
+      for (let i = 0; i < 12; i++) {
+        const a = (i / 12) * Math.PI * 2 - Math.PI / 2;
+        const dx = Math.cos(a), dy = Math.sin(a);
+        const k = half / Math.max(Math.abs(dx), Math.abs(dy));   // 投到方框上
+        const px2 = cx + dx * k, py2 = cy + dy * k;
+        const long = i % 3 === 0;
+        const len = long ? TILE * 0.42 : TILE * 0.22;
+        ctx.lineWidth = long ? TILE * 0.085 : TILE * 0.045;
+        ctx.beginPath();
+        ctx.moveTo(px2, py2);
+        ctx.lineTo(cx + dx * (k - len), cy + dy * (k - len));
+        ctx.stroke();
+      }
+      ctx.lineWidth = Math.max(1, TILE * 0.05);
+    }
+    ctx.restore();
   }
 
   function drawCarpet(map) {
@@ -403,6 +525,7 @@
         else drawAO(x * TILE, y * TILE, map, x, y);
       }
     }
+    drawTowerMotif(map);
     drawCarpet(map);
     ctx = prev;
     bgKey = key;
@@ -1639,6 +1762,18 @@
   }
 
   function drawAmbientOverlay() {
+    // 塔的常驻色（2026-11-28 主题轮）：整屏压一层极淡的塔色，跟着呼吸缓慢起伏。
+    // 它只在暗部起作用——亮处的道具与数字不受影响，但三座塔的「空气」是三种温度。
+    const paint = paintOf(lastFloor);
+    if (paint && paint.overlay) {
+      const m = /rgba?\(([^)]+)\)/.exec(paint.overlay);
+      if (m) {
+        const p = m[1].split(',').map(Number);
+        const a = (p[3] || 0.05) * (0.82 + Math.sin(performance.now() / 2600) * 0.18);
+        ctx.fillStyle = `rgba(${p[0]},${p[1]},${p[2]},${a.toFixed(3)})`;
+        ctx.fillRect(0, 0, TILE * SIZE, TILE * SIZE);
+      }
+    }
     if (ambient.mode === 'boss') {
       const a = 0.05 + Math.sin(performance.now() / 900) * 0.03;
       const g = ctx.createRadialGradient(TILE * SIZE / 2, TILE * SIZE / 2, TILE * 2, TILE * SIZE / 2, TILE * SIZE / 2, TILE * SIZE * 0.75);
@@ -1853,6 +1988,9 @@
 
   function drawTorches() {
     if (!torchList.length) return;
+    // 火光按塔换色（2026-11-28 主题轮）：锈塔炉火橙 / 灰塔余火红 / 钟塔冷青灯，主塔仍是烛金
+    const L = (paintOf(lastFloor) || {}).lamp || [255, 196, 120];
+    const ca = (a) => `rgba(${L[0]},${L[1]},${L[2]},${a})`;
     // 8 秒一次的呼吸
     const breath = 0.86 + 0.14 * Math.sin((simT / 8000) * Math.PI * 2 - Math.PI / 2);
     ctx.save();
@@ -1863,9 +2001,9 @@
       const fy = tr.y * TILE + TILE / 2 + (tr.sy || 0) * TILE * 0.34;
       const R = TILE * 1.75 * fl;
       const g = ctx.createRadialGradient(fx, fy, 1, fx, fy, R);
-      g.addColorStop(0, 'rgba(255,196,120,0.34)');
-      g.addColorStop(0.4, 'rgba(255,150,70,0.115)');
-      g.addColorStop(1, 'rgba(255,140,60,0)');
+      g.addColorStop(0, ca(0.34));
+      g.addColorStop(0.4, ca(0.115));
+      g.addColorStop(1, ca(0));
       ctx.fillStyle = g;
       ctx.beginPath();
       ctx.arc(fx, fy, R, 0, Math.PI * 2);
@@ -1875,11 +2013,11 @@
       ctx.fillStyle = 'rgba(38,30,24,0.9)';
       ctx.fillRect(fx - TILE * 0.03, fy + TILE * 0.02, TILE * 0.06, TILE * 0.15);
       ctx.globalCompositeOperation = 'lighter';
-      // 火焰
+      // 火焰：芯偏白，外焰取塔色
       const fg = ctx.createRadialGradient(fx, fy, 1, fx, fy, TILE * 0.17);
-      fg.addColorStop(0, 'rgba(255,242,196,0.95)');
-      fg.addColorStop(0.5, 'rgba(255,170,80,' + (0.5 + fl * 0.22).toFixed(2) + ')');
-      fg.addColorStop(1, 'rgba(255,120,40,0)');
+      fg.addColorStop(0, 'rgba(255,246,222,0.95)');
+      fg.addColorStop(0.5, ca((0.5 + fl * 0.22).toFixed(2)));
+      fg.addColorStop(1, ca(0));
       ctx.fillStyle = fg;
       ctx.beginPath();
       ctx.arc(fx, fy - TILE * 0.02, TILE * 0.17, 0, Math.PI * 2);

@@ -112,7 +112,7 @@ window.GAME_DATA = (function () {
     // 数值只服务各自那座 3 层小塔（塔内独立成长，不带进下一座塔）。
     7: {
       name: '锈齿', emoji: '⚙️', hp: 220, atk: 32, def: 10, gold: 120, exp: 80, boss: true, kind: '构',
-      tower: 'rust', title: '锈塔之齿 · 第一枚', story: 'bossRust', after: 'afterRust',
+      tower: 'rust', title: '锈塔之齿 · 第一枚 · 啮合', epithet: '啮合', story: 'bossRust', after: 'afterRust',
       defeat: '锈齿散成一地铁屑。齿槽空了。',
       midLines: [
         { title: '第二齿 · 咬合', text: '锈齿：你听——上面的锁，一直在磨。' },
@@ -123,7 +123,7 @@ window.GAME_DATA = (function () {
     },
     8: {
       name: '灰齿', emoji: '🕳️', hp: 420, atk: 48, def: 16, gold: 220, exp: 150, boss: true, kind: '亡',
-      tower: 'ash', title: '灰塔之齿 · 第二枚', story: 'bossAsh', after: 'afterAsh',
+      tower: 'ash', title: '灰塔之齿 · 第二枚 · 余温', epithet: '余温', story: 'bossAsh', after: 'afterAsh',
       defeat: '灰齿塌成一捧冷灰。灰里有一枚没烧完的钥匙。',
       midLines: [
         { title: '第二齿 · 余温', text: '灰齿：这里烧过一场。没人记得烧的是什么。' },
@@ -134,7 +134,7 @@ window.GAME_DATA = (function () {
     },
     9: {
       name: '钟齿', emoji: '⏱️', hp: 620, atk: 62, def: 24, gold: 320, exp: 220, boss: true, kind: '异',
-      tower: 'bell', title: '钟塔之齿 · 第三枚', story: 'bossBell', after: 'afterBell',
+      tower: 'bell', title: '钟塔之齿 · 第三枚 · 摆轮', epithet: '摆轮', story: 'bossBell', after: 'afterBell',
       defeat: '钟齿裂开，里面是一圈停住的秒针。',
       midLines: [
         { title: '第二齿 · 慢', text: '钟齿：你的心跳比进来时快了一格。' },
@@ -321,6 +321,13 @@ window.GAME_DATA = (function () {
     {
       id: 'rust', order: 1, name: '锈塔', kicker: '第一枚齿 · 铁锈',
       theme: '铁锈与第一课', color: '#c8a978', accent: 'rgba(200,169,120,0.20)',
+      // 塔的皮肤（2026-11-28 主题轮）：棋盘上的墙 / 地 / 火光 / 地纹全按这一份走。
+      // 三座齿塔此前只有布局不同、材质同一套石灰，远远看仍是同一座塔；
+      // 现在锈=铁板铆钉+炉火橙，灰=焦砖+余火红，钟=磨光石+冷青灯。
+      paint: {
+        wall: 'iron', floor: ['#2c1e14', '#241a12'], lamp: [255, 156, 78],
+        motif: 'gear', motifColor: 'rgba(255, 170, 100, 0.18)', overlay: 'rgba(255, 140, 70, 0.05)',
+      },
       floors: [13, 14, 15], boss: '7', scene: 'gate',
       start: { hp: 1000, maxHp: 1000, atk: 10, def: 10 },
       // 2026-11-28 前 8 级阈值拉长后，齿塔靠 3 层的经验密度撑不起新曲线，
@@ -334,6 +341,10 @@ window.GAME_DATA = (function () {
     {
       id: 'ash', order: 2, name: '灰塔', kicker: '第二枚齿 · 冷灰',
       theme: '烧掉的名字', color: '#b9a4a0', accent: 'rgba(185,164,160,0.20)',
+      paint: {
+        wall: 'soot', floor: ['#1d1a1f', '#181519'], lamp: [255, 118, 92],
+        motif: 'grate', motifColor: 'rgba(214, 196, 200, 0.13)', overlay: 'rgba(196, 140, 120, 0.045)',
+      },
       floors: [16, 17, 18], boss: '8', scene: 'namewall',
       start: { hp: 1200, maxHp: 1200, atk: 14, def: 12 },
       expMul: 1.5,
@@ -343,6 +354,10 @@ window.GAME_DATA = (function () {
     {
       id: 'bell', order: 3, name: '钟塔', kicker: '第三枚齿 · 停摆',
       theme: '停住的秒针', color: '#9fd8ff', accent: 'rgba(159,216,255,0.20)',
+      paint: {
+        wall: 'cut', floor: ['#111a24', '#0d151d'], lamp: [148, 214, 236],
+        motif: 'clock', motifColor: 'rgba(150, 205, 235, 0.3)', overlay: 'rgba(120, 190, 235, 0.05)',
+      },
       floors: [19, 20, 21], boss: '9', scene: 'bell',
       start: { hp: 1400, maxHp: 1400, atk: 18, def: 16 },
       expMul: 1.5,

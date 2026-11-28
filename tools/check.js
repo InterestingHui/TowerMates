@@ -222,6 +222,27 @@ D.chapters.forEach((ch) => {
   if (seen.size !== D.floors.length) err(`塔群只覆盖 ${seen.size}/${D.floors.length} 层`);
   // 非主塔必须能顺序解锁：第 N 座的下一座存在，且主塔排最后
   if (!D.towers[D.towers.length - 1].main) err('主塔必须是塔群里的最后一座');
+
+  // 每座齿塔一套自己的「皮肤」且彼此不同（2026-11-28 主题轮）：
+  // 三座塔只有布局不同、材质同一套石灰时，玩家在截图上分不出自己在哪座塔里。
+  const nonMain = D.towers.filter((t) => !t.main);
+  nonMain.forEach((t) => {
+    const p = t.paint;
+    if (!p) { err(`${t.name} 缺 paint（墙 / 地 / 火光 / 地纹）`); return; }
+    if (!p.wall) err(`${t.name} 的 paint 缺墙材质`);
+    if (!Array.isArray(p.floor) || p.floor.length !== 2) err(`${t.name} 的地砖要两种颜色`);
+    if (!Array.isArray(p.lamp) || p.lamp.length !== 3) err(`${t.name} 的火光色要是 [r,g,b]`);
+    if (!p.motif) err(`${t.name} 缺地纹 motif`);
+    if (!p.overlay) err(`${t.name} 缺常驻氛围色`);
+  });
+  const sig = nonMain.map((t) => JSON.stringify(t.paint || null));
+  if (new Set(sig).size !== sig.length) err('两座齿塔的皮肤完全相同（主题必须各不同）');
+  // Boss 名字里要有这座塔的齿铭：塔卡与亮相卡读的都是 m.epithet / m.title
+  nonMain.forEach((t) => {
+    const m = D.monsters[t.boss];
+    if (!m.epithet) err(`${t.name} 的 Boss ${t.boss} 缺齿铭 epithet`);
+    else if (String(m.title || '').indexOf(m.epithet) < 0) err(`${t.name} 的 Boss 称号里没写齿铭「${m.epithet}」`);
+  });
 }
 
 // 塔规系统已移除（2026-11-12）：章末回响改为击败 Boss 必得锁环三选一

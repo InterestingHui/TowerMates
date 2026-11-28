@@ -1883,6 +1883,24 @@ ok(mainSrc.indexOf("searchParams.set('rival'") < 0, 'main.js 不许自己拼链�
   ok(!!into && /rim\.addColorStop\(1, 'rgba\(0,0,0,0\)'\)/.test(into[1]), '收边是渐变到全透明（不是硬裁）');
 }
 
+// ---------- 塔主题必须真的被画出来（2026-11-28 主题轮） ----------
+// 数据里写了 paint、渲染层却没用，是这套工程最熟的一种病（「写了名字、效果没到」）。
+// 四处都得读 paintOf：地砖底色 / 墙材质 / 火光 / 地纹；地纹还得在静态层里被调用一次。
+{
+  const rs = require('fs').readFileSync(require('path').join(__dirname, '..', 'js', 'render.js'), 'utf8');
+  const grab = (name) => {
+    const m = rs.match(new RegExp('function ' + name + '\\((?:[^)]*)\\) \\{([\\s\\S]*?)\\n  \\}'));
+    return m ? m[1] : '';
+  };
+  ['drawFloorTile', 'drawWall', 'drawTorches', 'drawTowerMotif'].forEach((n) => {
+    const body = grab(n);
+    ok(!!body && body.indexOf('paintOf(') >= 0, `${n} 读塔的 paint（否则主题只是数据里的空话）`);
+  });
+  ok(grab('buildStatic').indexOf('drawTowerMotif(map)') >= 0, '静态层真的把地纹画了进去');
+  // 主塔不能被打上齿塔的皮肤：paintOf 必须是「按层查塔」，不是按下标硬编码
+  ok(/D\.towerOf\(floor\)/.test(grab('paintOf')), 'paintOf 按楼层查塔，主塔回落原来的按层表');
+}
+
 // 图鉴详情条的进场动效（2026-11-17 焦点C）：点卡片换内容是「插入一块可读的东西」，
 // 零过渡就是硬切——而全站其它面板都有 popIn/fadeIn。且同一帧里对已有 .show 的元素再 add
 // 不会重启 CSS 动画，连点两张卡时第二张会退化成硬切，故必须有「remove → 回流 → add」的重播。
